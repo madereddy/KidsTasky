@@ -1,27 +1,28 @@
-# 🚀 KidTasker - Stellar Mission Command
+# KidTasker: Level Up Your Parenting
 
-KidTasker is a gamified, space-themed task management application designed to help parents create missions (chores) and reward their cadets (kids) with Experience Points (XP) and badges. 
+Remember when gaming was just about the *game*? No live-service monetization, no intrusive trackers, no BS? That's the energy I brought to this project. KidTasker is the ultimate couch co-op for parents and kids. It turns the chore grind into a gamified experience where the kids actually *want* to complete their missions.
 
-The entire stack is completely self-hosted, bypassing generic cloud trackers by utilizing a snappy Node.js + Express backend powered natively by SQLite. 
+This is a totally self-hosted, offline-friendly setup. No cloud trackers, no third-party data sales, no analytics—just a solid React frontend and a Node back-end running on your own hardware.
 
-## ✨ Features
-- **Immersive UI & Gamification**: Smooth React animations, XP floating counters, custom background themes, and a dynamic Streak flame.
-- **Two Modalities**: 
-  - **Ground Control (Parent)**: Assign missions, define XP difficulty, manage categories, and review mission history safely.
-  - **Space Cadet (Kid)**: Complete interactive tasks with animated confirmation dialogues, earn badges, and track combat rank progression.
-- **Self-Hosted Privacy**: 100% of data is stored securely on your own hardware via `better-sqlite3`. **Zero tracking, zero telemetry, and absolutely no external third-party service calls.**
-- **Background Worker Processing**: Natively built-in Node.js cron-equivalent loop to scan for overdue assignments and dish out real-time 'alerts'.
-- **Testing Architecture Built-In**: Pre-configured with Vitest, JSdom, and Supertest for zero-configuration unit and integration testing.
+## ✨ The Loot Drops (Features)
 
-## 🛠 Tech Stack
-* **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, Motion (Animations), Lucide React.
-* **Backend**: Express, `better-sqlite3`, native REST endpoints replacing Firestore SDKs.
-* **Testing**: Vitest, `@testing-library/react`, `supertest`.
-* **Deployment**: Docker, Docker Compose (Multi-stage build).
+*   **Immersive Quest UI**: Smooth animations, XP pop-ups, and a progress bar that gives that dopamine hit when you finish a mission.
+*   **Player 1 (Parent) Controls**: Assign missions, set the XP difficulty, manage custom categories, and keep track of mission logs. 
+*   **Player 2 (Cadet) Experience**: Track XP, unlock badges, earn special customized themes, and spend hard-earned XP in the in-game Reward Store.
+*   **Zero-Telemetry Privacy**: Your data stays on your machine. I built this using native SQLite because databases are meant to be fast and local, not data-mined for a tech giant's profit.
+*   **Built-in Co-op Monitoring**: A robust Node.js worker loop that handles alerts, mission timeouts, and notifications locally.
+*   **Dev-Friendly Foundation**: Pre-configured testing suite (Vitest + Supertest) because debugging our own code is hard enough without fighting a bad test environment.
+
+## 🛠 Loadout (Tech Stack)
+
+*   **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, Motion (animations that actually feel good).
+*   **Backend**: Node.js, Express, `better-sqlite3`.
+*   **Testing**: Vitest, `@testing-library`, `supertest`.
+*   **Deployment**: Docker/Docker Compose (Multi-stage build).
 
 ---
 
-## 💻 Local Development
+## 💻 Start Your Game
 
 ### Prerequisites
 - Node.js 20+
@@ -31,46 +32,35 @@ The entire stack is completely self-hosted, bypassing generic cloud trackers by 
    ```bash
    npm install
    ```
-2. Start the Vite/Express hybrid development server:
+2. Fire up the dev environment:
    ```bash
    npm run dev
    ```
-   *The application will boot on `http://localhost:3000`.*
-   *Note: Because this is an AI Studio exported layout, HMR may be disabled globally but backend/frontend are routed harmoniously.*
+   *The server goes live at `http://localhost:3000`.*
 
 ---
 
 ## 🧪 Testing
 
-KidTasker features an integrated testing suite testing React components simultaneously with isolated Express database routes.
+I've set this up so you can test React components and Express database routes in the same flow.
 ```bash
 npm run test
 ```
-The test command maps `better-sqlite3` strictly to `:memory:`, guaranteeing clean stateless testing runs.
+*Note: Configured to map `better-sqlite3` to `:memory:`, keeping your test environment glitch-free and fast.*
 
 ---
 
 ## 🐳 Docker Deployment (Production)
 
-To spin up a fully isolated, production-grade instance of the app, leverage the bundled multi-stage Docker setup.
-
-### Using Docker Compose (Recommended)
-This method ensures your SQLite database file persists safely onto a volume mount, avoiding data loss if the container is rebooted.
+If you're running this on a home server, Docker Compose is the meta-strategy.
 
 ```bash
 docker-compose up -d --build
 ```
-The application will be accessible at `http://localhost:3000`.
+*Port 3000 will be hosting your instance.*
 
-### Manual Docker Build
-If you prefer configuring your reverseproxies and volumes manually:
-```bash
-# Build the optimized multi-stage image
-docker build -t kidtasker:latest .
+---
 
-# Run the container (Mapping port 3000 and assigning a physical drive block for the DB)
-docker run -p 3000:3000 -v /my/local/dbfolder:/data -e DB_PATH=/data/database.db kidtasker:latest
-```
+## 🔐 The "Anti-Tracking" Promise
 
-## 🔐 Authentication Disclaimer
-For absolute privacy and rapid enrollment during self-hosted context, KidTasker uses an **Opt-In Session Sandbox** mechanism using only local `localStorage` keys mapped to user aliases, fully eliminating Google or Firebase Oauth requirements. Parent-Kid linkage occurs internally via Mission Access Codes (Invite IDs) displayed inside the parent's dashboard.
+Look, I didn't add any Google Analytics, trackers, or suspicious 3rd-party dependencies. KidTasker uses local `localStorage` keys mapped to user aliases for session handling and Mission Access Codes (Invite IDs) for pairing Player 1 and Player 2. That's it. It stays local, it stays yours. Zero tracking, zero telemetry, no external calls. Just you, your kids, and the chores.
