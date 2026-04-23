@@ -32,7 +32,8 @@ db.exec(`
     difficulty TEXT,
     status TEXT,
     createdAt INTEGER,
-    customInterval INTEGER
+    customInterval INTEGER,
+    prerequisiteTaskIds TEXT
   );
 
   CREATE TABLE IF NOT EXISTS completions (
@@ -72,4 +73,25 @@ db.exec(`
     createdAt INTEGER,
     dateString TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS rewards (
+    id TEXT PRIMARY KEY,
+    parentId TEXT,
+    title TEXT,
+    description TEXT,
+    xpCost INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS claimedRewards (
+    id TEXT PRIMARY KEY,
+    kidId TEXT,
+    rewardId TEXT,
+    createdAt INTEGER
+  );
 `);
+
+try {
+  db.exec('ALTER TABLE tasks ADD COLUMN prerequisiteTaskIds TEXT');
+} catch (e) {
+  // column already exists
+}

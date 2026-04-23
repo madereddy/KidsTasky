@@ -30,7 +30,8 @@ import {
   CalendarDays,
   AlertCircle,
   Activity,
-  History
+  History,
+  Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -513,6 +514,51 @@ function OnboardingView({ user, onComplete }: { user: any, onComplete: (p: UserP
   );
 }
 
+function RewardManager({ parentId, rewards, onUpdate }: { parentId: string, rewards: Reward[], onUpdate: () => void }) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [xpCost, setXpCost] = useState(100);
+
+  const addReward = async () => {
+    if (!title) return;
+    await taskService.createReward({ parentId, title, description, xpCost });
+    setTitle('');
+    setDescription('');
+    setXpCost(100);
+    onUpdate();
+  };
+
+  const deleteReward = async (id: string) => {
+    await taskService.deleteReward(id);
+    onUpdate();
+  };
+
+  return (
+    <div className="glass-panel p-6 rounded-3xl mb-6 border-l-4 border-l-yellow-500">
+      <h3 className="text-xl font-black italic tracking-tighter uppercase mb-6 text-yellow-500">Mission Rewards</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {rewards.map(r => (
+            <div key={r.id} className="bg-slate-900 p-4 rounded-xl flex justify-between items-center border border-slate-800">
+                <div>
+                  <p className="font-bold text-slate-200">{r.title}</p>
+                  <p className="text-slate-500 text-xs">{r.description} - <span className="text-yellow-500 font-bold">{r.xpCost} XP</span></p>
+                </div>
+                <button onClick={() => deleteReward(r.id)} className="text-red-500 hover:text-red-400 p-2">
+                    <Trash2 className="w-4 h-4" />
+                </button>
+            </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+        <input placeholder="Title" value={title} onChange={e => setTitle(e.target.value)} className="input-immersive" />
+        <input placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} className="input-immersive" />
+        <input type="number" value={xpCost} onChange={e => setXpCost(parseInt(e.target.value))} className="input-immersive" />
+        <button onClick={addReward} className="btn-immersive-primary bg-yellow-600 hover:bg-yellow-500 text-white font-bold">Add Reward</button>
+      </div>
+    </div>
+  );
+}
+
 function ParentDashboard({ 
   profile, 
   categories, 
@@ -535,17 +581,22 @@ function ParentDashboard({
   const [generatingInvite, setGeneratingInvite] = useState(false);
   const [copied, setCopied] = useState(false);
   const [sortBy, setSortBy] = useState<'time' | 'created'>('created');
+  const [rewards, setRewards] = useState<Reward[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
-      const t = await taskService.getTasksForParent(profile.uid);
-      const k = await taskService.getKidsForParent(profile.uid);
-      const i = await taskService.getActiveInvite(profile.uid);
-      const n = await taskService.getUnreadNotifications(profile.uid);
+      const [t, k, i, n, r] = await Promise.all([
+        taskService.getTasksForParent(profile.uid),
+        taskService.getKidsForParent(profile.uid),
+        taskService.getActiveInvite(profile.uid),
+        taskService.getUnreadNotifications(profile.uid),
+        taskService.getRewards(profile.uid)
+      ]);
       setTasks(t || []);
       setKids(k || []);
       setInvite(i);
       setNotifications(n || []);
+      setRewards(r || []);
       setLoading(false);
     };
     fetchData();
@@ -587,6 +638,11 @@ function ParentDashboard({
     setIsAddingTask(false);
   };
 
+  const refreshRewards = async () => {
+    const r = await taskService.getRewards(profile.uid);
+    setRewards(r || []);
+  };
+
   const archiveTask = async (id: string) => {
     await taskService.archiveTask(id);
     setTasks(tasks.filter(t => t.id !== id));
@@ -607,6 +663,7 @@ function ParentDashboard({
 
   return (
     <div className="space-y-8">
+      <RewardManager parentId={profile.uid} rewards={rewards} onUpdate={refreshRewards} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 glass-panel p-6 rounded-3xl border-l-4 border-l-blue-500 flex justify-between items-center relative overflow-hidden">
           <div className="relative z-10">
@@ -845,6 +902,7 @@ function ParentDashboard({
             kids={kids}
             parentId={profile.uid}
             categories={categories}
+            existingTasks={tasks}
           />
         )}
         {isManagingCategories && (
@@ -861,12 +919,13 @@ function ParentDashboard({
 }
 
 
-function AddTaskModal({ onClose, onSubmit, kids, parentId, categories }: { 
+function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, existingTasks }: { 
   onClose: () => void, 
   onSubmit: (t: any) => void, 
   kids: UserProfile[],
   parentId: string,
-  categories: Category[]
+  categories: Category[],
+  existingTasks: Task[]
 }) {
   const [title, setTitle] = useState('');
   const [frequency, setFrequency] = useState<TaskFrequency>('daily');
@@ -875,6 +934,17 @@ function AddTaskModal({ onClose, onSubmit, kids, parentId, categories }: {
   const [assignedKidId, setAssignedKidId] = useState(kids[0]?.uid || '');
   const [reminderTime, setReminderTime] = useState('08:00');
   const [categoryId, setCategoryId] = useState<string>('');
+  const [prerequisiteTaskIds, setPrerequisiteTaskIds] = useState<string[]>([]);
+
+  const togglePrereq = (id: string) => {
+    if (prerequisiteTaskIds.includes(id)) {
+      setPrerequisiteTaskIds(prerequisiteTaskIds.filter(pid => pid !== id));
+    } else {
+      setPrerequisiteTaskIds([...prerequisiteTaskIds, id]);
+    }
+  };
+
+  const eligiblePrereqs = existingTasks.filter(t => t.assignedKidId === assignedKidId);
 
   return (
     <motion.div 
@@ -989,22 +1059,47 @@ function AddTaskModal({ onClose, onSubmit, kids, parentId, categories }: {
           </div>
 
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Launch Time</label>
-            <input 
-              type="time"
-              value={reminderTime}
-              onChange={(e) => setReminderTime(e.target.value)}
-              className="input-immersive"
-            />
-          </div>
-
-          <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Assign to Cadet</label>
             <input 
               value={assignedKidId}
               onChange={(e) => setAssignedKidId(e.target.value)}
               className="input-immersive"
               placeholder="Cadet UID"
+            />
+          </div>
+
+          {eligiblePrereqs.length > 0 && (
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block flex items-center gap-1">
+                <Lock className="w-3 h-3" /> Prerequisites 
+              </label>
+              <div className="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
+                {eligiblePrereqs.map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => togglePrereq(t.id)}
+                    className={cn(
+                      "w-full text-left px-3 py-2 rounded-xl text-xs font-bold border transition-all truncate",
+                      prerequisiteTaskIds.includes(t.id) 
+                        ? "bg-purple-600/20 text-purple-400 border-purple-500/50" 
+                        : "bg-slate-900/50 text-slate-500 border-slate-800 hover:border-slate-700"
+                    )}
+                  >
+                    {prerequisiteTaskIds.includes(t.id) && <CheckCircle2 className="inline w-3 h-3 mr-1" />}
+                    {t.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Launch Time</label>
+            <input 
+              type="time"
+              value={reminderTime}
+              onChange={(e) => setReminderTime(e.target.value)}
+              className="input-immersive"
             />
           </div>
 
@@ -1019,7 +1114,8 @@ function AddTaskModal({ onClose, onSubmit, kids, parentId, categories }: {
                 reminderTime, 
                 parentId, 
                 categoryId,
-                customInterval: frequency === 'custom' ? customInterval : undefined
+                customInterval: frequency === 'custom' ? customInterval : undefined,
+                prerequisiteTaskIds: prerequisiteTaskIds.length > 0 ? prerequisiteTaskIds : undefined
               })} 
               className="flex-1 btn-immersive-primary bg-blue-600"
             >
@@ -1406,6 +1502,8 @@ function KidDashboard({
   const [sortBy, setSortBy] = useState<'time' | 'created'>('time');
   const [showHistory, setShowHistory] = useState(false);
   const [showThemeSelector, setShowThemeSelector] = useState(false);
+  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [claimedRewards, setClaimedRewards] = useState<ClaimedReward[]>([]);
   
   // Task Confirmation & Animation
   const [confirmTask, setConfirmTask] = useState<{taskId: string, count?: number, xpReward: number, taskTitle: string} | null>(null);
@@ -1444,10 +1542,16 @@ function KidDashboard({
 
   useEffect(() => {
     const fetchData = async () => {
-      const t = await taskService.getTasksForKid(profile.uid);
-      const c = await taskService.getCompletionsForKid(profile.uid, today);
+      const [t, c, r, cr] = await Promise.all([
+        taskService.getTasksForKid(profile.uid),
+        taskService.getCompletionsForKid(profile.uid, today),
+        taskService.getRewards(profile.parentId!),
+        taskService.getClaimedRewards(profile.uid)
+      ]);
       setTasks(t);
       setCompletions(c);
+      setRewards(r);
+      setClaimedRewards(cr);
       setLoading(false);
     };
     fetchData();
@@ -1503,9 +1607,22 @@ function KidDashboard({
     calculateStreak();
   }, [tasks, completions, profile.uid, today]);
 
+  const isTaskLocked = (task: Task) => {
+    if (!task.prerequisiteTaskIds || task.prerequisiteTaskIds.length === 0) return false;
+    return task.prerequisiteTaskIds.some(prereqId => {
+      const pTask = tasks.find(t => t.id === prereqId);
+      if (!pTask) return false;
+      const reqCount = pTask.frequency === 'twice-daily' ? 2 : 1;
+      const comps = completions.filter(c => c.taskId === prereqId).length;
+      return comps < reqCount;
+    });
+  };
+
   const toggleTask = async (taskId: string, currentStatus: boolean, count?: number) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
+    if (isTaskLocked(task) && !currentStatus) return; // Prevent completion if locked
+
     const xpReward = XP_REWARDS[task.difficulty || 'easy'];
 
     if (currentStatus) {
@@ -1670,6 +1787,34 @@ function KidDashboard({
         </div>
       </div>
 
+      <div className="glass-panel p-6 rounded-3xl border-l-4 border-l-yellow-500">
+        <h3 className="text-xl font-black italic tracking-tighter uppercase mb-6 text-yellow-500">Mission Reward Store</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {rewards.map(r => {
+            const isClaimed = claimedRewards.some(cr => cr.rewardId === r.id);
+            const canAfford = (profile.xp || 0) >= r.xpCost;
+            return (
+              <div key={r.id} className="bg-slate-950 p-4 rounded-xl flex justify-between items-center border border-slate-800">
+                 <div>
+                   <p className="font-bold text-slate-200">{r.title}</p>
+                   <p className="text-slate-500 text-xs">{r.description} - <span className="text-yellow-500 font-bold">{r.xpCost} XP</span></p>
+                 </div>
+                 <button 
+                   disabled={isClaimed || !canAfford}
+                   onClick={() => claimReward(r.id, r.xpCost)}
+                   className={cn("px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all", 
+                     isClaimed ? "bg-slate-800 text-slate-500" : (canAfford ? "bg-yellow-600 text-white" : "bg-slate-800 text-slate-500"),
+                     !isClaimed && canAfford && "hover:bg-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)]"
+                   )}
+                 >
+                   {isClaimed ? "Claimed" : (canAfford ? "Claim" : "Not Enough XP")}
+                 </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded-2xl">
         <div className="flex gap-2 items-center">
           <div className="flex gap-1 bg-slate-900/50 p-1 rounded-xl">
@@ -1727,6 +1872,7 @@ function KidDashboard({
         {filteredTasks.map(task => {
           const urgency = getUrgency(task);
           const category = categories.find(c => c.id === task.categoryId);
+          const locked = isTaskLocked(task);
           
           if (task.frequency === 'twice-daily') {
             return (
@@ -1736,6 +1882,7 @@ function KidDashboard({
                     key={`${task.id}-${slot}`}
                     task={task}
                     isDone={isCompleted(task.id, slot)}
+                    isLocked={locked}
                     onToggle={() => toggleTask(task.id, isCompleted(task.id, slot), slot)}
                     urgency={urgency}
                     slotLabel={slot === 1 ? 'Morning' : 'Evening'}
@@ -1751,6 +1898,7 @@ function KidDashboard({
               key={task.id}
               task={task}
               isDone={isCompleted(task.id)}
+              isLocked={locked}
               onToggle={() => toggleTask(task.id, isCompleted(task.id))}
               urgency={urgency}
               category={category}
@@ -1925,45 +2073,49 @@ function KidDashboard({
   );
 }
 
-function TaskCard({ task, isDone, onToggle, urgency, slotLabel, category }: { 
+function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel, category }: { 
   task: Task, 
   isDone: boolean, 
+  isLocked?: boolean,
   onToggle: () => void | Promise<void>, 
   urgency: 'none' | 'soon' | 'overdue',
   slotLabel?: string,
   category?: Category,
   key?: React.Key
 }) {
-  const accentColor = isDone ? 'border-l-emerald-500' : (urgency === 'overdue' ? 'border-l-amber-500' : 'border-l-blue-500');
+  const accentColor = isDone ? 'border-l-emerald-500' : (isLocked ? 'border-l-slate-700' : (urgency === 'overdue' ? 'border-l-amber-500' : 'border-l-blue-500'));
   
   const statusConfig = isDone 
     ? { label: 'MISSION COMPLETED', icon: <CheckCircle2 className="w-3 h-3" />, color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' }
-    : (urgency === 'overdue' 
-        ? { label: 'SYSTEM ALERT: OVERDUE', icon: <AlertCircle className="w-3 h-3" />, color: 'text-rose-400 bg-rose-500/10 border-rose-500/30 animate-pulse' }
-        : urgency === 'soon'
-        ? { label: 'IMMINENT: UPCOMING', icon: <Clock className="w-3 h-3" />, color: 'text-blue-400 bg-blue-500/10 border-blue-500/30' }
-        : { label: 'STATUS: PENDING', icon: <Activity className="w-3 h-3" />, color: 'text-slate-400 bg-slate-800/80 border-slate-700' });
+    : (isLocked 
+        ? { label: 'SYSTEM LOCKED', icon: <Lock className="w-3 h-3" />, color: 'text-slate-400 bg-slate-800/80 border-slate-700' }
+        : (urgency === 'overdue' 
+            ? { label: 'SYSTEM ALERT: OVERDUE', icon: <AlertCircle className="w-3 h-3" />, color: 'text-rose-400 bg-rose-500/10 border-rose-500/30 animate-pulse' }
+            : urgency === 'soon'
+            ? { label: 'IMMINENT: UPCOMING', icon: <Clock className="w-3 h-3" />, color: 'text-blue-400 bg-blue-500/10 border-blue-500/30' }
+            : { label: 'STATUS: PENDING', icon: <Activity className="w-3 h-3" />, color: 'text-slate-400 bg-slate-800/80 border-slate-700' }));
 
   return (
     <motion.div 
       layout
-      whileTap={{ scale: 0.98 }}
-      whileHover={{ y: -2 }}
-      onClick={onToggle}
+      whileTap={!isLocked ? { scale: 0.98 } : {}}
+      whileHover={!isLocked ? { y: -2 } : {}}
+      onClick={!isLocked ? onToggle : undefined}
       className={cn(
-        "card-immersive group cursor-pointer relative overflow-hidden",
+        "card-immersive group relative overflow-hidden",
+        !isLocked ? "cursor-pointer" : "cursor-not-allowed opacity-80",
         accentColor,
-        isDone ? "opacity-60 bg-emerald-500/5 shadow-none" : (urgency === 'overdue' ? "bg-amber-500/5 glow-orange border-amber-500/30" : "hover:shadow-lg hover:shadow-blue-500/10"),
+        isDone ? "opacity-60 bg-emerald-500/5 shadow-none" : (isLocked ? "bg-slate-900/50 grayscale-[0.5]" : (urgency === 'overdue' ? "bg-amber-500/5 glow-orange border-amber-500/30" : "hover:shadow-lg hover:shadow-blue-500/10")),
       )}
     >
       {/* Top Status Accent Bar */}
       <div className={cn(
         "absolute top-0 left-0 right-0 h-1",
-        isDone ? "bg-emerald-500" : (urgency === 'overdue' ? "bg-amber-500 animate-pulse" : (urgency === 'soon' ? "bg-blue-500" : "bg-slate-700"))
+        isDone ? "bg-emerald-500" : (isLocked ? "bg-slate-700" : (urgency === 'overdue' ? "bg-amber-500 animate-pulse" : (urgency === 'soon' ? "bg-blue-500" : "bg-slate-700")))
       )} />
 
       {/* Background Effect for Overdue */}
-      {urgency === 'overdue' && !isDone && (
+      {urgency === 'overdue' && !isDone && !isLocked && (
         <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
       )}
 
@@ -2016,8 +2168,8 @@ function TaskCard({ task, isDone, onToggle, urgency, slotLabel, category }: {
           >
             {task.title}
           </motion.h3>
-          <p className={cn("text-[10px] mt-1 italic font-bold tracking-tight", isDone ? "text-emerald-500/70" : (urgency === 'overdue' ? "text-rose-500 animate-pulse" : "text-slate-500"))}>
-            {isDone ? "✓ MISSION NEUTRALIZED" : (urgency === 'overdue' ? "⚠ ALARM: MISSION OVERDUE" : "○ AWAITING DEPLOYMENT...")}
+          <p className={cn("text-[10px] mt-1 italic font-bold tracking-tight", isDone ? "text-emerald-500/70" : (isLocked ? "text-slate-500" : (urgency === 'overdue' ? "text-rose-500 animate-pulse" : "text-slate-500")))}>
+            {isDone ? "✓ MISSION NEUTRALIZED" : (isLocked ? "🔒 PREREQUISITES REQUIRED" : (urgency === 'overdue' ? "⚠ ALARM: MISSION OVERDUE" : "○ AWAITING DEPLOYMENT..."))}
           </p>
         </div>
         
@@ -2028,27 +2180,27 @@ function TaskCard({ task, isDone, onToggle, urgency, slotLabel, category }: {
             rotate: isDone ? [0, 15, -15, 0] : 0,
             boxShadow: isDone 
               ? "0 0 20px rgba(16, 185, 129, 0.4)" 
-              : (urgency === 'overdue' ? "0 0 20px rgba(244, 63, 94, 0.4)" : "none")
+              : (urgency === 'overdue' && !isLocked ? "0 0 20px rgba(244, 63, 94, 0.4)" : "none")
           }}
           transition={{ type: "spring", stiffness: 300, damping: 15 }}
           className={cn(
             "w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-3xl shrink-0 ml-4 border-2 transition-colors",
             isDone 
               ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/50" 
-              : (urgency === 'overdue' 
+              : (isLocked ? "bg-slate-900 border-slate-800 text-slate-600" : (urgency === 'overdue' 
                   ? "bg-rose-500/20 text-rose-500 border-rose-500/50 animate-pulse" 
-                  : (urgency === 'soon' ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "text-slate-400 border-slate-800"))
+                  : (urgency === 'soon' ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "text-slate-400 border-slate-800")))
           )}
         >
           <AnimatePresence mode="wait">
             <motion.span
-              key={isDone ? 'done' : 'pending'}
+              key={isDone ? 'done' : (isLocked ? 'locked' : 'pending')}
               initial={{ opacity: 0, scale: 0.5, rotate: -45 }}
               animate={{ opacity: 1, scale: 1, rotate: 0 }}
               exit={{ opacity: 0, scale: 0.5, rotate: 45 }}
               transition={{ duration: 0.2 }}
             >
-              {isDone ? '🚀' : (category ? category.icon : (slotLabel === 'Morning' ? '🌅' : (slotLabel === 'Evening' ? '🌙' : '🛰️')))}
+              {isDone ? '🚀' : (isLocked ? <Lock className="w-6 h-6 text-slate-600" /> : (category ? category.icon : (slotLabel === 'Morning' ? '🌅' : (slotLabel === 'Evening' ? '🌙' : '🛰️'))))}
             </motion.span>
           </AnimatePresence>
         </motion.div>
@@ -2056,15 +2208,20 @@ function TaskCard({ task, isDone, onToggle, urgency, slotLabel, category }: {
       
       {!isDone ? (
         <motion.button 
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={!isLocked ? { scale: 1.02 } : {}}
+          whileTap={!isLocked ? { scale: 0.98 } : {}}
+          disabled={isLocked}
           className={cn(
-            "w-full py-3 font-black rounded-xl transition-all uppercase tracking-widest text-[10px] relative overflow-hidden",
-            urgency === 'overdue' ? "bg-amber-500 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.4)]" : "bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600/40"
+            "w-full py-3 font-black rounded-xl transition-all uppercase tracking-widest text-[10px] relative overflow-hidden flex items-center justify-center gap-2",
+            isLocked 
+              ? "bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed"
+              : urgency === 'overdue' ? "bg-amber-500 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.4)]" : "bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600/40"
           )}
         >
-          <span className="relative z-10">Execute Mission</span>
-          {urgency === 'overdue' && (
+          <span className="relative z-10 flex items-center justify-center gap-2">
+            {isLocked ? <><Lock className="w-3 h-3" /> Locked: Wait for Clearance</> : "Execute Mission"}
+          </span>
+          {urgency === 'overdue' && !isLocked && (
             <motion.div 
               animate={{ x: ['-100%', '200%'] }}
               transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}

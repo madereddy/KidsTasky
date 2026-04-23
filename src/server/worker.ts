@@ -40,6 +40,29 @@ export function startBackgroundWorker() {
             : completions.length >= 1;
 
           if (!isCompleted) {
+            // Check if task is locked by prerequisites
+            let isLocked = false;
+            if (task.prerequisiteTaskIds) {
+              try {
+                const prereqIds = JSON.parse(task.prerequisiteTaskIds) as string[];
+                for (const pid of prereqIds) {
+                  const pTask = tasks.find(t => t.id === pid);
+                  if (pTask) {
+                    const reqCount = pTask.frequency === 'twice-daily' ? 2 : 1;
+                    const pComps = db.prepare("SELECT * FROM completions WHERE taskId = ? AND dateString = ?").all(pid, today);
+                    if (pComps.length < reqCount) {
+                      isLocked = true;
+                      break;
+                    }
+                  }
+                }
+              } catch (e) {
+                // Ignore parse errors silently in worker
+              }
+            }
+
+            if (isLocked) continue;
+
             const notifId = `overdue_${task.id}_${today}`;
             const existingNotif = db.prepare("SELECT id FROM notifications WHERE id = ?").get(notifId);
 

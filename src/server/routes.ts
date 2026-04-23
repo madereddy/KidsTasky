@@ -90,21 +90,31 @@ router.get("/parents/:parentId/kids", (req, res) => {
 router.post("/tasks", (req, res) => {
   const task = req.body;
   const id = "task_" + Date.now().toString(36) + Math.random().toString(36).substr(2);
+  const prereqs = task.prerequisiteTaskIds ? JSON.stringify(task.prerequisiteTaskIds) : "[]";
+  
   db.prepare(`
-    INSERT INTO tasks (id, title, description, frequency, reminderTime, assignedKidId, parentId, categoryId, difficulty, status, createdAt, customInterval)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, task.title, task.description || null, task.frequency, task.reminderTime || null, task.assignedKidId, task.parentId, task.categoryId || null, task.difficulty || 'easy', 'active', Date.now(), task.customInterval || null);
+    INSERT INTO tasks (id, title, description, frequency, reminderTime, assignedKidId, parentId, categoryId, difficulty, status, createdAt, customInterval, prerequisiteTaskIds)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, task.title, task.description || null, task.frequency, task.reminderTime || null, task.assignedKidId, task.parentId, task.categoryId || null, task.difficulty || 'easy', 'active', Date.now(), task.customInterval || null, prereqs);
   res.json({ id });
 });
 
 router.get("/kids/:kidId/tasks", (req, res) => {
   const tasks = db.prepare("SELECT * FROM tasks WHERE assignedKidId = ? AND status = 'active' ORDER BY createdAt DESC").all(req.params.kidId);
-  res.json(tasks.map((t: any) => ({ ...t, createdAt: { seconds: t.createdAt / 1000 } })));
+  res.json(tasks.map((t: any) => {
+    let parsedPrereqs = [];
+    try { parsedPrereqs = JSON.parse(t.prerequisiteTaskIds || "[]"); } catch (e) {}
+    return { ...t, createdAt: { seconds: t.createdAt / 1000 }, prerequisiteTaskIds: parsedPrereqs };
+  }));
 });
 
 router.get("/parents/:parentId/tasks", (req, res) => {
   const tasks = db.prepare("SELECT * FROM tasks WHERE parentId = ? AND status = 'active' ORDER BY createdAt DESC").all(req.params.parentId);
-  res.json(tasks.map((t: any) => ({ ...t, createdAt: { seconds: t.createdAt / 1000 } })));
+  res.json(tasks.map((t: any) => {
+    let parsedPrereqs = [];
+    try { parsedPrereqs = JSON.parse(t.prerequisiteTaskIds || "[]"); } catch (e) {}
+    return { ...t, createdAt: { seconds: t.createdAt / 1000 }, prerequisiteTaskIds: parsedPrereqs };
+  }));
 });
 
 router.put("/tasks/:taskId/archive", (req, res) => {
@@ -199,6 +209,45 @@ router.get("/parents/:parentId/notifications", (req, res) => {
 router.put("/notifications/:id/read", (req, res) => {
   db.prepare("UPDATE notifications SET status = 'read' WHERE id = ?").run(req.params.id);
   res.json({ success: true });
+});
+
+// Rewards
+router.get("/parents/:parentId/rewards", (req, res) => {
+  const rewards = db.prepare("SELECT * FROM rewards WHERE parentId = ?").all(req.params.parentId);
+  res.json(rewards);
+});
+
+router.post("/rewards", (req, res) => {
+  const { parentId, title, description, xpCost } = req.body;
+  const id = "reward_" + Date.now().toString(36) + Math.random().toString(36).substr(2);
+  db.prepare("INSERT INTO rewards (id, parentId, title, description, xpCost) VALUES (?, ?, ?, ?, ?)").run(id, parentId, title, description, xpCost);
+  res.json({ id });
+});
+
+router.delete("/rewards/:id", (req, res) => {
+  db.prepare("DELETE FROM rewards WHERE id = ?").run(req.params.id);
+  res.json({ success: true });
+});
+
+router.get("/kids/:kidId/claimedRewards", (req, res) => {
+  const claimed = db.prepare("SELECT * FROM claimedRewards WHERE kidId = ?").all(req.params.kidId);
+  res.json(claimed.map((c: any) => ({ ...c, createdAt: { seconds: c.createdAt / 1000 } })));
+});
+
+router.post("/claimedRewards", (req, res) => {
+  const { kidId, rewardId, xpCost } = req.body;
+  const id = "claim_" + Date.now().toString(36) + Math.random().toString(36).substr(2);
+  db.prepare("INSERT INTO claimedRewards (id, kidId, rewardId, createdAt) VALUES (?, ?, ?, ?)").run(id, kidId, rewardId, Date.now());
+  
+  // Consume XP
+  const user = db.prepare("SELECT xp FROM users WHERE uid = ?").get(kidId) as any;
+  if (user) {
+    const newXP = Math.max(0, (user.xp || 0) - xpCost);
+    const newLevel = Math.floor(newXP / 100) + 1;
+    db.prepare("UPDATE users SET xp = ?, level = ? WHERE uid = ?").run(newXP, newLevel, kidId);
+  }
+  
+  res.json({ id });
 });
 
 export const apiRouter = router;

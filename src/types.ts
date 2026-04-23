@@ -49,6 +49,7 @@ export interface Task {
   status: 'active' | 'archived';
   createdAt: any; // Firestore Timestamp
   customInterval?: number; // Days for custom frequency
+  prerequisiteTaskIds?: string[];
 }
 
 export interface TaskCompletion {
@@ -79,4 +80,19 @@ export interface Notification {
   status: 'unread' | 'read';
   createdAt: any;
   dateString: string; // To avoid multiple notifications for same task on same day
+}
+
+export interface Reward {
+  id: string;
+  parentId: string;
+  title: string;
+  description: string;
+  xpCost: number;
+}
+
+export interface ClaimedReward {
+  id: string;
+  kidId: string;
+  rewardId: string;
+  createdAt: any;
 }
