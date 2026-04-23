@@ -2,6 +2,8 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
+import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 import { db } from "./src/server/db.js";
 import { apiRouter } from "./src/server/routes.js";
 import { startBackgroundWorker } from "./src/server/worker.js";
@@ -11,6 +13,17 @@ const __dirname = path.dirname(__filename);
 
 export { db };
 export const app = express();
+
+// Security
+app.use(helmet());
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 100, 
+  standardHeaders: 'draft-8', 
+  legacyHeaders: false,
+});
+app.use(limiter);
+
 app.use(express.json());
 
 // Background Worker

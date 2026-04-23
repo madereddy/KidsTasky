@@ -1852,7 +1852,7 @@ function KidDashboard({
             `bg-${currentTheme.primary}/20 text-${currentTheme.primary} border border-${currentTheme.primary}/30 hover:bg-${currentTheme.primary}/30 active:scale-95`
           )}
         >
-          <History className="w-3 h-3" /> Archive
+          <History className="w-3 h-3" /> History
         </button>
       </div>
 
