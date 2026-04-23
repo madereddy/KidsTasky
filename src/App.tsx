@@ -1511,6 +1511,12 @@ function KidDashboard({
 
   const currentTheme = THEMES.find(t => t.id === profile.themeId) || THEMES[0];
 
+  const claimReward = async (rewardId: string, xpCost: number) => {
+    await taskService.claimReward(profile.uid, rewardId, xpCost);
+    setClaimedRewards([...claimedRewards, { id: 'tmp_' + Date.now(), kidId: profile.uid, rewardId, createdAt: Date.now() }]);
+    onProfileUpdate();
+  };
+
   useEffect(() => {
     const checkMilestones = async () => {
       if (loading) return;
