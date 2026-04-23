@@ -9,7 +9,7 @@ The entire stack is completely self-hosted, bypassing generic cloud trackers by 
 - **Two Modalities**: 
   - **Ground Control (Parent)**: Assign missions, define XP difficulty, manage categories, and review mission history safely.
   - **Space Cadet (Kid)**: Complete interactive tasks with animated confirmation dialogues, earn badges, and track combat rank progression.
-- **Self-Hosted Privacy**: 100% of data is stored securely on your own hardware via `better-sqlite3`. No external Firebase/third-party configurations needed.
+- **Self-Hosted Privacy**: 100% of data is stored securely on your own hardware via `better-sqlite3`. **Zero tracking, zero telemetry, and absolutely no external third-party service calls.**
 - **Background Worker Processing**: Natively built-in Node.js cron-equivalent loop to scan for overdue assignments and dish out real-time 'alerts'.
 - **Testing Architecture Built-In**: Pre-configured with Vitest, JSdom, and Supertest for zero-configuration unit and integration testing.
 
