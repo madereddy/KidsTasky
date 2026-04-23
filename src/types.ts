@@ -9,6 +9,7 @@ export interface UserProfile {
   xp?: number;
   level?: number;
   badges?: EarnedBadge[];
+  themeId?: string;
 }
 
 export interface EarnedBadge {

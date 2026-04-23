@@ -1,15 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  onAuthStateChanged, 
-  signOut,
-  User 
-} from 'firebase/auth';
-import { auth } from './lib/firebase';
 import { taskService } from './services/taskService';
 import { UserProfile, Task, TaskCompletion, TaskFrequency, TaskDifficulty, Category, Invite, BadgeDef, EarnedBadge } from './types';
-import { format, startOfToday, isAfter, parse, addHours, subDays, isSameDay } from 'date-fns';
+import { format, startOfToday, isAfter, parse, addHours, subDays, isSameDay, differenceInDays, startOfDay } from 'date-fns';
 import { 
   CheckCircle2, 
   Plus, 
@@ -31,12 +23,14 @@ import {
   Zap,
   TrendingUp,
   Trophy,
+  Star,
   Copy,
   Send,
   ArrowUpDown,
   CalendarDays,
   AlertCircle,
-  Activity
+  Activity,
+  History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -94,8 +88,56 @@ const BADGE_DEFS: Record<string, BadgeDef> = {
   }
 };
 
+const THEMES = [
+  { 
+    id: 'space', 
+    name: 'Deep Space', 
+    icon: '🛰️', 
+    primary: 'blue-500', 
+    accent: 'purple-500', 
+    bg: 'radial-gradient(circle at 50% 50%, #1e293b 0%, #05070a 100%)',
+    border: 'border-blue-500/20'
+  },
+  { 
+    id: 'nebula', 
+    name: 'Nebula Pink', 
+    icon: '☄️', 
+    primary: 'rose-500', 
+    accent: 'purple-600', 
+    bg: 'radial-gradient(circle at 50% 50%, #2d1b2d 0%, #0a050a 100%)',
+    border: 'border-rose-500/20'
+  },
+  { 
+    id: 'forest', 
+    name: 'Emerald Forest', 
+    icon: '🌿', 
+    primary: 'emerald-500', 
+    accent: 'teal-600', 
+    bg: 'radial-gradient(circle at 50% 50%, #064e3b 0%, #022c22 100%)',
+    border: 'border-emerald-500/20'
+  },
+  { 
+    id: 'cyber', 
+    name: 'Cyberpunk', 
+    icon: '⚡', 
+    primary: 'amber-500', 
+    accent: 'orange-600', 
+    bg: 'radial-gradient(circle at 50% 50%, #451a03 0%, #0c0a09 100%)',
+    border: 'border-amber-500/20'
+  },
+  { 
+    id: 'abyss', 
+    name: 'Ocean Abyss', 
+    icon: '🐚', 
+    primary: 'cyan-500', 
+    accent: 'blue-700', 
+    bg: 'radial-gradient(circle at 50% 50%, #164e63 0%, #083344 100%)',
+    border: 'border-cyan-500/20'
+  }
+];
+
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,29 +153,50 @@ export default function App() {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        await fetchProfile(u.uid);
-      } else {
-        setProfile(null);
-        setCategories([]);
-      }
+    const storedUid = localStorage.getItem('auth_uid');
+    if (storedUid) {
+      fetch('/api/auth/me', { headers: { 'Authorization': storedUid }})
+        .then(res => {
+          if (!res.ok) throw new Error();
+          return res.json();
+        })
+        .then(async data => {
+          setUser(data.user);
+          await fetchProfile(data.user.uid);
+          setLoading(false);
+        })
+        .catch(() => {
+          localStorage.removeItem('auth_uid');
+          setLoading(false);
+        });
+    } else {
       setLoading(false);
-    });
-    return () => unsubscribe();
+    }
   }, []);
 
-  const handleLogin = async () => {
+  const handleLogin = async (username: string) => {
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: username })
+      });
+      const data = await res.json();
+      localStorage.setItem('auth_uid', data.user.uid);
+      setUser(data.user);
+      if (data.user.role) {
+        await fetchProfile(data.user.uid);
+      }
     } catch (error) {
       console.error("Login failed", error);
     }
   };
 
-  const handleLogout = () => signOut(auth);
+  const handleLogout = () => {
+    localStorage.removeItem('auth_uid');
+    setUser(null);
+    setProfile(null);
+  };
 
   const [progressPercent, setProgressPercent] = useState(0);
 
@@ -277,7 +340,9 @@ export default function App() {
   );
 }
 
-function LoginView({ onLogin }: { onLogin: () => void }) {
+function LoginView({ onLogin }: { onLogin: (username: string) => void }) {
+  const [username, setUsername] = useState('');
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 backdrop-blur-sm">
       <motion.div 
@@ -289,13 +354,21 @@ function LoginView({ onLogin }: { onLogin: () => void }) {
           <ShieldCheck className="text-white w-12 h-12" />
         </div>
         <h1 className="title-immersive text-5xl mb-4">KidTasker</h1>
-        <p className="text-slate-400 mb-12 italic uppercase tracking-widest text-xs font-bold">Stellar Mission Command</p>
+        <p className="text-slate-400 mb-8 italic uppercase tracking-widest text-xs font-bold">Stellar Mission Command</p>
         
+        <input 
+          type="text" 
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          placeholder="Enter Commander Name..." 
+          className="input-immersive mb-4 text-center"
+        />
+
         <button 
-          onClick={onLogin}
-          className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-blue-500 transition-all shadow-lg glow-blue active:scale-[0.98] uppercase tracking-widest"
+          onClick={() => { if (username.trim()) onLogin(username.trim()) }}
+          disabled={!username.trim()}
+          className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-blue-500 transition-all shadow-lg glow-blue active:scale-[0.98] uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
           Enter Star System
         </button>
       </motion.div>
@@ -303,10 +376,10 @@ function LoginView({ onLogin }: { onLogin: () => void }) {
   );
 }
 
-function OnboardingView({ user, onComplete }: { user: User, onComplete: (p: UserProfile) => void }) {
+function OnboardingView({ user, onComplete }: { user: any, onComplete: (p: UserProfile) => void }) {
   const [role, setRole] = useState<'parent' | 'kid' | null>(null);
   const [inviteCode, setInviteCode] = useState('');
-  const [name, setName] = useState(user.displayName || '');
+  const [name, setName] = useState(user.name || '');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -959,6 +1032,208 @@ function AddTaskModal({ onClose, onSubmit, kids, parentId, categories }: {
   );
 }
 
+function MissionHistoryModal({ 
+  profile, 
+  tasks,
+  categories,
+  onClose 
+}: { 
+  profile: UserProfile, 
+  tasks: Task[],
+  categories: Category[],
+  onClose: () => void 
+}) {
+  const [history, setHistory] = useState<TaskCompletion[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const currentTheme = THEMES.find(t => t.id === profile.themeId) || THEMES[0];
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      const h = await taskService.getHistoryForKid(profile.uid);
+      setHistory(h || []);
+      setLoading(false);
+    };
+    fetchHistory();
+  }, [profile.uid]);
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-slate-950/80 backdrop-blur-md"
+    >
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="glass-panel w-full max-w-2xl rounded-[40px] p-6 md:p-10 shadow-2xl border-blue-500/20 max-h-[90vh] flex flex-col"
+      >
+        <div className="flex justify-between items-center mb-8 shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400">
+              <History className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-black italic tracking-tighter uppercase leading-none">Mission Archive</h3>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Chronological Activity Log</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-500 hover:text-white transition-colors">
+            <LogOut className="w-6 h-6 rotate-180" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 space-y-4">
+              <Activity className={cn("w-8 h-8 animate-pulse", `text-${currentTheme.primary}`)} />
+              <p className="text-xs text-slate-500 uppercase tracking-widest font-black">Syncing with Archive...</p>
+            </div>
+          ) : history.length === 0 ? (
+            <div className="text-center py-20 bg-slate-900/30 rounded-3xl border border-slate-800 border-dashed">
+              <p className="text-slate-500 text-sm italic">No entries found in the mission archive.</p>
+            </div>
+          ) : (
+            history.map((entry, idx) => {
+              const task = tasks.find(t => t.id === entry.taskId);
+              const category = task ? categories.find(c => c.id === task.categoryId) : null;
+              const date = entry.completedAt?.toDate ? entry.completedAt.toDate() : new Date((entry.completedAt?.seconds || 0) * 1000);
+              
+              return (
+                <motion.div 
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                  key={entry.id}
+                  className={cn(
+                    "flex items-center gap-4 p-4 bg-slate-900/50 rounded-2xl border border-slate-800/50 transition-all group",
+                    `hover:border-${currentTheme.primary}/30`
+                  )}
+                >
+                  <div className={cn(
+                    "w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0",
+                    category ? category.color : "bg-slate-800 text-slate-500"
+                  )}>
+                    {category ? category.icon : '🛰️'}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <h4 className={cn("font-bold text-base truncate transition-colors", `group-hover:text-${currentTheme.primary}`)}>
+                        {task?.title || 'Unknown Mission'}
+                      </h4>
+                      <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-lg border", `bg-${currentTheme.primary}/10 border-${currentTheme.primary}/20 shadow-[0_0_10px_rgba(var(--${currentTheme.primary}-rgb),0.1)]`)}>
+                        <Zap className={cn("w-3 h-3", `text-${currentTheme.primary}`)} />
+                        <span className={cn("text-[10px] font-black", `text-${currentTheme.primary}`)}>+{XP_REWARDS[task?.difficulty || 'easy']} XP</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 mt-1">
+                      <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold flex items-center gap-1">
+                        <Calendar className="w-3 h-3" /> {format(date, 'MMM d, yyyy')}
+                      </p>
+                      <span className="w-1 h-1 bg-slate-700 rounded-full" />
+                      <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> {format(date, 'HH:mm')}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="mt-8 pt-6 border-t border-slate-800">
+          <p className="text-[9px] text-slate-600 text-center uppercase tracking-[0.2em] font-black">
+            End of Mission Log — Secure Channel 778
+          </p>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function ThemeSelectorModal({ 
+  currentThemeId, 
+  onSelect, 
+  onClose 
+}: { 
+  currentThemeId: string, 
+  onSelect: (id: string) => void, 
+  onClose: () => void 
+}) {
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md"
+    >
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="glass-panel w-full max-w-md rounded-[40px] p-10 shadow-2xl border-blue-500/20 max-h-[90vh] overflow-y-auto"
+      >
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h3 className="text-2xl font-black italic tracking-tighter uppercase leading-none">UI Customization</h3>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Select your command aesthetic</p>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-500 hover:text-white"><LogOut className="w-5 h-5 rotate-180" /></button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+          {THEMES.map(theme => (
+            <motion.button
+              key={theme.id}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => onSelect(theme.id)}
+              className={cn(
+                "p-5 rounded-3xl border-2 transition-all flex items-center gap-4 text-left relative overflow-hidden group",
+                currentThemeId === theme.id 
+                  ? `bg-${theme.primary}/10 border-${theme.primary} shadow-[0_0_20px_rgba(59,130,246,0.2)]` 
+                  : "bg-slate-900/50 border-slate-800 text-slate-400 hover:border-slate-700"
+              )}
+            >
+              <div className={cn(
+                "w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shrink-0 transition-transform group-hover:scale-110",
+                `bg-${theme.primary}/20 text-${theme.primary}`
+              )}>
+                {theme.icon}
+              </div>
+              <div>
+                <p className="font-black text-white uppercase tracking-tight text-lg leading-none mb-1">{theme.name}</p>
+                <p className="text-[10px] uppercase font-black tracking-widest opacity-60">Signature: {theme.primary.split('-')[0]}</p>
+              </div>
+              
+              {currentThemeId === theme.id && (
+                <div className="absolute top-4 right-4">
+                  <CheckCircle2 className={cn("w-6 h-6", `text-${theme.primary}`)} />
+                </div>
+              )}
+              
+              <div 
+                className="absolute inset-0 opacity-10 pointer-events-none group-hover:opacity-20 transition-opacity" 
+                style={{ background: theme.bg }} 
+              />
+            </motion.button>
+          ))}
+        </div>
+
+        <button 
+          onClick={onClose}
+          className="w-full mt-8 py-4 bg-slate-900 border border-slate-800 text-slate-500 font-black rounded-2xl uppercase tracking-widest text-xs hover:text-white transition-colors"
+        >
+          Confirm Selection
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 function CategoryManager({ 
   parentId, 
   categories, 
@@ -1129,6 +1404,14 @@ function KidDashboard({
   const today = format(startOfToday(), 'yyyy-MM-dd');
   const [unlockedBadge, setUnlockedBadge] = useState<BadgeDef | null>(null);
   const [sortBy, setSortBy] = useState<'time' | 'created'>('time');
+  const [showHistory, setShowHistory] = useState(false);
+  const [showThemeSelector, setShowThemeSelector] = useState(false);
+  
+  // Task Confirmation & Animation
+  const [confirmTask, setConfirmTask] = useState<{taskId: string, count?: number, xpReward: number, taskTitle: string} | null>(null);
+  const [xpAnimation, setXpAnimation] = useState<{amount: number, active: boolean}>({amount: 0, active: false});
+
+  const currentTheme = THEMES.find(t => t.id === profile.themeId) || THEMES[0];
 
   useEffect(() => {
     const checkMilestones = async () => {
@@ -1222,25 +1505,39 @@ function KidDashboard({
 
   const toggleTask = async (taskId: string, currentStatus: boolean, count?: number) => {
     const task = tasks.find(t => t.id === taskId);
-    const xpReward = XP_REWARDS[task?.difficulty || 'easy'];
+    if (!task) return;
+    const xpReward = XP_REWARDS[task.difficulty || 'easy'];
 
     if (currentStatus) {
       await taskService.uncompleteTask(taskId, today, count);
       await taskService.updateUserXP(profile.uid, -xpReward);
       setCompletions(completions.filter(c => !(c.taskId === taskId && c.count === count)));
+      onProfileUpdate();
     } else {
-      await taskService.completeTask(taskId, profile.uid, today, count);
-      await taskService.updateUserXP(profile.uid, xpReward);
-      setCompletions([...completions, { 
-        id: `${taskId}_${today}_${count || 1}`, 
-        taskId, 
-        kidId: profile.uid, 
-        completedAt: { seconds: Date.now()/1000 }, 
-        dateString: today, 
-        count 
-      }]);
+      setConfirmTask({ taskId, count, xpReward, taskTitle: task.title });
     }
+  };
+
+  const executeCompletion = async () => {
+    if (!confirmTask) return;
+    const { taskId, count, xpReward } = confirmTask;
+    setConfirmTask(null);
+    setXpAnimation({ amount: xpReward, active: true });
+    
+    await taskService.completeTask(taskId, profile.uid, today, count);
+    await taskService.updateUserXP(profile.uid, xpReward);
+    setCompletions([...completions, { 
+      id: `${taskId}_${today}_${count || 1}`, 
+      taskId, 
+      kidId: profile.uid, 
+      completedAt: { seconds: Date.now()/1000 }, 
+      dateString: today, 
+      count 
+    }]);
     onProfileUpdate();
+    setTimeout(() => {
+      setXpAnimation({ amount: 0, active: false });
+    }, 2500);
   };
 
   const isCompleted = (taskId: string, count?: number) => {
@@ -1252,7 +1549,7 @@ function KidDashboard({
     
     // For weekly, bi-weekly, custom
     const createdDate = task.createdAt?.toDate ? task.createdAt.toDate() : new Date(task.createdAt?.seconds * 1000 || Date.now());
-    const daysSinceCreated = Math.floor((startOfToday().getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+    const daysSinceCreated = differenceInDays(startOfToday(), startOfDay(createdDate));
     
     if (task.frequency === 'weekly') return daysSinceCreated % 7 === 0;
     if (task.frequency === 'bi-weekly') return daysSinceCreated % 14 === 0;
@@ -1290,15 +1587,34 @@ function KidDashboard({
     return 'none';
   };
 
+  const handleThemeSelect = async (themeId: string) => {
+    await taskService.updateUserTheme(profile.uid, themeId);
+    onProfileUpdate();
+  };
+
   return (
     <div className="space-y-8">
+      <style>{`
+        body {
+          background-image: ${currentTheme.bg} !important;
+        }
+      `}</style>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 glass-panel p-6 rounded-3xl border-l-4 border-l-purple-500 flex justify-between items-center relative overflow-hidden">
+        <div className={cn(
+          "md:col-span-2 glass-panel p-6 rounded-3xl border-l-4 flex justify-between items-center relative overflow-hidden",
+          `border-l-${currentTheme.accent}`
+        )}>
           <div className="relative z-10">
             <h3 className="text-lg font-bold mb-1">Cadet Mission Log</h3>
             <p className="text-sm text-slate-500 uppercase tracking-widest font-black">Level {profile.level || 1} Elite</p>
           </div>
           <div className="flex gap-4 items-center relative z-10">
+            <button 
+              onClick={() => setShowThemeSelector(true)}
+              className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700 shadow-lg"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
             <div className="text-right">
               <p className="text-[10px] text-slate-500 uppercase font-black">Combustion</p>
               <p className="text-2xl font-black italic text-orange-500 leading-none">{streak} DAYS</p>
@@ -1313,7 +1629,10 @@ function KidDashboard({
           <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-3xl rounded-full translate-x-10 -translate-y-10" />
         </div>
 
-        <div className="glass-panel p-6 rounded-3xl border-l-4 border-l-emerald-400 flex flex-col justify-center relative overflow-hidden group">
+        <div className={cn(
+          "glass-panel p-6 rounded-3xl border-l-4 flex flex-col justify-center relative overflow-hidden group",
+          `border-l-${currentTheme.primary}`
+        )}>
           <div className="flex justify-between items-end mb-3">
             <div>
               <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-1">Rank Progress</p>
@@ -1324,7 +1643,7 @@ function KidDashboard({
             </div>
             <div className="text-right">
               <p className="text-[10px] text-slate-500 uppercase font-black mb-1">Total Career</p>
-              <p className="text-sm font-bold text-emerald-400 leading-none">{profile.xp || 0} XP</p>
+              <p className={cn("text-sm font-bold leading-none", `text-${currentTheme.primary}`)}>{profile.xp || 0} XP</p>
             </div>
           </div>
           
@@ -1333,21 +1652,21 @@ function KidDashboard({
               initial={{ width: 0 }}
               animate={{ width: `${(profile.xp || 0) % 100}%` }}
               transition={{ duration: 1, ease: "easeOut" }}
-              className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full glow-green relative"
+              className={cn("h-full rounded-full relative", `bg-${currentTheme.primary}`)}
             >
               <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.2)_50%,transparent_100%)] animate-shimmer" style={{ backgroundSize: '200% 100%' }} />
             </motion.div>
           </div>
           
           <div className="flex justify-between items-center">
-            <p className="text-[10px] text-emerald-400/80 font-bold uppercase tracking-tight flex items-center gap-1">
+            <p className={cn("text-[10px] font-bold uppercase tracking-tight flex items-center gap-1", `text-${currentTheme.primary}/80`)}>
               <TrendingUp className="w-3 h-3" /> {100 - ((profile.xp || 0) % 100)} XP to LEVEL { (profile.level || 1) + 1}
             </p>
             <span className="text-[10px] font-black text-slate-600 uppercase">{(profile.xp || 0) % 100}%</span>
           </div>
           
           {/* Subtle background flair */}
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-2xl rounded-full translate-x-8 -translate-y-8 group-hover:bg-emerald-500/10 transition-colors" />
+          <div className={cn("absolute top-0 right-0 w-24 h-24 blur-2xl rounded-full translate-x-8 -translate-y-8 group-hover:opacity-20 transition-opacity", `bg-${currentTheme.primary}/10`)} />
         </div>
       </div>
 
@@ -1374,7 +1693,35 @@ function KidDashboard({
             </button>
           </div>
         </div>
+
+        <button 
+          onClick={() => setShowHistory(true)}
+          className={cn(
+            "p-2 px-4 rounded-xl transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest",
+            `bg-${currentTheme.primary}/20 text-${currentTheme.primary} border border-${currentTheme.primary}/30 hover:bg-${currentTheme.primary}/30 active:scale-95`
+          )}
+        >
+          <History className="w-3 h-3" /> Archive
+        </button>
       </div>
+
+      <AnimatePresence>
+        {showHistory && (
+          <MissionHistoryModal 
+            profile={profile}
+            tasks={tasks}
+            categories={categories}
+            onClose={() => setShowHistory(false)}
+          />
+        )}
+        {showThemeSelector && (
+          <ThemeSelectorModal 
+            currentThemeId={profile.themeId || 'space'}
+            onSelect={handleThemeSelect}
+            onClose={() => setShowThemeSelector(false)}
+          />
+        )}
+      </AnimatePresence>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {filteredTasks.map(task => {
@@ -1492,6 +1839,64 @@ function KidDashboard({
       </div>
 
       <AnimatePresence>
+        {confirmTask && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-sm"
+          >
+            <div className="bg-slate-900 border-2 border-slate-700 rounded-[40px] p-8 shadow-2xl max-w-sm w-full text-center relative overflow-hidden">
+              <div className="absolute inset-0 bg-blue-500/5 glow-blue" />
+              <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6 relative z-10">
+                <CheckCircle2 className="w-10 h-10 text-blue-500" />
+              </div>
+              <h4 className="text-2xl font-black uppercase italic tracking-tighter mb-2 relative z-10">Verify Mission</h4>
+              <p className="text-slate-400 mb-8 relative z-10 uppercase text-[10px] font-bold tracking-widest leading-relaxed">
+                Did you complete<br/><span className="text-white text-base">"{confirmTask.taskTitle}"</span>?
+              </p>
+              
+              <div className="flex gap-4 relative z-10">
+                <button 
+                  onClick={() => setConfirmTask(null)}
+                  className="flex-1 py-4 bg-slate-800 text-slate-400 font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-slate-700 transition-all border border-slate-700"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={executeCompletion}
+                  className="flex-1 py-4 bg-emerald-500 text-slate-950 font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] glow-green"
+                >
+                  Confirm +{confirmTask.xpReward} XP
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {xpAnimation.active && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5, y: 0 }}
+            animate={{ opacity: 1, scale: [0.5, 1.2, 1], y: -100 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="fixed inset-0 z-[130] pointer-events-none flex items-center justify-center"
+          >
+            <div className="flex flex-col items-center">
+               <motion.div 
+                 animate={{ rotate: 360 }} 
+                 transition={{ duration: 2, ease: 'linear', repeat: Infinity }}
+                 className="text-yellow-400 mb-4 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)]"
+               >
+                 <Star className="w-20 h-20 fill-yellow-400" />
+               </motion.div>
+               <span className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-amber-500 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)] uppercase tracking-tighter italic">
+                 +{xpAnimation.amount} XP
+               </span>
+            </div>
+          </motion.div>
+        )}
+
         {unlockedBadge && (
           <motion.div 
             initial={{ opacity: 0, scale: 0.8, y: 50 }}
@@ -1532,12 +1937,12 @@ function TaskCard({ task, isDone, onToggle, urgency, slotLabel, category }: {
   const accentColor = isDone ? 'border-l-emerald-500' : (urgency === 'overdue' ? 'border-l-amber-500' : 'border-l-blue-500');
   
   const statusConfig = isDone 
-    ? { label: 'COMPLETED', icon: <CheckCircle2 className="w-3 h-3" />, color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' }
+    ? { label: 'MISSION COMPLETED', icon: <CheckCircle2 className="w-3 h-3" />, color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' }
     : (urgency === 'overdue' 
-        ? { label: `OVERDUE: ${task.reminderTime || 'TBD'}`, icon: <AlertCircle className="w-3 h-3" />, color: 'text-amber-500 bg-amber-500/20 border-amber-500/50 font-black animate-pulse' }
+        ? { label: 'SYSTEM ALERT: OVERDUE', icon: <AlertCircle className="w-3 h-3" />, color: 'text-rose-400 bg-rose-500/10 border-rose-500/30 animate-pulse' }
         : urgency === 'soon'
-        ? { label: `UPCOMING: ${task.reminderTime || 'TBD'}`, icon: <Clock className="w-3 h-3" />, color: 'text-blue-400 bg-blue-500/20 border-blue-500/50' }
-        : { label: `PENDING: ${task.reminderTime || 'TBD'}`, icon: <Activity className="w-3 h-3" />, color: 'text-slate-400 bg-slate-800/50 border-slate-700' });
+        ? { label: 'IMMINENT: UPCOMING', icon: <Clock className="w-3 h-3" />, color: 'text-blue-400 bg-blue-500/10 border-blue-500/30' }
+        : { label: 'STATUS: PENDING', icon: <Activity className="w-3 h-3" />, color: 'text-slate-400 bg-slate-800/80 border-slate-700' });
 
   return (
     <motion.div 
@@ -1611,8 +2016,8 @@ function TaskCard({ task, isDone, onToggle, urgency, slotLabel, category }: {
           >
             {task.title}
           </motion.h3>
-          <p className="text-slate-500 text-xs mt-1 italic">
-            {isDone ? "Mission report verified." : (urgency === 'overdue' ? "SYSTEM ALERT: OVERDUE" : "Awaiting cadet report.")}
+          <p className={cn("text-[10px] mt-1 italic font-bold tracking-tight", isDone ? "text-emerald-500/70" : (urgency === 'overdue' ? "text-rose-500 animate-pulse" : "text-slate-500"))}>
+            {isDone ? "✓ MISSION NEUTRALIZED" : (urgency === 'overdue' ? "⚠ ALARM: MISSION OVERDUE" : "○ AWAITING DEPLOYMENT...")}
           </p>
         </div>
         
@@ -1620,12 +2025,19 @@ function TaskCard({ task, isDone, onToggle, urgency, slotLabel, category }: {
           initial={false}
           animate={{ 
             scale: isDone ? [1, 1.2, 1] : 1,
-            rotate: isDone ? [0, 15, -15, 0] : 0
+            rotate: isDone ? [0, 15, -15, 0] : 0,
+            boxShadow: isDone 
+              ? "0 0 20px rgba(16, 185, 129, 0.4)" 
+              : (urgency === 'overdue' ? "0 0 20px rgba(244, 63, 94, 0.4)" : "none")
           }}
           transition={{ type: "spring", stiffness: 300, damping: 15 }}
           className={cn(
-            "w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-3xl shrink-0 ml-4",
-            isDone ? "bg-emerald-500/20 text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]" : "text-slate-400 border border-slate-800"
+            "w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-3xl shrink-0 ml-4 border-2 transition-colors",
+            isDone 
+              ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/50" 
+              : (urgency === 'overdue' 
+                  ? "bg-rose-500/20 text-rose-500 border-rose-500/50 animate-pulse" 
+                  : (urgency === 'soon' ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "text-slate-400 border-slate-800"))
           )}
         >
           <AnimatePresence mode="wait">

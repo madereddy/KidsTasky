@@ -2,77 +2,141 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
-import admin from "firebase-admin";
-import { format, parse, isAfter, startOfToday } from "date-fns";
+import Database from "better-sqlite3";
+import { format, parse, isAfter, startOfToday, differenceInDays, startOfDay } from "date-fns";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize Firebase Admin
-// In Cloud Run, it should use Application Default Credentials automatically
-try {
-  admin.initializeApp();
-} catch (e) {
-  console.log("Firebase Admin already initialized or failed to init with ADC, trying with env...");
-}
+// Initialize SQLite Database conditionally for tests
+export const db = new Database(process.env.NODE_ENV === 'test' ? ':memory:' : 'database.db', { 
+  verbose: process.env.NODE_ENV === 'test' ? undefined : console.log 
+});
 
-const db = admin.firestore();
+// Initialize schema
+db.pragma('journal_mode = WAL');
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    uid TEXT PRIMARY KEY,
+    role TEXT,
+    name TEXT,
+    email TEXT,
+    parentId TEXT,
+    xp INTEGER,
+    level INTEGER,
+    badges TEXT,
+    themeId TEXT
+  );
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+  CREATE TABLE IF NOT EXISTS tasks (
+    id TEXT PRIMARY KEY,
+    title TEXT,
+    description TEXT,
+    frequency TEXT,
+    reminderTime TEXT,
+    assignedKidId TEXT,
+    parentId TEXT,
+    categoryId TEXT,
+    difficulty TEXT,
+    status TEXT,
+    createdAt INTEGER,
+    customInterval INTEGER
+  );
 
-  // Background Worker: Check for overdue tasks every 5 minutes
-  setInterval(async () => {
+  CREATE TABLE IF NOT EXISTS completions (
+    id TEXT PRIMARY KEY,
+    taskId TEXT,
+    kidId TEXT,
+    completedAt INTEGER,
+    dateString TEXT,
+    count INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS categories (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    icon TEXT,
+    color TEXT,
+    parentId TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS invites (
+    id TEXT PRIMARY KEY,
+    parentId TEXT,
+    parentName TEXT,
+    createdAt INTEGER,
+    status TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS notifications (
+    id TEXT PRIMARY KEY,
+    parentId TEXT,
+    kidId TEXT,
+    taskId TEXT,
+    taskTitle TEXT,
+    kidName TEXT,
+    type TEXT,
+    status TEXT,
+    createdAt INTEGER,
+    dateString TEXT
+  );
+`);
+
+export const app = express();
+app.use(express.json());
+
+// Background Worker: Check for overdue tasks every 5 minutes
+if (process.env.NODE_ENV !== 'test') {
+  setInterval(() => {
     console.log("[Worker] Checking for overdue tasks...");
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
       const now = new Date();
       
-      const tasksSnap = await db.collection('tasks')
-        .where('status', '==', 'active')
-        .get();
+      const tasks = db.prepare("SELECT * FROM tasks WHERE status = 'active'").all() as any[];
 
-      for (const taskDoc of tasksSnap.docs) {
-        const task = taskDoc.data();
+      for (const task of tasks) {
         if (!task.reminderTime) continue;
 
-        // Parse reminder time for today
+        // Frequency Check: Is this task scheduled for today?
+        let scheduledForToday = false;
+        if (task.frequency === 'daily' || task.frequency === 'twice-daily') {
+          scheduledForToday = true;
+        } else {
+          const createdDate = new Date(task.createdAt);
+          const daysSinceCreated = differenceInDays(startOfDay(now), startOfDay(createdDate));
+          
+          if (task.frequency === 'weekly') scheduledForToday = daysSinceCreated % 7 === 0;
+          else if (task.frequency === 'bi-weekly') scheduledForToday = daysSinceCreated % 14 === 0;
+          else if (task.frequency === 'custom' && task.customInterval) {
+            scheduledForToday = daysSinceCreated % task.customInterval === 0;
+          }
+        }
+
+        if (!scheduledForToday) continue;
+
         const reminderDate = parse(task.reminderTime, 'HH:mm', now);
         
         if (isAfter(now, reminderDate)) {
-          // Check if completed today
-          const completionsSnap = await db.collection('completions')
-            .where('taskId', '==', task.id)
-            .where('dateString', '==', today)
-            .get();
+          const completions = db.prepare("SELECT * FROM completions WHERE taskId = ? AND dateString = ?").all(task.id, today);
 
           const isCompleted = task.frequency === 'twice-daily' 
-            ? completionsSnap.docs.length >= 2
-            : completionsSnap.docs.length >= 1;
+            ? completions.length >= 2
+            : completions.length >= 1;
 
           if (!isCompleted) {
-            // Check if notification already exists for today
             const notifId = `overdue_${task.id}_${today}`;
-            const notifDoc = await db.collection('notifications').doc(notifId).get();
+            const existingNotif = db.prepare("SELECT id FROM notifications WHERE id = ?").get(notifId);
 
-            if (!notifDoc.exists) {
-              // Get kid name
-              const kidDoc = await db.collection('users').doc(task.assignedKidId).get();
-              const kidName = kidDoc.exists ? kidDoc.data()?.name : 'Cadet';
+            if (!existingNotif) {
+              const kid = db.prepare("SELECT name FROM users WHERE uid = ?").get(task.assignedKidId) as any;
+              const kidName = kid ? kid.name : 'Cadet';
 
-              await db.collection('notifications').doc(notifId).set({
-                id: notifId,
-                parentId: task.parentId,
-                kidId: task.assignedKidId,
-                taskId: task.id,
-                taskTitle: task.title,
-                kidName: kidName,
-                type: 'overdue',
-                status: 'unread',
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                dateString: today
-              });
+              db.prepare(`
+                INSERT INTO notifications (id, parentId, kidId, taskId, taskTitle, kidName, type, status, createdAt, dateString)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `).run(notifId, task.parentId, task.assignedKidId, task.id, task.title, kidName, 'overdue', 'unread', Date.now(), today);
+              
               console.log(`[Worker] Created overdue notification for ${task.title} (Kid: ${kidName})`);
             }
           }
@@ -81,21 +145,218 @@ async function startServer() {
     } catch (error) {
       console.error("[Worker Error]", error);
     }
-  }, 5 * 60 * 1000); // 5 minutes
+  }, 5 * 60 * 1000); 
+}
 
-  // API Routes
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
-  });
+// --- API Routes ---
 
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+// Simple Auth
+app.post("/api/auth/login", (req, res) => {
+  const { name } = req.body;
+  let user = db.prepare("SELECT * FROM users WHERE name = ? COLLATE NOCASE").get(name) as any;
+  if (user) {
+    user.badges = JSON.parse(user.badges || "[]");
+    return res.json({ user });
+  }
+  // Return a mock uninitialized user
+  const mockUid = "user_" + Date.now().toString(36) + Math.random().toString(36).substr(2);
+  res.json({ user: { uid: mockUid, name, role: null, email: name.toLowerCase() + "@example.com" } });
+});
+
+app.get("/api/auth/me", (req, res) => {
+  const uid = req.headers['authorization'];
+  if (!uid) return res.status(401).json({ error: "Unauthorized" });
+  const user = db.prepare("SELECT * FROM users WHERE uid = ?").get(uid) as any;
+  if (user) {
+    user.badges = JSON.parse(user.badges || "[]");
+    return res.json({ user });
+  }
+  res.status(401).json({ error: "User not found" });
+});
+
+// Users
+app.get("/api/users/:uid", (req, res) => {
+  const user = db.prepare("SELECT * FROM users WHERE uid = ?").get(req.params.uid) as any;
+  if (user) {
+     user.badges = JSON.parse(user.badges || "[]");
+     return res.json(user);
+  }
+  res.status(404).json({ error: "Not found" });
+});
+
+app.post("/api/users", (req, res) => {
+  const { uid, role, name, email, parentId, xp, level, badges, themeId } = req.body;
+  db.prepare(`
+    INSERT OR REPLACE INTO users (uid, role, name, email, parentId, xp, level, badges, themeId)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(uid, role, name, email, parentId || null, xp || 0, level || 1, JSON.stringify(badges || []), themeId || null);
+  res.json({ success: true });
+});
+
+app.post("/api/users/:uid/badge", (req, res) => {
+  const { badgeId } = req.body;
+  const user = db.prepare("SELECT * FROM users WHERE uid = ?").get(req.params.uid) as any;
+  if (user) {
+    const badges = JSON.parse(user.badges || "[]");
+    if (!badges.some((b: any) => b.id === badgeId)) {
+      badges.push({ id: badgeId, earnedAt: Date.now() });
+      db.prepare("UPDATE users SET badges = ? WHERE uid = ?").run(JSON.stringify(badges), req.params.uid);
+    }
+  }
+  res.json({ success: true });
+});
+
+app.post("/api/users/:uid/xp", (req, res) => {
+  const { xpChange } = req.body;
+  const user = db.prepare("SELECT * FROM users WHERE uid = ?").get(req.params.uid) as any;
+  if (user) {
+    const newXP = Math.max(0, (user.xp || 0) + xpChange);
+    const newLevel = Math.floor(newXP / 100) + 1;
+    db.prepare("UPDATE users SET xp = ?, level = ? WHERE uid = ?").run(newXP, newLevel, req.params.uid);
+  }
+  res.json({ success: true });
+});
+
+app.post("/api/users/:uid/theme", (req, res) => {
+  const { themeId } = req.body;
+  db.prepare("UPDATE users SET themeId = ? WHERE uid = ?").run(themeId, req.params.uid);
+  res.json({ success: true });
+});
+
+app.get("/api/parents/:parentId/kids", (req, res) => {
+  const kids = db.prepare("SELECT * FROM users WHERE parentId = ? AND role = 'kid'").all(req.params.parentId) as any[];
+  kids.forEach(k => k.badges = JSON.parse(k.badges || "[]"));
+  res.json(kids);
+});
+
+// Tasks
+app.post("/api/tasks", (req, res) => {
+  const task = req.body;
+  const id = "task_" + Date.now().toString(36) + Math.random().toString(36).substr(2);
+  db.prepare(`
+    INSERT INTO tasks (id, title, description, frequency, reminderTime, assignedKidId, parentId, categoryId, difficulty, status, createdAt, customInterval)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, task.title, task.description || null, task.frequency, task.reminderTime || null, task.assignedKidId, task.parentId, task.categoryId || null, task.difficulty || 'easy', 'active', Date.now(), task.customInterval || null);
+  res.json({ id });
+});
+
+app.get("/api/kids/:kidId/tasks", (req, res) => {
+  const tasks = db.prepare("SELECT * FROM tasks WHERE assignedKidId = ? AND status = 'active' ORDER BY createdAt DESC").all(req.params.kidId);
+  res.json(tasks.map((t: any) => ({ ...t, createdAt: { seconds: t.createdAt / 1000 } })));
+});
+
+app.get("/api/parents/:parentId/tasks", (req, res) => {
+  const tasks = db.prepare("SELECT * FROM tasks WHERE parentId = ? AND status = 'active' ORDER BY createdAt DESC").all(req.params.parentId);
+  res.json(tasks.map((t: any) => ({ ...t, createdAt: { seconds: t.createdAt / 1000 } })));
+});
+
+app.put("/api/tasks/:taskId/archive", (req, res) => {
+  db.prepare("UPDATE tasks SET status = 'archived' WHERE id = ?").run(req.params.taskId);
+  res.json({ success: true });
+});
+
+// Completions
+app.post("/api/completions", (req, res) => {
+  const { taskId, kidId, dateString, count } = req.body;
+  const id = `${taskId}_${dateString}_${count || 1}`;
+  db.prepare(`
+    INSERT OR REPLACE INTO completions (id, taskId, kidId, completedAt, dateString, count)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(id, taskId, kidId, Date.now(), dateString, count || null);
+  res.json({ id });
+});
+
+app.delete("/api/completions/:completionId", (req, res) => {
+  db.prepare("DELETE FROM completions WHERE id = ?").run(req.params.completionId);
+  res.json({ success: true });
+});
+
+app.get("/api/kids/:kidId/completions", (req, res) => {
+  const { dateString, startDate, endDate } = req.query;
+  let completions;
+  if (startDate && endDate) {
+    completions = db.prepare("SELECT * FROM completions WHERE kidId = ? AND dateString >= ? AND dateString <= ?").all(req.params.kidId, startDate, endDate);
+  } else if (dateString) {
+    completions = db.prepare("SELECT * FROM completions WHERE kidId = ? AND dateString = ?").all(req.params.kidId, dateString);
+  } else {
+    res.status(400).json({ error: "Missing date query params" });
+    return;
+  }
+  res.json(completions.map((c: any) => ({ ...c, completedAt: { seconds: c.completedAt / 1000 } })));
+});
+
+app.get("/api/kids/:kidId/history", (req, res) => {
+  const limit = parseInt(req.query.limit as string) || 50;
+  const history = db.prepare("SELECT * FROM completions WHERE kidId = ? ORDER BY completedAt DESC LIMIT ?").all(req.params.kidId, limit);
+  res.json(history.map((c: any) => ({ ...c, completedAt: { seconds: c.completedAt / 1000 } })));
+});
+
+// Categories
+app.post("/api/categories", (req, res) => {
+  const cat = req.body;
+  const id = "cat_" + Date.now().toString(36);
+  db.prepare("INSERT INTO categories (id, name, icon, color, parentId) VALUES (?, ?, ?, ?, ?)").run(id, cat.name, cat.icon, cat.color, cat.parentId);
+  res.json({ id });
+});
+
+app.put("/api/categories/:id", (req, res) => {
+  const cat = req.body;
+  db.prepare("UPDATE categories SET name = ?, icon = ?, color = ?, parentId = ? WHERE id = ?").run(cat.name, cat.icon, cat.color, cat.parentId, req.params.id);
+  res.json({ success: true });
+});
+
+app.delete("/api/categories/:id", (req, res) => {
+  db.prepare("DELETE FROM categories WHERE id = ?").run(req.params.id);
+  res.json({ success: true });
+});
+
+app.get("/api/parents/:parentId/categories", (req, res) => {
+  const cats = db.prepare("SELECT * FROM categories WHERE parentId = ?").all(req.params.parentId);
+  res.json(cats);
+});
+
+// Invites
+app.post("/api/invites", (req, res) => {
+  const { parentId, parentName } = req.body;
+  const id = Math.random().toString(36).substring(2, 8).toUpperCase();
+  db.prepare("INSERT INTO invites (id, parentId, parentName, createdAt, status) VALUES (?, ?, ?, ?, ?)").run(id, parentId, parentName, Date.now(), 'active');
+  res.json({ id });
+});
+
+app.get("/api/parents/:parentId/invites/active", (req, res) => {
+  const invite = db.prepare("SELECT * FROM invites WHERE parentId = ? AND status = 'active'").get(req.params.parentId);
+  res.json(invite || null);
+});
+
+app.get("/api/invites/:code/validate", (req, res) => {
+  const invite = db.prepare("SELECT * FROM invites WHERE id = ? AND status = 'active'").get(req.params.code);
+  res.json(invite || null);
+});
+
+// Notifications
+app.get("/api/parents/:parentId/notifications", (req, res) => {
+  const notifs = db.prepare("SELECT * FROM notifications WHERE parentId = ? AND status = 'unread' ORDER BY createdAt DESC").all(req.params.parentId);
+  res.json(notifs.map((n: any) => ({ ...n, createdAt: { seconds: n.createdAt / 1000 } })));
+});
+
+app.put("/api/notifications/:id/read", (req, res) => {
+  db.prepare("UPDATE notifications SET status = 'read' WHERE id = ?").run(req.params.id);
+  res.json({ success: true });
+});
+
+// Server Initialization
+export async function startServer() {
+  if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (process.env.NODE_ENV === "production" && !process.env.TEST_BUILD) {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
@@ -103,9 +364,16 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  const PORT = parseInt(process.env.PORT || '3000', 10);
+  
+  if (process.env.NODE_ENV !== "test") {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
-startServer();
+// Start strictly if we aren't testing
+if (process.env.NODE_ENV !== "test") {
+  startServer();
+}
