@@ -1,0 +1,6 @@
+{
+  "name": "KidTasker",
+  "description": "An immersive, gamified mission command for kids and parents. Features secure cadet linking, XP-based ranking, completion streaks, and customizable mission categories.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

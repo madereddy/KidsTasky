@@ -1,0 +1,153 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- User Roles ---
+    function getUser(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    function isParent() {
+      return isSignedIn() && getUser(request.auth.uid).role == 'parent';
+    }
+
+    function isKid() {
+      return isSignedIn() && getUser(request.auth.uid).role == 'kid';
+    }
+
+    // --- User Collection ---
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.uid == userId &&
+               data.uid == request.auth.uid &&
+               data.role in ['parent', 'kid'] &&
+               data.role is string &&
+               data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+               data.email is string && data.email == request.auth.token.email;
+      }
+
+      allow get: if isSignedIn() && (request.auth.uid == userId || getUser(userId).parentId == request.auth.uid || getUser(request.auth.uid).parentId == userId);
+      allow list: if isSignedIn(); // Basic list for search/presence
+      allow create: if isSignedIn() && isValidUser(incoming());
+      allow update: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'xp', 'level', 'badges']);
+    }
+
+    // --- Tasks Collection ---
+    match /tasks/{taskId} {
+      function isValidTask(data) {
+        return data.id == taskId &&
+               data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+               data.frequency in ['daily', 'twice-daily', 'weekly'] &&
+               data.assignedKidId is string &&
+               data.parentId == request.auth.uid &&
+               (data.categoryId == null || data.categoryId is string) &&
+               (data.difficulty == null || data.difficulty in ['easy', 'medium', 'hard']) &&
+               data.status in ['active', 'archived'] &&
+               data.createdAt is timestamp;
+      }
+
+      allow get: if isSignedIn() && (existing().parentId == request.auth.uid || existing().assignedKidId == request.auth.uid);
+      allow list: if isSignedIn() && (resource.data.parentId == request.auth.uid || resource.data.assignedKidId == request.auth.uid);
+      allow create: if isParent() && isValidTask(incoming());
+      allow update: if isParent() && existing().parentId == request.auth.uid && isValidTask(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'frequency', 'reminderTime', 'assignedKidId', 'status', 'categoryId', 'difficulty']);
+      allow delete: if isParent() && existing().parentId == request.auth.uid;
+    }
+
+    // --- Categories Collection ---
+    match /categories/{categoryId} {
+      function isValidCategory(data) {
+        return data.id == categoryId &&
+               data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+               data.icon is string &&
+               data.color is string &&
+               data.parentId == request.auth.uid;
+      }
+
+      allow get, list: if isSignedIn();
+      allow create: if isParent() && isValidCategory(incoming());
+      allow update: if isParent() && existing().parentId == request.auth.uid && isValidCategory(incoming());
+      allow delete: if isParent() && existing().parentId == request.auth.uid;
+    }
+
+    // --- Completions Collection ---
+    match /completions/{completionId} {
+      function isValidCompletion(data) {
+        return data.id == completionId &&
+               data.taskId is string &&
+               data.kidId == request.auth.uid &&
+               data.completedAt == request.time &&
+               data.dateString is string && data.dateString.matches('^\\d{4}-\\d{2}-\\d{2}$');
+      }
+
+      allow get: if isSignedIn() && (existing().kidId == request.auth.uid || getUser(existing().kidId).parentId == request.auth.uid);
+      allow list: if isSignedIn() && (resource.data.kidId == request.auth.uid || getUser(resource.data.kidId).parentId == request.auth.uid);
+      allow create: if isKid() && isValidCompletion(incoming()) &&
+                    existsAfter(/databases/$(database)/documents/tasks/$(incoming().taskId));
+      allow delete: if isParent() && getUser(existing().kidId).parentId == request.auth.uid;
+    }
+
+    // --- Invites Collection ---
+    match /invites/{inviteId} {
+      function isValidInvite(data) {
+        return data.id == inviteId &&
+               data.parentId == request.auth.uid &&
+               data.parentName is string &&
+               data.status in ['active', 'used', 'expired'] &&
+               data.createdAt is timestamp;
+      }
+
+      allow get: if isSignedIn(); // Anyone signed in can try to validate a code
+      allow create: if isParent() && isValidInvite(incoming());
+      allow update: if isSignedIn() && (
+        (isParent() && existing().parentId == request.auth.uid) ||
+        (isKid() && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status == 'used')
+      );
+      allow delete: if isParent() && existing().parentId == request.auth.uid;
+    }
+
+    // --- Notifications Collection ---
+    match /notifications/{notificationId} {
+      function isValidNotification(data) {
+        return data.id == notificationId &&
+               data.parentId is string &&
+               data.kidId is string &&
+               data.taskId is string &&
+               data.type == 'overdue' &&
+               data.status in ['unread', 'read'];
+      }
+
+      allow get, list: if isSignedIn() && resource.data.parentId == request.auth.uid;
+      allow create: if isSignedIn(); // Backend or system (simulated)
+      allow update: if isSignedIn() && existing().parentId == request.auth.uid && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if isParent() && existing().parentId == request.auth.uid;
+    }
+  }
+}

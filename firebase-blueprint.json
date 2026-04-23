@@ -1,0 +1,120 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a user in the system (Parent or Kid).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "role": { "type": "string", "enum": ["parent", "kid"] },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "parentId": { "type": "string", "description": "For kids, the UID of their parent." }
+      },
+      "required": ["uid", "role", "name", "email"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A chore or task assigned to a kid.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "frequency": { "type": "string", "enum": ["daily", "twice-daily", "weekly"] },
+        "reminderTime": { "type": "string", "description": "Format HH:mm" },
+        "assignedKidId": { "type": "string" },
+        "parentId": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "difficulty": { "type": "string", "enum": ["easy", "medium", "hard"] },
+        "status": { "type": "string", "enum": ["active", "archived"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "frequency", "assignedKidId", "parentId", "status"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Customizable categories for tasks.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "icon": { "type": "string" },
+        "color": { "type": "string" },
+        "parentId": { "type": "string" }
+      },
+      "required": ["id", "name", "icon", "color", "parentId"]
+    },
+    "TaskCompletion": {
+      "title": "TaskCompletion",
+      "description": "Records when a kid completes a task.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "taskId": { "type": "string" },
+        "kidId": { "type": "string" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "dateString": { "type": "string", "description": "YYYY-MM-DD" },
+        "count": { "type": "integer", "description": "Used for twice-daily tasks (1 or 2)." }
+      },
+      "required": ["id", "taskId", "kidId", "completedAt", "dateString"]
+    },
+    "Invite": {
+      "title": "Invite",
+      "description": "Secure linking code for kids.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "parentId": { "type": "string" },
+        "parentName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "used", "expired"] }
+      },
+      "required": ["id", "parentId", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Parent alerts for overdue tasks.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "parentId": { "type": "string" },
+        "kidId": { "type": "string" },
+        "taskId": { "type": "string" },
+        "taskTitle": { "type": "string" },
+        "kidName": { "type": "string" },
+        "type": { "type": "string", "enum": ["overdue"] },
+        "status": { "type": "string", "enum": ["unread", "read"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "dateString": { "type": "string" }
+      },
+      "required": ["id", "parentId", "kidId", "taskId", "type", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles."
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Tasks created by parents."
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Customizable task categories."
+    },
+    "/completions/{completionId}": {
+      "schema": "TaskCompletion",
+      "description": "Task completion records."
+    },
+    "/invites/{code}": {
+      "schema": "Invite",
+      "description": "Invitation codes."
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Alerts for parents."
+    }
+  }
+}
