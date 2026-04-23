@@ -10,6 +10,7 @@ describe('Backend API Tests', () => {
   });
 
   beforeEach(() => {
+    db.prepare('DELETE FROM completions').run();
     db.prepare('DELETE FROM tasks').run();
     db.prepare('DELETE FROM users').run();
   });
