@@ -1,20 +1,76 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🚀 KidTasker - Stellar Mission Command
 
-# Run and deploy your AI Studio app
+KidTasker is a gamified, space-themed task management application designed to help parents create missions (chores) and reward their cadets (kids) with Experience Points (XP) and badges. 
 
-This contains everything you need to run your app locally.
+The entire stack is completely self-hosted, bypassing generic cloud trackers by utilizing a snappy Node.js + Express backend powered natively by SQLite. 
 
-View your app in AI Studio: https://ai.studio/apps/3b5828ee-54ee-4c16-a111-84349b1bef3f
+## ✨ Features
+- **Immersive UI & Gamification**: Smooth React animations, XP floating counters, custom background themes, and a dynamic Streak flame.
+- **Two Modalities**: 
+  - **Ground Control (Parent)**: Assign missions, define XP difficulty, manage categories, and review mission history safely.
+  - **Space Cadet (Kid)**: Complete interactive tasks with animated confirmation dialogues, earn badges, and track combat rank progression.
+- **Self-Hosted Privacy**: 100% of data is stored securely on your own hardware via `better-sqlite3`. No external Firebase/third-party configurations needed.
+- **Background Worker Processing**: Natively built-in Node.js cron-equivalent loop to scan for overdue assignments and dish out real-time 'alerts'.
+- **Testing Architecture Built-In**: Pre-configured with Vitest, JSdom, and Supertest for zero-configuration unit and integration testing.
 
-## Run Locally
+## 🛠 Tech Stack
+* **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, Motion (Animations), Lucide React.
+* **Backend**: Express, `better-sqlite3`, native REST endpoints replacing Firestore SDKs.
+* **Testing**: Vitest, `@testing-library/react`, `supertest`.
+* **Deployment**: Docker, Docker Compose (Multi-stage build).
 
-**Prerequisites:**  Node.js
+---
 
+## 💻 Local Development
 
+### Prerequisites
+- Node.js 20+
+
+### First Run
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+   ```bash
+   npm install
+   ```
+2. Start the Vite/Express hybrid development server:
+   ```bash
+   npm run dev
+   ```
+   *The application will boot on `http://localhost:3000`.*
+   *Note: Because this is an AI Studio exported layout, HMR may be disabled globally but backend/frontend are routed harmoniously.*
+
+---
+
+## 🧪 Testing
+
+KidTasker features an integrated testing suite testing React components simultaneously with isolated Express database routes.
+```bash
+npm run test
+```
+The test command maps `better-sqlite3` strictly to `:memory:`, guaranteeing clean stateless testing runs.
+
+---
+
+## 🐳 Docker Deployment (Production)
+
+To spin up a fully isolated, production-grade instance of the app, leverage the bundled multi-stage Docker setup.
+
+### Using Docker Compose (Recommended)
+This method ensures your SQLite database file persists safely onto a volume mount, avoiding data loss if the container is rebooted.
+
+```bash
+docker-compose up -d --build
+```
+The application will be accessible at `http://localhost:3000`.
+
+### Manual Docker Build
+If you prefer configuring your reverseproxies and volumes manually:
+```bash
+# Build the optimized multi-stage image
+docker build -t kidtasker:latest .
+
+# Run the container (Mapping port 3000 and assigning a physical drive block for the DB)
+docker run -p 3000:3000 -v /my/local/dbfolder:/data -e DB_PATH=/data/database.db kidtasker:latest
+```
+
+## 🔐 Authentication Disclaimer
+For absolute privacy and rapid enrollment during self-hosted context, KidTasker uses an **Opt-In Session Sandbox** mechanism using only local `localStorage` keys mapped to user aliases, fully eliminating Google or Firebase Oauth requirements. Parent-Kid linkage occurs internally via Mission Access Codes (Invite IDs) displayed inside the parent's dashboard.

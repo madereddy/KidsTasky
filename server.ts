@@ -9,7 +9,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Initialize SQLite Database conditionally for tests
-export const db = new Database(process.env.NODE_ENV === 'test' ? ':memory:' : 'database.db', { 
+const dbPath = process.env.DB_PATH || 'database.db';
+export const db = new Database(process.env.NODE_ENV === 'test' ? ':memory:' : dbPath, { 
   verbose: process.env.NODE_ENV === 'test' ? undefined : console.log 
 });
 

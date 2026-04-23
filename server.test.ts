@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import { app, db } from './server';
 
@@ -7,6 +7,11 @@ describe('Backend API Tests', () => {
   beforeAll(() => {
     // Tests are using an in-memory SQLite database automatically 
     // initialized by server.ts when NODE_ENV = 'test'.
+  });
+
+  beforeEach(() => {
+    db.prepare('DELETE FROM tasks').run();
+    db.prepare('DELETE FROM users').run();
   });
 
   afterAll(() => {
