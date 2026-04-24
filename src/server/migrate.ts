@@ -17,7 +17,8 @@ export function runMigrations(db: Database) {
     INSERT OR IGNORE INTO schema_version (version) VALUES (0);
   `);
 
-  const currentVersion = db.prepare('SELECT version FROM schema_version').get()?.version || 0;
+  const row = db.prepare('SELECT version FROM schema_version').get() as { version: number } | undefined;
+  const currentVersion = row?.version || 0;
 
   for (const file of migrationFiles) {
     const version = parseInt(file.split('_')[0], 10);
