@@ -1,6 +1,7 @@
+import { userService } from './users';
+import { tasksClientService } from './tasks';
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { taskService } from './taskService';
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -17,7 +18,7 @@ describe('Task Service', () => {
       json: async () => mockProfile,
     });
 
-    const profile = await taskService.getUserProfile('123');
+    const profile = await userService.getUserProfile('123');
     
     expect(mockFetch).toHaveBeenCalledWith('/api/users/123', expect.objectContaining({
       headers: expect.objectContaining({
@@ -42,7 +43,7 @@ describe('Task Service', () => {
       difficulty: 'easy' as const
     };
 
-    const newId = await taskService.createTask(newTask);
+    const newId = await tasksClientService.createTask(newTask);
     
     expect(mockFetch).toHaveBeenCalledWith('/api/tasks', expect.objectContaining({
       method: "POST",
@@ -58,7 +59,7 @@ describe('Task Service', () => {
       status: 404
     });
 
-    await expect(taskService.getUserProfile('999')).resolves.toBeNull(); 
+    await expect(userService.getUserProfile('999')).resolves.toBeNull(); 
     // getUserProfile catches the error and returns null
   });
 });

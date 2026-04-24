@@ -1,10 +1,10 @@
-import { categoryService } from '../services/categories';
+import { categoryService } from '../../services/categories';
 import React, { useState } from 'react';
 import { LogOut, Edit2, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Category } from '../types';
-import { cn } from '../lib/utils';
-import { CATEGORY_ICONS, CATEGORY_COLORS } from '../constants';
+import { Category } from '../../types';
+import { cn } from '../../lib/utils';
+import { CATEGORY_ICONS, CATEGORY_COLORS } from '../../constants';
 
 export function CategoryManager({ 
   parentId, 

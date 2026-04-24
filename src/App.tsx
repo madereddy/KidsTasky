@@ -1,15 +1,17 @@
+import { authService } from './services/auth';
+import { userService } from './services/users';
+import { categoryService } from './services/categories';
 import React, { useState, useEffect } from 'react';
 import { LogOut, Rocket, User as UserIcon, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, Category } from './types';
-import { taskService } from './services/taskService';
 import { cn } from './lib/utils';
 import { THEMES } from './constants';
 
-import { LoginView } from './components/LoginView';
-import { OnboardingView } from './components/OnboardingView';
-import { ParentDashboard } from './components/ParentDashboard';
-import { KidDashboard } from './components/KidDashboard';
+import { LoginView } from './components/auth/LoginView';
+import { OnboardingView } from './components/onboarding/OnboardingView';
+import { ParentDashboard } from './components/parent/ParentDashboard';
+import { KidDashboard } from './components/kid/KidDashboard';
 
 interface AppUser {
   uid: string;
@@ -30,13 +32,13 @@ export default function App() {
     const initAuth = async () => {
       const storedUid = localStorage.getItem('kidtasker_uid');
       if (storedUid) {
-        const u = await taskService.getMe(storedUid);
+        const u = await authService.getMe(storedUid);
         if (u) {
           setUser({ uid: u.uid, name: u.name, email: u.email });
           setProfile(u);
           const parentId = u.role === 'parent' ? u.uid : u.parentId;
           if (parentId) {
-            const cats = await taskService.getCategories(parentId);
+            const cats = await categoryService.getCategories(parentId);
             setCategories(cats || []);
           }
         }
@@ -54,7 +56,7 @@ export default function App() {
 
   const handleProfileUpdate = async () => {
     if (user) {
-      const p = await taskService.getUserProfile(user.uid);
+      const p = await userService.getUserProfile(user.uid);
       setProfile(p);
     }
   };
@@ -78,7 +80,7 @@ export default function App() {
     return (
       <div className="min-h-screen animate-gradient text-white selection:bg-blue-500/30 overflow-x-hidden">
         <LoginView onLogin={async (username: string) => {
-          const u = await taskService.signIn(username);
+          const u = await authService.signIn(username);
           if (u) {
              setUser({ uid: u.uid, name: u.name, email: u.email });
              localStorage.setItem('kidtasker_uid', u.uid);
@@ -98,7 +100,7 @@ export default function App() {
             setProfile(p);
             const parentId = p.role === 'parent' ? p.uid : p.parentId;
             if (parentId) {
-              const cats = await taskService.getCategories(parentId);
+              const cats = await categoryService.getCategories(parentId);
               setCategories(cats || []);
             }
           }} 

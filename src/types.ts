@@ -1,5 +1,7 @@
 export type UserRole = 'parent' | 'kid';
 
+type FirebaseTimestamp = { seconds: number; nanoseconds?: number } | number;
+
 export interface UserProfile {
   uid: string;
   role: UserRole;
@@ -14,7 +16,7 @@ export interface UserProfile {
 
 export interface EarnedBadge {
   id: string;
-  earnedAt: any;
+  earnedAt: FirebaseTimestamp;
 }
 
 export interface BadgeDef {
@@ -47,7 +49,7 @@ export interface Task {
   categoryId?: string;
   difficulty?: TaskDifficulty;
   status: 'active' | 'archived';
-  createdAt: any; // Firestore Timestamp
+  createdAt: FirebaseTimestamp; // Firestore Timestamp
   customInterval?: number; // Days for custom frequency
   prerequisiteTaskIds?: string[];
 }
@@ -56,7 +58,7 @@ export interface TaskCompletion {
   id: string;
   taskId: string;
   kidId: string;
-  completedAt: any; // Firestore Timestamp
+  completedAt: FirebaseTimestamp; // Firestore Timestamp
   dateString: string; // YYYY-MM-DD
   count?: number; // 1 or 2
 }
@@ -65,7 +67,7 @@ export interface Invite {
   id: string; // The 6-digit code
   parentId: string;
   parentName: string;
-  createdAt: any;
+  createdAt: FirebaseTimestamp;
   status: 'active' | 'used' | 'expired';
 }
 
@@ -78,7 +80,7 @@ export interface Notification {
   kidName: string;
   type: 'overdue';
   status: 'unread' | 'read';
-  createdAt: any;
+  createdAt: FirebaseTimestamp;
   dateString: string; // To avoid multiple notifications for same task on same day
 }
 
@@ -94,5 +96,5 @@ export interface ClaimedReward {
   id: string;
   kidId: string;
   rewardId: string;
-  createdAt: any;
+  createdAt: FirebaseTimestamp;
 }

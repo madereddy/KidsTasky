@@ -1,5 +1,5 @@
+import { rewardService } from './rewards';
 import { describe, it, expect, vi } from 'vitest';
-import { taskService } from './taskService';
 
 // Mock fetch
 global.fetch = vi.fn();
@@ -11,7 +11,7 @@ describe('Reward System', () => {
       json: async () => [{ id: 'r1', title: 'Test Reward', xpCost: 100 }]
     });
 
-    const rewards = await taskService.getRewards('p1');
+    const rewards = await rewardService.getRewards('p1');
     expect(rewards[0].title).toBe('Test Reward');
   });
 
@@ -21,7 +21,7 @@ describe('Reward System', () => {
       json: async () => ({ id: 'new_reward' })
     });
 
-    const id = await taskService.createReward({ parentId: 'p1', title: 'New', xpCost: 50 });
+    const id = await rewardService.createReward({ parentId: 'p1', title: 'New', xpCost: 50 });
     expect(id).toBe('new_reward');
   });
 });

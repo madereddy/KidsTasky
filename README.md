@@ -11,7 +11,7 @@ This is a totally self-hosted, offline-friendly setup. No cloud trackers, no thi
 *   **Player 2 (Cadet) Experience**: Track XP, unlock badges, earn special customized themes, and spend hard-earned XP in the in-game Reward Store.
 *   **Zero-Telemetry Privacy**: Your data stays on your machine. I built this using native SQLite because databases are meant to be fast and local, not data-mined for a tech giant's profit.
 *   **Built-in Co-op Monitoring**: A robust Node.js worker loop that handles alerts, mission timeouts, and notifications locally.
-*   **Dev-Friendly Foundation**: Pre-configured testing suite (Vitest + Supertest) because debugging our own code is hard enough without fighting a bad test environment.
+*   **Dev-Friendly Foundation**: Fully container-ready decoupled architecture with cleanly separated React components and backend domain modules. Plus, a pre-configured testing suite (Vitest + Supertest) because debugging our own code is hard enough without fighting a bad test environment.
 
 ## 🛠 Loadout (Tech Stack)
 

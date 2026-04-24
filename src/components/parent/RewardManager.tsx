@@ -1,7 +1,7 @@
-import { rewardService } from '../services/rewards';
+import { rewardService } from '../../services/rewards';
 import React, { useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import { Reward } from '../types';
+import { Reward } from '../../types';
 
 export function RewardManager({ parentId, rewards, onUpdate }: { parentId: string, rewards: Reward[], onUpdate: () => void }) {
   const [title, setTitle] = useState('');

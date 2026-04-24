@@ -17,14 +17,16 @@ KidTasker combines extreme deployment simplicity with high developer velocity.
 The codebase adheres strictly to horizontal separation of concerns:
 
 ### 1. The Backend (`/src/server/`)
-Our formerly monolithic `server.ts` has been elegantly split to promote clarity:
-*   `server.ts` -> **The Orchestrator**. Simply pulls in Express, mounts the Vue/React build hooks, and attaches the master router. It is intentionally kept entirely clean of business logic.
-*   `src/server/db.ts` -> **The Storage Engine**. Exports the `db` singleton. This file sets up the raw initial schema (`CREATE TABLE IF NOT EXISTS`) and dynamically maps to `:memory:` during testing safely.
-*   `src/server/routes.ts` -> **The Controller**. Contains the standalone Express `apiRouter`, holding every REST `GET/POST/PUT` endpoint corresponding to categories, completions, and user updates.
-*   `src/server/worker.ts` -> **The Cron**. Contains the natively spinning `startBackgroundWorker()` interval, computing 'overdue' statuses on tasks exactly every 300 seconds (5 minutes) entirely on the backend to avoid spoofing.
+Our backend is split into logically decoupled modules so that they can be easily containerized or managed independently in the future.
+*   `server.ts` -> **The Orchestrator**. Simply pulls in Express, mounts the React build hooks, and attaches the master router. Kept clean of business logic.
+*   `src/server/db.ts` -> **The Storage Engine**. Exports the `db` singleton. Sets up the SQLite database mapping to `:memory:` during testing.
+*   `src/server/modules/` -> **The Domain Modules**. The true backbone of the system. Each domain (e.g., `auth`, `users`, `tasks`, `rewards`) gets its own folder with a `routes.ts` (for REST presentation) and `service.ts` (encapsulating raw SQL queries via `db.ts`). This allows HTTP parsing to completely decouple from database operations.
+*   `src/server/routes.ts` -> **The Master Router**. Gathers routes from `src/server/modules/*/routes.ts` and bundles them into `apiRouter`.
+*   `src/server/worker.ts` -> **The Cron**. Contains the natively spinning `startBackgroundWorker()` interval.
 
-### 2. The Frontend Data Layer (`/src/services/`)
-*   `taskService.ts` -> The absolute brain of the UI. Rather than throwing `fetch()` blocks into every React component, the application executes standard `taskService.methodName()` functions (e.g. `taskService.getTasks()`). This file translates the TypeScript structs into clean HTTP REST requests bound to the Express environment.
+### 2. The Frontend Layer (`/src/services/` and `/src/components/`)
+*   **Data Services (`/src/services/`)**: The backbone of the UI. It translates TypeScript structs into cleanly chunked modular REST clients bound to the Express environment. We have individual files (`auth.ts`, `tasks.ts`, `rewards.ts`, etc.) mapping to each domain, inheriting a base `http.ts` caller rather than throwing `fetch()` blocks into every React component.
+*   **Component Structure (`/src/components/`)**: The UI component hierarchy is split domain-first (`/parent/`, `/kid/`, `/onboarding/`, `/auth/`). This drastically speeds up developer navigation and encapsulates logic where it clearly belongs.
 
 ### 3. The Test Lifecycle
 The project relies on **Vitest**.
@@ -42,16 +44,29 @@ Root
 │── docker-compose.yml    # Development compose mount with volumes attached
 │
 └── src/
-    │── App.tsx           # Primary React entry boundary containing UI Modals (ParentDashboard, KidDashboard)
+    │── App.tsx           # Primary React entry boundary containing UI Flow
     │── types.ts          # Vital shared Domain objects (Users, Tasks, Badges, etc)
+    │
+    ├── components/       # Domain-separated React components
+    │   ├── auth/         # Login Views
+    │   ├── parent/       # Parent Dashboard & Management Modals
+    │   ├── kid/          # Kid Dashboard & Theme/History Modals
+    │   └── onboarding/   # Initial Setup Flow
     │
     ├── server/           # Natively run Backend components
     │   ├── db.ts         # SQLite Singleton
-    │   ├── routes.ts     # Express Routers
-    │   └── worker.ts     # Asynchronous Overdue Task Manager
+    │   ├── routes.ts     # Master Express Route Bundler
+    │   ├── worker.ts     # Asynchronous Overdue Task Manager
+    │   └── modules/      # Independent Domain API logic
+    │       ├── auth/     
+    │       ├── tasks/    # Each contains `routes.ts` and `service.ts`
+    │       └── ...
     │
-    └── services/
-        └── taskService.ts # Custom API Fetch abstraction mapping UI inputs to Backend Routes
+    └── services/         # Modular HTTP Data-Fetching Client
+        ├── auth.ts       # Maps UI -> Backend
+        ├── tasks.ts
+        ├── http.ts       # Shared configured JSON Fetch client
+        └── ...
 ```
 
 ## Adding a New Feature (Developer Workflow)
@@ -60,8 +75,8 @@ If you are a developer looking to add a new "Feature" to KidTasker (for instance
 
 1.  **Define the Schema (`db.ts`)**: Append a simple `CREATE TABLE IF NOT EXISTS pets (...)`
 2.  **Define the Type (`types.ts`)**: Add your `interface Pet { id: string }`
-3.  **Build the Controller (`routes.ts`)**: Add an `apiRouter.post('/kids/:kidId/pets')` logic gate.
-4.  **Expose to Service (`taskService.ts`)**: Map `createPet(kidId, payload) => fetch(...)`.
-5.  **Inject into React (`App.tsx`)**: Import the function and bind it dynamically, utilizing robust Tailwind colors inside the main Dashboard layout!
+3.  **Build the Module (`modules/pets/`)**: Add a `service.ts` for database CRUD logic and a `routes.ts` file mapping explicit inputs to `apiRouter.post('/kids/:kidId/pets')`. Register the new module in `server/routes.ts`.
+4.  **Expose to Service (`services/pets.ts`)**: Add a client side mapping `export const petsService = { createPet(...) { fetchAPI(...) } }`.
+5.  **Inject into React (`components/kid/`)**: Import the function and bind it dynamically, utilizing robust Tailwind colors!
 
 *Happy building!*

@@ -1,10 +1,10 @@
-import { userService } from '../services/users';
-import { inviteService } from '../services/invites';
+import { userService } from '../../services/users';
+import { inviteService } from '../../services/invites';
 import React, { useState } from 'react';
 import { ShieldCheck, Baby } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { UserProfile } from '../types';
-import { cn } from '../lib/utils';
+import { UserProfile } from '../../types';
+import { cn } from '../../lib/utils';
 
 export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p: UserProfile) => void }) {
   const [role, setRole] = useState<'parent' | 'kid' | null>(null);

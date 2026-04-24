@@ -79,4 +79,24 @@ describe('Backend API Tests', () => {
     expect(fetchRes.body.length).toBe(1);
     expect(fetchRes.body[0].title).toBe('Clean room');
   });
+
+  it('POST /api/categories should create a category and GET should retrieve it', async () => {
+    const createRes = await request(app)
+      .post('/api/categories')
+      .send({
+        name: 'Chores',
+        icon: 'Broom',
+        color: 'gray',
+        parentId: 'user_123',
+      });
+      
+    expect(createRes.status).toBe(200);
+    expect(createRes.body.id).toBeDefined();
+    
+    // Verify it appeared in the parent's category list
+    const fetchRes = await request(app).get('/api/parents/user_123/categories');
+    expect(fetchRes.status).toBe(200);
+    expect(fetchRes.body.length).toBe(1);
+    expect(fetchRes.body[0].name).toBe('Chores');
+  });
 });

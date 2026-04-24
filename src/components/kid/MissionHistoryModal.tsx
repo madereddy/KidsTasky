@@ -1,11 +1,11 @@
-import { tasksClientService } from '../services/tasks';
+import { tasksClientService } from '../../services/tasks';
 import React, { useState, useEffect } from 'react';
 import { History, LogOut, Activity, Calendar, Clock, Zap } from 'lucide-react';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
-import { Task, UserProfile, Category, TaskCompletion } from '../types';
-import { cn, parseTimestamp } from '../lib/utils';
-import { THEMES, XP_REWARDS } from '../constants';
+import { Task, UserProfile, Category, TaskCompletion } from '../../types';
+import { cn, parseTimestamp } from '../../lib/utils';
+import { THEMES, XP_REWARDS } from '../../constants';
 
 export function MissionHistoryModal({ 
   profile, 

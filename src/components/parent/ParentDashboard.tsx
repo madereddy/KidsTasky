@@ -1,17 +1,17 @@
-import { userService } from '../services/users';
-import { tasksClientService } from '../services/tasks';
-import { inviteService } from '../services/invites';
-import { notificationService } from '../services/notifications';
-import { rewardService } from '../services/rewards';
+import { userService } from '../../services/users';
+import { tasksClientService } from '../../services/tasks';
+import { inviteService } from '../../services/invites';
+import { notificationService } from '../../services/notifications';
+import { rewardService } from '../../services/rewards';
 import React, { useState, useEffect } from 'react';
 import { Trash2, Calendar, Clock, CalendarDays, Tag, Plus, ShieldCheck, Bell, Send, CheckCircle2, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../lib/utils';
-import { Task, UserProfile, Category, Invite, Notification, Reward, TaskFrequency, TaskDifficulty } from '../types';
+import { cn } from '../../lib/utils';
+import { Task, UserProfile, Category, Invite, Notification, Reward, TaskFrequency, TaskDifficulty } from '../../types';
 import { AddTaskModal } from './AddTaskModal';
 import { CategoryManager } from './CategoryManager';
 import { RewardManager } from './RewardManager';
-import { parseTimestamp } from '../lib/utils';
+import { parseTimestamp } from '../../lib/utils';
 
 export function ParentDashboard({ 
   profile, 
