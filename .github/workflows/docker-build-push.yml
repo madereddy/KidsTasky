@@ -14,14 +14,14 @@ jobs:
   semgrep:
     name: Code Scan (Semgrep)
     runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Run Semgrep SAST
-        uses: semgrep/action@v1
-        with:
-          config: auto
+
+      - name: Run Semgrep
+        run: semgrep scan --config p/default --error
 
   build-and-push:
     name: Build & Push Container
