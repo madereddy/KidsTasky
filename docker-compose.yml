@@ -7,6 +7,12 @@ services:
       dockerfile: Dockerfile
     image: kidtasker:latest
     container_name: kidtasker_app
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+      - /app/node_modules/.cache
     ports:
       - "3000:3000"
     environment:

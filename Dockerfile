@@ -44,7 +44,9 @@ COPY --from=builder /app/server.ts ./
 COPY --from=builder /app/src ./src
 
 # Install tsx globally in the final stage to run server.ts
-RUN npm install -g tsx
+RUN npm install -g tsx && chown -R node:node /app
+
+USER node
 
 # Expose the designated application port
 EXPOSE 3000
