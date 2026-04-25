@@ -7,12 +7,18 @@ import { rateLimit } from "express-rate-limit";
 import { db } from "./src/server/db.js";
 import { apiRouter } from "./src/server/routes.js";
 import { startBackgroundWorker } from "./src/server/worker.js";
+import { createServer } from "http";
+import { Server } from "socket.io";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export { db };
 export const app = express();
+
+export const httpServer = createServer(app);
+const io = new Server(httpServer, { cors: { origin: '*' } });
+app.set('io', io);
 
 // Security
 app.use(helmet());
@@ -53,7 +59,7 @@ export async function startServer() {
   const PORT = parseInt(process.env.PORT || '3000', 10);
   
   if (!process.env.VITEST && process.env.NODE_ENV !== "test") {
-    app.listen(PORT, "0.0.0.0", () => {
+    httpServer.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
   }

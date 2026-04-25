@@ -2,6 +2,16 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import { app, db } from './server';
+import { Server } from 'socket.io';
+
+describe('WebSockets', () => {
+  it('should start websocket server when main server starts', () => {
+    // Verify real io instantiation
+    const io = app.get('io');
+    expect(io).toBeDefined();
+    expect(io).toBeInstanceOf(Server);
+  });
+});
 
 describe('Backend API Tests', () => {
   beforeAll(() => {

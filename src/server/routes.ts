@@ -8,6 +8,10 @@ import { notificationsRouter } from './modules/notifications/routes.js';
 import { rewardsRouter } from './modules/rewards/routes.js';
 import { eventsRouter } from './modules/events/routes.js';
 import { weatherRouter } from './modules/weather/routes.js';
+import { listsRouter } from './modules/lists/routes.js';
+import { mealsRouter } from './modules/meals/routes.js';
+import { magicRouter } from './modules/magic/routes.js';
+import { photosRouter } from './modules/photos/routes.js';
 
 const router = Router();
 
@@ -24,6 +28,10 @@ router.use(notificationsRouter);
 router.use(rewardsRouter);
 router.use(eventsRouter);
 router.use(weatherRouter);
+router.use(listsRouter);
+router.use(mealsRouter);
+router.use(magicRouter);
+router.use(photosRouter);
 
 export const apiRouter = router;
 

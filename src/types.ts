@@ -12,6 +12,7 @@ export interface UserProfile {
   level?: number;
   badges?: EarnedBadge[];
   themeId?: string;
+  currentStreak?: number;
 }
 
 export interface EarnedBadge {
@@ -117,6 +118,9 @@ export interface FamilySettings {
   locationLat: number;
   locationLon: number;
   timezone: string;
+  pin?: string | null;
+  sleepStart?: string;
+  sleepEnd?: string;
 }
 
 export interface SyncConnection {
@@ -125,4 +129,39 @@ export interface SyncConnection {
   provider: string;
   accessToken: string;
   refreshToken: string;
+}
+
+export interface AppList {
+  id: string;
+  parentId: string;
+  title: string;
+}
+
+export interface AppListItem {
+  id: string;
+  listId: string;
+  text: string;
+  completed: number; 
+}
+
+export interface Recipe {
+  id: string;
+  parentId: string;
+  name: string;
+  ingredients: string; // JSON String of array
+}
+
+export interface MealPlan {
+  id: string;
+  parentId: string;
+  date: string;
+  mealType: string;
+  recipeId: string;
+}
+
+export interface FamilyPhoto {
+  id: string;
+  parentId: string;
+  url: string;
+  uploadedAt: string;
 }
