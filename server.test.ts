@@ -35,17 +35,6 @@ describe('Backend API Tests', () => {
     expect(res.body.status).toBe('ok');
   });
 
-  it('POST /api/auth/login should return a mock user if not registered', async () => {
-    const res = await request(app)
-      .post('/api/auth/login')
-      .send({ name: 'TestCommander' });
-    
-    expect(res.status).toBe(200);
-    expect(res.body.user).toBeDefined();
-    expect(res.body.user.name).toBe('TestCommander');
-    expect(res.body.user.role).toBeNull(); // New users have no role until onboarding
-  });
-
   it('POST /api/users should create a user and GET should retrieve them', async () => {
     const createRes = await request(app)
       .post('/api/users')

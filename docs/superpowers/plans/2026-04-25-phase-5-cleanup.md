@@ -1,6 +1,6 @@
 # Phase 5 Cleanup Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Implement the missing backend integrations—magic webhook DB insertion, photo uploads, socket.io for real-time reactivity, and a stubbed sync worker.
 
@@ -16,7 +16,7 @@
 - Modify: `src/server/modules/magic/api.test.ts`
 - Modify: `src/server/modules/magic/routes.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 // Open src/server/modules/magic/api.test.ts
@@ -46,12 +46,12 @@ it('should parse text and insert into database', async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/server/modules/magic/api.test.ts`
 Expected: FAIL. Expected value to be defined (because the route doesn't insert into DB yet).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```typescript
 // Open src/server/modules/magic/routes.ts
@@ -76,12 +76,12 @@ Expected: FAIL. Expected value to be defined (because the route doesn't insert i
     res.json(dbEvent);
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/server/modules/magic/api.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/server/modules/magic/api.test.ts src/server/modules/magic/routes.ts
@@ -95,7 +95,7 @@ git commit -m "feat: insert magic webhook parsed events into database"
 - Create: `src/server/modules/photos/routes.ts`
 - Modify: `server.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 // Create src/server/modules/photos/api.test.ts
@@ -126,12 +126,12 @@ describe('Photos API', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/server/modules/photos/api.test.ts`
 Expected: FAIL - 404 Not Found since route isn't wired.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```typescript
 // Create src/server/modules/photos/routes.ts
@@ -160,12 +160,12 @@ photosRouter.post('/photos/upload', (req, res) => {
 // app.use('/api', photosRouter);
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/server/modules/photos/api.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/server/modules/photos/api.test.ts src/server/modules/photos/routes.ts server.ts
@@ -178,7 +178,7 @@ git commit -m "feat: photo upload placeholder schema"
 - Modify: `server.test.ts`
 - Modify: `server.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 // Edit server.test.ts
@@ -195,12 +195,12 @@ describe('WebSockets', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run server.test.ts`
 Expected: FAIL. Cannot read undefined.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```typescript
 // Edit server.ts
@@ -214,12 +214,12 @@ const io = new Server(httpServer, { cors: { origin: '*' } });
 app.set('io', io);
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run server.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server.test.ts server.ts

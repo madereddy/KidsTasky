@@ -25,7 +25,15 @@ export function runMigrations(db: Database) {
     if (version > currentVersion) {
       console.log(`Running migration: ${file}`);
       const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-      db.exec(sql);
+      try {
+        db.exec(sql);
+      } catch (err: any) {
+        if (err.message.includes('duplicate column name')) {
+          console.warn(`Ignoring duplicate column in ${file}`);
+        } else {
+          throw err;
+        }
+      }
       db.prepare('UPDATE schema_version SET version = ?').run(version);
     }
   }

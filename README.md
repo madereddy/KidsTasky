@@ -16,7 +16,8 @@ This is a totally self-hosted, offline-friendly setup. No cloud trackers, no thi
 ## 🛠 Loadout (Tech Stack)
 
 *   **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, Motion (animations that actually feel good).
-*   **Backend**: Node.js, Express, `better-sqlite3`.
+*   **Backend**: Node.js, Express, `better-sqlite3`, Socket.io.
+*   **Smart Features**: Magic import webhook (parsing AI text to DB events), Photo Upload schema, and real-time updates via WebSockets.
 *   **Testing**: Vitest, `@testing-library`, `supertest`.
 *   **Deployment**: Docker/Docker Compose (Multi-stage build).
 

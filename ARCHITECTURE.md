@@ -7,7 +7,8 @@ KidTasker combines extreme deployment simplicity with high developer velocity.
 
 *   **Frontend**: React 19, TypeScript, Vite. (Includes `lucide-react` for iconography and `motion` for beautiful standard framer animations).
 *   **Styling**: Tailwind CSS v4 using utility classes directly. Note: There is almost zero custom CSS needed, we inject Tailwind natively.
-*   **Backend**: Node.js & Express.
+*   **Backend**: Node.js, Express, Socket.io (for real-time synchronization).
+*   **Smart Parsing**: Uses Gemini API integrated via Webhooks to map natural language directly to `eventsService`.
 *   **Database**: SQLite (`better-sqlite3`). Bypasses heavy ORMs, opting for ultra-fast raw parameterized SQL queries handled securely inside Express.
 
 ---

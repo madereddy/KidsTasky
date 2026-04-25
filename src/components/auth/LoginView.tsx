@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export function LoginView({ onLogin }: { onLogin: (username: string) => void }) {
-  const [username, setUsername] = useState('');
+export function LoginView({ onLogin }: { onLogin: (email: string, passwordString: string, isRegister: boolean, name?: string) => void }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [isRegister, setIsRegister] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 backdrop-blur-sm">
@@ -18,20 +21,43 @@ export function LoginView({ onLogin }: { onLogin: (username: string) => void }) 
         <h1 className="title-immersive text-5xl mb-4">KidTasker</h1>
         <p className="text-slate-400 mb-8 italic uppercase tracking-widest text-xs font-bold">Stellar Mission Command</p>
         
+        {isRegister && (
+          <input 
+            type="text" 
+            value={name}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+            placeholder="Commander Name" 
+            className="input-immersive mb-4 text-center"
+          />
+        )}
         <input 
-          type="text" 
-          value={username}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
-          placeholder="Enter Commander Name..." 
+          type="email" 
+          value={email}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+          placeholder="Contact Frequency (Email)" 
+          className="input-immersive mb-4 text-center"
+        />
+        <input 
+          type="password" 
+          value={password}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+          placeholder="Access Code (Password)" 
           className="input-immersive mb-4 text-center"
         />
 
         <button 
-          onClick={() => { if (username.trim()) onLogin(username.trim()) }}
-          disabled={!username.trim()}
-          className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-blue-500 transition-all shadow-lg glow-blue active:scale-[0.98] uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => { if (email.trim() && password.trim()) onLogin(email.trim(), password.trim(), isRegister, name.trim()) }}
+          disabled={!email.trim() || !password.trim() || (isRegister && !name.trim())}
+          className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-blue-500 transition-all shadow-lg glow-blue active:scale-[0.98] uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed mb-4"
         >
-          Enter Star System
+          {isRegister ? 'Register' : 'Enter Star System'}
+        </button>
+        
+        <button 
+          onClick={() => setIsRegister(!isRegister)}
+          className="text-slate-400 text-sm hover:text-white"
+        >
+          {isRegister ? 'Already have access?' : 'Need to register?'}
         </button>
       </motion.div>
     </div>

@@ -1,5 +1,12 @@
 import { format, parse, isAfter, startOfDay, differenceInDays } from "date-fns";
 import { db } from "./db.js";
+import cron from "node-cron";
+import { google } from "googleapis";
+import { app } from "../../server.js";
+
+function getIo() {
+  return app ? app.get("io") : null;
+}
 
 export function startBackgroundWorker() {
   setInterval(() => {
@@ -84,4 +91,73 @@ export function startBackgroundWorker() {
       console.error("[Worker Error]", error);
     }
   }, 5 * 60 * 1000); 
+
+  // New Cron Job for Calendar Sync
+  cron.schedule("*/5 * * * *", async () => {
+    console.log("[Worker] Start Google Calendar Sync...");
+    try {
+      const connections = db.prepare("SELECT * FROM sync_connections WHERE provider = 'google' AND refreshToken IS NOT NULL").all() as any[];
+      
+      for (const conn of connections) {
+        const oauth2Client = new google.auth.OAuth2(
+          process.env.GOOGLE_CLIENT_ID || 'mock',
+          process.env.GOOGLE_CLIENT_SECRET || 'mock'
+        );
+        oauth2Client.setCredentials({ refresh_token: conn.refreshToken });
+        const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+        
+        try {
+          const res = await calendar.events.list({
+             calendarId: 'primary',
+             timeMin: (new Date()).toISOString(),
+             maxResults: 50,
+             singleEvents: true,
+             orderBy: 'startTime',
+          });
+          
+          let changesMade = false;
+          const events = res.data.items || [];
+          for (const ev of events) {
+             if (!ev.id || !ev.summary || !ev.start?.dateTime || !ev.end?.dateTime) continue;
+             
+             // Simple UPSERT via INSERT OR IGNORE and UPDATE
+             const eId = "ext_" + ev.id;
+             const startTs = new Date(ev.start.dateTime).getTime();
+             const endTs = new Date(ev.end.dateTime).getTime();
+             
+             const exists = db.prepare("SELECT id FROM events WHERE externalId = ?").get(eId);
+             if (!exists) {
+                db.prepare(`
+                  INSERT INTO events (id, parentId, title, description, startTime, endTime, assignedToId, color, externalId, source)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `).run(eId, conn.parentId, ev.summary, ev.description || '', startTs, endTs, null, 'blue', eId, 'google');
+                changesMade = true;
+             } else {
+                db.prepare(`
+                  UPDATE events SET title = ?, description = ?, startTime = ?, endTime = ?
+                  WHERE externalId = ?
+                `).run(ev.summary, ev.description || '', startTs, endTs, eId);
+                // In a perfect world we check diff, we'll just assume true for now
+                changesMade = true; 
+             }
+          }
+          
+          if (changesMade) {
+             const io = getIo();
+             if (io) {
+               io.to(conn.parentId).emit('stale-data', { type: 'events' });
+             }
+          }
+        } catch (err: any) {
+          console.error("[Worker] Sync failed for connection", conn.id, err.message);
+          if (err.message.includes('invalid_grant')) {
+             console.log("[Worker] Refresh token expired, deleting connection", conn.id);
+             db.prepare("DELETE FROM sync_connections WHERE id = ?").run(conn.id);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[Worker] Global Sync Error:", err);
+    }
+  });
 }

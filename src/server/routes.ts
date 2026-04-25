@@ -12,6 +12,7 @@ import { listsRouter } from './modules/lists/routes.js';
 import { mealsRouter } from './modules/meals/routes.js';
 import { magicRouter } from './modules/magic/routes.js';
 import { photosRouter } from './modules/photos/routes.js';
+import { syncRouter } from './modules/sync/routes.js';
 
 const router = Router();
 
@@ -32,6 +33,7 @@ router.use(listsRouter);
 router.use(mealsRouter);
 router.use(magicRouter);
 router.use(photosRouter);
+router.use(syncRouter);
 
 export const apiRouter = router;
 

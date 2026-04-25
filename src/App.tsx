@@ -30,17 +30,24 @@ export default function App() {
 
   useEffect(() => {
     const initAuth = async () => {
-      const storedUid = localStorage.getItem('kidtasker_uid');
-      if (storedUid) {
-        const u = await authService.getMe(storedUid);
-        if (u) {
-          setUser({ uid: u.uid, name: u.name, email: u.email });
-          setProfile(u);
-          const parentId = u.role === 'parent' ? u.uid : u.parentId;
-          if (parentId) {
-            const cats = await categoryService.getCategories(parentId);
-            setCategories(cats || []);
+      const storedToken = localStorage.getItem('kidtasker_token');
+      if (storedToken) {
+        try {
+          const u = await authService.getMe(storedToken);
+          if (u) {
+            setUser({ uid: u.uid, name: u.name, email: u.email });
+            setProfile(u);
+            const parentId = u.role === 'parent' ? u.uid : u.parentId;
+            if (parentId) {
+              const cats = await categoryService.getCategories(parentId);
+              setCategories(cats || []);
+            }
+          } else {
+            localStorage.removeItem('kidtasker_token');
           }
+        } catch (e) {
+          console.error("Auth initialization failed (network or server error)", e);
+          // Do not log the user out (leave token intact) and possibly show a retry logic later.
         }
       }
       setLoading(false);
@@ -49,7 +56,7 @@ export default function App() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('kidtasker_uid');
+    localStorage.removeItem('kidtasker_token');
     setUser(null);
     setProfile(null);
   };
@@ -79,12 +86,15 @@ export default function App() {
   if (!user) {
     return (
       <div className="min-h-screen animate-gradient text-white selection:bg-blue-500/30 overflow-x-hidden">
-        <LoginView onLogin={async (username: string) => {
-          const u = await authService.signIn(username);
-          if (u) {
+        <LoginView onLogin={async (email: string, passwordString: string, isRegister: boolean, name?: string) => {
+          const res = isRegister ? await authService.register(email, passwordString, name || '') : await authService.signIn(email, passwordString);
+          if (res) {
+             const { user: u, token } = res;
              setUser({ uid: u.uid, name: u.name, email: u.email });
-             localStorage.setItem('kidtasker_uid', u.uid);
+             localStorage.setItem('kidtasker_token', token);
              if (u.role) setProfile(u);
+          } else {
+             alert('Invalid credentials or registration error');
           }
         }} />
       </div>

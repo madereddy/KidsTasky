@@ -1,10 +1,15 @@
+// @vitest-environment jsdom
 import { rewardService } from './rewards';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock fetch
 global.fetch = vi.fn();
 
 describe('Reward System', () => {
+  beforeEach(() => {
+    vi.stubGlobal('localStorage', { getItem: () => 'mock_token', setItem: () => {}, removeItem: () => {} });
+  });
+
   it('should fetch rewards for a parent', async () => {
     (fetch as any).mockResolvedValueOnce({
       ok: true,

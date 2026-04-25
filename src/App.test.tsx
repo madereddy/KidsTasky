@@ -15,9 +15,9 @@ describe('App Component', () => {
   it('should render LoginView when not authenticated', async () => {
     render(<App />);
 
-    // Wait until the "Enter Commander Name..." placeholder is rendered
+    // Wait until the new placeholder is rendered
     await waitFor(() => {
-      expect(screen.getByPlaceholderText(/Enter Commander Name/i)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/Contact Frequency \(Email\)/i)).toBeInTheDocument();
     });
     
     // Ensure the title is rendered

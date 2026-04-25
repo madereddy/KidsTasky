@@ -7,10 +7,10 @@ import { ConnectedAccountsView } from './ConnectedAccountsView';
 
 describe('ConnectedAccountsView', () => {
   it('renders connection options', () => {
-    render(<ConnectedAccountsView connections={[{ id: '1', provider: 'google', email: 'test@gmail.com' }]} onConnect={() => {}} onDisconnect={() => {}} />);
+    // Note: The email is removed in the refactored ui
+    render(<ConnectedAccountsView connections={[{ id: '1', provider: 'google' }]} onConnect={() => {}} onDisconnect={() => {}} />);
     
-    expect(screen.getByText('Connected Accounts')).toBeInTheDocument();
-    expect(screen.getByText('test@gmail.com')).toBeInTheDocument();
-    expect(screen.getByText('Disconnect')).toBeInTheDocument();
+    expect(screen.getByText('Sync Connections')).toBeInTheDocument();
+    expect(screen.getByText(/Calendar Sync Active/i)).toBeInTheDocument();
   });
 });

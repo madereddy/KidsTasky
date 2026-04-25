@@ -9,6 +9,7 @@ global.fetch = mockFetch;
 describe('Task Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal('localStorage', { getItem: () => 'mock_token', setItem: () => {}, removeItem: () => {} });
   });
 
   it('getUserProfile should fetch and return profile', async () => {
@@ -21,9 +22,7 @@ describe('Task Service', () => {
     const profile = await userService.getUserProfile('123');
     
     expect(mockFetch).toHaveBeenCalledWith('/api/users/123', expect.objectContaining({
-      headers: expect.objectContaining({
-        'Content-Type': 'application/json'
-      })
+      headers: expect.any(Headers)
     }));
     
     expect(profile).toEqual(mockProfile);

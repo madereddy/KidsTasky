@@ -1,3 +1,4 @@
+import { fetchAPI } from '../../services/http';
 import { userService } from '../../services/users';
 import { tasksClientService } from '../../services/tasks';
 import { inviteService } from '../../services/invites';
@@ -11,6 +12,7 @@ import { Task, UserProfile, Category, Invite, Notification, Reward, TaskFrequenc
 import { AddTaskModal } from './AddTaskModal';
 import { CategoryManager } from './CategoryManager';
 import { RewardManager } from './RewardManager';
+import { ConnectedAccountsView } from './ConnectedAccountsView';
 import { parseTimestamp } from '../../lib/utils';
 
 export function ParentDashboard({ 
@@ -34,23 +36,26 @@ export function ParentDashboard({
   const [loading, setLoading] = useState(true);
   const [generatingInvite, setGeneratingInvite] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [connections, setConnections] = useState<any[]>([]);
   const [sortBy, setSortBy] = useState<'time' | 'created'>('created');
   const [rewards, setRewards] = useState<Reward[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
-      const [t, k, i, n, r] = await Promise.all([
+      const [t, k, i, n, r, c] = await Promise.all([
         tasksClientService.getTasksForParent(profile.uid),
         userService.getKidsForParent(profile.uid),
         inviteService.getActiveInvite(profile.uid),
         notificationService.getUnreadNotifications(profile.uid),
-        rewardService.getRewards(profile.uid)
+        rewardService.getRewards(profile.uid),
+        fetchAPI('/settings/' + profile.uid + '/connections').catch(() => [])
       ]);
       setTasks(t || []);
       setKids(k || []);
       setInvite(i);
       setNotifications(n || []);
       setRewards(r || []);
+      setConnections(c || []);
       setLoading(false);
     };
     fetchData();
@@ -100,6 +105,15 @@ export function ParentDashboard({
   const archiveTask = async (id: string) => {
     await tasksClientService.archiveTask(id);
     setTasks(tasks.filter((t: Task) => t.id !== id));
+  };
+
+  const handleDisconnect = async (connId: string) => {
+    try {
+      await fetchAPI('/settings/connections/' + connId, { method: 'DELETE' });
+      setConnections(connections.filter(c => c.id !== connId));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   if (loading) return null;
@@ -253,6 +267,17 @@ export function ParentDashboard({
           <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-purple-500/5 blur-xl rounded-full" />
         </div>
       </div>
+
+      <ConnectedAccountsView 
+        connections={connections} 
+        onConnect={(provider) => {
+          if (provider === 'google') {
+            const tk = localStorage.getItem('kidtasker_token');
+            window.location.href = `/api/sync/connect/google?token=${tk}`;
+          }
+        }} 
+        onDisconnect={handleDisconnect} 
+      />
 
       <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded-2xl">
         <div className="flex gap-2 items-center">
