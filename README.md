@@ -7,19 +7,24 @@ This is a totally self-hosted, offline-friendly setup. No cloud trackers, no thi
 ## ✨ The Loot Drops (Features)
 
 *   **Immersive Quest UI**: Smooth animations, XP pop-ups, and a progress bar that gives that dopamine hit when you finish a mission.
-*   **Player 1 (Parent) Controls**: Assign missions, set the XP difficulty, manage custom categories, and keep track of mission logs. 
+*   **Player 1 (Parent) Controls**: Assign missions, set the XP difficulty, manage custom categories, keep track of mission logs, and more. 
 *   **Player 2 (Cadet) Experience**: Track XP, unlock badges, earn special customized themes, and spend hard-earned XP in the in-game Reward Store.
+*   **Real-time Co-op Multiplayer**: State syncs instantaneously across devices using WebSockets! No more fighting over "Did you check the box yet?".
+*   **Magic Add via Email Webhooks**: Forward emails to your unique KidTasker magic address, and Gemini AI parses them and inserts them directly into the Family Calendar or Meal Planners securely, validated with Mailgun signing!
+*   **Ultimate Family Hub**: Native app modules for **Weather**, **Google Calendar 2-way Sync**, **Family Photos Screensaver**, and **Meal Tracking**.
 *   **Zero-Telemetry Privacy**: Your data stays on your machine. I built this using native SQLite because databases are meant to be fast and local, not data-mined for a tech giant's profit.
 *   **Built-in Co-op Monitoring**: A robust Node.js worker loop that handles alerts, mission timeouts, and notifications locally.
-*   **Dev-Friendly Foundation**: Fully container-ready decoupled architecture with cleanly separated React components and backend domain modules. Plus, a pre-configured testing suite (Vitest + Supertest) because debugging our own code is hard enough without fighting a bad test environment.
+*   **Dev-Friendly Foundation**: Fully container-ready decoupled architecture with cleanly separated React components and backend domain modules. Plus, a pre-configured testing suite (Vitest + Supertest).
 
 ## 🛠 Loadout (Tech Stack)
 
 *   **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, Motion (animations that actually feel good).
-*   **Backend**: Node.js, Express, `better-sqlite3`, Socket.io.
-*   **Smart Features**: Magic import webhook (parsing AI text to DB events), Photo Upload schema, and real-time updates via WebSockets.
+*   **Backend**: Node.js, Express, `better-sqlite3`, `socket.io` (Realtime Updates).
+*   **Smart Features**: Magic import webhook (parsing AI text to DB events via Gemini AI API), Photo Upload schema, and Google Calendar integrations.
 *   **Testing**: Vitest, `@testing-library`, `supertest`.
 *   **Deployment**: Docker/Docker Compose (Multi-stage build).
+
+> **For environment variable configuration and third-party API setup instructions (like Google OAuth), please see the [Setup Guide](docs/SETUP_GUIDE.md).**
 
 ---
 
