@@ -1,7 +1,7 @@
 import { userService } from '../../services/users';
 import { tasksClientService } from '../../services/tasks';
 import { rewardService } from '../../services/rewards';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Settings, Flame, Trophy, Zap, TrendingUp, Award, Clock, CalendarDays, History, Bell, Star, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, startOfToday, isAfter, parse, addHours, subDays, differenceInDays, startOfDay } from 'date-fns';
@@ -11,6 +11,7 @@ import { THEMES, XP_REWARDS, BADGE_DEFS } from '../../constants';
 import { TaskCard } from './TaskCard';
 import { MissionHistoryModal } from './MissionHistoryModal';
 import { ThemeSelectorModal } from './ThemeSelectorModal';
+import { useSocketStaleData } from '../../hooks/useSocket';
 
 export function KidDashboard({ 
   profile, 
@@ -49,6 +50,24 @@ export function KidDashboard({
     onProfileUpdate();
   };
 
+  const fetchData = useCallback(async () => {
+    const [t, c, r, cr] = await Promise.all([
+      tasksClientService.getTasksForKid(profile.uid),
+      tasksClientService.getCompletionsForKid(profile.uid, today),
+      rewardService.getRewards(profile.parentId!),
+      rewardService.getClaimedRewards(profile.uid)
+    ]);
+    setTasks(t);
+    setCompletions(c);
+    setRewards(r);
+    setClaimedRewards(cr);
+    setLoading(false);
+  }, [profile.uid, profile.parentId, today]);
+
+  useSocketStaleData((data) => {
+    fetchData();
+  });
+
   useEffect(() => {
     const checkMilestones = async () => {
       if (loading) return;
@@ -79,21 +98,8 @@ export function KidDashboard({
   }, [completions.length, profile.xp, streak, loading]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      const [t, c, r, cr] = await Promise.all([
-        tasksClientService.getTasksForKid(profile.uid),
-        tasksClientService.getCompletionsForKid(profile.uid, today),
-        rewardService.getRewards(profile.parentId!),
-        rewardService.getClaimedRewards(profile.uid)
-      ]);
-      setTasks(t);
-      setCompletions(c);
-      setRewards(r);
-      setClaimedRewards(cr);
-      setLoading(false);
-    };
     fetchData();
-  }, [profile.uid, today]);
+  }, [fetchData]);
 
   useEffect(() => {
     const calculateStreak = async () => {

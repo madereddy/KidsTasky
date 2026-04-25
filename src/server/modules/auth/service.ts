@@ -9,12 +9,10 @@ export const authService = {
   },
   login: async (email: string, passwordString: string) => {
     const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email) as any;
-    if (!user || (!user.passwordHash && passwordString !== 'password')) return null;
+    if (!user || !user.passwordHash) return null;
     
-    if (user.passwordHash) {
-       const match = await bcrypt.compare(passwordString, user.passwordHash);
-       if (!match) return null;
-    }
+    const match = await bcrypt.compare(passwordString, user.passwordHash);
+    if (!match) return null;
     
     const token = jwt.sign({ uid: user.uid, role: user.role, parentId: user.parentId }, getJwtSecret(), { expiresIn: '30d' });
     return { user, token };

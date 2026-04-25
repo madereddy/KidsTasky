@@ -2,13 +2,30 @@
 import { Router } from 'express';
 import { magicService } from './service.js';
 import { eventsService } from '../events/service.js';
-import { db } from '../../db.js';
+import { socketWrapper } from '../../socket.js';
+import crypto from 'crypto';
 
 export const magicRouter = Router();
 
 magicRouter.post('/magic/import', async (req, res) => {
   try {
-    const { text, recipient } = req.body;
+    const { text, recipient, timestamp, token, signature } = req.body;
+    
+    // Webhook Signature verification (Mailgun example)
+    const signingKey = process.env.MAILGUN_SIGNING_KEY;
+    if (signingKey && timestamp && token && signature) {
+      const encodedToken = crypto
+          .createHmac('sha256', signingKey)
+          .update(timestamp.concat(token))
+          .digest('hex');
+      if (encodedToken !== signature) {
+        return res.status(401).json({ error: 'Invalid webhook signature' });
+      }
+    } else if (process.env.NODE_ENV === 'production' && signingKey) {
+      // In production, if signatures are enforced and missing, reject
+      return res.status(401).json({ error: 'Missing webhook signature' });
+    }
+
     if (!text) {
       return res.status(400).json({ error: 'Missing text content' });
     }
@@ -38,10 +55,14 @@ magicRouter.post('/magic/import', async (req, res) => {
         color: '#3b82f6'
     });
 
-    const dbEvent = db.prepare('SELECT * FROM events WHERE id = ?').get(dbEventId);
+    const dbEvent = eventsService.getEventById(dbEventId);
+
+    // Broadcast stale-data event
+    socketWrapper.emitStaleData(parentId, 'events');
 
     res.json(dbEvent);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
+

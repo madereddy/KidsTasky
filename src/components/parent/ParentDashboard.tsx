@@ -4,7 +4,7 @@ import { tasksClientService } from '../../services/tasks';
 import { inviteService } from '../../services/invites';
 import { notificationService } from '../../services/notifications';
 import { rewardService } from '../../services/rewards';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Trash2, Calendar, Clock, CalendarDays, Tag, Plus, ShieldCheck, Bell, Send, CheckCircle2, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
@@ -14,6 +14,7 @@ import { CategoryManager } from './CategoryManager';
 import { RewardManager } from './RewardManager';
 import { ConnectedAccountsView } from './ConnectedAccountsView';
 import { parseTimestamp } from '../../lib/utils';
+import { useSocketStaleData } from '../../hooks/useSocket';
 
 export function ParentDashboard({ 
   profile, 
@@ -40,24 +41,30 @@ export function ParentDashboard({
   const [sortBy, setSortBy] = useState<'time' | 'created'>('created');
   const [rewards, setRewards] = useState<Reward[]>([]);
 
+  const fetchData = useCallback(async () => {
+    const [t, k, i, n, r, c] = await Promise.all([
+      tasksClientService.getTasksForParent(profile.uid),
+      userService.getKidsForParent(profile.uid),
+      inviteService.getActiveInvite(profile.uid),
+      notificationService.getUnreadNotifications(profile.uid),
+      rewardService.getRewards(profile.uid),
+      fetchAPI('/settings/' + profile.uid + '/connections').catch(() => [])
+    ]);
+    setTasks(t || []);
+    setKids(k || []);
+    setInvite(i || null);
+    setNotifications(n || []);
+    setRewards(r || []);
+    setConnections(c || []);
+    setLoading(false);
+  }, [profile.uid]);
+
+  useSocketStaleData((data) => {
+    // Only fetch if data was mutated somewhere else
+    fetchData();
+  });
+
   useEffect(() => {
-    const fetchData = async () => {
-      const [t, k, i, n, r, c] = await Promise.all([
-        tasksClientService.getTasksForParent(profile.uid),
-        userService.getKidsForParent(profile.uid),
-        inviteService.getActiveInvite(profile.uid),
-        notificationService.getUnreadNotifications(profile.uid),
-        rewardService.getRewards(profile.uid),
-        fetchAPI('/settings/' + profile.uid + '/connections').catch(() => [])
-      ]);
-      setTasks(t || []);
-      setKids(k || []);
-      setInvite(i);
-      setNotifications(n || []);
-      setRewards(r || []);
-      setConnections(c || []);
-      setLoading(false);
-    };
     fetchData();
 
     // Poll for notifications every minute
@@ -67,7 +74,7 @@ export function ParentDashboard({
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [profile.uid]);
+  }, [fetchData, profile.uid]);
 
   const markRead = async (id: string) => {
     await notificationService.markNotificationRead(id);

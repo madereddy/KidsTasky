@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { socketWrapper } from './socket.js';
 import { authRouter } from './modules/auth/routes.js';
 import { usersRouter } from './modules/users/routes.js';
 import { tasksRouter } from './modules/tasks/routes.js';
@@ -18,6 +19,29 @@ const router = Router();
 
 router.get("/health", (req, res) => {
   res.json({ status: "ok" });
+});
+
+// Generic stale-data broadcaster for all authenticated mutation routes
+router.use((req, res, next) => {
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+    const originalJson = res.json;
+    res.json = function(body) {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        const user = (req as any).user;
+        if (user) {
+          const parentId = user.role === 'parent' ? user.uid : user.parentId;
+          if (parentId) {
+            // Safely compute an entity hint from the path (e.g., '/tasks/' -> 'tasks')
+            const pathParts = req.path.split('/').filter(Boolean);
+            const entityHint = pathParts[0] || 'general';
+            socketWrapper.emitStaleData(parentId, entityHint);
+          }
+        }
+      }
+      return originalJson.call(this, body);
+    };
+  }
+  next();
 });
 
 router.use(authRouter);

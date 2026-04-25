@@ -15,5 +15,9 @@ export const eventsService = {
   
   getEventsByParent: (parentId: string): CalendarEvent[] => {
     return db.prepare('SELECT * FROM events WHERE parentId = ? ORDER BY startTime ASC').all(parentId) as CalendarEvent[];
+  },
+
+  getEventById: (id: string): CalendarEvent | undefined => {
+    return db.prepare('SELECT * FROM events WHERE id = ?').get(id) as CalendarEvent | undefined;
   }
 };

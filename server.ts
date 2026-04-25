@@ -9,6 +9,7 @@ import { apiRouter } from "./src/server/routes.js";
 import { startBackgroundWorker } from "./src/server/worker.js";
 import { createServer } from "http";
 import { Server } from "socket.io";
+import { socketWrapper } from "./src/server/socket.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,6 +19,7 @@ export const app = express();
 
 export const httpServer = createServer(app);
 const io = new Server(httpServer, { cors: { origin: '*' } });
+socketWrapper.init(io);
 app.set('io', io);
 
 // Security

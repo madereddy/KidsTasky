@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, Category } from './types';
 import { cn } from './lib/utils';
 import { THEMES } from './constants';
+import { initSocket } from './hooks/useSocket';
 
 import { LoginView } from './components/auth/LoginView';
 import { OnboardingView } from './components/onboarding/OnboardingView';
@@ -39,6 +40,7 @@ export default function App() {
             setProfile(u);
             const parentId = u.role === 'parent' ? u.uid : u.parentId;
             if (parentId) {
+              initSocket(parentId);
               const cats = await categoryService.getCategories(parentId);
               setCategories(cats || []);
             }
@@ -93,6 +95,8 @@ export default function App() {
              setUser({ uid: u.uid, name: u.name, email: u.email });
              localStorage.setItem('kidtasker_token', token);
              if (u.role) setProfile(u);
+             const parentId = u.role === 'parent' ? u.uid : u.parentId;
+             if (parentId) initSocket(parentId);
           } else {
              alert('Invalid credentials or registration error');
           }
@@ -110,6 +114,7 @@ export default function App() {
             setProfile(p);
             const parentId = p.role === 'parent' ? p.uid : p.parentId;
             if (parentId) {
+              initSocket(parentId);
               const cats = await categoryService.getCategories(parentId);
               setCategories(cats || []);
             }

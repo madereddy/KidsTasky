@@ -1,16 +1,16 @@
 import { Router } from 'express';
 import { google } from 'googleapis';
-import { db } from '../../db.js';
 import { authenticateUser } from '../../middleware/auth.js';
 import jwt from 'jsonwebtoken';
 import { getJwtSecret } from '../../config.js';
+import { syncService } from './service.js';
 
 export const syncRouter = Router();
 
 syncRouter.get('/settings/:parentId/connections', (req, res) => {
   const parentId = req.params.parentId;
   try {
-    const list = db.prepare("SELECT id, provider, createdAt FROM sync_connections WHERE parentId = ?").all(parentId);
+    const list = syncService.getConnections(parentId);
     res.json(list);
   } catch (err) {
     res.status(500).json({ error: "Failed to load connections" });
@@ -20,8 +20,7 @@ syncRouter.get('/settings/:parentId/connections', (req, res) => {
 syncRouter.delete('/settings/connections/:id', (req, res) => {
   const id = req.params.id;
   try {
-    db.prepare("DELETE FROM sync_connections WHERE id = ?").run(id);
-    db.prepare("DELETE FROM events WHERE source = 'google' AND parentId = (SELECT parentId FROM sync_connections WHERE id = ?)").run(id);
+    syncService.deleteConnection(id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: "Failed to load connections" });
@@ -68,12 +67,7 @@ syncRouter.get('/sync/callback/google', async (req, res) => {
     }
     
     // Store in DB
-    const connId = 'sync_' + Date.now();
-    db.prepare(`
-      INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken) 
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET accessToken=excluded.accessToken, refreshToken=excluded.refreshToken
-    `).run(connId, parentId as string, 'google', tokens.access_token, tokens.refresh_token);
+    syncService.saveGoogleTokens(parentId as string, tokens.access_token || '', tokens.refresh_token);
     
     res.send("Successfully connected! You can close this window.");
   } catch (err) {
