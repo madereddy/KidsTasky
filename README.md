@@ -27,7 +27,7 @@ This is a totally self-hosted, offline-friendly setup. No cloud trackers, no thi
 *   **Backend**: Node.js, Express, `better-sqlite3`, `socket.io` (Realtime Updates).
 *   **Smart Features**: Magic import webhook (parsing AI text to DB events via Gemini AI API), Photo Upload schema, and Google Calendar integrations.
 *   **Testing**: Vitest, `@testing-library`, `supertest`.
-*   **Deployment**: Docker/Docker Compose (Multi-stage build).
+*   **Deployment**: Docker/Docker Compose (Multi-stage build) with an automated GitHub Actions pipeline (Semgrep SAST security scanning + GHCR publishing).
 
 > **For environment variable configuration and third-party API setup instructions (like Google OAuth), please see the [Setup Guide](docs/SETUP_GUIDE.md).**
 
@@ -63,11 +63,18 @@ npm run test
 
 ## 🐳 Docker Deployment (Production)
 
-If you're running this on a home server, Docker Compose is the meta-strategy.
+If you're running this on a home server, Docker Compose is the meta-strategy. You can build it locally or use the pre-built image from GitHub Container Registry (GHCR):
 
-```bash
-docker-compose up -d --build
-```
+1. **Pull the latest automated build:**
+   \`\`\`bash
+   docker pull ghcr.io/your-github-username/kidtasker:latest
+   \`\`\`
+
+2. **Or build it manually from source:**
+   \`\`\`bash
+   docker-compose up -d --build
+   \`\`\`
+
 *Port 3000 will be hosting your instance.*
 
 ---
