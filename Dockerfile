@@ -39,8 +39,9 @@ COPY --from=builder /app/node_modules ./node_modules
 # Copy the built Vite frontend assets
 COPY --from=builder /app/dist ./dist
 
-# Copy the backend server file
+# Copy the backend server file AND the src folder (which contains server-side code and migrations)
 COPY --from=builder /app/server.ts ./
+COPY --from=builder /app/src ./src
 
 # Install tsx globally in the final stage to run server.ts
 RUN npm install -g tsx

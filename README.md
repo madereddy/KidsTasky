@@ -11,7 +11,12 @@ This is a totally self-hosted, offline-friendly setup. No cloud trackers, no thi
 *   **Player 2 (Cadet) Experience**: Track XP, unlock badges, earn special customized themes, and spend hard-earned XP in the in-game Reward Store.
 *   **Real-time Co-op Multiplayer**: State syncs instantaneously across devices using WebSockets! No more fighting over "Did you check the box yet?".
 *   **Magic Add via Email Webhooks**: Forward emails to your unique KidTasker magic address, and Gemini AI parses them and inserts them directly into the Family Calendar or Meal Planners securely, validated with Mailgun signing!
-*   **Ultimate Family Hub**: Native app modules for **Weather**, **Google Calendar 2-way Sync**, **Family Photos Screensaver**, and **Meal Tracking**.
+*   **Ultimate Family Hub**: Native app modules for:
+    *   ⛅ **Weather**: Open-Meteo SDK integration to keep track of the daily forecast.
+    *   📅 **Google Calendar 2-way Sync**: Sync multiple Google accounts per family gracefully, importing events seamlessly into a unified family view.
+    *   🖼️ **Family Photos Screensaver**: A native Sleep Mode that cycles through uploaded family memories like a digital picture frame.
+    *   📝 **Shared Lists**: Real-time collaborative shopping, packing, and to-do lists.
+    *   🍳 **Meal & Recipe Tracking**: Manage meal plans, map them to recipes, and keep the family fed.
 *   **Zero-Telemetry Privacy**: Your data stays on your machine. I built this using native SQLite because databases are meant to be fast and local, not data-mined for a tech giant's profit.
 *   **Built-in Co-op Monitoring**: A robust Node.js worker loop that handles alerts, mission timeouts, and notifications locally.
 *   **Dev-Friendly Foundation**: Fully container-ready decoupled architecture with cleanly separated React components and backend domain modules. Plus, a pre-configured testing suite (Vitest + Supertest).
@@ -69,4 +74,6 @@ docker-compose up -d --build
 
 ## 🔐 The "Anti-Tracking" Promise
 
-Look, I didn't add any Google Analytics, trackers, or suspicious 3rd-party dependencies. KidTasker uses local `localStorage` keys mapped to user aliases for session handling and Mission Access Codes (Invite IDs) for pairing Player 1 and Player 2. That's it. It stays local, it stays yours. Zero tracking, zero telemetry, no external calls. Just you, your kids, and the chores.
+Look, I didn't add any Google Analytics, trackers, or suspicious 3rd-party dependencies. KidTasker uses local `localStorage` keys mapped to user aliases for session handling and Mission Access Codes (Invite IDs) for pairing Player 1 and Player 2. 
+
+While it now supports **optional** external integrations (like Google Calendar, Gemini Webhooks, or Open-Meteo Weather), the core engine stays local, and it stays yours. Zero forced telemetry. No external calls unless you specifically provide the API keys to opt into those features. Just you, your kids, and the chores.
