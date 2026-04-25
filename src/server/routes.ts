@@ -6,6 +6,8 @@ import { categoriesRouter } from './modules/categories/routes.js';
 import { invitesRouter } from './modules/invites/routes.js';
 import { notificationsRouter } from './modules/notifications/routes.js';
 import { rewardsRouter } from './modules/rewards/routes.js';
+import { eventsRouter } from './modules/events/routes.js';
+import { weatherRouter } from './modules/weather/routes.js';
 
 const router = Router();
 
@@ -20,6 +22,8 @@ router.use(categoriesRouter);
 router.use(invitesRouter);
 router.use(notificationsRouter);
 router.use(rewardsRouter);
+router.use(eventsRouter);
+router.use(weatherRouter);
 
 export const apiRouter = router;
 

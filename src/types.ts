@@ -98,3 +98,31 @@ export interface ClaimedReward {
   rewardId: string;
   createdAt: FirebaseTimestamp;
 }
+
+export interface CalendarEvent {
+  id: string;
+  parentId: string;
+  title: string;
+  description: string;
+  startTime: number;
+  endTime: number;
+  assignedToId?: string;
+  color: string;
+  externalId?: string;
+  source?: string;
+}
+
+export interface FamilySettings {
+  parentId: string;
+  locationLat: number;
+  locationLon: number;
+  timezone: string;
+}
+
+export interface SyncConnection {
+  id: string;
+  parentId: string;
+  provider: string;
+  accessToken: string;
+  refreshToken: string;
+}
