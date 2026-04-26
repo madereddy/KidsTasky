@@ -8,7 +8,7 @@
     "test": "NODE_ENV=test vitest run",
     "dev": "tsx server.ts",
     "build": "vite build && npm run build:server",
-    "build:server": "esbuild server.ts --bundle --platform=node --target=node20 --outfile=dist/server.js --format=esm --packages=external --loader:.sql=text && cp -r src/server/migrations dist/migrations",
+    "build:server": "npx esbuild server.ts --bundle --platform=node --target=node22 --outfile=dist/server.js --format=esm --packages=external --loader:.sql=text && cp -r src/server/migrations dist/migrations",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"

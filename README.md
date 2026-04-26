@@ -24,7 +24,7 @@ This is a totally self-hosted, offline-friendly setup. No cloud trackers, no thi
 ## 🛠 Loadout (Tech Stack)
 
 *   **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, Motion (animations that actually feel good).
-*   **Backend**: Node.js, Express, `better-sqlite3`, `socket.io` (Realtime Updates).
+*   **Backend**: Node.js 22, Express, `better-sqlite3`, `socket.io` (Realtime Updates).
 *   **Smart Features**: Magic import webhook (parsing AI text to DB events via Gemini AI API), Photo Upload schema, and Google Calendar integrations.
 *   **Testing**: Vitest, `@testing-library`, `supertest`.
 *   **Deployment**: Docker/Docker Compose (Multi-stage build) with an automated GitHub Actions pipeline (Semgrep SAST security scanning + GHCR publishing).
@@ -36,7 +36,7 @@ This is a totally self-hosted, offline-friendly setup. No cloud trackers, no thi
 ## 💻 Start Your Game
 
 ### Prerequisites
-- Node.js 20+
+- Node.js 22+
 
 ### First Run
 1. Install dependencies:
@@ -66,14 +66,14 @@ npm run test
 If you're running this on a home server, Docker Compose is the meta-strategy. You can build it locally or use the pre-built image from GitHub Container Registry (GHCR):
 
 1. **Pull the latest automated build:**
-   \`\`\`bash
-   docker pull ghcr.io/your-github-username/kidtasker:latest
-   \`\`\`
+   ```bash
+   docker pull ghcr.io/madereddy/kidstasky:latest
+   ```
 
 2. **Or build it manually from source:**
-   \`\`\`bash
+   ```bash
    docker-compose up -d --build
-   \`\`\`
+   ```
 
 *Port 3000 will be hosting your instance.*
 

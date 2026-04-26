@@ -1,5 +1,5 @@
 # Stage 1: Build Environment
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Install Python and build tools for native dependencies (like better-sqlite3)
 RUN apk add --no-cache python3 make g++ 
@@ -23,7 +23,7 @@ RUN npm prune --production
 
 
 # Stage 2: Production Environment
-FROM node:20-alpine
+FROM node:22-alpine
 
 # Provide minimum required shared libraries for native modules
 RUN apk add --no-cache libstdc++
@@ -39,8 +39,8 @@ COPY --from=builder /app/node_modules ./node_modules
 # Copy the built assets (includes frontend dist/ and backend dist/server.js + migrations)
 COPY --from=builder /app/dist ./dist
 
-# Ensure the node user owns the app directory
-RUN chown -R node:node /app
+# Create data directory for SQLite and set permissions
+RUN mkdir -p /data && chown -R node:node /data /app
 
 USER node
 

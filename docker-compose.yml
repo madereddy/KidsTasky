@@ -2,33 +2,29 @@ version: '3.8'
 
 services:
   webapp:
-    build: 
-      context: .
-      dockerfile: Dockerfile
-    image: kidtasker:latest
-    container_name: kidtasker_app
+    image: ghcr.io/madereddy/kidstasky:latest
+    container_name: kidtasker
     read_only: true
     security_opt:
       - no-new-privileges:true
     tmpfs:
       - /tmp
-      - /app/node_modules/.cache
     ports:
-      - "3000:3000"
+      - "3010:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
       - DB_PATH=/data/database.db
-      - JWT_SECRET=${JWT_SECRET:-changeme_in_production}
+      - JWT_SECRET=${JWT_SECRET}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-}
       - MAILGUN_SIGNING_KEY=${MAILGUN_SIGNING_KEY:-}
     volumes:
-      - kidtasker_data:/data
+      - kidtasky_data:/data
     restart: unless-stopped
 
 volumes:
-  kidtasker_data:
-    name: kidtasker_sqlite_data
+  kidtasky_data:
+    name: kidtasky_sqlite_data
