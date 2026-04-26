@@ -36,15 +36,11 @@ COPY --from=builder /app/package*.json ./
 # Copy built node_modules (including native modules compiled in step 1)
 COPY --from=builder /app/node_modules ./node_modules
 
-# Copy the built Vite frontend assets
+# Copy the built assets (includes frontend dist/ and backend dist/server.js + migrations)
 COPY --from=builder /app/dist ./dist
 
-# Copy the backend server file AND the src folder (which contains server-side code and migrations)
-COPY --from=builder /app/server.ts ./
-COPY --from=builder /app/src ./src
-
-# Install tsx globally in the final stage to run server.ts
-RUN npm install -g tsx && chown -R node:node /app
+# Ensure the node user owns the app directory
+RUN chown -R node:node /app
 
 USER node
 
@@ -54,5 +50,5 @@ EXPOSE 3000
 # Set environment to production
 ENV NODE_ENV=production
 
-# Start the Node.js application utilizing tsx
-CMD ["tsx", "server.ts"]
+# Start the Node.js application
+CMD ["node", "dist/server.js"]
