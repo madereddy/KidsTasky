@@ -138,7 +138,7 @@ export function LoginView({ onLogin, onKidLogin }: {
                     className="p-6 bg-white border border-slate-200 rounded-[2rem] hover:border-sky-300 hover:shadow-md transition-all group flex flex-col items-center gap-3 shadow-sm"
                   >
                     <div className="w-16 h-16 bg-sky-50 rounded-full flex items-center justify-center text-3xl font-bold text-sky-500 group-hover:bg-sky-100 transition-all">
-                      {kid.name[0].toUpperCase()}
+                      {kid.name?.charAt(0)?.toUpperCase()}
                     </div>
                     <span className="font-bold text-slate-800">{kid.name}</span>
                   </button>

@@ -43,21 +43,26 @@ export function ParentDashboard({
   const [rewards, setRewards] = useState<Reward[]>([]);
 
   const fetchData = useCallback(async () => {
-    const [t, k, i, n, r, c] = await Promise.all([
-      tasksClientService.getTasksForParent(profile.uid),
-      userService.getKidsForParent(profile.uid),
-      inviteService.getActiveInvite(profile.uid),
-      notificationService.getUnreadNotifications(profile.uid),
-      rewardService.getRewards(profile.uid),
-      fetchAPI('/settings/' + profile.uid + '/connections').catch(() => [])
-    ]);
-    setTasks(t || []);
-    setKids(k || []);
-    setInvite(i || null);
-    setNotifications(n || []);
-    setRewards(r || []);
-    setConnections(c || []);
-    setLoading(false);
+    try {
+      const [t, k, i, n, r, c] = await Promise.all([
+        tasksClientService.getTasksForParent(profile.uid),
+        userService.getKidsForParent(profile.uid),
+        inviteService.getActiveInvite(profile.uid),
+        notificationService.getUnreadNotifications(profile.uid),
+        rewardService.getRewards(profile.uid),
+        fetchAPI('/settings/' + profile.uid + '/connections').catch(() => [])
+      ]);
+      setTasks(t || []);
+      setKids(k || []);
+      setInvite(i || null);
+      setNotifications(n || []);
+      setRewards(r || []);
+      setConnections(c || []);
+    } catch (e) {
+      console.error("Failed to fetch dashboard data:", e);
+    } finally {
+      setLoading(false);
+    }
   }, [profile.uid]);
 
   useSocketStaleData((data) => {
@@ -255,7 +260,7 @@ export function ParentDashboard({
                 className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-xs font-bold text-slate-300 relative group/kid mb-2"
                 title={`${k.name} - LVL ${k.level || 1}`}
               >
-                {k.name[0].toUpperCase()}
+                {k.name?.charAt(0)?.toUpperCase()}
                 <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-purple-500 rounded-full border border-slate-900 text-[6px] flex items-center justify-center text-white scale-0 group-hover/kid:scale-100 transition-transform">
                   {k.level || 1}
                 </div>

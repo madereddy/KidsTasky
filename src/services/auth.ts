@@ -3,26 +3,38 @@ import { UserProfile } from '../types';
 
 export const authService = {
   async signIn(email: string, passwordString: string): Promise<{user: UserProfile, token: string} | null> {
-    const res = await fetchAPI('/auth/login', {
-      method: "POST",
-      body: JSON.stringify({ email, password: passwordString })
-    });
-    return res; // returns { user, token }
+    try {
+      const res = await fetchAPI('/auth/login', {
+        method: "POST",
+        body: JSON.stringify({ email, password: passwordString })
+      });
+      return res; // returns { user, token }
+    } catch {
+      return null;
+    }
   },
 
   async register(email: string, passwordString: string, name: string): Promise<{user: UserProfile, token: string} | null> {
-    const res = await fetchAPI('/auth/register', {
-      method: "POST",
-      body: JSON.stringify({ email, password: passwordString, name })
-    });
-    return res;
+    try {
+      const res = await fetchAPI('/auth/register', {
+        method: "POST",
+        body: JSON.stringify({ email, password: passwordString, name })
+      });
+      return res;
+    } catch {
+      return null;
+    }
   },
 
   async signInKid(uid: string, pin: string): Promise<{user: UserProfile, token: string} | null> {
-    return fetchAPI('/auth/login/kid', {
-      method: 'POST',
-      body: JSON.stringify({ uid, pin })
-    });
+    try {
+      return await fetchAPI('/auth/login/kid', {
+        method: 'POST',
+        body: JSON.stringify({ uid, pin })
+      });
+    } catch {
+      return null;
+    }
   },
 
   async getProfilesByEmail(email: string): Promise<any[]> {

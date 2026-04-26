@@ -51,17 +51,22 @@ export function KidDashboard({
   };
 
   const fetchData = useCallback(async () => {
-    const [t, c, r, cr] = await Promise.all([
-      tasksClientService.getTasksForKid(profile.uid),
-      tasksClientService.getCompletionsForKid(profile.uid, today),
-      rewardService.getRewards(profile.parentId!),
-      rewardService.getClaimedRewards(profile.uid)
-    ]);
-    setTasks(t);
-    setCompletions(c);
-    setRewards(r);
-    setClaimedRewards(cr);
-    setLoading(false);
+    try {
+      const [t, c, r, cr] = await Promise.all([
+        tasksClientService.getTasksForKid(profile.uid),
+        tasksClientService.getCompletionsForKid(profile.uid, today),
+        rewardService.getRewards(profile.parentId!),
+        rewardService.getClaimedRewards(profile.uid)
+      ]);
+      setTasks(t || []);
+      setCompletions(c || []);
+      setRewards(r || []);
+      setClaimedRewards(cr || []);
+    } catch (e) {
+      console.error("Failed to fetch kid dashboard data", e);
+    } finally {
+      setLoading(false);
+    }
   }, [profile.uid, profile.parentId, today]);
 
   useSocketStaleData((data) => {
