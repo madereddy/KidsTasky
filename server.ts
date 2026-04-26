@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import helmet from "helmet";
+import cors from "cors";
 import { rateLimit } from "express-rate-limit";
 import { db } from "./src/server/db.js";
 import { apiRouter } from "./src/server/routes.js";
@@ -23,9 +24,11 @@ socketWrapper.init(io);
 app.set('io', io);
 
 // Security
-// app.use(helmet({
-//   contentSecurityPolicy: false,
-// }));
+app.use(cors());
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 100, 
@@ -55,7 +58,7 @@ export async function startServer() {
   } else if (process.env.NODE_ENV === "production" && !process.env.TEST_BUILD) {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('/:path*', (req, res) => {
+    app.get(/^(?!\/api).*/, (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
