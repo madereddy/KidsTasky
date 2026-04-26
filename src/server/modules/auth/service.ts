@@ -30,5 +30,24 @@ export const authService = {
     const token = jwt.sign({ uid, role: 'parent', parentId: uid }, getJwtSecret(), { expiresIn: '30d' });
     const user = authService.getMe(uid);
     return { user, token };
+  },
+  loginKid: async (uid: string, pin: string) => {
+    const user = db.prepare("SELECT * FROM users WHERE uid = ? AND role = 'kid'").get(uid) as any;
+    if (!user || !user.passwordHash) return null;
+
+    const match = await bcrypt.compare(pin, user.passwordHash);
+    if (!match) return null;
+
+    const token = jwt.sign({ uid: user.uid, role: user.role, parentId: user.parentId }, getJwtSecret(), { expiresIn: '30d' });
+    return { user, token };
+  },
+  setPin: async (uid: string, pin: string) => {
+    const hash = await bcrypt.hash(pin, 10);
+    db.prepare("UPDATE users SET passwordHash = ? WHERE uid = ?").run(hash, uid);
+  },
+  getKidsByParentEmail: (email: string) => {
+    const parent = db.prepare("SELECT uid FROM users WHERE email = ? AND role = 'parent'").get(email) as any;
+    if (!parent) return [];
+    return db.prepare("SELECT uid, name, xp, level, themeId FROM users WHERE parentId = ? AND role = 'kid'").all(parent.uid) as any[];
   }
 };

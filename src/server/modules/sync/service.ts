@@ -18,5 +18,13 @@ export const syncService = {
       VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET accessToken=excluded.accessToken, refreshToken=excluded.refreshToken
     `).run(connId, parentId, 'google', accessToken, refreshToken);
+  },
+
+  saveManualConnection: (parentId: string, email: string, appPassword: string) => {
+    const connId = 'sync_manual_' + Date.now();
+    db.prepare(`
+      INSERT INTO sync_connections (id, parentId, provider, email, appPassword) 
+      VALUES (?, ?, 'google_manual', ?, ?)
+    `).run(connId, parentId, email, appPassword);
   }
 };

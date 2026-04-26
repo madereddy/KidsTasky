@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { Task, UserProfile, Category, Invite, Notification, Reward, TaskFrequency, TaskDifficulty } from '../../types';
 import { AddTaskModal } from './AddTaskModal';
+import { AddKidForm } from './AddKidForm';
 import { CategoryManager } from './CategoryManager';
 import { RewardManager } from './RewardManager';
 import { ConnectedAccountsView } from './ConnectedAccountsView';
@@ -247,11 +248,11 @@ export function ParentDashboard({
 
         <div className="glass-panel p-6 rounded-3xl border-l-4 border-l-purple-500 flex flex-col justify-center relative overflow-hidden">
           <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-3">Linked Cadets</p>
-          <div className="flex -space-x-2 mb-4">
+          <div className="flex -space-x-2 mb-4 flex-wrap">
             {kids.length > 0 ? kids.map((k: UserProfile) => (
               <div 
                 key={k.uid}
-                className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-xs font-bold text-slate-300 relative group/kid"
+                className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-xs font-bold text-slate-300 relative group/kid mb-2"
                 title={`${k.name} - LVL ${k.level || 1}`}
               >
                 {k.name[0].toUpperCase()}
@@ -260,27 +261,35 @@ export function ParentDashboard({
                 </div>
               </div>
             )) : (
-              <div className="w-10 h-10 rounded-full bg-slate-900 border-2 border-dashed border-slate-700 flex items-center justify-center text-slate-700">
+              <div className="w-10 h-10 rounded-full bg-slate-900 border-2 border-dashed border-slate-700 flex items-center justify-center text-slate-700 mb-2">
                 <Plus className="w-4 h-4" />
               </div>
             )}
           </div>
-          <div className="space-y-1">
-            <p className="text-[9px] text-purple-400 font-bold uppercase tracking-tight">{kids.length} Cadets Under Command</p>
-            <p className="text-[8px] text-slate-500 italic max-w-[150px] leading-tight">
-              Instruct cadets to enter your Mission Code during initial sequence.
-            </p>
-          </div>
+          
+          <AddKidForm parentId={profile.uid} onAdded={fetchData} />
+          
           <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-purple-500/5 blur-xl rounded-full" />
         </div>
       </div>
 
       <ConnectedAccountsView 
         connections={connections} 
-        onConnect={(provider) => {
+        onConnect={async (provider, data) => {
+          const tk = localStorage.getItem('kidtasker_token');
           if (provider === 'google') {
-            const tk = localStorage.getItem('kidtasker_token');
             window.location.href = `/api/sync/connect/google?token=${tk}`;
+          } else if (provider === 'manual') {
+            try {
+              const res = await fetchAPI('/sync/connect/manual', {
+                method: 'POST',
+                body: JSON.stringify(data)
+              });
+              alert('Manual sync connection established!');
+              fetchData();
+            } catch (err) {
+              alert('Failed to connect');
+            }
           }
         }} 
         onDisconnect={handleDisconnect} 

@@ -17,7 +17,7 @@ describe('App Component', () => {
 
     // Wait until the new placeholder is rendered
     await waitFor(() => {
-      expect(screen.getByPlaceholderText(/Contact Frequency \(Email\)/i)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/Frequency \(Email\)/i)).toBeInTheDocument();
     });
     
     // Ensure the title is rendered

@@ -74,3 +74,16 @@ syncRouter.get('/sync/callback/google', async (req, res) => {
     res.status(500).send("Failed to connect");
   }
 });
+
+syncRouter.post('/sync/connect/manual', authenticateUser, (req, res) => {
+  const { email, appPassword } = req.body;
+  if (!email || !appPassword) return res.status(400).json({ error: "Missing fields" });
+
+  try {
+    const parentId = (req as any).user.parentId || (req as any).user.uid;
+    syncService.saveManualConnection(parentId, email, appPassword);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to save connection" });
+  }
+});

@@ -17,6 +17,13 @@ export const userService = {
     });
   },
 
+  async createManagedUser(data: { uid: string, name: string, parentId: string, role: string, isManaged: boolean, pin: string }): Promise<void> {
+    await fetchAPI('/users', {
+      method: "POST",
+      body: JSON.stringify(data)
+    });
+  },
+
   async addBadge(uid: string, badgeId: string): Promise<void> {
     await fetchAPI('/users/' + uid + '/badge', {
       method: "POST",

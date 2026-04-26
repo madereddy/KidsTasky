@@ -88,19 +88,34 @@ export default function App() {
   if (!user) {
     return (
       <div className="min-h-screen animate-gradient text-white selection:bg-blue-500/30 overflow-x-hidden">
-        <LoginView onLogin={async (email: string, passwordString: string, isRegister: boolean, name?: string) => {
-          const res = isRegister ? await authService.register(email, passwordString, name || '') : await authService.signIn(email, passwordString);
-          if (res) {
-             const { user: u, token } = res;
-             setUser({ uid: u.uid, name: u.name, email: u.email });
-             localStorage.setItem('kidtasker_token', token);
-             if (u.role) setProfile(u);
-             const parentId = u.role === 'parent' ? u.uid : u.parentId;
-             if (parentId) initSocket(parentId);
-          } else {
-             alert('Invalid credentials or registration error');
-          }
-        }} />
+        <LoginView 
+          onLogin={async (email: string, passwordString: string, isRegister: boolean, name?: string) => {
+            const res = isRegister ? await authService.register(email, passwordString, name || '') : await authService.signIn(email, passwordString);
+            if (res) {
+              const { user: u, token } = res;
+              setUser({ uid: u.uid, name: u.name, email: u.email });
+              localStorage.setItem('kidtasker_token', token);
+              if (u.role) setProfile(u);
+              const parentId = u.role === 'parent' ? u.uid : u.parentId;
+              if (parentId) initSocket(parentId);
+            } else {
+              alert('Invalid credentials or registration error');
+            }
+          }} 
+          onKidLogin={async (uid: string, pin: string) => {
+            const res = await authService.signInKid(uid, pin);
+            if (res) {
+              const { user: u, token } = res;
+              setUser({ uid: u.uid, name: u.name, email: u.email });
+              localStorage.setItem('kidtasker_token', token);
+              if (u.role) setProfile(u);
+              const parentId = u.role === 'parent' ? u.uid : u.parentId;
+              if (parentId) initSocket(parentId);
+            } else {
+              alert('Invalid Access Key');
+            }
+          }}
+        />
       </div>
     );
   }

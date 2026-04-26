@@ -18,6 +18,36 @@ export const authService = {
     return res;
   },
 
+  async signInKid(uid: string, pin: string): Promise<{user: UserProfile, token: string} | null> {
+    return fetchAPI('/auth/login/kid', {
+      method: 'POST',
+      body: JSON.stringify({ uid, pin })
+    });
+  },
+
+  async getProfilesByEmail(email: string): Promise<any[]> {
+    try {
+      const data = await fetchAPI(`/auth/profiles/${encodeURIComponent(email)}`);
+      return data.kids || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async setPin(pin: string): Promise<boolean> {
+    const token = localStorage.getItem('kidtasker_token');
+    try {
+      await fetchAPI('/auth/set-pin', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ pin })
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
   async getMe(token: string): Promise<UserProfile | null> {
     try {
       const res = await fetchAPI('/auth/me', {

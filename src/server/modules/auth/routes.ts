@@ -36,6 +36,38 @@ authRouter.post('/auth/login', [
   res.json(result);
 });
 
+authRouter.post('/auth/login/kid', [
+  body('uid').isString().notEmpty(),
+  body('pin').isString().isLength({ min: 4, max: 4 }),
+  validate
+], async (req: Request, res: Response) => {
+  const result = await authService.loginKid(req.body.uid, req.body.pin);
+  if (!result) return res.status(401).json({ error: "Invalid PIN" });
+  result.user.badges = JSON.parse(result.user.badges || "[]");
+  res.json(result);
+});
+
+authRouter.get('/auth/profiles/:email', [
+  validate
+], async (req: Request, res: Response) => {
+  const email = req.params.email as string;
+  const kids = authService.getKidsByParentEmail(email);
+  res.json({ kids });
+});
+
+authRouter.post('/auth/set-pin', authenticateUser, [
+  body('pin').isString().isLength({ min: 4, max: 4 }),
+  validate
+], async (req: Request, res: Response) => {
+  try {
+    const uid = (req as any).user.uid;
+    await authService.setPin(uid, req.body.pin);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 authRouter.get('/auth/me', authenticateUser, (req: Request, res: Response) => {
   const uid = (req as any).user.uid;
   const user = authService.getMe(uid);

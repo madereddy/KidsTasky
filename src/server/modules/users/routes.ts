@@ -32,9 +32,11 @@ usersRouter.post("/users", [
   body('level').isInt({min: 1}).optional(),
   body('badges').isArray().optional(),
   body('themeId').isString().optional(),
+  body('isManaged').isBoolean().optional(),
+  body('pin').isString().optional(),
   validate
-], (req: Request, res: Response) => {
-  userService.createUser(req.body);
+], async (req: Request, res: Response) => {
+  await userService.createUser(req.body);
   res.json({ success: true });
 });
 

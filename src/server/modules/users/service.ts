@@ -5,11 +5,29 @@ export const userService = {
     return db.prepare("SELECT * FROM users WHERE uid = ?").get(uid) as any;
   },
   
-  createUser: (data: any) => {
+  createUser: async (data: any) => {
+    let passwordHash = data.passwordHash || null;
+    if (data.pin && !passwordHash) {
+       const bcrypt = await import('bcrypt');
+       passwordHash = await bcrypt.default.hash(data.pin, 10);
+    }
+
     db.prepare(`
-      INSERT OR REPLACE INTO users (uid, role, name, email, parentId, xp, level, badges, themeId)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(data.uid, data.role, data.name, data.email, data.parentId || null, data.xp || 0, data.level || 1, JSON.stringify(data.badges || []), data.themeId || null);
+      INSERT OR REPLACE INTO users (uid, role, name, email, parentId, xp, level, badges, themeId, passwordHash, isManaged)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      data.uid, 
+      data.role, 
+      data.name, 
+      data.email || null, 
+      data.parentId || null, 
+      data.xp || 0, 
+      data.level || 1, 
+      JSON.stringify(data.badges || []), 
+      data.themeId || null,
+      passwordHash,
+      data.isManaged ? 1 : 0
+    );
   },
   
   addBadge: (uid: string, badgeId: string) => {
