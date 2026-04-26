@@ -17,14 +17,26 @@ export function runMigrations(db: Database) {
     INSERT OR IGNORE INTO schema_version (version) VALUES (0);
   `);
 
-  const row = db.prepare('SELECT version FROM schema_version').get() as { version: number } | undefined;
+  // Force single row: Keep only the highest version to fix UNIQUE constraint errors
+  // caused by manual SQL updates in previous versions.
+  db.exec(`
+    DELETE FROM schema_version 
+    WHERE rowid NOT IN (SELECT rowid FROM schema_version ORDER BY version DESC LIMIT 1);
+  `);
+
+  const row = db.prepare('SELECT version FROM schema_version LIMIT 1').get() as { version: number } | undefined;
   const currentVersion = row?.version || 0;
 
   for (const file of migrationFiles) {
     const version = parseInt(file.split('_')[0], 10);
     if (version > currentVersion) {
       console.log(`Running migration: ${file}`);
-      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      let sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      
+      // Strip manual schema_version updates from SQL to avoid UNIQUE constraint conflicts
+      // with the migrator's own version tracking.
+      sql = sql.replace(/UPDATE\s+schema_version\s+SET\s+version\s*=\s*\d+;?/gi, '');
+      
       try {
         db.exec(sql);
       } catch (err: any) {
