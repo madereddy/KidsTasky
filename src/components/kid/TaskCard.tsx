@@ -5,7 +5,7 @@ import { Task, Category } from '../../types';
 import { cn } from '../../lib/utils';
 import { XP_REWARDS } from '../../constants';
 
-export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel, category }: { 
+export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel, category, themeVocab, darkMode = false }: { 
   task: Task, 
   isDone: boolean, 
   isLocked?: boolean,
@@ -13,19 +13,21 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
   urgency: 'none' | 'soon' | 'overdue',
   slotLabel?: string,
   category?: Category,
+  themeVocab?: any,
+  darkMode?: boolean,
   key?: React.Key
 }) {
-  const accentColor = isDone ? 'border-l-emerald-500' : (isLocked ? 'border-l-slate-700' : (urgency === 'overdue' ? 'border-l-amber-500' : 'border-l-blue-500'));
+  const accentColor = isDone ? 'border-emerald-500' : (isLocked ? (darkMode ? 'border-slate-800' : 'border-slate-200') : (urgency === 'overdue' ? 'border-red-400' : (darkMode ? 'border-slate-800' : 'border-slate-200')));
   
   const statusConfig = isDone 
-    ? { label: 'MISSION COMPLETED', icon: <CheckCircle2 className="w-3 h-3" />, color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' }
+    ? { label: themeVocab?.completed || 'Done', icon: <CheckCircle2 className="w-4 h-4" />, color: darkMode ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-emerald-700 bg-emerald-50 border-emerald-200' }
     : (isLocked 
-        ? { label: 'SYSTEM LOCKED', icon: <Lock className="w-3 h-3" />, color: 'text-slate-400 bg-slate-800/80 border-slate-700' }
+        ? { label: themeVocab?.locked || 'Locked', icon: <Lock className="w-3 h-3" />, color: darkMode ? 'text-slate-400 bg-slate-900 border-slate-800' : 'text-slate-400 bg-slate-100 border-slate-200' }
         : (urgency === 'overdue' 
-            ? { label: 'SYSTEM ALERT: OVERDUE', icon: <AlertCircle className="w-3 h-3" />, color: 'text-rose-400 bg-rose-500/10 border-rose-500/30 animate-pulse' }
+            ? { label: themeVocab?.overdue || 'Overdue', icon: <AlertCircle className="w-3 h-3" />, color: darkMode ? 'text-rose-400 bg-rose-500/10 border-rose-500/30' : 'text-red-700 bg-red-50 border-red-200' }
             : urgency === 'soon'
-            ? { label: 'IMMINENT: UPCOMING', icon: <Clock className="w-3 h-3" />, color: 'text-blue-400 bg-blue-500/10 border-blue-500/30' }
-            : { label: 'STATUS: PENDING', icon: <Activity className="w-3 h-3" />, color: 'text-slate-400 bg-slate-800/80 border-slate-700' }));
+            ? { label: 'Starting Soon', icon: <Clock className="w-3 h-3" />, color: darkMode ? 'text-blue-400 bg-blue-500/10 border-blue-500/30' : 'text-sky-700 bg-sky-50 border-sky-200' }
+            : { label: 'To Do', icon: <Activity className="w-3 h-3" />, color: darkMode ? 'text-slate-400 bg-slate-900 border-slate-800' : 'text-slate-600 bg-slate-50 border-slate-200' }));
 
   return (
     <motion.div 
@@ -34,30 +36,21 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
       whileHover={!isLocked ? { y: -2 } : {}}
       onClick={!isLocked ? onToggle : undefined}
       className={cn(
-        "card-immersive group relative overflow-hidden",
+        "group relative overflow-hidden rounded-[2rem] p-6 transition-all border-2",
+        darkMode ? "bg-slate-900/50 backdrop-blur-sm" : "bg-white",
         !isLocked ? "cursor-pointer" : "cursor-not-allowed opacity-80",
         accentColor,
-        isDone ? "opacity-60 bg-emerald-500/5 shadow-none" : (isLocked ? "bg-slate-900/50 grayscale-[0.5]" : (urgency === 'overdue' ? "bg-amber-500/5 glow-orange border-amber-500/30" : "hover:shadow-lg hover:shadow-blue-500/10")),
+        isDone ? (darkMode ? "opacity-60 bg-emerald-500/5 border-emerald-500/30" : "opacity-70 bg-emerald-50 shadow-sm") : (isLocked ? (darkMode ? "bg-slate-950 grayscale" : "bg-slate-50 grayscale") : (darkMode ? "hover:shadow-lg shadow-black/20 hover:border-slate-700" : "shadow-sm hover:shadow-md hover:border-slate-300")),
       )}
     >
-      {/* Top Status Accent Bar */}
-      <div className={cn(
-        "absolute top-0 left-0 right-0 h-1",
-        isDone ? "bg-emerald-500" : (isLocked ? "bg-slate-700" : (urgency === 'overdue' ? "bg-amber-500 animate-pulse" : (urgency === 'soon' ? "bg-blue-500" : "bg-slate-700")))
-      )} />
-
-      {/* Background Effect for Overdue */}
-      {urgency === 'overdue' && !isDone && !isLocked && (
-        <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
-      )}
 
       <div className="flex justify-between items-start mb-6 relative z-10">
         <div className="flex-1">
-          <div className="flex flex-wrap gap-2 mb-2">
+          <div className="flex flex-wrap gap-2 mb-3">
             <motion.div 
               layout
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all",
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all",
                 statusConfig.color
               )}
             >
@@ -68,7 +61,8 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
             <motion.span 
               layout
               className={cn(
-                "text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-500"
+                "text-[10px] font-bold px-2.5 py-1.5 rounded-xl uppercase tracking-wider border",
+                darkMode ? "bg-slate-900 border-slate-800 text-slate-400" : "bg-slate-100 border-slate-200 text-slate-600"
               )}
             >
               {slotLabel || (
@@ -79,30 +73,27 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
             </motion.span>
             {task.difficulty && !isDone && (
               <span className={cn(
-                "text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest border transition-all flex items-center gap-1.5",
-                task.difficulty === 'easy' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
-                task.difficulty === 'medium' ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
-                "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                "text-[10px] font-bold px-2.5 py-1.5 rounded-xl uppercase tracking-widest border flex items-center gap-1",
+                task.difficulty === 'easy' ? (darkMode ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border-emerald-200") :
+                task.difficulty === 'medium' ? (darkMode ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-amber-50 text-amber-600 border-amber-200") :
+                (darkMode ? "bg-rose-500/10 text-rose-400 border-rose-500/20" : "bg-red-50 text-red-600 border-red-200")
               )}>
                 <Zap className="w-3 h-3" />
-                {task.difficulty} | +{XP_REWARDS[task.difficulty]} XP
+                +{XP_REWARDS[task.difficulty]} XP
               </span>
             )}
             {category && (
-              <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider text-white", category.color)}>
+              <span className={cn("text-[10px] font-bold px-2.5 py-1.5 rounded-xl uppercase tracking-wider text-white", category.color)}>
                 {category.icon} {category.name}
               </span>
             )}
           </div>
           <motion.h3 
             layout
-            className={cn("text-xl font-bold mt-2", isDone && "line-through text-slate-500")}
+            className={cn("text-2xl font-bold mt-2", isDone ? "line-through text-slate-500" : (darkMode ? "text-white" : "text-slate-800"))}
           >
             {task.title}
           </motion.h3>
-          <p className={cn("text-[10px] mt-1 italic font-bold tracking-tight", isDone ? "text-emerald-500/70" : (isLocked ? "text-slate-500" : (urgency === 'overdue' ? "text-rose-500 animate-pulse" : "text-slate-500")))}>
-            {isDone ? "✓ MISSION NEUTRALIZED" : (isLocked ? "🔒 PREREQUISITES REQUIRED" : (urgency === 'overdue' ? "⚠ ALARM: MISSION OVERDUE" : "○ AWAITING DEPLOYMENT..."))}
-          </p>
         </div>
         
         <motion.div 
@@ -111,17 +102,17 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
             scale: isDone ? [1, 1.2, 1] : 1,
             rotate: isDone ? [0, 15, -15, 0] : 0,
             boxShadow: isDone 
-              ? "0 0 20px rgba(16, 185, 129, 0.4)" 
-              : (urgency === 'overdue' && !isLocked ? "0 0 20px rgba(244, 63, 94, 0.4)" : "none")
+              ? (darkMode ? "0 0 20px rgba(16, 185, 129, 0.4)" : "0 0 20px rgba(16, 185, 129, 0.2)") 
+              : "none"
           }}
           transition={{ type: "spring", stiffness: 300, damping: 15 }}
           className={cn(
-            "w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-3xl shrink-0 ml-4 border-2 transition-colors",
+            "w-20 h-20 rounded-[1.5rem] flex items-center justify-center text-4xl shrink-0 ml-4 border-2 transition-colors relative",
             isDone 
-              ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/50" 
-              : (isLocked ? "bg-slate-900 border-slate-800 text-slate-600" : (urgency === 'overdue' 
-                  ? "bg-rose-500/20 text-rose-500 border-rose-500/50 animate-pulse" 
-                  : (urgency === 'soon' ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "text-slate-400 border-slate-800")))
+              ? (darkMode ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/50" : "bg-emerald-100 text-emerald-500 border-emerald-200") 
+              : (isLocked ? (darkMode ? "bg-slate-900 border-slate-800 text-slate-600" : "bg-slate-100 border-slate-200 text-slate-400") : (urgency === 'overdue' 
+                  ? (darkMode ? "bg-rose-500/20 text-rose-500 border-rose-500/50 animate-pulse" : "bg-red-50 text-red-500 border-red-200") 
+                  : (urgency === 'soon' ? (darkMode ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "bg-sky-50 text-sky-500 border-sky-100") : (darkMode ? "bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200 shadow-lg" : "bg-white text-slate-600 border-slate-200 shadow-sm hover:border-sky-300"))))
           )}
         >
           <AnimatePresence mode="wait">
@@ -132,7 +123,7 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
               exit={{ opacity: 0, scale: 0.5, rotate: 45 }}
               transition={{ duration: 0.2 }}
             >
-              {isDone ? '🚀' : (isLocked ? <Lock className="w-6 h-6 text-slate-600" /> : (category ? category.icon : (slotLabel === 'Morning' ? '🌅' : (slotLabel === 'Evening' ? '🌙' : '🛰️'))))}
+              {isDone ? <CheckCircle2 className="w-10 h-10" /> : (isLocked ? <Lock className="w-8 h-8 opacity-50" /> : (category ? category.icon : (slotLabel === 'Morning' ? '🌅' : (slotLabel === 'Evening' ? '🌙' : '⭐'))))}
             </motion.span>
           </AnimatePresence>
         </motion.div>
@@ -144,30 +135,23 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
           whileTap={!isLocked ? { scale: 0.98 } : {}}
           disabled={isLocked}
           className={cn(
-            "w-full py-3 font-black rounded-xl transition-all uppercase tracking-widest text-[10px] relative overflow-hidden flex items-center justify-center gap-2",
+            "w-full py-4 font-bold rounded-2xl transition-all uppercase tracking-wider text-sm relative overflow-hidden flex items-center justify-center gap-2 mt-4",
             isLocked 
-              ? "bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed"
-              : urgency === 'overdue' ? "bg-amber-500 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.4)]" : "bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600/40"
+              ? (darkMode ? "bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed" : "bg-slate-50 text-slate-400 cursor-not-allowed border border-slate-200")
+              : urgency === 'overdue' ? (darkMode ? "bg-amber-500 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.4)]" : "bg-red-50 text-red-500 hover:bg-red-100") : (darkMode ? "bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600/40" : "bg-sky-50 text-sky-600 hover:bg-sky-100 hover:text-sky-700")
           )}
         >
           <span className="relative z-10 flex items-center justify-center gap-2">
-            {isLocked ? <><Lock className="w-3 h-3" /> Locked: Wait for Clearance</> : "Execute Mission"}
+            {isLocked ? <><Lock className="w-4 h-4" /> {themeVocab?.locked || 'Locked'}</> : (themeVocab?.markDone || "Mark Done")}
           </span>
-          {urgency === 'overdue' && !isLocked && (
-            <motion.div 
-              animate={{ x: ['-100%', '200%'] }}
-              transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-              className="absolute inset-0 bg-white/20 -skew-x-12"
-            />
-          )}
         </motion.button>
       ) : (
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full py-3 bg-emerald-500/10 text-emerald-500 font-black rounded-xl text-center uppercase tracking-widest text-[10px] border border-emerald-500/20 flex items-center justify-center gap-2"
+          className={cn("w-full py-4 font-bold rounded-2xl text-center uppercase tracking-wider text-sm mt-4 flex items-center justify-center gap-2", darkMode ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border border-emerald-200")}
         >
-          <Zap className="w-3 h-3 animate-pulse" /> Mission Verified: +{XP_REWARDS[task.difficulty || 'easy']} XP
+          <CheckCircle2 className="w-4 h-4" /> {themeVocab?.completed || 'Completed!'} +{XP_REWARDS[task.difficulty || 'easy']} {themeVocab?.points || 'XP'}
         </motion.div>
       )}
     </motion.div>

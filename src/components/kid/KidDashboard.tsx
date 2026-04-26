@@ -262,93 +262,89 @@ export function KidDashboard({
       `}</style>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className={cn(
-          "md:col-span-2 glass-panel p-6 rounded-3xl border-l-4 flex justify-between items-center relative overflow-hidden",
-          `border-l-${currentTheme.accent}`
+          "md:col-span-2 shadow-sm p-6 rounded-[2rem] border flex justify-between items-center relative overflow-hidden",
+          currentTheme.vocab?.panelBg || "bg-white",
+          currentTheme.vocab?.panelBorder || "border-slate-100"
         )}>
           <div className="relative z-10">
-            <h3 className="text-lg font-bold mb-1">Cadet Mission Log</h3>
-            <p className="text-sm text-slate-500 uppercase tracking-widest font-black">Level {profile.level || 1} Elite</p>
+            <h3 className={cn("text-2xl font-bold mb-1", currentTheme.vocab?.textPrimary || "text-slate-800")}>{currentTheme.vocab?.chores || 'My Chores'}</h3>
+            <p className="text-sm text-slate-500 font-medium">{currentTheme.vocab?.level || 'Level'} {profile.level || 1}</p>
           </div>
           <div className="flex gap-4 items-center relative z-10">
             <button 
               onClick={() => setShowThemeSelector(true)}
-              className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700 shadow-lg"
+              className={cn("w-12 h-12 rounded-full flex items-center justify-center transition-colors border", currentTheme.vocab?.darkMode ? "bg-slate-800 border-slate-700 text-slate-400 hover:text-white" : "bg-slate-50 border-slate-100 text-slate-400 hover:text-slate-800 hover:bg-slate-100")}
             >
-              <Settings className="w-5 h-5" />
+              <Settings className="w-6 h-6" />
             </button>
-            <div className="text-right">
-              <p className="text-[10px] text-slate-500 uppercase font-black">Combustion</p>
-              <p className="text-2xl font-black italic text-orange-500 leading-none">{streak} DAYS</p>
+            <div className="text-right ml-4">
+              <p className="text-xs text-slate-500 uppercase font-bold">{currentTheme.vocab?.streak || 'Streak'}</p>
+              <p className={cn("text-3xl font-black leading-none", `text-${currentTheme.primary}`)}>{streak}</p>
             </div>
             <div className={cn(
-              "w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-all",
-              streak > 0 ? "bg-orange-500/20 text-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.3)] animate-pulse" : "bg-slate-800 text-slate-600"
+              "w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all",
+              streak > 0 ? `bg-${currentTheme.primary}/20 text-${currentTheme.primary}` : "bg-slate-50 text-slate-300"
             )}>
-              <Flame className={cn("w-7 h-7", streak > 0 && "fill-orange-500")} />
+              <Flame className={cn("w-8 h-8", streak > 0 && `fill-${currentTheme.primary}`)} />
             </div>
           </div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-3xl rounded-full translate-x-10 -translate-y-10" />
         </div>
 
         <div className={cn(
-          "glass-panel p-6 rounded-3xl border-l-4 flex flex-col justify-center relative overflow-hidden group",
-          `border-l-${currentTheme.primary}`
+          "shadow-sm p-6 rounded-[2rem] border flex flex-col justify-center relative overflow-hidden group",
+          currentTheme.vocab?.panelBg || "bg-white",
+          currentTheme.vocab?.panelBorder || "border-slate-100"
         )}>
           <div className="flex justify-between items-end mb-3">
             <div>
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-1">Rank Progress</p>
+              <p className="text-xs text-slate-500 uppercase font-bold mb-1">Progress</p>
               <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-black text-white leading-none">{(profile.xp || 0) % 100}</span>
-                <span className="text-xs font-bold text-slate-500 uppercase">/ 100 XP</span>
+                <span className={cn("text-3xl font-black leading-none", currentTheme.vocab?.textPrimary || "text-slate-800")}>{(profile.xp || 0) % 100}</span>
+                <span className="text-sm font-bold text-slate-400 uppercase">/ 100 {currentTheme.vocab?.points || 'XP'}</span>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-[10px] text-slate-500 uppercase font-black mb-1">Total Career</p>
-              <p className={cn("text-sm font-bold leading-none", `text-${currentTheme.primary}`)}>{profile.xp || 0} XP</p>
+              <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Total</p>
+              <p className={cn("text-base font-bold leading-none", currentTheme.vocab?.textPrimary || "text-slate-800")}>{profile.xp || 0} {currentTheme.vocab?.points || 'XP'}</p>
             </div>
           </div>
           
-          <div className="w-full h-4 bg-slate-900 rounded-full border border-slate-800 p-0.5 overflow-hidden mb-3 shadow-inner">
+          <div className="w-full h-6 bg-slate-100 rounded-full overflow-hidden mb-3 shadow-inner">
             <motion.div 
               initial={{ width: 0 }}
               animate={{ width: `${(profile.xp || 0) % 100}%` }}
               transition={{ duration: 1, ease: "easeOut" }}
               className={cn("h-full rounded-full relative", `bg-${currentTheme.primary}`)}
             >
-              <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.2)_50%,transparent_100%)] animate-shimmer" style={{ backgroundSize: '200% 100%' }} />
             </motion.div>
           </div>
           
-          <div className="flex justify-between items-center">
-            <p className={cn("text-[10px] font-bold uppercase tracking-tight flex items-center gap-1", `text-${currentTheme.primary}/80`)}>
-              <TrendingUp className="w-3 h-3" /> {100 - ((profile.xp || 0) % 100)} XP to LEVEL { (profile.level || 1) + 1}
+          <div className="flex justify-between items-center mt-2">
+            <p className={cn("text-xs font-bold flex items-center gap-1 text-slate-500")}>
+              <TrendingUp className="w-4 h-4" /> {100 - ((profile.xp || 0) % 100)} {currentTheme.vocab?.points || 'XP'} to Next {currentTheme.vocab?.level || 'Level'}
             </p>
-            <span className="text-[10px] font-black text-slate-600 uppercase">{(profile.xp || 0) % 100}%</span>
           </div>
-          
-          {/* Subtle background flair */}
-          <div className={cn("absolute top-0 right-0 w-24 h-24 blur-2xl rounded-full translate-x-8 -translate-y-8 group-hover:opacity-20 transition-opacity", `bg-${currentTheme.primary}/10`)} />
         </div>
       </div>
 
-      <div className="glass-panel p-6 rounded-3xl border-l-4 border-l-yellow-500">
-        <h3 className="text-xl font-black italic tracking-tighter uppercase mb-6 text-yellow-500">Mission Reward Store</h3>
+      <div className={cn("p-6 rounded-[3rem] border", currentTheme.vocab?.panelBg || "bg-amber-50", currentTheme.vocab?.panelBorder || "border-amber-100")}>
+        <h3 className={cn("text-2xl font-bold mb-6", `text-${currentTheme.primary}`)}>{currentTheme.vocab?.rewards || 'Rewards'}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {rewards.map((r: Reward) => {
             const isClaimed = claimedRewards.some((cr: ClaimedReward) => cr.rewardId === r.id);
             const canAfford = (profile.xp || 0) >= r.xpCost;
             return (
-              <div key={r.id} className="bg-slate-950 p-4 rounded-xl flex justify-between items-center border border-slate-800">
+              <div key={r.id} className={cn("p-5 rounded-2xl flex justify-between items-center", currentTheme.vocab?.darkMode ? "bg-black/20" : "bg-white shadow-sm")}>
                  <div>
-                   <p className="font-bold text-slate-200">{r.title}</p>
-                   <p className="text-slate-500 text-xs">{r.description} - <span className="text-yellow-500 font-bold">{r.xpCost} XP</span></p>
+                   <p className={cn("font-bold text-lg", currentTheme.vocab?.textPrimary || "text-slate-800")}>{r.title}</p>
+                   <p className="text-slate-500 text-sm mt-1">{r.description} • <span className={cn("font-bold", `text-${currentTheme.primary}`)}>{r.xpCost} {currentTheme.vocab?.points || 'XP'}</span></p>
                  </div>
                  <button 
                    disabled={isClaimed || !canAfford}
                    onClick={() => claimReward(r.id, r.xpCost)}
-                   className={cn("px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all", 
-                     isClaimed ? "bg-slate-800 text-slate-500" : (canAfford ? "bg-yellow-600 text-white" : "bg-slate-800 text-slate-500"),
-                     !isClaimed && canAfford && "hover:bg-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)]"
+                   className={cn("px-6 py-3 rounded-xl text-sm font-bold transition-all", 
+                     isClaimed ? "bg-slate-100 text-slate-400" : (canAfford ? `bg-${currentTheme.primary} text-white` : "bg-slate-100 text-slate-400"),
+                     !isClaimed && canAfford && `hover:bg-${currentTheme.accent}`
                    )}
                  >
                    {isClaimed ? "Claimed" : (canAfford ? "Claim" : "Not Enough XP")}
@@ -359,26 +355,26 @@ export function KidDashboard({
         </div>
       </div>
 
-      <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded-2xl">
+      <div className={cn("flex justify-between items-center shadow-sm p-3 rounded-[2rem] border", currentTheme.vocab?.panelBg || "bg-white", currentTheme.vocab?.panelBorder || "border-slate-100")}>
         <div className="flex gap-2 items-center">
-          <div className="flex gap-1 bg-slate-900/50 p-1 rounded-xl">
+          <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-black/20" : "bg-slate-50")}>
             <button 
               onClick={() => setSortBy('time')}
               className={cn(
-                "p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest",
-                sortBy === 'time' ? "bg-amber-500 text-slate-950 shadow-lg" : "text-slate-500 hover:text-slate-300"
+                "p-3 px-5 rounded-xl transition-all flex items-center gap-2 text-sm font-semibold",
+                sortBy === 'time' ? (currentTheme.vocab?.darkMode ? "bg-slate-800 text-white" : "bg-white text-slate-900 shadow-sm") : "text-slate-500 hover:text-slate-700"
               )}
             >
-              <Clock className="w-3 h-3" /> Time
+              <Clock className="w-4 h-4" /> Time
             </button>
             <button 
               onClick={() => setSortBy('created')}
               className={cn(
-                "p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest",
-                sortBy === 'created' ? "bg-amber-500 text-slate-950 shadow-lg" : "text-slate-500 hover:text-slate-300"
+                "p-3 px-5 rounded-xl transition-all flex items-center gap-2 text-sm font-semibold",
+                sortBy === 'created' ? (currentTheme.vocab?.darkMode ? "bg-slate-800 text-white" : "bg-white text-slate-900 shadow-sm") : "text-slate-500 hover:text-slate-700"
               )}
             >
-              <CalendarDays className="w-3 h-3" /> New
+              <CalendarDays className="w-4 h-4" /> New
             </button>
           </div>
         </div>
@@ -386,11 +382,10 @@ export function KidDashboard({
         <button 
           onClick={() => setShowHistory(true)}
           className={cn(
-            "p-2 px-4 rounded-xl transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest",
-            `bg-${currentTheme.primary}/20 text-${currentTheme.primary} border border-${currentTheme.primary}/30 hover:bg-${currentTheme.primary}/30 active:scale-95`
+            "p-3 px-6 rounded-xl transition-all flex items-center gap-2 text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200"
           )}
         >
-          <History className="w-3 h-3" /> History
+          <History className="w-4 h-4" /> History
         </button>
       </div>
 
@@ -431,6 +426,8 @@ export function KidDashboard({
                     urgency={urgency}
                     slotLabel={slot === 1 ? 'Morning' : 'Evening'}
                     category={category}
+                    themeVocab={currentTheme.vocab}
+                    darkMode={currentTheme.vocab?.darkMode}
                   />
                 ))}
               </React.Fragment>
@@ -446,14 +443,16 @@ export function KidDashboard({
               onToggle={() => toggleTask(task.id, isCompleted(task.id))}
               urgency={urgency}
               category={category}
+              themeVocab={currentTheme.vocab}
+              darkMode={currentTheme.vocab?.darkMode}
             />
           );
         })}
 
         {filteredTasks.length === 0 && (
-          <div className="col-span-full text-center py-12 glass-panel rounded-[40px]">
-            <Award className="w-16 h-16 text-blue-500/20 mx-auto mb-4" />
-            <p className="text-slate-500 italic uppercase text-xs tracking-widest font-bold">No missions in current star-system.</p>
+          <div className={cn("col-span-full text-center py-20 rounded-[3rem]", currentTheme.vocab?.panelBg || "bg-white", currentTheme.vocab?.panelBorder ? `border ${currentTheme.vocab?.panelBorder}` : "shadow-sm")}>
+            <Award className={cn("w-20 h-20 mx-auto mb-4", currentTheme.vocab?.darkMode ? "text-slate-700" : "text-slate-200")} />
+            <p className={cn("text-lg font-bold", currentTheme.vocab?.darkMode ? "text-slate-500" : "text-slate-400")}>{currentTheme.vocab?.noTasks || "No chores right now. You're all caught up!"}</p>
           </div>
         )}
       </div>
@@ -462,23 +461,23 @@ export function KidDashboard({
         <motion.div 
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="bg-emerald-500/10 border border-emerald-500/30 p-8 rounded-[40px] text-center glow-green"
+          className={cn("p-8 rounded-[3rem] text-center shadow-sm", currentTheme.vocab?.darkMode ? "bg-emerald-500/10 border border-emerald-500/30" : "bg-emerald-50 border border-emerald-100")}
         >
           <Award className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
-          <h3 className="text-2xl font-black italic tracking-tighter uppercase mb-2">Maximum Efficiency</h3>
-          <p className="text-emerald-400 font-bold uppercase text-[10px] tracking-widest">All Objectives Neutralized</p>
+          <h3 className={cn("text-2xl font-bold mb-2", currentTheme.vocab?.darkMode ? "text-emerald-400" : "text-emerald-700")}>{currentTheme.vocab?.allDone || 'All Done!'}</h3>
+          <p className={cn("font-bold uppercase text-xs tracking-widest", currentTheme.vocab?.darkMode ? "text-emerald-500" : "text-emerald-600")}>{currentTheme.vocab?.allDoneDesc || 'Great Job Today'}</p>
         </motion.div>
       )}
 
       {/* Alert Banner / Notification */}
       {tasks.some((t: Task) => getUrgency(t) === 'overdue') && (
-        <div className="flex items-center gap-4 bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl glow-orange">
-          <div className="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center text-slate-950">
+        <div className={cn("flex items-center gap-4 p-4 rounded-2xl shadow-sm", currentTheme.vocab?.darkMode ? "bg-rose-500/10 border border-rose-500/30" : "bg-red-50 border border-red-100")}>
+          <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", currentTheme.vocab?.darkMode ? "bg-rose-500/20 text-rose-500" : "bg-red-100 text-red-500")}>
             <Bell className="w-6 h-6" />
           </div>
           <div className="flex-1">
-            <p className="text-amber-500 font-black text-xs uppercase tracking-widest">Ground Control Alert</p>
-            <p className="text-slate-400 text-[10px] italic">Mission objectives are critical. Immediate deployment required.</p>
+            <p className={cn("font-bold text-sm tracking-wide", currentTheme.vocab?.darkMode ? "text-rose-400" : "text-red-700")}>{currentTheme.vocab?.overdue || 'Tasks Overdue'}</p>
+            <p className={cn("text-xs", currentTheme.vocab?.darkMode ? "text-rose-500/80" : "text-red-500")}>{currentTheme.vocab?.overdueDesc || 'Some chores need your attention right now.'}</p>
           </div>
         </div>
       )}
@@ -486,8 +485,8 @@ export function KidDashboard({
       {/* Badge Collection Section */}
       <div className="space-y-4 pt-8">
         <div className="flex items-center gap-3">
-          <Trophy className="w-5 h-5 text-amber-500" />
-          <h3 className="text-xl font-bold italic uppercase tracking-tight">Badge Collection</h3>
+          <Trophy className="w-6 h-6 text-amber-500" />
+          <h3 className={cn("text-2xl font-bold", currentTheme.vocab?.textPrimary || "text-slate-800")}>{currentTheme.vocab?.badges || 'My Badges'}</h3>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {Object.values(BADGE_DEFS).map(badge => {
@@ -495,23 +494,23 @@ export function KidDashboard({
             return (
               <motion.div 
                 key={badge.id}
-                whileHover={isEarned ? { scale: 1.05 } : {}}
+                whileHover={isEarned ? { scale: 1.02 } : {}}
                 className={cn(
-                  "p-5 rounded-[30px] border-2 flex flex-col items-center justify-center text-center gap-3 transition-all relative overflow-hidden",
-                  isEarned ? cn(badge.color, "bg-opacity-10 border-white/20 glow-blue shadow-lg") : "bg-slate-900 border-slate-800 opacity-40 grayscale"
+                  "p-5 rounded-[2rem] border flex flex-col items-center justify-center text-center gap-3 transition-all relative overflow-hidden",
+                  isEarned ? cn(badge.color, "bg-opacity-10 border-transparent shadow-sm") : "bg-slate-50 border-slate-100 opacity-60 grayscale"
                 )}
               >
                 <div className={cn(
-                  "w-14 h-14 rounded-2xl flex items-center justify-center text-3xl mb-1 shadow-inner",
-                  isEarned ? "bg-white/10" : "bg-slate-800"
+                  "w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-1 shadow-sm",
+                  isEarned ? "bg-white" : "bg-slate-100"
                 )}>
                   {badge.icon}
                 </div>
                 <div>
-                  <p className={cn("font-black uppercase text-[10px] tracking-widest leading-tight", isEarned ? "text-white" : "text-slate-500")}>
+                  <p className={cn("font-bold text-sm leading-tight", isEarned ? "text-slate-800" : "text-slate-500")}>
                     {badge.name}
                   </p>
-                  <p className="text-[8px] text-slate-500 italic mt-1 leading-tight px-1">{badge.description}</p>
+                  <p className="text-xs text-slate-500 mt-1 leading-tight px-1">{badge.description}</p>
                 </div>
                 {isEarned && (
                   <motion.div 
@@ -519,8 +518,8 @@ export function KidDashboard({
                     animate={{ opacity: 1, scale: 1 }}
                     className="absolute top-3 right-3"
                   >
-                    <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center">
-                      <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+                    <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-white" />
                     </div>
                   </motion.div>
                 )}
@@ -536,30 +535,29 @@ export function KidDashboard({
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-sm"
+            className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm"
           >
-            <div className="bg-slate-900 border-2 border-slate-700 rounded-[40px] p-8 shadow-2xl max-w-sm w-full text-center relative overflow-hidden">
-              <div className="absolute inset-0 bg-blue-500/5 glow-blue" />
-              <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6 relative z-10">
-                <CheckCircle2 className="w-10 h-10 text-blue-500" />
+            <div className={cn("border rounded-[3rem] p-8 shadow-xl max-w-sm w-full text-center relative overflow-hidden", currentTheme.vocab?.panelBg || "bg-white", currentTheme.vocab?.panelBorder || "border-slate-100")}>
+              <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 relative z-10", `bg-${currentTheme.primary}/10`)}>
+                <CheckCircle2 className={cn("w-10 h-10", `text-${currentTheme.primary}`)} />
               </div>
-              <h4 className="text-2xl font-black uppercase italic tracking-tighter mb-2 relative z-10">Verify Mission</h4>
-              <p className="text-slate-400 mb-8 relative z-10 uppercase text-[10px] font-bold tracking-widest leading-relaxed">
-                Did you complete<br/><span className="text-white text-base">"{confirmTask.taskTitle}"</span>?
+              <h4 className={cn("text-3xl font-bold mb-2 relative z-10", currentTheme.vocab?.textPrimary || "text-slate-800")}>{currentTheme.vocab?.verifyTitle || 'All Done?'}</h4>
+              <p className={cn("mb-8 relative z-10 text-sm font-medium", currentTheme.vocab?.textSecondary || "text-slate-500")}>
+                {currentTheme.vocab?.verifyDesc || 'Did you complete'}<br/><span className={cn("text-lg font-bold", currentTheme.vocab?.textPrimary || "text-slate-800")}>"{confirmTask.taskTitle}"</span>?
               </p>
               
               <div className="flex gap-4 relative z-10">
                 <button 
                   onClick={() => setConfirmTask(null)}
-                  className="flex-1 py-4 bg-slate-800 text-slate-400 font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-slate-700 transition-all border border-slate-700"
+                  className={cn("flex-1 py-4 font-bold rounded-2xl transition-all", currentTheme.vocab?.darkMode ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={executeCompletion}
-                  className="flex-1 py-4 bg-emerald-500 text-slate-950 font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] glow-green"
+                  className={cn("flex-1 py-4 font-bold rounded-2xl transition-all shadow-md", `bg-${currentTheme.primary} text-white hover:bg-${currentTheme.accent}`)}
                 >
-                  Confirm +{confirmTask.xpReward} XP
+                  {currentTheme.vocab?.confirmYes || 'Yes!'} +{confirmTask.xpReward} {currentTheme.vocab?.points || 'XP'}
                 </button>
               </div>
             </div>
@@ -594,20 +592,20 @@ export function KidDashboard({
             initial={{ opacity: 0, scale: 0.8, y: 50 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 50 }}
-            className="fixed bottom-10 left-6 right-6 md:left-auto md:right-10 md:w-80 z-[100] bg-slate-950 border-2 border-blue-500 rounded-[40px] p-8 shadow-2xl glow-blue backdrop-blur-xl"
+            className="fixed bottom-10 left-6 right-6 md:left-auto md:right-10 md:w-80 z-[100] bg-white border border-slate-200 rounded-[3rem] p-8 shadow-xl"
           >
             <div className="flex flex-col items-center text-center">
-              <div className="text-6xl mb-6 animate-bounce drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
+              <div className="text-6xl mb-6 animate-bounce">
                 {unlockedBadge.icon}
               </div>
-              <h4 className="text-xl font-black uppercase italic text-blue-400 mb-2 tracking-tighter">New Badge Earned!</h4>
-              <p className="text-white font-black text-lg leading-tight mb-2 uppercase tracking-wide">{unlockedBadge.name}</p>
-              <p className="text-slate-500 text-xs mb-8 italic leading-relaxed">{unlockedBadge.description}</p>
+              <h4 className="text-2xl font-bold text-sky-500 mb-2">New Badge!</h4>
+              <p className="text-slate-800 font-black text-lg leading-tight mb-2">{unlockedBadge.name}</p>
+              <p className="text-slate-500 text-sm mb-8 leading-relaxed">{unlockedBadge.description}</p>
               <button 
                 onClick={() => setUnlockedBadge(null)}
-                className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-blue-500 transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] active:scale-95"
+                className="w-full py-4 bg-sky-500 text-white font-bold rounded-2xl hover:bg-sky-400 transition-all active:scale-95"
               >
-                Dismiss Communication
+                Awesome
               </button>
             </div>
           </motion.div>

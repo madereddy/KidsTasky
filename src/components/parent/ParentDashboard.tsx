@@ -141,17 +141,17 @@ export function ParentDashboard({
     <div className="space-y-8">
       <RewardManager parentId={profile.uid} rewards={rewards} onUpdate={refreshRewards} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 glass-panel p-6 rounded-3xl border-l-4 border-l-blue-500 flex justify-between items-center relative overflow-hidden">
+        <div className="md:col-span-2 bg-white shadow-sm border border-slate-100 p-6 rounded-3xl border-l-4 border-l-blue-500 flex justify-between items-center relative overflow-hidden">
           <div className="relative z-10">
             <h3 className="text-lg font-bold mb-2">Ground Control Command</h3>
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-slate-900 border border-slate-800 rounded-2xl relative">
+              <div className="p-3 bg-white shadow-sm border border-slate-200 rounded-2xl relative">
                 <ShieldCheck className="w-6 h-6 text-blue-500" />
                 <button 
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className="absolute -top-2 -right-2 w-6 h-6 bg-slate-800 rounded-full flex items-center justify-center border border-slate-700 hover:border-amber-500 transition-colors"
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-slate-800 rounded-full flex items-center justify-center border border-slate-200 hover:border-amber-500 transition-colors"
                 >
-                  <Bell className={cn("w-3 h-3", notifications.length > 0 ? "text-amber-500 animate-pulse" : "text-slate-400")} />
+                  <Bell className={cn("w-3 h-3", notifications.length > 0 ? "text-amber-500 animate-pulse" : "text-slate-500")} />
                   {notifications.length > 0 && (
                     <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border border-slate-900" />
                   )}
@@ -182,7 +182,7 @@ export function ParentDashboard({
                        </div>
                     ) : (
                       notifications.map((n: Notification) => (
-                        <div key={n.id} className="p-3 bg-slate-950/50 rounded-xl border border-slate-800/50 flex flex-col gap-2 group">
+                        <div key={n.id} className="p-3 bg-slate-50/50 rounded-xl border border-slate-800/50 flex flex-col gap-2 group">
                           <div>
                             <p className="text-[7px] font-black text-amber-500 uppercase mb-0.5">Overdue Objective</p>
                             <p className="text-white font-bold text-[9px] leading-tight truncate">{n.taskTitle}</p>

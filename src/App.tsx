@@ -75,11 +75,11 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <motion.div 
           animate={{ scale: [1, 1.2, 1], rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full shadow-[0_0_20px_rgba(59,130,246,0.5)]"
+          className="w-16 h-16 border-4 border-sky-500 border-t-transparent rounded-full"
         />
       </div>
     );
@@ -87,7 +87,7 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen animate-gradient text-white selection:bg-blue-500/30 overflow-x-hidden">
+      <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-sky-500/30 overflow-x-hidden">
         <LoginView 
           onLogin={async (email: string, passwordString: string, isRegister: boolean, name?: string) => {
             const res = isRegister ? await authService.register(email, passwordString, name || '') : await authService.signIn(email, passwordString);
@@ -122,7 +122,7 @@ export default function App() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white selection:bg-blue-500/30">
+      <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-sky-500/30">
         <OnboardingView 
           user={{ uid: user.uid, email: user.email, name: user.name }} 
           onComplete={async (p: UserProfile) => {
@@ -140,36 +140,38 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen text-white selection:bg-blue-500/30 overflow-x-hidden pb-12 transition-colors duration-500" style={{ background: currentTheme.bg }}>
-      <header className="glass-panel sticky top-0 z-40 backdrop-blur-xl border-b border-white/5 mx-6 mt-6 rounded-[2rem] px-8 py-4 mb-8">
+    <div className={cn("min-h-screen selection:bg-sky-500/30 overflow-x-hidden pb-12 transition-colors duration-500", currentTheme.vocab?.darkMode ? "text-white" : "text-slate-900")} style={{ background: currentTheme.bg }}>
+      <header className={cn("sticky top-0 z-40 backdrop-blur-xl border-b mx-4 mt-4 rounded-[2rem] px-6 py-3 mb-8 shadow-sm", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-slate-200")}>
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3">
-              <div className={cn("p-2 rounded-xl bg-gradient-to-br", `from-${currentTheme.primary} to-${currentTheme.accent}`, "shadow-lg shadow-blue-500/20")}>
-                <Rocket className="w-6 h-6 text-white" />
+              <div className={cn("p-2 rounded-xl bg-gradient-to-br", `from-${currentTheme.primary} to-${currentTheme.accent}`, "shadow-sm")}>
+                <Rocket className={cn("w-6 h-6", currentTheme.vocab?.darkMode ? "text-white" : "text-white")} />
               </div>
-              <h1 className="text-2xl font-black italic tracking-tighter uppercase hidden sm:block">Sector {profile.role === 'parent' ? '7' : 'Command'}</h1>
+              <h1 className={cn("text-xl font-bold tracking-tight hidden sm:block", currentTheme.vocab?.textPrimary || "text-slate-800")}>
+                {profile.role === 'parent' ? 'Family Hub' : currentTheme.vocab?.hub || 'My Chores'}
+              </h1>
             </div>
             
-            <div className="h-10 w-[1px] bg-white/10 hidden sm:block" />
+            <div className="h-8 w-[1px] bg-slate-200 hidden sm:block" />
             
-            <nav className="hidden md:flex gap-1 bg-slate-950/50 p-1 rounded-2xl">
+            <nav className="hidden md:flex gap-1 bg-slate-100 p-1 rounded-2xl">
                <button 
                  onClick={() => setSelectedCategoryId(null)}
                  className={cn(
-                   "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                   !selectedCategoryId ? cn(`bg-${currentTheme.primary} text-white shadow-lg shadow-blue-500/20`) : "text-slate-500 hover:text-white"
+                   "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
+                   !selectedCategoryId ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : "text-slate-500 hover:text-slate-900"
                  )}
                >
-                 All Systems
+                 All
                </button>
                {categories.map(cat => (
                  <button 
                    key={cat.id}
                    onClick={() => setSelectedCategoryId(cat.id)}
                    className={cn(
-                     "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all gap-2 flex items-center",
-                     selectedCategoryId === cat.id ? cn(cat.color, "text-white shadow-lg") : "text-slate-500 hover:text-white"
+                     "px-4 py-2 rounded-xl text-sm font-semibold transition-all gap-2 flex items-center",
+                     selectedCategoryId === cat.id ? cn(cat.color, "text-white shadow-sm") : "text-slate-500 hover:text-slate-900"
                    )}
                  >
                    <span>{cat.icon}</span>
@@ -179,27 +181,17 @@ export default function App() {
             </nav>
           </div>
 
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-4">
-              <div className="text-right hidden sm:block">
-                <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black leading-none mb-1">Status</p>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                  <span className="text-xs font-bold text-emerald-500 uppercase tracking-tight">Active</span>
-                </div>
-              </div>
-              <div className="relative group">
-                <div className="w-12 h-12 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center text-slate-400 group-hover:text-blue-400 transition-colors cursor-pointer group-hover:border-blue-500/50">
-                  <UserIcon className="w-6 h-6" />
-                </div>
-                <div className="absolute top-0 right-0 w-3 h-3 bg-blue-500 rounded-full border-2 border-slate-950" />
+          <div className="flex items-center gap-4">
+            <div className="relative group">
+              <div className="w-10 h-10 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center text-slate-400 group-hover:text-sky-500 transition-colors cursor-pointer">
+                <UserIcon className="w-5 h-5" />
               </div>
             </div>
             
             <button 
               onClick={handleLogout}
-              className="p-2 text-slate-500 hover:text-rose-500 transition-colors hover:bg-rose-500/5 rounded-xl"
-              title="Terminate Session"
+              className="p-2 text-slate-400 hover:text-rose-500 transition-colors hover:bg-rose-50 rounded-full"
+              title="Log Out"
             >
               <LogOut className="w-5 h-5" />
             </button>
@@ -208,7 +200,7 @@ export default function App() {
 
         {/* Global Progress Line (Top Decoration) */}
         {profile.role === 'kid' && (
-          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-slate-900/50 px-8">
+          <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-100 px-8 rounded-b-[2rem] overflow-hidden">
             <motion.div 
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
@@ -255,17 +247,13 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      <footer className="mt-20 pt-10 border-t border-white/5 mx-6">
+      <footer className="mt-20 pt-10 border-t border-slate-200 mx-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 pb-6">
           <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600">
+            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-emerald-500">
               <Activity className="w-4 h-4" />
             </div>
-            <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-black">System Signal: 🛰️ OK_CONNECTED</p>
-          </div>
-          <div className="flex gap-8">
-            <p className="text-[9px] text-slate-700 uppercase font-black tracking-widest">Protocol v4.0.2</p>
-            <p className="text-[9px] text-slate-700 uppercase font-black tracking-widest">Secure Sector</p>
+            <p className="text-xs text-slate-500 font-medium">Synced</p>
           </div>
         </div>
       </footer>

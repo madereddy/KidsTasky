@@ -55,19 +55,19 @@ export function CategoryManager({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-50/80 backdrop-blur-md"
     >
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="glass-panel w-full max-w-md rounded-[40px] p-10 shadow-2xl border-blue-500/20 max-h-[90vh] overflow-y-auto custom-scrollbar"
+        className="bg-white shadow-sm border border-slate-100 w-full max-w-md rounded-[40px] p-10 shadow-2xl border-blue-500/20 max-h-[90vh] overflow-y-auto custom-scrollbar"
       >
         <div className="flex justify-between items-center mb-8">
           <h3 className="text-2xl font-black italic tracking-tighter uppercase">Categories</h3>
           <button onClick={onClose} className="p-2 text-slate-500 hover:text-white"><LogOut className="w-5 h-5 rotate-180" /></button>
         </div>
 
-        <div className="space-y-6 mb-10 pb-10 border-b border-slate-800">
+        <div className="space-y-6 mb-10 pb-10 border-b border-slate-200">
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Category Name</label>
             <input 
@@ -87,7 +87,7 @@ export function CategoryManager({
                   onClick={() => setIcon(i)}
                   className={cn(
                     "w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all",
-                    icon === i ? "bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)] scale-110" : "bg-slate-900 border border-slate-800 text-slate-500"
+                    icon === i ? "bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)] scale-110" : "bg-white shadow-sm border border-slate-800 text-slate-500"
                   )}
                 >
                   {i}

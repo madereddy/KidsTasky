@@ -21,7 +21,7 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
   const isGoogleConnected = connections.some(c => c.provider === 'google' || c.provider === 'google_manual');
 
   return (
-    <div className="glass-panel p-6 rounded-3xl border-l-4 border-l-emerald-500 overflow-hidden relative">
+    <div className="bg-white shadow-sm border border-slate-100 p-6 rounded-3xl border-l-4 border-l-emerald-500 overflow-hidden relative">
       <div className="relative z-10">
         <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
           <Calendar className="w-5 h-5 text-emerald-500" />
@@ -30,7 +30,7 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
         
         <div className="space-y-3">
           {connections.map(conn => (
-            <div key={conn.id} className="flex justify-between items-center p-3 bg-slate-900 border border-slate-800 rounded-xl">
+            <div key={conn.id} className="flex justify-between items-center p-3 bg-white shadow-sm border border-slate-200 rounded-xl">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="font-bold text-white capitalize">{conn.provider.replace('_', ' ')} Link Active</span>
@@ -48,7 +48,7 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
             <div className="space-y-4 pt-2">
               <button 
                 onClick={() => onConnect('google')}
-                className="w-full bg-slate-800 border border-slate-700 text-white hover:bg-slate-700 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all"
+                className="w-full bg-slate-800 border border-slate-200 text-white hover:bg-slate-700 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all"
               >
                 <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-4 h-4" />
                 Connect via Google OAuth
@@ -79,7 +79,7 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="pilot@gmail.com"
-                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-500 transition-colors"
+                          className="w-full bg-slate-50 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-500 transition-colors"
                         />
                       </div>
                       <div>

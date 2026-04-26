@@ -41,7 +41,7 @@ export function AddKidForm({ parentId, onAdded }: { parentId: string, onAdded: (
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="New Cadet Name"
-          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-purple-500 transition-colors"
+          className="w-full bg-white shadow-sm border border-slate-200 rounded-xl px-3 py-2 text-xs text-white focus:border-purple-500 transition-colors"
           required
         />
         <input
