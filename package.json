@@ -75,6 +75,7 @@
     "node": ">=24"
   },
   "overrides": {
-    "xmldom": "npm:@xmldom/xmldom@^0.9.10"
+    "xmldom": "npm:@xmldom/xmldom@^0.9.10",
+    "semver": "^7.7.4"
   }
 }
