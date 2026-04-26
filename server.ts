@@ -23,9 +23,9 @@ socketWrapper.init(io);
 app.set('io', io);
 
 // Security
-app.use(helmet({
-  contentSecurityPolicy: false,
-}));
+// app.use(helmet({
+//   contentSecurityPolicy: false,
+// }));
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 100, 
@@ -55,7 +55,7 @@ export async function startServer() {
   } else if (process.env.NODE_ENV === "production" && !process.env.TEST_BUILD) {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('(.*)', (req, res) => {
+    app.get('/:path*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
