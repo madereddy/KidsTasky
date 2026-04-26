@@ -19,7 +19,7 @@ export function PinPad({ onComplete }: { onComplete: (pin: string) => void }) {
 
   return (
     <div className="flex flex-col items-center bg-gray-900 p-6 rounded-2xl max-w-xs mx-auto">
-      <h3 className="text-white font-medium mb-4">Enter Parental PIN</h3>
+      <h3 className="text-slate-800 font-medium mb-4">Enter Parental PIN</h3>
       <div className="flex gap-3 mb-6">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className={`w-4 h-4 rounded-full border-2 ${i < pin.length ? 'bg-white border-white' : 'border-gray-500'}`}></div>

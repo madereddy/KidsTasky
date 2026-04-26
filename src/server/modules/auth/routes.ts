@@ -12,7 +12,7 @@ const validate = (req: Request, res: Response, next: any) => {
 };
 
 authRouter.post('/auth/register', [
-  body('email').isEmail(),
+  body('email').isString().notEmpty(),
   body('password').isString().isLength({ min: 4 }),
   body('name').isString().notEmpty(),
   validate
@@ -26,7 +26,7 @@ authRouter.post('/auth/register', [
 });
 
 authRouter.post('/auth/login', [
-  body('email').isEmail(),
+  body('email').isString().notEmpty(),
   body('password').isString(),
   validate
 ], async (req: Request, res: Response) => {

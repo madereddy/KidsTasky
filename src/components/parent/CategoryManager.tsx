@@ -64,7 +64,7 @@ export function CategoryManager({
       >
         <div className="flex justify-between items-center mb-8">
           <h3 className="text-2xl font-black italic tracking-tighter uppercase">Categories</h3>
-          <button onClick={onClose} className="p-2 text-slate-500 hover:text-white"><LogOut className="w-5 h-5 rotate-180" /></button>
+          <button onClick={onClose} className="p-2 text-slate-500 hover:text-slate-800"><LogOut className="w-5 h-5 rotate-180" /></button>
         </div>
 
         <div className="space-y-6 mb-10 pb-10 border-b border-slate-200">
@@ -124,7 +124,7 @@ export function CategoryManager({
         <div className="space-y-3">
           <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Existing Categories</label>
           {categories.map(cat => (
-            <div key={cat.id} className="flex justify-between items-center bg-slate-900/50 p-3 rounded-2xl border border-slate-800">
+            <div key={cat.id} className="flex justify-between items-center bg-white/90 p-3 rounded-2xl border border-slate-800">
               <div className="flex items-center gap-3">
                 <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-xl", cat.color)}>
                   {cat.icon}

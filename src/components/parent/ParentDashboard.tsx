@@ -154,17 +154,17 @@ export function ParentDashboard({
                 <ShieldCheck className="w-6 h-6 text-blue-500" />
                 <button 
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className="absolute -top-2 -right-2 w-6 h-6 bg-slate-800 rounded-full flex items-center justify-center border border-slate-200 hover:border-amber-500 transition-colors"
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200 hover:border-amber-500 transition-colors"
                 >
                   <Bell className={cn("w-3 h-3", notifications.length > 0 ? "text-amber-500 animate-pulse" : "text-slate-500")} />
                   {notifications.length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border border-slate-900" />
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border border-white" />
                   )}
                 </button>
               </div>
               <div>
                 <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-none mb-1">Sector Commander</p>
-                <p className="font-bold text-white leading-none">{profile.name}</p>
+                <p className="font-bold text-slate-800 leading-none">{profile.name}</p>
               </div>
             </div>
 
@@ -174,28 +174,28 @@ export function ParentDashboard({
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute top-full left-0 mt-4 w-64 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-[100] max-h-[300px] overflow-y-auto"
+                  className="absolute top-full left-0 mt-4 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[100] max-h-[300px] overflow-y-auto"
                 >
-                  <div className="p-3 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Tactical Alerts</span>
+                  <div className="p-3 border-b border-slate-200 flex justify-between items-center bg-white/90 backdrop-blur-md sticky top-0 z-10">
+                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Tactical Alerts</span>
                     <span className="text-[8px] font-bold text-amber-500">{notifications.length} NEW</span>
                   </div>
                   <div className="p-1 space-y-1">
                     {notifications.length === 0 ? (
                        <div className="p-4 text-center">
-                         <p className="text-[8px] text-slate-600 uppercase font-bold">No breaches detected</p>
+                         <p className="text-[8px] text-slate-500 uppercase font-bold">No breaches detected</p>
                        </div>
                     ) : (
                       notifications.map((n: Notification) => (
-                        <div key={n.id} className="p-3 bg-slate-50/50 rounded-xl border border-slate-800/50 flex flex-col gap-2 group">
+                        <div key={n.id} className="p-3 bg-white hover:bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-2 group">
                           <div>
-                            <p className="text-[7px] font-black text-amber-500 uppercase mb-0.5">Overdue Objective</p>
-                            <p className="text-white font-bold text-[9px] leading-tight truncate">{n.taskTitle}</p>
+                            <p className="text-[7px] font-black text-amber-600 uppercase mb-0.5">Overdue Objective</p>
+                            <p className="text-slate-800 font-bold text-[9px] leading-tight truncate">{n.taskTitle}</p>
                             <p className="text-slate-500 text-[8px] uppercase font-bold tracking-tight">Cadet: {n.kidName}</p>
                           </div>
                           <button 
                             onClick={() => markRead(n.id)}
-                            className="text-[8px] font-bold text-blue-400 hover:text-blue-300 uppercase tracking-widest text-left"
+                            className="text-[8px] font-bold text-sky-500 hover:text-sky-600 uppercase tracking-widest text-left"
                           >
                             Mark Handled
                           </button>
@@ -213,7 +213,7 @@ export function ParentDashboard({
               <button 
                 onClick={generateInvite}
                 disabled={generatingInvite}
-                className="btn-immersive-primary !w-auto bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600/40 px-6 py-2 text-[10px]"
+                className="bg-sky-500 hover:bg-sky-600 text-white shadow-md border-b-4 border-sky-600 active:border-b-0 active:mt-1 rounded-2xl transition-all px-6 py-3 font-bold text-xs uppercase tracking-wider"
               >
                 {generatingInvite ? "GENERATING..." : "GENERATE MISSION CODE"}
               </button>
@@ -223,14 +223,14 @@ export function ParentDashboard({
                   <Send className="w-3 h-3" /> Mission Access Code
                 </p>
                 <div className="flex items-center gap-2">
-                  <div className="bg-slate-900 border border-slate-700 font-mono px-4 py-2 rounded-2xl text-blue-400 text-2xl font-black tracking-widest glow-blue">
+                  <div className="bg-sky-50 border border-sky-100 font-mono px-4 py-2 rounded-2xl text-sky-600 text-2xl font-black tracking-widest shadow-inner">
                     {invite.id}
                   </div>
                   <button 
                     onClick={handleCopy}
                     className={cn(
                       "p-3 rounded-2xl transition-all flex items-center justify-center border",
-                      copied ? "bg-emerald-500/20 border-emerald-500 text-emerald-400" : "bg-slate-800 border-slate-700 text-slate-400 hover:text-white"
+                      copied ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
                     )}
                     title="Copy Code"
                   >
@@ -257,7 +257,7 @@ export function ParentDashboard({
             {kids.length > 0 ? kids.map((k: UserProfile) => (
               <div 
                 key={k.uid}
-                className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-xs font-bold text-slate-300 relative group/kid mb-2"
+                className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-xs font-bold text-slate-500 relative group/kid mb-2"
                 title={`${k.name} - LVL ${k.level || 1}`}
               >
                 {k.name?.charAt(0)?.toUpperCase()}
@@ -300,14 +300,14 @@ export function ParentDashboard({
         onDisconnect={handleDisconnect} 
       />
 
-      <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded-2xl">
+      <div className="flex justify-between items-center bg-slate-50 p-2 rounded-2xl">
         <div className="flex gap-2 items-center">
           <div className="flex gap-1 bg-slate-900/50 p-1 rounded-xl mr-2">
             <button 
               onClick={() => setSortBy('time')}
               className={cn(
                 "p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest",
-                sortBy === 'time' ? "bg-blue-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"
+                sortBy === 'time' ? "bg-sky-500 text-white shadow-md" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
               )}
             >
               <Clock className="w-3 h-3" /> Time
@@ -316,7 +316,7 @@ export function ParentDashboard({
               onClick={() => setSortBy('created')}
               className={cn(
                 "p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest",
-                sortBy === 'created' ? "bg-blue-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"
+                sortBy === 'created' ? "bg-sky-500 text-white shadow-md" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
               )}
             >
               <CalendarDays className="w-3 h-3" /> New
@@ -334,7 +334,7 @@ export function ParentDashboard({
           ))}
           <button 
             onClick={() => setIsManagingCategories(true)}
-            className="p-2 bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors"
+            className="p-2 bg-white rounded-xl text-slate-500 hover:bg-slate-50 border border-slate-200 transition-colors shadow-sm"
           >
             <Tag className="w-5 h-5" />
           </button>
@@ -362,7 +362,7 @@ export function ParentDashboard({
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
                     <div className="flex gap-2 items-center mb-2">
-                      <span className="text-[10px] bg-slate-800 text-slate-400 font-bold px-2 py-1 rounded uppercase tracking-wider">
+                      <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-500 font-bold px-2 py-1 rounded uppercase tracking-wider">
                         {task.frequency}
                       </span>
                       {category && (
@@ -371,7 +371,7 @@ export function ParentDashboard({
                         </span>
                       )}
                       {task.reminderTime && (
-                        <span className="text-[10px] bg-blue-500/10 text-blue-400 font-bold px-2 py-1 rounded uppercase tracking-wider flex items-center gap-1">
+                        <span className="text-[10px] bg-sky-50 border border-sky-100 text-sky-600 font-bold px-2 py-1 rounded uppercase tracking-wider flex items-center gap-1">
                           <Clock className="w-3 h-3" /> {task.reminderTime}
                         </span>
                       )}
@@ -385,7 +385,7 @@ export function ParentDashboard({
                     <Trash2 className="w-5 h-5" />
                   </button>
                 </div>
-                <div className="w-full py-2 bg-slate-900 border border-slate-800 text-slate-500 font-black rounded-xl text-center uppercase tracking-widest text-[10px]">
+                <div className="w-full py-2 bg-slate-50 border border-slate-200 text-slate-500 font-black rounded-xl text-center uppercase tracking-widest text-[10px]">
                   Monitoring Active
                 </div>
               </div>

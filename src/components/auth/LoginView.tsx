@@ -81,14 +81,14 @@ export function LoginView({ onLogin, onKidLogin }: {
                 />
               )}
               <input 
-                type="email" 
+                type="text" 
                 value={email}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                placeholder="Email Address" 
+                placeholder="Parent Email or Username" 
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder-slate-400 text-center font-medium focus:ring-2 focus:ring-sky-500 outline-none transition-all"
               />
               {!isRegister && (
-                <p className="text-xs text-slate-500 mb-4 font-medium">Enter email for kid's profile, or password for parent login.</p>
+                <p className="text-xs text-slate-500 mb-4 font-medium">Enter Parent Username/Email to view kid profiles, plus password for parent login.</p>
               )}
               <input 
                 type="password" 

@@ -63,7 +63,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
                 onClick={() => setCategoryId('')}
                 className={cn(
                   "py-2 rounded-xl font-bold text-[10px] uppercase border transition-all",
-                  categoryId === '' ? "bg-slate-700 text-white border-slate-600" : "bg-white shadow-sm border-slate-200 text-slate-500"
+                  categoryId === '' ? "bg-slate-700 text-slate-800 border-slate-600" : "bg-white shadow-sm border-slate-200 text-slate-500"
                 )}
               >
                 None
@@ -167,7 +167,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
                       "w-full text-left px-3 py-2 rounded-xl text-xs font-bold border transition-all truncate",
                       prerequisiteTaskIds.includes(t.id) 
                         ? "bg-purple-600/20 text-purple-400 border-purple-500/50" 
-                        : "bg-slate-900/50 text-slate-500 border-slate-800 hover:border-slate-200"
+                        : "bg-white/90 text-slate-500 border-slate-800 hover:border-slate-200"
                     )}
                   >
                     {prerequisiteTaskIds.includes(t.id) && <CheckCircle2 className="inline w-3 h-3 mr-1" />}

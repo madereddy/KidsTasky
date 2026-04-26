@@ -33,7 +33,7 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
             <div key={conn.id} className="flex justify-between items-center p-3 bg-white shadow-sm border border-slate-200 rounded-xl">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-bold text-white capitalize">{conn.provider.replace('_', ' ')} Link Active</span>
+                <span className="font-bold text-slate-800 capitalize">{conn.provider.replace('_', ' ')} Link Active</span>
               </div>
               <button 
                 onClick={() => onDisconnect(conn.id)}
@@ -48,7 +48,7 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
             <div className="space-y-4 pt-2">
               <button 
                 onClick={() => onConnect('google')}
-                className="w-full bg-slate-800 border border-slate-200 text-white hover:bg-slate-700 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all"
+                className="w-full bg-slate-100 border border-slate-200 text-white hover:bg-slate-700 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all"
               >
                 <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-4 h-4" />
                 Connect via Google OAuth
@@ -71,7 +71,7 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
                     exit={{ height: 0, opacity: 0 }}
                     className="space-y-4 overflow-hidden"
                   >
-                    <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 space-y-3">
+                    <div className="bg-white/90 border border-slate-800 rounded-2xl p-4 space-y-3">
                       <div>
                         <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-1 block">Gmail Frequency</label>
                         <input 

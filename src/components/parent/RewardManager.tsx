@@ -42,7 +42,7 @@ export function RewardManager({ parentId, rewards, onUpdate }: { parentId: strin
         <input placeholder="Title" value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)} className="input-immersive" />
         <input placeholder="Description" value={description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)} className="input-immersive" />
         <input type="number" value={xpCost} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setXpCost(parseInt(e.target.value))} className="input-immersive" />
-        <button onClick={addReward} className="btn-immersive-primary bg-yellow-600 hover:bg-yellow-500 text-white font-bold">Add Reward</button>
+        <button onClick={addReward} className="btn-immersive-primary bg-yellow-600 hover:bg-yellow-500 text-slate-800 font-bold">Add Reward</button>
       </div>
     </div>
   );
