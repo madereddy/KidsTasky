@@ -5,7 +5,7 @@ import { inviteService } from '../../services/invites';
 import { notificationService } from '../../services/notifications';
 import { rewardService } from '../../services/rewards';
 import React, { useState, useEffect, useCallback } from 'react';
-import { Trash2, Calendar, Clock, CalendarDays, Tag, Plus, ShieldCheck, Bell, Send, CheckCircle2, Copy } from 'lucide-react';
+import { Trash2, Calendar, Clock, CalendarDays, Tag, Plus, ShieldCheck, Bell, Send, CheckCircle2, Copy, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { Task, UserProfile, Category, Invite, Notification, Reward, TaskFrequency, TaskDifficulty } from '../../types';
@@ -13,6 +13,8 @@ import { AddTaskModal } from './AddTaskModal';
 import { AddKidForm } from './AddKidForm';
 import { CategoryManager } from './CategoryManager';
 import { RewardManager } from './RewardManager';
+import { AllowanceLedger } from './AllowanceLedger';
+import { SettingsView } from './SettingsView';
 import { ConnectedAccountsView } from './ConnectedAccountsView';
 import { parseTimestamp } from '../../lib/utils';
 import { useSocketStaleData } from '../../hooks/useSocket';
@@ -41,6 +43,7 @@ export function ParentDashboard({
   const [connections, setConnections] = useState<any[]>([]);
   const [sortBy, setSortBy] = useState<'time' | 'created'>('created');
   const [rewards, setRewards] = useState<Reward[]>([]);
+  const [showSettings, setShowSettings] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -144,7 +147,16 @@ export function ParentDashboard({
 
   return (
     <div className="space-y-8">
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowSettings(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 shadow-sm transition-colors font-semibold text-sm"
+        >
+          <Settings className="w-4 h-4" /> Settings
+        </button>
+      </div>
       <RewardManager parentId={profile.uid} rewards={rewards} onUpdate={refreshRewards} />
+      <AllowanceLedger parentId={profile.uid} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 bg-white shadow-sm border border-slate-100 p-6 rounded-3xl border-l-4 border-l-blue-500 flex justify-between items-center relative overflow-hidden">
           <div className="relative z-10">
@@ -396,8 +408,8 @@ export function ParentDashboard({
 
       <AnimatePresence>
         {isAddingTask && (
-          <AddTaskModal 
-            onClose={() => setIsAddingTask(false)} 
+          <AddTaskModal
+            onClose={() => setIsAddingTask(false)}
             onSubmit={addTask}
             kids={kids}
             parentId={profile.uid}
@@ -406,7 +418,7 @@ export function ParentDashboard({
           />
         )}
         {isManagingCategories && (
-          <CategoryManager 
+          <CategoryManager
             parentId={profile.uid}
             categories={categories}
             onClose={() => setIsManagingCategories(false)}
@@ -414,6 +426,9 @@ export function ParentDashboard({
           />
         )}
       </AnimatePresence>
+      {showSettings && (
+        <SettingsView parentId={profile.uid} onClose={() => setShowSettings(false)} />
+      )}
     </div>
   );
 }

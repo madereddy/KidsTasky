@@ -13,6 +13,8 @@ export interface UserProfile {
   badges?: EarnedBadge[];
   themeId?: string;
   currentStreak?: number;
+  earnedStars?: number;
+  spentStars?: number;
 }
 
 export interface EarnedBadge {
@@ -53,6 +55,7 @@ export interface Task {
   createdAt: FirebaseTimestamp; // Firestore Timestamp
   customInterval?: number; // Days for custom frequency
   prerequisiteTaskIds?: string[];
+  starValue?: number;
 }
 
 export interface TaskCompletion {
@@ -91,6 +94,21 @@ export interface Reward {
   title: string;
   description: string;
   xpCost: number;
+  starCost?: number;
+  allowanceCents?: number;
+}
+
+export interface AllowanceEntry {
+  id: string;
+  kidId: string;
+  parentId: string;
+  rewardId: string;
+  rewardTitle: string;
+  amountCents: number;
+  status: 'pending' | 'paid';
+  claimedAt: string;
+  paidAt?: string;
+  kidName?: string;
 }
 
 export interface ClaimedReward {

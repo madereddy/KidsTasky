@@ -2,7 +2,7 @@ import { authService } from './services/auth';
 import { userService } from './services/users';
 import { categoryService } from './services/categories';
 import React, { useState, useEffect } from 'react';
-import { LogOut, Rocket, User as UserIcon, Activity } from 'lucide-react';
+import { LogOut, Rocket, User as UserIcon, Activity, CalendarDays, List } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, Category } from './types';
 import { cn } from './lib/utils';
@@ -13,6 +13,8 @@ import { LoginView } from './components/auth/LoginView';
 import { OnboardingView } from './components/onboarding/OnboardingView';
 import { ParentDashboard } from './components/parent/ParentDashboard';
 import { KidDashboard } from './components/kid/KidDashboard';
+import { CalendarView } from './components/calendar/CalendarView';
+import { ListsView } from './components/lists/ListsView';
 
 interface AppUser {
   uid: string;
@@ -28,6 +30,7 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<'tasks' | 'calendar' | 'lists'>('tasks');
 
   useEffect(() => {
     const initAuth = async () => {
@@ -154,31 +157,65 @@ export default function App() {
             </div>
             
             <div className="h-8 w-[1px] bg-slate-200 hidden sm:block" />
-            
-            <nav className="hidden md:flex gap-1 bg-slate-100 p-1 rounded-2xl">
-               <button 
-                 onClick={() => setSelectedCategoryId(null)}
-                 className={cn(
-                   "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
-                   !selectedCategoryId ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : "text-slate-500 hover:text-slate-900"
-                 )}
-               >
-                 All
-               </button>
-               {categories.map(cat => (
-                 <button 
-                   key={cat.id}
-                   onClick={() => setSelectedCategoryId(cat.id)}
+
+            {profile?.role === 'parent' && (
+              <nav className="hidden md:flex gap-1 bg-slate-100 p-1 rounded-2xl">
+                <button
+                  onClick={() => setActiveSection('tasks')}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
+                    activeSection === 'tasks' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : "text-slate-500 hover:text-slate-900"
+                  )}
+                >
+                  Tasks
+                </button>
+                <button
+                  onClick={() => setActiveSection('calendar')}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5",
+                    activeSection === 'calendar' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : "text-slate-500 hover:text-slate-900"
+                  )}
+                >
+                  <CalendarDays className="w-4 h-4" /> Calendar
+                </button>
+                <button
+                  onClick={() => setActiveSection('lists')}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5",
+                    activeSection === 'lists' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : "text-slate-500 hover:text-slate-900"
+                  )}
+                >
+                  <List className="w-4 h-4" /> Lists
+                </button>
+              </nav>
+            )}
+
+            {profile?.role !== 'parent' && (
+              <nav className="hidden md:flex gap-1 bg-slate-100 p-1 rounded-2xl">
+                 <button
+                   onClick={() => setSelectedCategoryId(null)}
                    className={cn(
-                     "px-4 py-2 rounded-xl text-sm font-semibold transition-all gap-2 flex items-center",
-                     selectedCategoryId === cat.id ? cn(cat.color, "text-white shadow-sm") : "text-slate-500 hover:text-slate-900"
+                     "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
+                     !selectedCategoryId ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : "text-slate-500 hover:text-slate-900"
                    )}
                  >
-                   <span>{cat.icon}</span>
-                   <span className="hidden lg:inline">{cat.name}</span>
+                   All
                  </button>
-               ))}
-            </nav>
+                 {categories.map(cat => (
+                   <button
+                     key={cat.id}
+                     onClick={() => setSelectedCategoryId(cat.id)}
+                     className={cn(
+                       "px-4 py-2 rounded-xl text-sm font-semibold transition-all gap-2 flex items-center",
+                       selectedCategoryId === cat.id ? cn(cat.color, "text-white shadow-sm") : "text-slate-500 hover:text-slate-900"
+                     )}
+                   >
+                     <span>{cat.icon}</span>
+                     <span className="hidden lg:inline">{cat.name}</span>
+                   </button>
+                 ))}
+              </nav>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
@@ -212,7 +249,7 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-6">
         <AnimatePresence mode="wait">
-          {profile.role === 'parent' ? (
+          {profile.role === 'parent' && activeSection === 'tasks' && (
             <motion.div
               key="parent-dash"
               initial={{ opacity: 0, scale: 0.98 }}
@@ -220,14 +257,37 @@ export default function App() {
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.3 }}
             >
-              <ParentDashboard 
-                profile={profile} 
+              <ParentDashboard
+                profile={profile}
                 categories={categories}
                 onCategoriesChange={setCategories}
                 selectedCategoryId={selectedCategoryId}
               />
             </motion.div>
-          ) : (
+          )}
+          {profile.role === 'parent' && activeSection === 'calendar' && (
+            <motion.div
+              key="calendar-view"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.3 }}
+            >
+              <CalendarView parentId={profile.uid} kids={[]} memberColorMap={{}} />
+            </motion.div>
+          )}
+          {profile.role === 'parent' && activeSection === 'lists' && (
+            <motion.div
+              key="lists-view"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ListsView parentId={profile.uid} />
+            </motion.div>
+          )}
+          {profile.role !== 'parent' && (
             <motion.div
               key="kid-dash"
               initial={{ opacity: 0, scale: 0.98 }}
@@ -235,9 +295,9 @@ export default function App() {
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.3 }}
             >
-              <KidDashboard 
-                profile={profile} 
-                onProgressChange={setProgress} 
+              <KidDashboard
+                profile={profile}
+                onProgressChange={setProgress}
                 categories={categories}
                 selectedCategoryId={selectedCategoryId}
                 onProfileUpdate={handleProfileUpdate}

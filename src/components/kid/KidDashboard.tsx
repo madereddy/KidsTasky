@@ -41,6 +41,8 @@ export function KidDashboard({
   // Task Confirmation & Animation
   const [confirmTask, setConfirmTask] = useState<{taskId: string, count?: number, xpReward: number, taskTitle: string} | null>(null);
   const [xpAnimation, setXpAnimation] = useState<{amount: number, active: boolean}>({amount: 0, active: false});
+  const [showStarBurst, setShowStarBurst] = useState(false);
+  const [starsAwarded, setStarsAwarded] = useState(0);
 
   const currentTheme = THEMES.find(t => t.id === profile.themeId) || THEMES[0];
 
@@ -187,9 +189,14 @@ export function KidDashboard({
   const executeCompletion = async () => {
     if (!confirmTask) return;
     const { taskId, count, xpReward } = confirmTask;
+    const task = tasks.find(t => t.id === taskId);
+    const stars = task?.starValue ?? 1;
     setConfirmTask(null);
     setXpAnimation({ amount: xpReward, active: true });
-    
+    setStarsAwarded(stars);
+    setShowStarBurst(true);
+    setTimeout(() => setShowStarBurst(false), 1200);
+
     await tasksClientService.completeTask(taskId, profile.uid, today, count);
     await userService.updateUserXP(profile.uid, xpReward);
     setCompletions([...completions, { 
@@ -308,9 +315,18 @@ export function KidDashboard({
                 <span className="text-sm font-bold text-slate-400 uppercase">/ 100 {currentTheme.vocab?.points || 'XP'}</span>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Total</p>
-              <p className={cn("text-base font-bold leading-none", currentTheme.vocab?.textPrimary || "text-slate-800")}>{profile.xp || 0} {currentTheme.vocab?.points || 'XP'}</p>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <span className="text-amber-400 text-lg">⭐</span>
+                <span className={cn("font-bold text-lg", currentTheme.vocab?.textPrimary || "text-slate-800")}>
+                  {Math.max(0, (profile.earnedStars ?? 0) - (profile.spentStars ?? 0))}
+                </span>
+                <span className="text-xs text-slate-400">stars</span>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Total</p>
+                <p className={cn("text-base font-bold leading-none", currentTheme.vocab?.textPrimary || "text-slate-800")}>{profile.xp || 0} {currentTheme.vocab?.points || 'XP'}</p>
+              </div>
             </div>
           </div>
           
@@ -342,12 +358,15 @@ export function KidDashboard({
               <div key={r.id} className={cn("p-5 rounded-2xl flex justify-between items-center", currentTheme.vocab?.darkMode ? "bg-black/20" : "bg-white shadow-sm")}>
                  <div>
                    <p className={cn("font-bold text-lg", currentTheme.vocab?.textPrimary || "text-slate-800")}>{r.title}</p>
-                   <p className="text-slate-500 text-sm mt-1">{r.description} • <span className={cn("font-bold", `text-${currentTheme.primary}`)}>{r.xpCost} {currentTheme.vocab?.points || 'XP'}</span></p>
+                   <p className="text-slate-500 text-sm mt-1">
+                     {r.description} • <span className={cn("font-bold", `text-${currentTheme.primary}`)}>{r.xpCost} {currentTheme.vocab?.points || 'XP'}</span>
+                     {r.starCost ? <span className="text-amber-500 font-bold"> • ⭐ {r.starCost} stars</span> : null}
+                   </p>
                  </div>
-                 <button 
+                 <button
                    disabled={isClaimed || !canAfford}
                    onClick={() => claimReward(r.id, r.xpCost)}
-                   className={cn("px-6 py-3 rounded-xl text-sm font-bold transition-all", 
+                   className={cn("px-6 py-3 rounded-xl text-sm font-bold transition-all",
                      isClaimed ? "bg-slate-100 text-slate-400" : (canAfford ? `bg-${currentTheme.primary} text-white` : "bg-slate-100 text-slate-400"),
                      !isClaimed && canAfford && `hover:bg-${currentTheme.accent}`
                    )}
@@ -578,8 +597,8 @@ export function KidDashboard({
             className="fixed inset-0 z-[130] pointer-events-none flex items-center justify-center"
           >
             <div className="flex flex-col items-center">
-               <motion.div 
-                 animate={{ rotate: 360 }} 
+               <motion.div
+                 animate={{ rotate: 360 }}
                  transition={{ duration: 2, ease: 'linear', repeat: Infinity }}
                  className="text-yellow-400 mb-4 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)]"
                >
@@ -589,6 +608,18 @@ export function KidDashboard({
                  +{xpAnimation.amount} XP
                </span>
             </div>
+          </motion.div>
+        )}
+
+        {showStarBurst && starsAwarded > 0 && (
+          <motion.div
+            initial={{ opacity: 1, scale: 0.5, y: 0 }}
+            animate={{ opacity: 0, scale: 1.5, y: -40 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8 }}
+            className="fixed bottom-1/3 left-1/2 -translate-x-1/2 z-[140] pointer-events-none text-3xl font-black"
+          >
+            ⭐ +{starsAwarded}
           </motion.div>
         )}
 

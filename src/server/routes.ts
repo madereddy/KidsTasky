@@ -14,6 +14,7 @@ import { mealsRouter } from './modules/meals/routes.js';
 import { magicRouter } from './modules/magic/routes.js';
 import { photosRouter } from './modules/photos/routes.js';
 import { syncRouter } from './modules/sync/routes.js';
+import { settingsRouter } from './modules/settings/routes.js';
 
 const router = Router();
 
@@ -58,6 +59,7 @@ router.use(mealsRouter);
 router.use(magicRouter);
 router.use(photosRouter);
 router.use(syncRouter);
+router.use(settingsRouter);
 
 export const apiRouter = router;
 

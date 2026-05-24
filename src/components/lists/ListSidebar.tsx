@@ -1,6 +1,6 @@
 // src/components/lists/ListSidebar.tsx
-import React from 'react';
-import { X } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Plus, Trash2 } from 'lucide-react';
 import { AppListItem } from '../../types';
 
 interface Props {
@@ -9,41 +9,96 @@ interface Props {
   isOpen: boolean;
   onToggleItem: (id: string, isCompleted: boolean) => void;
   onClose?: () => void;
+  onAddItem?: (text: string) => void;
+  onDeleteItem?: (id: string) => void;
+  onDeleteList?: () => void;
+  inline?: boolean;
 }
 
-export function ListSidebar({ listTitle, items, isOpen, onToggleItem, onClose }: Props) {
+export function ListSidebar({ listTitle, items, isOpen, onToggleItem, onClose, onAddItem, onDeleteItem, onDeleteList, inline }: Props) {
+  const [newItemText, setNewItemText] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   if (!isOpen) return null;
 
+  const handleAddItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newItemText.trim() || !onAddItem) return;
+    onAddItem(newItemText.trim());
+    setNewItemText('');
+  };
+
+  const containerClass = inline
+    ? "flex flex-col h-full"
+    : "fixed inset-y-0 right-0 w-80 bg-white shadow-2xl border-l z-40 transform transition-transform duration-300 flex flex-col";
+
   return (
-    <div className="fixed inset-y-0 right-0 w-80 bg-white shadow-2xl border-l z-40 transform transition-transform duration-300">
-      <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-        <h2 className="text-xl font-bold">{listTitle}</h2>
-        {onClose && (
-          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full">
-            <X size={20} />
-          </button>
-        )}
+    <div className={containerClass}>
+      <div className="p-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
+        <h2 className="text-xl font-bold truncate flex-1">{listTitle}</h2>
+        <div className="flex items-center gap-1 shrink-0">
+          {onDeleteList && (
+            confirmDelete ? (
+              <div className="flex gap-1 items-center">
+                <span className="text-xs text-red-500 font-semibold">Delete?</span>
+                <button onClick={onDeleteList} className="px-2 py-1 bg-red-500 text-white text-xs rounded-lg font-semibold">Yes</button>
+                <button onClick={() => setConfirmDelete(false)} className="px-2 py-1 bg-slate-200 text-xs rounded-lg font-semibold">No</button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmDelete(true)} className="p-2 hover:bg-red-100 text-gray-400 hover:text-red-500 rounded-full transition-colors">
+                <Trash2 size={16} />
+              </button>
+            )
+          )}
+          {onClose && (
+            <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full">
+              <X size={20} />
+            </button>
+          )}
+        </div>
       </div>
-      
-      <div className="p-4 overflow-y-auto max-h-[calc(100vh-70px)]">
+
+      <div className="p-4 overflow-y-auto flex-1">
         {items.length === 0 ? (
-          <p className="text-gray-400 text-center mt-10">No items.</p>
+          <p className="text-gray-400 text-center mt-10 text-sm">No items yet.</p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {items.map(item => (
-              <li key={item.id} className="flex items-center gap-3">
-                <input 
-                  type="checkbox" 
+              <li key={item.id} className="flex items-center gap-3 group">
+                <input
+                  type="checkbox"
                   checked={item.completed === 1}
                   onChange={(e) => onToggleItem(item.id, e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
                 />
-                <span className={item.completed === 1 ? 'line-through text-gray-400' : 'text-gray-800'}>
+                <span className={`flex-1 text-sm ${item.completed === 1 ? 'line-through text-gray-400' : 'text-gray-800'}`}>
                   {item.text}
                 </span>
+                {onDeleteItem && (
+                  <button
+                    onClick={() => onDeleteItem(item.id)}
+                    className="text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </li>
             ))}
           </ul>
+        )}
+
+        {onAddItem && (
+          <form onSubmit={handleAddItem} className="mt-4 flex gap-2">
+            <input
+              value={newItemText}
+              onChange={e => setNewItemText(e.target.value)}
+              placeholder="Add item…"
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+            <button type="submit" className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+              <Plus size={16} />
+            </button>
+          </form>
         )}
       </div>
     </div>

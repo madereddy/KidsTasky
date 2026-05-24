@@ -5,9 +5,9 @@ export const taskServiceServer = {
     const id = "task_" + Date.now().toString(36) + Math.random().toString(36).substr(2);
     const prereqs = task.prerequisiteTaskIds ? JSON.stringify(task.prerequisiteTaskIds) : "[]";
     db.prepare(`
-      INSERT INTO tasks (id, title, description, frequency, reminderTime, assignedKidId, parentId, categoryId, difficulty, status, createdAt, customInterval, prerequisiteTaskIds)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, task.title, task.description || null, task.frequency, task.reminderTime || null, task.assignedKidId, task.parentId, task.categoryId || null, task.difficulty || 'easy', 'active', Date.now(), task.customInterval || null, prereqs);
+      INSERT INTO tasks (id, title, description, frequency, reminderTime, assignedKidId, parentId, categoryId, difficulty, status, createdAt, customInterval, prerequisiteTaskIds, starValue)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, task.title, task.description || null, task.frequency, task.reminderTime || null, task.assignedKidId, task.parentId, task.categoryId || null, task.difficulty || 'easy', 'active', Date.now(), task.customInterval || null, prereqs, task.starValue ?? 1);
     return id;
   },
   
@@ -29,6 +29,9 @@ export const taskServiceServer = {
       INSERT OR REPLACE INTO completions (id, taskId, kidId, completedAt, dateString, count)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(id, data.taskId, data.kidId, Date.now(), data.dateString, data.count || null);
+    const task = db.prepare('SELECT starValue FROM tasks WHERE id = ?').get(data.taskId) as { starValue: number } | undefined;
+    const stars = task?.starValue ?? 1;
+    db.prepare('UPDATE users SET earnedStars = earnedStars + ? WHERE uid = ?').run(stars, data.kidId);
     return id;
   },
   

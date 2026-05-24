@@ -19,5 +19,26 @@ export const eventsService = {
 
   getEventById: (id: string): CalendarEvent | undefined => {
     return db.prepare('SELECT * FROM events WHERE id = ?').get(id) as CalendarEvent | undefined;
+  },
+
+  updateEvent: (id: string, data: Partial<CalendarEvent>) => {
+    const existing = db.prepare('SELECT * FROM events WHERE id = ?').get(id) as CalendarEvent | undefined;
+    if (!existing) throw new Error('Event not found');
+    db.prepare(`
+      UPDATE events SET title = ?, description = ?, startTime = ?, endTime = ?, assignedToId = ?, color = ?
+      WHERE id = ?
+    `).run(
+      data.title ?? existing.title,
+      data.description ?? existing.description,
+      data.startTime ?? existing.startTime,
+      data.endTime ?? existing.endTime,
+      data.assignedToId ?? existing.assignedToId,
+      data.color ?? existing.color,
+      id
+    );
+  },
+
+  deleteEvent: (id: string) => {
+    db.prepare('DELETE FROM events WHERE id = ?').run(id);
   }
 };

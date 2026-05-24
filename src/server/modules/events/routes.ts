@@ -21,3 +21,21 @@ eventsRouter.get('/parents/:parentId/events', (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+eventsRouter.put('/events/:id', (req, res) => {
+  try {
+    eventsService.updateEvent(req.params.id, req.body);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+eventsRouter.delete('/events/:id', (req, res) => {
+  try {
+    eventsService.deleteEvent(req.params.id);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});

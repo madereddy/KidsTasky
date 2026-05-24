@@ -20,6 +20,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
   const [reminderTime, setReminderTime] = useState('08:00');
   const [categoryId, setCategoryId] = useState<string>('');
   const [prerequisiteTaskIds, setPrerequisiteTaskIds] = useState<string[]>([]);
+  const [starValue, setStarValue] = useState(1);
 
   const togglePrereq = (id: string) => {
     if (prerequisiteTaskIds.includes(id)) {
@@ -179,8 +180,28 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
           )}
 
           <div>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">⭐ Star Value</label>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setStarValue(n)}
+                  className={cn(
+                    'w-10 h-10 rounded-full font-bold text-sm border-2 transition-all',
+                    starValue === n ? 'bg-amber-400 border-amber-500 text-white shadow-md' : 'bg-white border-gray-200 text-gray-500 hover:border-amber-300'
+                  )}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Stars kids earn for completing this task</p>
+          </div>
+
+          <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Launch Time</label>
-            <input 
+            <input
               type="time"
               value={reminderTime}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReminderTime(e.target.value)}
@@ -190,18 +211,19 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
 
           <div className="flex gap-3 pt-6">
             <button onClick={onClose} className="flex-1 py-3 bg-slate-900 border border-slate-800 text-slate-500 font-black rounded-xl uppercase tracking-widest text-xs">Abort</button>
-            <button 
-              onClick={() => onSubmit({ 
-                title, 
-                frequency, 
-                difficulty, 
-                assignedKidId, 
-                reminderTime, 
-                parentId, 
+            <button
+              onClick={() => onSubmit({
+                title,
+                frequency,
+                difficulty,
+                assignedKidId,
+                reminderTime,
+                parentId,
                 categoryId,
                 customInterval: frequency === 'custom' ? customInterval : undefined,
-                prerequisiteTaskIds: prerequisiteTaskIds.length > 0 ? prerequisiteTaskIds : undefined
-              })} 
+                prerequisiteTaskIds: prerequisiteTaskIds.length > 0 ? prerequisiteTaskIds : undefined,
+                starValue,
+              })}
               className="flex-1 btn-immersive-primary bg-blue-600"
             >
               Launch
