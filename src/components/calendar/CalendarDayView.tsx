@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { format, isSameDay } from 'date-fns';
 import { CalendarEvent } from '../../types';
+import { MealPlanWithRecipe } from '../../services/meals';
 import { cn } from '../../lib/utils';
 
 interface Props {
@@ -8,6 +9,7 @@ interface Props {
   day: Date;
   memberColorMap: Record<string, string>;
   onTimeSlotClick?: (time: string) => void;
+  dayMeals?: MealPlanWithRecipe[];
 }
 
 const GRID_HEIGHT = 960;
@@ -17,7 +19,7 @@ function minuteOfDay(date: Date) {
   return date.getHours() * 60 + date.getMinutes();
 }
 
-export function CalendarDayView({ events, day, memberColorMap, onTimeSlotClick }: Props) {
+export function CalendarDayView({ events, day, memberColorMap, onTimeSlotClick, dayMeals }: Props) {
   const [popover, setPopover] = useState<CalendarEvent | null>(null);
   const dayEvents = events.filter(ev => isSameDay(new Date(ev.startTime), day));
 
@@ -27,6 +29,20 @@ export function CalendarDayView({ events, day, memberColorMap, onTimeSlotClick }
         <p className="text-xs font-bold text-slate-500 uppercase">{format(day, 'EEEE')}</p>
         <p className="text-2xl font-bold text-slate-800">{format(day, 'MMMM d, yyyy')}</p>
       </div>
+
+      {dayMeals && dayMeals.length > 0 && (
+        <div className="shrink-0 mx-4 my-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
+          <p className="text-xs font-bold text-amber-700 mb-2 uppercase tracking-wide">Today's Meals</p>
+          <div className="space-y-1">
+            {dayMeals.map(meal => (
+              <div key={meal.id} className="flex gap-2 text-sm">
+                <span className="text-amber-500 font-semibold w-20 shrink-0">{meal.mealType}</span>
+                <span className="text-slate-700">{(meal as any).recipeName ?? 'Planned'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex overflow-y-auto flex-1">
         <div className="w-14 shrink-0 relative" style={{ height: GRID_HEIGHT }}>

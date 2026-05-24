@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { format, addMonths, subMonths, startOfWeek, addWeeks, subWeeks, addDays, subDays } from 'date-fns';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { eventsClientService } from '../../services/events';
+import { mealsClientService, MealPlanWithRecipe } from '../../services/meals';
 import { CalendarEvent, UserProfile } from '../../types';
 import { cn } from '../../lib/utils';
 import { CalendarMonthView } from './CalendarMonthView';
@@ -32,6 +33,8 @@ export function CalendarView({ parentId, kids, memberColorMap }: Props) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [defaultDate, setDefaultDate] = useState<Date | undefined>();
   const [defaultStartTime, setDefaultStartTime] = useState<string | undefined>();
+  const [visibleMemberIds, setVisibleMemberIds] = useState<Set<string>>(new Set(['all']));
+  const [dayMeals, setDayMeals] = useState<MealPlanWithRecipe[]>([]);
 
   const fetchEvents = useCallback(async () => {
     const ev = await eventsClientService.getEvents(parentId);
@@ -39,6 +42,21 @@ export function CalendarView({ parentId, kids, memberColorMap }: Props) {
   }, [parentId]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
+
+  useEffect(() => {
+    if (viewMode === 'day') {
+      const weekStartDate = startOfWeek(currentDate, { weekStartsOn: 1 });
+      const weekStartStr = format(weekStartDate, 'yyyy-MM-dd');
+      const todayStr = format(currentDate, 'yyyy-MM-dd');
+      mealsClientService.getMealPlans(parentId, weekStartStr)
+        .then(plans => {
+          setDayMeals((plans || []).filter(m => m.date === todayStr));
+        })
+        .catch(() => setDayMeals([]));
+    } else {
+      setDayMeals([]);
+    }
+  }, [viewMode, currentDate, parentId]);
 
   const navigatePrev = () => {
     if (viewMode === 'month') setCurrentDate(d => subMonths(d, 1));
@@ -73,6 +91,10 @@ export function CalendarView({ parentId, kids, memberColorMap }: Props) {
   };
 
   const weekStart = startOfWeek(currentDate);
+
+  const visibleEvents = visibleMemberIds.has('all')
+    ? events
+    : events.filter(e => !e.assignedToId || visibleMemberIds.has(e.assignedToId));
 
   return (
     <div className="flex flex-col h-[calc(100vh-200px)] bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
@@ -116,10 +138,44 @@ export function CalendarView({ parentId, kids, memberColorMap }: Props) {
         </button>
       </div>
 
+      {kids.length > 0 && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 bg-white shrink-0 flex-wrap">
+          <button
+            onClick={() => setVisibleMemberIds(new Set(['all']))}
+            className={cn("px-3 py-1 rounded-full text-xs font-semibold transition-colors",
+              visibleMemberIds.has('all') ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200")}
+          >All</button>
+          {kids.map(kid => {
+            const color = memberColorMap[kid.uid] ?? '#6366f1';
+            const active = visibleMemberIds.has(kid.uid);
+            return (
+              <button
+                key={kid.uid}
+                onClick={() => {
+                  setVisibleMemberIds(prev => {
+                    const next = new Set(prev);
+                    next.delete('all');
+                    if (next.has(kid.uid)) { next.delete(kid.uid); if (next.size === 0) return new Set(['all']); }
+                    else next.add(kid.uid);
+                    return next;
+                  });
+                }}
+                className={cn("flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors border",
+                  active ? "text-white border-transparent" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300")}
+                style={active ? { backgroundColor: color, borderColor: color } : {}}
+              >
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                {kid.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex-1 overflow-hidden">
         {viewMode === 'month' && (
           <CalendarMonthView
-            events={events}
+            events={visibleEvents}
             currentMonth={currentDate}
             onDayClick={handleDayClick}
             memberColorMap={memberColorMap}
@@ -127,22 +183,23 @@ export function CalendarView({ parentId, kids, memberColorMap }: Props) {
         )}
         {viewMode === 'week' && (
           <CalendarWeekView
-            events={events}
+            events={visibleEvents}
             weekStart={weekStart}
             memberColorMap={memberColorMap}
           />
         )}
         {viewMode === 'day' && (
           <CalendarDayView
-            events={events}
+            events={visibleEvents}
             day={currentDate}
             memberColorMap={memberColorMap}
             onTimeSlotClick={handleTimeSlotClick}
+            dayMeals={dayMeals}
           />
         )}
         {viewMode === 'agenda' && (
           <AgendaView
-            events={events}
+            events={visibleEvents}
             startDate={currentDate}
             memberColorMap={memberColorMap}
           />

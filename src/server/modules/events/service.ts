@@ -40,5 +40,9 @@ export const eventsService = {
 
   deleteEvent: (id: string) => {
     db.prepare('DELETE FROM events WHERE id = ?').run(id);
-  }
+  },
+
+  setExternalId: (id: string, externalId: string, source: string) => {
+    db.prepare('UPDATE events SET externalId = ?, source = ? WHERE id = ?').run(externalId, source, id);
+  },
 };

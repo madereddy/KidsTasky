@@ -9,6 +9,7 @@ import { Trash2, Calendar, Clock, CalendarDays, Tag, Plus, ShieldCheck, Bell, Se
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { Task, UserProfile, Category, Invite, Notification, Reward, TaskFrequency, TaskDifficulty } from '../../types';
+import { MEMBER_COLORS } from '../../constants';
 import { AddTaskModal } from './AddTaskModal';
 import { AddKidForm } from './AddKidForm';
 import { CategoryManager } from './CategoryManager';
@@ -44,6 +45,8 @@ export function ParentDashboard({
   const [sortBy, setSortBy] = useState<'time' | 'created'>('created');
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
+  const [savingColor, setSavingColor] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -267,15 +270,29 @@ export function ParentDashboard({
           <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-3">Linked Cadets</p>
           <div className="flex -space-x-2 mb-4 flex-wrap">
             {kids.length > 0 ? kids.map((k: UserProfile) => (
-              <div 
-                key={k.uid}
-                className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-xs font-bold text-slate-500 relative group/kid mb-2"
-                title={`${k.name} - LVL ${k.level || 1}`}
-              >
-                {k.name?.charAt(0)?.toUpperCase()}
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-purple-500 rounded-full border border-slate-900 text-[6px] flex items-center justify-center text-white scale-0 group-hover/kid:scale-100 transition-transform">
-                  {k.level || 1}
+              <div key={k.uid} className="relative group/kid mb-2">
+                <div
+                  className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-xs font-bold text-slate-500 cursor-pointer"
+                  title={`${k.name} - LVL ${k.level || 1}`}
+                >
+                  {k.name?.charAt(0)?.toUpperCase()}
                 </div>
+                {/* color dot */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setColorPickerFor(colorPickerFor === k.uid ? null : k.uid); }}
+                  className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm"
+                  style={{ backgroundColor: k.color ?? MEMBER_COLORS[0] }}
+                  title="Set color"
+                />
+                {colorPickerFor === k.uid && (
+                  <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-slate-200 rounded-xl p-2 shadow-xl grid grid-cols-4 gap-1" onClick={e => e.stopPropagation()}>
+                    {MEMBER_COLORS.map(c => (
+                      <button key={c} onClick={async () => { await userService.setMemberColor(k.uid, c); setColorPickerFor(null); fetchData(); }}
+                        className="w-6 h-6 rounded-full border-2 border-transparent hover:scale-110 transition-transform"
+                        style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
+                )}
               </div>
             )) : (
               <div className="w-10 h-10 rounded-full bg-slate-900 border-2 border-dashed border-slate-700 flex items-center justify-center text-slate-700 mb-2">
