@@ -1,12 +1,12 @@
 import { authService } from './services/auth';
 import { userService } from './services/users';
 import { categoryService } from './services/categories';
-import React, { useState, useEffect } from 'react';
-import { LogOut, Rocket, User as UserIcon, Activity, CalendarDays, List } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { LogOut, Rocket, User as UserIcon, Activity, CalendarDays, List, UtensilsCrossed } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, Category } from './types';
 import { cn } from './lib/utils';
-import { THEMES } from './constants';
+import { THEMES, MEMBER_COLORS } from './constants';
 import { initSocket } from './hooks/useSocket';
 
 import { LoginView } from './components/auth/LoginView';
@@ -15,6 +15,7 @@ import { ParentDashboard } from './components/parent/ParentDashboard';
 import { KidDashboard } from './components/kid/KidDashboard';
 import { CalendarView } from './components/calendar/CalendarView';
 import { ListsView } from './components/lists/ListsView';
+import { MealPlanView } from './components/parent/MealPlanView';
 
 interface AppUser {
   uid: string;
@@ -30,7 +31,8 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<'tasks' | 'calendar' | 'lists'>('tasks');
+  const [activeSection, setActiveSection] = useState<'tasks' | 'calendar' | 'lists' | 'meals'>('tasks');
+  const [kids, setKids] = useState<UserProfile[]>([]);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -46,6 +48,10 @@ export default function App() {
               initSocket(parentId);
               const cats = await categoryService.getCategories(parentId);
               setCategories(cats || []);
+              if (u.role === 'parent') {
+                const k = await userService.getKidsForParent(parentId);
+                setKids(k || []);
+              }
             }
           } else {
             localStorage.removeItem('kidtasker_token');
@@ -72,6 +78,14 @@ export default function App() {
       setProfile(p);
     }
   };
+
+  const memberColorMap = useMemo(() => {
+    if (!profile) return {};
+    return [profile, ...kids].reduce((acc, u) => {
+      acc[u.uid] = u.color ?? MEMBER_COLORS[0];
+      return acc;
+    }, {} as Record<string, string>);
+  }, [profile, kids]);
 
   const currentThemeId = profile?.themeId || 'space';
   const currentTheme = THEMES.find(t => t.id === currentThemeId) || THEMES[0];
@@ -187,6 +201,15 @@ export default function App() {
                 >
                   <List className="w-4 h-4" /> Lists
                 </button>
+                <button
+                  onClick={() => setActiveSection('meals')}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5",
+                    activeSection === 'meals' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : "text-slate-500 hover:text-slate-900"
+                  )}
+                >
+                  <UtensilsCrossed className="w-4 h-4" /> Meals
+                </button>
               </nav>
             )}
 
@@ -273,7 +296,7 @@ export default function App() {
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.3 }}
             >
-              <CalendarView parentId={profile.uid} kids={[]} memberColorMap={{}} />
+              <CalendarView parentId={profile.uid} kids={kids} memberColorMap={memberColorMap} />
             </motion.div>
           )}
           {profile.role === 'parent' && activeSection === 'lists' && (
@@ -285,6 +308,11 @@ export default function App() {
               transition={{ duration: 0.3 }}
             >
               <ListsView parentId={profile.uid} />
+            </motion.div>
+          )}
+          {profile.role === 'parent' && activeSection === 'meals' && (
+            <motion.div key="meals-view" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.3 }}>
+              <MealPlanView parentId={profile.uid} />
             </motion.div>
           )}
           {profile.role !== 'parent' && (

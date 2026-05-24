@@ -15,6 +15,7 @@ export interface UserProfile {
   currentStreak?: number;
   earnedStars?: number;
   spentStars?: number;
+  color?: string;
 }
 
 export interface EarnedBadge {

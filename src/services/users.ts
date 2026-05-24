@@ -47,5 +47,12 @@ export const userService = {
 
   async getKidsForParent(parentId: string): Promise<UserProfile[]> {
     return await fetchAPI('/parents/' + parentId + '/kids');
-  }
+  },
+
+  async setMemberColor(uid: string, color: string): Promise<void> {
+    await fetchAPI(`/users/${uid}/color`, {
+      method: 'PUT',
+      body: JSON.stringify({ color })
+    });
+  },
 };

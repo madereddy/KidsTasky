@@ -12,6 +12,17 @@ export const CATEGORY_COLORS = [
   { name: 'Cyan', class: 'bg-cyan-500', text: 'text-cyan-500' },
 ];
 
+export const MEMBER_COLORS = [
+  '#6366f1',
+  '#f43f5e',
+  '#f59e0b',
+  '#10b981',
+  '#8b5cf6',
+  '#f97316',
+  '#06b6d4',
+  '#ec4899',
+];
+
 export const XP_REWARDS: Record<TaskDifficulty, number> = {
   easy: 10,
   medium: 25,

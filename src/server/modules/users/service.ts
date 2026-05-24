@@ -56,5 +56,9 @@ export const userService = {
   
   getKidsByParent: (parentId: string) => {
     return db.prepare("SELECT * FROM users WHERE parentId = ? AND role = 'kid'").all(parentId) as any[];
-  }
+  },
+
+  setMemberColor: (uid: string, color: string) => {
+    db.prepare('UPDATE users SET color = ? WHERE uid = ?').run(color, uid);
+  },
 };

@@ -75,3 +75,14 @@ usersRouter.get("/parents/:parentId/kids", [
   kids.forEach(k => k.badges = JSON.parse(k.badges || "[]"));
   res.json(kids);
 });
+
+usersRouter.put('/users/:uid/color', [
+  param('uid').isString().notEmpty(),
+  body('color').isString().notEmpty(),
+  validate
+], (req: Request, res: Response) => {
+  const { color } = req.body;
+  if (!/^#[0-9a-fA-F]{6}$/.test(color)) return res.status(400).json({ error: 'Invalid color' });
+  userService.setMemberColor(req.params.uid as string, color);
+  res.json({ success: true });
+});
