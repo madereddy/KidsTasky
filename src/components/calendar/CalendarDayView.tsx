@@ -1,15 +1,22 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { format, isSameDay } from 'date-fns';
 import { CalendarEvent } from '../../types';
 import { MealPlanWithRecipe } from '../../services/meals';
-import { cn } from '../../lib/utils';
+import { DailyForecast } from '../../services/weather';
+import { getWeatherInfo } from '../../constants';
+import { TemperatureUnitPref, TimeFormatPref, formatTimeWithPrefs, toDisplayTemp } from '../../lib/dateTimePrefs';
 
 interface Props {
   events: CalendarEvent[];
   day: Date;
+  onEventClick?: (event: CalendarEvent) => void;
   memberColorMap: Record<string, string>;
   onTimeSlotClick?: (time: string) => void;
   dayMeals?: MealPlanWithRecipe[];
+  weatherEntry?: DailyForecast;
+  temperatureUnit?: TemperatureUnitPref;
+  timeFormat?: TimeFormatPref;
+  timezone?: string;
 }
 
 const GRID_HEIGHT = 960;
@@ -19,25 +26,59 @@ function minuteOfDay(date: Date) {
   return date.getHours() * 60 + date.getMinutes();
 }
 
-export function CalendarDayView({ events, day, memberColorMap, onTimeSlotClick, dayMeals }: Props) {
-  const [popover, setPopover] = useState<CalendarEvent | null>(null);
-  const dayEvents = events.filter(ev => isSameDay(new Date(ev.startTime), day));
+export function CalendarDayView({
+  events,
+  day,
+  onEventClick,
+  memberColorMap,
+  onTimeSlotClick,
+  dayMeals,
+  weatherEntry,
+  temperatureUnit = 'celsius',
+  timeFormat = '12h',
+  timezone = 'America/Chicago'
+}: Props) {
+  const allDayEvents = events.filter((ev) => ev.isAllDay && isSameDay(new Date(ev.startTime), day));
+  const dayEvents = events.filter((ev) => !ev.isAllDay && isSameDay(new Date(ev.startTime), day));
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="border-b py-3 px-4 text-center">
-        <p className="text-xs font-bold text-slate-500 uppercase">{format(day, 'EEEE')}</p>
-        <p className="text-2xl font-bold text-slate-800">{format(day, 'MMMM d, yyyy')}</p>
+        <p className="text-xs font-bold text-ui-muted uppercase">{format(day, 'EEEE')}</p>
+        <p className="text-2xl font-bold text-ui-primary">{format(day, 'MMMM d, yyyy')}</p>
       </div>
+
+      {allDayEvents.length > 0 && (
+        <div className="flex gap-1 px-4 py-2 border-b border-ui-soft bg-blue-50 flex-wrap">
+          {allDayEvents.map(ev => (
+            <button key={ev.id} onClick={() => onEventClick?.(ev)}
+              className="px-2 py-1 rounded text-xs font-semibold text-white truncate max-w-[150px]"
+              style={{ backgroundColor: (ev.assignedToId && memberColorMap[ev.assignedToId]) || ev.color || '#6366f1' }}>
+              {ev.title}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {weatherEntry && (
+        <div className="shrink-0 mx-4 mt-2 p-3 bg-sky-50 rounded-xl border border-sky-100">
+          <p className="text-sm font-semibold text-sky-800">
+            {getWeatherInfo(weatherEntry.weatherCode).label} ({getWeatherInfo(weatherEntry.weatherCode).icon})
+          </p>
+          <p className="text-xs text-sky-700">
+            {Math.round(toDisplayTemp(weatherEntry.maxTemp, temperatureUnit))}° / {Math.round(toDisplayTemp(weatherEntry.minTemp, temperatureUnit))}°
+          </p>
+        </div>
+      )}
 
       {dayMeals && dayMeals.length > 0 && (
         <div className="shrink-0 mx-4 my-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
           <p className="text-xs font-bold text-amber-700 mb-2 uppercase tracking-wide">Today's Meals</p>
           <div className="space-y-1">
-            {dayMeals.map(meal => (
+            {dayMeals.map((meal) => (
               <div key={meal.id} className="flex gap-2 text-sm">
                 <span className="text-amber-500 font-semibold w-20 shrink-0">{meal.mealType}</span>
-                <span className="text-slate-700">{(meal as any).recipeName ?? 'Planned'}</span>
+                <span className="text-ui-secondary">{(meal as any).recipeName ?? 'Planned'}</span>
               </div>
             ))}
           </div>
@@ -46,27 +87,26 @@ export function CalendarDayView({ events, day, memberColorMap, onTimeSlotClick, 
 
       <div className="flex overflow-y-auto flex-1">
         <div className="w-14 shrink-0 relative" style={{ height: GRID_HEIGHT }}>
-          {HOURS.map(h => (
-            <div key={h} className="absolute w-full pr-1 text-right"
-              style={{ top: (h / 24) * GRID_HEIGHT - 8 }}>
-              <span className="text-[10px] text-slate-400 font-medium">
-                {h === 0 ? '' : `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`}
+          {HOURS.map((h) => (
+            <div key={h} className="absolute w-full pr-1 text-right" style={{ top: (h / 24) * GRID_HEIGHT - 8 }}>
+              <span className="text-[10px] text-ui-muted-2 font-medium">
+                {h === 0 ? '' : (timeFormat === '24h' ? `${String(h).padStart(2, '0')}:00` : `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`)}
               </span>
             </div>
           ))}
         </div>
 
-        <div className="flex-1 border-l border-slate-100 relative" style={{ height: GRID_HEIGHT }}>
-          {HOURS.map(h => (
+        <div className="flex-1 border-l border-ui-soft relative" style={{ height: GRID_HEIGHT }}>
+          {HOURS.map((h) => (
             <div
               key={h}
-              className="absolute w-full border-t border-slate-100 cursor-pointer hover:bg-blue-50/40"
+              className="absolute w-full border-t border-ui-soft cursor-pointer hover:bg-blue-50/40"
               style={{ top: (h / 24) * GRID_HEIGHT, height: GRID_HEIGHT / 24 }}
               onClick={() => onTimeSlotClick?.(`${String(h).padStart(2, '0')}:00`)}
             />
           ))}
 
-          {dayEvents.map(ev => {
+          {dayEvents.map((ev) => {
             const start = new Date(ev.startTime);
             const topPct = minuteOfDay(start) / 1440;
             const durMin = Math.max(30, (ev.endTime - ev.startTime) / 60000);
@@ -75,7 +115,7 @@ export function CalendarDayView({ events, day, memberColorMap, onTimeSlotClick, 
             return (
               <button
                 key={ev.id}
-                onClick={() => setPopover(ev)}
+                onClick={() => onEventClick?.(ev)}
                 className="absolute left-2 right-2 rounded-lg text-left text-white text-xs font-semibold px-2 py-1 overflow-hidden shadow-sm"
                 style={{
                   top: topPct * GRID_HEIGHT,
@@ -86,28 +126,13 @@ export function CalendarDayView({ events, day, memberColorMap, onTimeSlotClick, 
               >
                 <p className="font-bold truncate">{ev.title}</p>
                 <p className="opacity-80 text-[10px]">
-                  {format(start, 'h:mm a')} – {format(new Date(ev.endTime), 'h:mm a')}
+                  {formatTimeWithPrefs(start, timezone, timeFormat)} - {formatTimeWithPrefs(new Date(ev.endTime), timezone, timeFormat)}
                 </p>
               </button>
             );
           })}
         </div>
       </div>
-
-      {popover && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-          onClick={() => setPopover(null)}>
-          <div className="bg-white rounded-2xl p-6 shadow-xl max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
-            <div className="w-3 h-3 rounded-full mb-3" style={{ backgroundColor: popover.color || '#6366f1' }} />
-            <h3 className="font-bold text-lg mb-1">{popover.title}</h3>
-            <p className="text-sm text-slate-500 mb-1">
-              {format(new Date(popover.startTime), 'h:mm a')} – {format(new Date(popover.endTime), 'h:mm a')}
-            </p>
-            {popover.description && <p className="text-sm text-slate-600 mt-2">{popover.description}</p>}
-            <button onClick={() => setPopover(null)} className="mt-4 w-full py-2 bg-slate-100 rounded-xl text-sm font-semibold">Close</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
