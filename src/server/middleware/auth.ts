@@ -1,17 +1,32 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { getJwtSecret } from '../config.js';
+import { db } from '../db.js';
 
 export function authenticateUser(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.status(401).json({ error: "Unauthorized" });
-  
+
   const token = authHeader.replace('Bearer ', '');
   try {
-    const payload = jwt.verify(token, getJwtSecret()) as { uid: string; role: string; parentId: string };
+    const payload = jwt.verify(token, getJwtSecret()) as { uid: string; role: string; parentId: string; iat?: number };
+    
+    // Check token revocation — payload.iat is epoch seconds, revokedAt is epoch ms
+    const row = db.prepare("SELECT revokedAt FROM users WHERE uid = ?").get(payload.uid) as { revokedAt: number | null } | undefined;
+    if (row?.revokedAt && payload.iat && payload.iat * 1000 < row.revokedAt) {
+      return res.status(401).json({ error: "Token revoked" });
+    }
+
     (req as any).user = payload;
     next();
   } catch (err) {
     res.status(401).json({ error: "Invalid token" });
   }
+}
+
+export const requireAuth = authenticateUser;
+
+export function getParentId(req: Request): string {
+  const user = (req as any).user;
+  return user.role === 'parent' ? user.uid : user.parentId;
 }
