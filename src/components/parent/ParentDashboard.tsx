@@ -4,18 +4,18 @@ import { tasksClientService } from '../../services/tasks';
 import { inviteService } from '../../services/invites';
 import { notificationService } from '../../services/notifications';
 import { rewardService } from '../../services/rewards';
+import { syncClientService } from '../../services/sync';
 import React, { useState, useEffect, useCallback } from 'react';
-import { Trash2, Calendar, Clock, CalendarDays, Tag, Plus, ShieldCheck, Bell, Send, CheckCircle2, Copy, Settings } from 'lucide-react';
+import { Trash2, Calendar, Clock, CalendarDays, Tag, Plus, ShieldCheck, Bell, Send, CheckCircle2, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
-import { Task, UserProfile, Category, Invite, Notification, Reward, TaskFrequency, TaskDifficulty } from '../../types';
+import { Task, UserProfile, Category, Invite, Notification, Reward, TaskFrequency, TaskDifficulty, SyncCalendar } from '../../types';
 import { MEMBER_COLORS } from '../../constants';
 import { AddTaskModal } from './AddTaskModal';
 import { AddKidForm } from './AddKidForm';
 import { CategoryManager } from './CategoryManager';
 import { RewardManager } from './RewardManager';
 import { AllowanceLedger } from './AllowanceLedger';
-import { SettingsView } from './SettingsView';
 import { ConnectedAccountsView } from './ConnectedAccountsView';
 import { parseTimestamp } from '../../lib/utils';
 import { useSocketStaleData } from '../../hooks/useSocket';
@@ -24,14 +24,21 @@ export function ParentDashboard({
   profile, 
   categories, 
   onCategoriesChange,
-  selectedCategoryId
+  selectedCategoryId,
+  isLocked = false,
+  onLockNow
 }: { 
   profile: UserProfile, 
   categories: Category[],
   onCategoriesChange: (cats: Category[]) => void,
-  selectedCategoryId: string | null
+  selectedCategoryId: string | null,
+  isLocked?: boolean,
+  onLockNow?: () => void
 }) {
+  const isDarkMode = !!profile.themeId && profile.themeId !== 'light_blue' && profile.themeId !== 'light_green' && profile.themeId !== 'light_rose';
+  const toneSecondary = isDarkMode ? "text-ui-muted-2" : "text-ui-muted";
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [pendingCompletions, setPendingCompletions] = useState<any[]>([]);
   const [kids, setKids] = useState<UserProfile[]>([]);
   const [invite, setInvite] = useState<Invite | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -42,34 +49,39 @@ export function ParentDashboard({
   const [generatingInvite, setGeneratingInvite] = useState(false);
   const [copied, setCopied] = useState(false);
   const [connections, setConnections] = useState<any[]>([]);
+  const [syncCalendars, setSyncCalendars] = useState<SyncCalendar[]>([]);
   const [sortBy, setSortBy] = useState<'time' | 'created'>('created');
   const [rewards, setRewards] = useState<Reward[]>([]);
-  const [showSettings, setShowSettings] = useState(false);
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
   const [savingColor, setSavingColor] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const [t, k, i, n, r, c] = await Promise.all([
+      const familyId = profile.role === 'coparent' && profile.parentId ? profile.parentId : profile.uid;
+      const [t, pc, k, i, n, r, c, sc] = await Promise.all([
         tasksClientService.getTasksForParent(profile.uid),
+        tasksClientService.getPendingCompletions(familyId),
         userService.getKidsForParent(profile.uid),
         inviteService.getActiveInvite(profile.uid),
         notificationService.getUnreadNotifications(profile.uid),
         rewardService.getRewards(profile.uid),
-        fetchAPI('/settings/' + profile.uid + '/connections').catch(() => [])
+        fetchAPI('/settings/' + profile.uid + '/connections').catch(() => []),
+        syncClientService.getCalendars(profile.uid).catch(() => [])
       ]);
       setTasks(t || []);
+      setPendingCompletions(pc || []);
       setKids(k || []);
       setInvite(i || null);
       setNotifications(n || []);
       setRewards(r || []);
       setConnections(c || []);
+      setSyncCalendars(sc || []);
     } catch (e) {
       console.error("Failed to fetch dashboard data:", e);
     } finally {
       setLoading(false);
     }
-  }, [profile.uid]);
+  }, [profile.uid, profile.role, profile.parentId]);
 
   useSocketStaleData((data) => {
     // Only fetch if data was mutated somewhere else
@@ -121,6 +133,16 @@ export function ParentDashboard({
     setRewards(r || []);
   };
 
+  const approveCompletion = async (id: string) => {
+    await tasksClientService.approveCompletion(id);
+    setPendingCompletions(prev => prev.filter(c => c.id !== id));
+  };
+
+  const rejectCompletion = async (id: string) => {
+    await tasksClientService.rejectCompletion(id);
+    setPendingCompletions(prev => prev.filter(c => c.id !== id));
+  };
+
   const archiveTask = async (id: string) => {
     await tasksClientService.archiveTask(id);
     setTasks(tasks.filter((t: Task) => t.id !== id));
@@ -132,6 +154,22 @@ export function ParentDashboard({
       setConnections(connections.filter(c => c.id !== connId));
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleToggleCalendar = async (calendarId: string, enabled: boolean) => {
+    const previous = syncCalendars;
+    setSyncCalendars((calendars) =>
+      calendars.map((calendar) =>
+        calendar.id === calendarId ? { ...calendar, enabled } : calendar
+      )
+    );
+    try {
+      await syncClientService.toggleCalendar(calendarId, enabled);
+    } catch (e) {
+      console.error(e);
+      setSyncCalendars(previous);
+      alert('Failed to update calendar sync setting');
     }
   };
 
@@ -150,36 +188,28 @@ export function ParentDashboard({
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-end">
-        <button
-          onClick={() => setShowSettings(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 shadow-sm transition-colors font-semibold text-sm"
-        >
-          <Settings className="w-4 h-4" /> Settings
-        </button>
-      </div>
       <RewardManager parentId={profile.uid} rewards={rewards} onUpdate={refreshRewards} />
       <AllowanceLedger parentId={profile.uid} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 bg-white shadow-sm border border-slate-100 p-6 rounded-3xl border-l-4 border-l-blue-500 flex justify-between items-center relative overflow-hidden">
+        <div className="md:col-span-2 bg-white shadow-sm border border-ui-soft p-6 rounded-3xl border-l-4 border-l-blue-500 flex justify-between items-center relative overflow-hidden">
           <div className="relative z-10">
             <h3 className="text-lg font-bold mb-2">Ground Control Command</h3>
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-white shadow-sm border border-slate-200 rounded-2xl relative">
+              <div className="p-3 bg-white shadow-sm border border-ui rounded-2xl relative">
                 <ShieldCheck className="w-6 h-6 text-blue-500" />
                 <button 
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className="absolute -top-2 -right-2 w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200 hover:border-amber-500 transition-colors"
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-ui-soft-2 rounded-full flex items-center justify-center border border-ui hover:border-amber-500 transition-colors"
                 >
-                  <Bell className={cn("w-3 h-3", notifications.length > 0 ? "text-amber-500 animate-pulse" : "text-slate-500")} />
+                  <Bell className={cn("w-3 h-3", notifications.length > 0 ? "text-amber-500 animate-pulse" : "text-ui-muted")} />
                   {notifications.length > 0 && (
                     <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border border-white" />
                   )}
                 </button>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-none mb-1">Sector Commander</p>
-                <p className="font-bold text-slate-800 leading-none">{profile.name}</p>
+                <p className="text-[10px] text-ui-muted font-black uppercase tracking-widest leading-none mb-1">Sector Commander</p>
+                <p className="font-bold text-ui-primary leading-none">{profile.name}</p>
               </div>
             </div>
 
@@ -189,24 +219,24 @@ export function ParentDashboard({
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute top-full left-0 mt-4 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[100] max-h-[300px] overflow-y-auto"
+                  className="absolute top-full left-0 mt-4 w-64 bg-white border border-ui rounded-2xl shadow-2xl z-[100] max-h-[300px] overflow-y-auto"
                 >
-                  <div className="p-3 border-b border-slate-200 flex justify-between items-center bg-white/90 backdrop-blur-md sticky top-0 z-10">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Tactical Alerts</span>
+                  <div className="p-3 border-b border-ui flex justify-between items-center bg-white/90 backdrop-blur-md sticky top-0 z-10">
+                    <span className="text-[8px] font-black uppercase tracking-widest text-ui-muted">Tactical Alerts</span>
                     <span className="text-[8px] font-bold text-amber-500">{notifications.length} NEW</span>
                   </div>
                   <div className="p-1 space-y-1">
                     {notifications.length === 0 ? (
                        <div className="p-4 text-center">
-                         <p className="text-[8px] text-slate-500 uppercase font-bold">No breaches detected</p>
+                         <p className="text-[8px] text-ui-muted uppercase font-bold">No breaches detected</p>
                        </div>
                     ) : (
                       notifications.map((n: Notification) => (
-                        <div key={n.id} className="p-3 bg-white hover:bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-2 group">
+                        <div key={n.id} className="p-3 bg-white hover:bg-ui-soft rounded-xl border border-ui-soft flex flex-col gap-2 group">
                           <div>
                             <p className="text-[7px] font-black text-amber-600 uppercase mb-0.5">Overdue Objective</p>
-                            <p className="text-slate-800 font-bold text-[9px] leading-tight truncate">{n.taskTitle}</p>
-                            <p className="text-slate-500 text-[8px] uppercase font-bold tracking-tight">Cadet: {n.kidName}</p>
+                            <p className="text-ui-primary font-bold text-[9px] leading-tight truncate">{n.taskTitle}</p>
+                            <p className="text-ui-muted text-[8px] uppercase font-bold tracking-tight">Cadet: {n.kidName}</p>
                           </div>
                           <button 
                             onClick={() => markRead(n.id)}
@@ -234,7 +264,7 @@ export function ParentDashboard({
               </button>
             ) : (
               <div className="text-right">
-                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-2 flex items-center justify-end gap-1">
+                <p className="text-[10px] text-ui-muted font-black uppercase tracking-widest mb-2 flex items-center justify-end gap-1">
                   <Send className="w-3 h-3" /> Mission Access Code
                 </p>
                 <div className="flex items-center gap-2">
@@ -245,7 +275,7 @@ export function ParentDashboard({
                     onClick={handleCopy}
                     className={cn(
                       "p-3 rounded-2xl transition-all flex items-center justify-center border",
-                      copied ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
+                      copied ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-white text-ui-secondary hover:bg-ui-soft border border-ui"
                     )}
                     title="Copy Code"
                   >
@@ -267,12 +297,12 @@ export function ParentDashboard({
         </div>
 
         <div className="glass-panel p-6 rounded-3xl border-l-4 border-l-purple-500 flex flex-col justify-center relative overflow-hidden">
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-3">Linked Cadets</p>
+          <p className={cn("text-[10px] uppercase tracking-widest font-black mb-3", toneSecondary)}>Linked Cadets</p>
           <div className="flex -space-x-2 mb-4 flex-wrap">
             {kids.length > 0 ? kids.map((k: UserProfile) => (
               <div key={k.uid} className="relative group/kid mb-2">
                 <div
-                  className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-xs font-bold text-slate-500 cursor-pointer"
+                  className={cn("w-10 h-10 rounded-full border-2 flex items-center justify-center text-xs font-bold cursor-pointer", isDarkMode ? "bg-ui-dark-2 border-ui-dark-3 text-ui-secondary" : "bg-ui-soft-2 border-ui text-ui-secondary")}
                   title={`${k.name} - LVL ${k.level || 1}`}
                 >
                   {k.name?.charAt(0)?.toUpperCase()}
@@ -285,7 +315,7 @@ export function ParentDashboard({
                   title="Set color"
                 />
                 {colorPickerFor === k.uid && (
-                  <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-slate-200 rounded-xl p-2 shadow-xl grid grid-cols-4 gap-1" onClick={e => e.stopPropagation()}>
+                  <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-ui rounded-xl p-2 shadow-xl grid grid-cols-4 gap-1" onClick={e => e.stopPropagation()}>
                     {MEMBER_COLORS.map(c => (
                       <button key={c} onClick={async () => { await userService.setMemberColor(k.uid, c); setColorPickerFor(null); fetchData(); }}
                         className="w-6 h-6 rounded-full border-2 border-transparent hover:scale-110 transition-transform"
@@ -295,7 +325,7 @@ export function ParentDashboard({
                 )}
               </div>
             )) : (
-              <div className="w-10 h-10 rounded-full bg-slate-900 border-2 border-dashed border-slate-700 flex items-center justify-center text-slate-700 mb-2">
+              <div className="w-10 h-10 rounded-full bg-ui-dark border-2 border-dashed border-ui-dark-2 flex items-center justify-center text-ui-secondary mb-2">
                 <Plus className="w-4 h-4" />
               </div>
             )}
@@ -309,6 +339,8 @@ export function ParentDashboard({
 
       <ConnectedAccountsView 
         connections={connections} 
+        calendars={syncCalendars}
+        onToggleCalendar={handleToggleCalendar}
         onConnect={async (provider, data) => {
           const tk = localStorage.getItem('kidtasker_token');
           if (provider === 'google') {
@@ -329,14 +361,49 @@ export function ParentDashboard({
         onDisconnect={handleDisconnect} 
       />
 
-      <div className="flex justify-between items-center bg-slate-50 p-2 rounded-2xl">
+      {pendingCompletions.length > 0 && (
+        <div className="bg-amber-50 border border-amber-100 p-6 rounded-[2.5rem] space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <ShieldCheck className="w-5 h-5 text-amber-500" />
+            <h3 className="text-sm font-black uppercase tracking-widest text-amber-700">Awaiting Approval</h3>
+            <span className="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{pendingCompletions.length}</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {pendingCompletions.map((comp: any) => (
+              <div key={comp.id} className="bg-white p-4 rounded-2xl shadow-sm border border-amber-100 flex justify-between items-center group">
+                <div>
+                  <p className="text-[10px] font-black text-amber-600 uppercase mb-1">{comp.kidName}</p>
+                  <p className="font-bold text-ui-primary text-sm">{comp.taskTitle}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => rejectCompletion(comp.id)}
+                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                    title="Reject"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={() => approveCompletion(comp.id)}
+                    className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-emerald-600 transition-colors shadow-sm"
+                  >
+                    Approve
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-between items-center bg-ui-soft p-2 rounded-2xl">
         <div className="flex gap-2 items-center">
-          <div className="flex gap-1 bg-slate-900/50 p-1 rounded-xl mr-2">
+          <div className={cn("flex gap-1 p-1 rounded-xl mr-2", isDarkMode ? "bg-ui-dark-50" : "bg-ui-soft-2")}>
             <button 
               onClick={() => setSortBy('time')}
               className={cn(
                 "p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest",
-                sortBy === 'time' ? "bg-sky-500 text-white shadow-md" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                sortBy === 'time' ? "bg-sky-500 text-white shadow-md" : (isDarkMode ? "text-ui-secondary hover:text-white hover:bg-ui-dark-2" : "text-ui-muted hover:text-ui-secondary hover:bg-ui-soft")
               )}
             >
               <Clock className="w-3 h-3" /> Time
@@ -345,7 +412,7 @@ export function ParentDashboard({
               onClick={() => setSortBy('created')}
               className={cn(
                 "p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest",
-                sortBy === 'created' ? "bg-sky-500 text-white shadow-md" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                sortBy === 'created' ? "bg-sky-500 text-white shadow-md" : (isDarkMode ? "text-ui-secondary hover:text-white hover:bg-ui-dark-2" : "text-ui-muted hover:text-ui-secondary hover:bg-ui-soft")
               )}
             >
               <CalendarDays className="w-3 h-3" /> New
@@ -355,7 +422,7 @@ export function ParentDashboard({
             <button 
               key={cat.id}
               onClick={() => onCategoriesChange(categories)} // Dummy for now
-              className="p-2 rounded-xl hover:bg-slate-800 transition-colors"
+              className="p-2 rounded-xl hover:bg-ui-dark-2 transition-colors"
               title={cat.name}
             >
               <span className="text-xl">{cat.icon}</span>
@@ -363,25 +430,27 @@ export function ParentDashboard({
           ))}
           <button 
             onClick={() => setIsManagingCategories(true)}
-            className="p-2 bg-white rounded-xl text-slate-500 hover:bg-slate-50 border border-slate-200 transition-colors shadow-sm"
+            className="p-2 bg-white rounded-xl text-ui-muted hover:bg-ui-soft border border-ui transition-colors shadow-sm"
           >
             <Tag className="w-5 h-5" />
           </button>
         </div>
         
-        <button 
-          onClick={() => setIsAddingTask(true)}
-          className="btn-immersive-primary !w-auto bg-blue-600 px-6 py-2 text-xs flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" /> New Objective
-        </button>
+        {!isLocked && (
+          <button 
+            onClick={() => setIsAddingTask(true)}
+            className="btn-immersive-primary !w-auto bg-blue-600 px-6 py-2 text-xs flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> New Objective
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {filteredTasks.length === 0 ? (
           <div className="col-span-full text-center py-20 glass-panel rounded-[40px] border-dashed">
-            <Calendar className="w-12 h-12 text-slate-700 mx-auto mb-4" />
-            <p className="text-slate-500">No active missions in sector.</p>
+            <Calendar className={cn("w-12 h-12 mx-auto mb-4", isDarkMode ? "text-ui-muted-2" : "text-ui-secondary")} />
+            <p className={cn(isDarkMode ? "text-ui-secondary" : "text-ui-muted")}>No active missions in sector.</p>
           </div>
         ) : (
           filteredTasks.map((task: Task) => {
@@ -391,7 +460,7 @@ export function ParentDashboard({
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
                     <div className="flex gap-2 items-center mb-2">
-                      <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-500 font-bold px-2 py-1 rounded uppercase tracking-wider">
+                      <span className={cn("text-[10px] border font-bold px-2 py-1 rounded uppercase tracking-wider", isDarkMode ? "bg-ui-dark-2 border-ui-dark-2 text-ui-secondary" : "bg-ui-soft-2 border-ui text-ui-muted")}>
                         {task.frequency}
                       </span>
                       {category && (
@@ -407,14 +476,16 @@ export function ParentDashboard({
                     </div>
                     <h4 className="text-xl font-bold">{task.title}</h4>
                   </div>
-                  <button 
-                    onClick={() => archiveTask(task.id)}
-                    className="p-2 text-slate-700 hover:text-red-400 transition-colors"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  {!isLocked && (
+                    <button 
+                      onClick={() => archiveTask(task.id)}
+                      className="p-2 text-ui-secondary hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
-                <div className="w-full py-2 bg-slate-50 border border-slate-200 text-slate-500 font-black rounded-xl text-center uppercase tracking-widest text-[10px]">
+                <div className={cn("w-full py-2 border font-black rounded-xl text-center uppercase tracking-widest text-[10px]", isDarkMode ? "bg-ui-dark-70 border-ui-dark-2 text-ui-secondary" : "bg-ui-soft border-ui text-ui-muted")}>
                   Monitoring Active
                 </div>
               </div>
@@ -443,9 +514,8 @@ export function ParentDashboard({
           />
         )}
       </AnimatePresence>
-      {showSettings && (
-        <SettingsView parentId={profile.uid} onClose={() => setShowSettings(false)} />
-      )}
     </div>
   );
 }
+
+

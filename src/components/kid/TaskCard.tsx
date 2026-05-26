@@ -1,11 +1,11 @@
 import React from 'react';
-import { CheckCircle2, Lock, AlertCircle, Clock, Activity, Zap } from 'lucide-react';
+import { CheckCircle2, Lock, AlertCircle, Clock, Activity, Zap, ShieldAlert, Hourglass } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Task, Category } from '../../types';
+import { Task, Category, TaskCompletion } from '../../types';
 import { cn } from '../../lib/utils';
 import { XP_REWARDS } from '../../constants';
 
-export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel, category, themeVocab, darkMode = false }: { 
+export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel, category, themeVocab, darkMode = false, completion }: { 
   task: Task, 
   isDone: boolean, 
   isLocked?: boolean,
@@ -15,19 +15,38 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
   category?: Category,
   themeVocab?: any,
   darkMode?: boolean,
-  key?: React.Key
+  key?: React.Key,
+  completion?: TaskCompletion
 }) {
-  const accentColor = isDone ? 'border-emerald-500' : (isLocked ? (darkMode ? 'border-slate-800' : 'border-slate-200') : (urgency === 'overdue' ? 'border-red-400' : (darkMode ? 'border-slate-800' : 'border-slate-200')));
+  const accentColor = isDone ? 'border-emerald-500' : (isLocked ? (darkMode ? 'border-ui-dark' : 'border-ui') : (urgency === 'overdue' ? 'border-red-400' : (darkMode ? 'border-ui-dark' : 'border-ui')));
   
-  const statusConfig = isDone 
-    ? { label: themeVocab?.completed || 'Done', icon: <CheckCircle2 className="w-4 h-4" />, color: darkMode ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-emerald-700 bg-emerald-50 border-emerald-200' }
-    : (isLocked 
-        ? { label: themeVocab?.locked || 'Locked', icon: <Lock className="w-3 h-3" />, color: darkMode ? 'text-slate-400 bg-slate-900 border-slate-800' : 'text-slate-400 bg-slate-100 border-slate-200' }
-        : (urgency === 'overdue' 
-            ? { label: themeVocab?.overdue || 'Overdue', icon: <AlertCircle className="w-3 h-3" />, color: darkMode ? 'text-rose-400 bg-rose-500/10 border-rose-500/30' : 'text-red-700 bg-red-50 border-red-200' }
-            : urgency === 'soon'
-            ? { label: 'Starting Soon', icon: <Clock className="w-3 h-3" />, color: darkMode ? 'text-blue-400 bg-blue-500/10 border-blue-500/30' : 'text-sky-700 bg-sky-50 border-sky-200' }
-            : { label: 'To Do', icon: <Activity className="w-3 h-3" />, color: darkMode ? 'text-slate-400 bg-slate-900 border-slate-800' : 'text-slate-600 bg-slate-50 border-slate-200' }));
+  const getStatusConfig = () => {
+    if (isDone) {
+      if (completion?.approvalStatus === 'pending') {
+        return { label: 'Pending Approval', icon: <Hourglass className="w-4 h-4" />, color: darkMode ? 'text-amber-400 bg-amber-500/10 border-amber-500/30' : 'text-amber-700 bg-amber-50 border-amber-200' };
+      }
+      if (completion?.approvalStatus === 'rejected') {
+        return { label: 'Rejected', icon: <ShieldAlert className="w-4 h-4" />, color: darkMode ? 'text-rose-400 bg-rose-500/10 border-rose-500/30' : 'text-rose-700 bg-rose-50 border-rose-200' };
+      }
+      return { label: themeVocab?.completed || 'Done', icon: <CheckCircle2 className="w-4 h-4" />, color: darkMode ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-emerald-700 bg-emerald-50 border-emerald-200' };
+    }
+    
+    if (isLocked) {
+      return { label: themeVocab?.locked || 'Locked', icon: <Lock className="w-3 h-3" />, color: darkMode ? 'text-ui-muted-2 bg-ui-dark border-ui-dark' : 'text-ui-muted-2 bg-ui-soft-2 border-ui' };
+    }
+    
+    if (urgency === 'overdue') {
+      return { label: themeVocab?.overdue || 'Overdue', icon: <AlertCircle className="w-3 h-3" />, color: darkMode ? 'text-rose-400 bg-rose-500/10 border-rose-500/30' : 'text-red-700 bg-red-50 border-red-200' };
+    }
+    
+    if (urgency === 'soon') {
+      return { label: 'Starting Soon', icon: <Clock className="w-3 h-3" />, color: darkMode ? 'text-blue-400 bg-blue-500/10 border-blue-500/30' : 'text-sky-700 bg-sky-50 border-sky-200' };
+    }
+    
+    return { label: 'To Do', icon: <Activity className="w-3 h-3" />, color: darkMode ? 'text-ui-muted-2 bg-ui-dark border-ui-dark' : 'text-ui-secondary bg-ui-soft border-ui' };
+  };
+
+  const statusConfig = getStatusConfig();
 
   return (
     <motion.div 
@@ -37,10 +56,10 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
       onClick={!isLocked ? onToggle : undefined}
       className={cn(
         "group relative overflow-hidden rounded-[2rem] p-6 transition-all border-2",
-        darkMode ? "bg-slate-900/50 backdrop-blur-sm" : "bg-white",
+        darkMode ? "bg-ui-dark-50 backdrop-blur-sm" : "bg-white",
         !isLocked ? "cursor-pointer" : "cursor-not-allowed opacity-80",
         accentColor,
-        isDone ? (darkMode ? "opacity-60 bg-emerald-500/5 border-emerald-500/30" : "opacity-70 bg-emerald-50 shadow-sm") : (isLocked ? (darkMode ? "bg-slate-950 grayscale" : "bg-slate-50 grayscale") : (darkMode ? "hover:shadow-lg shadow-black/20 hover:border-slate-700" : "shadow-sm hover:shadow-md hover:border-slate-300")),
+        isDone ? (darkMode ? "opacity-60 bg-emerald-500/5 border-emerald-500/30" : "opacity-70 bg-emerald-50 shadow-sm") : (isLocked ? (darkMode ? "bg-ui-deep grayscale" : "bg-ui-soft grayscale") : (darkMode ? "hover:shadow-lg shadow-black/20 hover:border-ui-dark-2" : "shadow-sm hover:shadow-md hover:border-ui-soft-strong")),
       )}
     >
 
@@ -62,7 +81,7 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
               layout
               className={cn(
                 "text-[10px] font-bold px-2.5 py-1.5 rounded-xl uppercase tracking-wider border",
-                darkMode ? "bg-slate-900 border-slate-800 text-slate-400" : "bg-slate-100 border-slate-200 text-slate-600"
+                darkMode ? "bg-ui-dark border-ui-dark text-ui-muted-2" : "bg-ui-soft-2 border-ui text-ui-secondary"
               )}
             >
               {slotLabel || (
@@ -90,7 +109,7 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
           </div>
           <motion.h3 
             layout
-            className={cn("text-2xl font-bold mt-2", isDone ? "line-through text-slate-500" : (darkMode ? "text-white" : "text-slate-800"))}
+            className={cn("text-2xl font-bold mt-2", isDone ? "line-through text-ui-muted" : (darkMode ? "text-white" : "text-ui-primary"))}
           >
             {task.title}
           </motion.h3>
@@ -110,9 +129,9 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
             "w-20 h-20 rounded-[1.5rem] flex items-center justify-center text-4xl shrink-0 ml-4 border-2 transition-colors relative",
             isDone 
               ? (darkMode ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/50" : "bg-emerald-100 text-emerald-500 border-emerald-200") 
-              : (isLocked ? (darkMode ? "bg-slate-900 border-slate-800 text-slate-600" : "bg-slate-100 border-slate-200 text-slate-400") : (urgency === 'overdue' 
+              : (isLocked ? (darkMode ? "bg-ui-dark border-ui-dark text-ui-secondary" : "bg-ui-soft-2 border-ui text-ui-muted-2") : (urgency === 'overdue' 
                   ? (darkMode ? "bg-rose-500/20 text-rose-500 border-rose-500/50 animate-pulse" : "bg-red-50 text-red-500 border-red-200") 
-                  : (urgency === 'soon' ? (darkMode ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "bg-sky-50 text-sky-500 border-sky-100") : (darkMode ? "bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200 shadow-lg" : "bg-white text-slate-600 border-slate-200 shadow-sm hover:border-sky-300"))))
+                  : (urgency === 'soon' ? (darkMode ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "bg-sky-50 text-sky-500 border-sky-100") : (darkMode ? "bg-ui-dark text-ui-muted-2 border-ui-dark hover:border-ui-dark-2 hover:text-ui-secondary shadow-lg" : "bg-white text-ui-secondary border-ui shadow-sm hover:border-sky-300"))))
           )}
         >
           <AnimatePresence mode="wait">
@@ -137,8 +156,8 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
           className={cn(
             "w-full py-4 font-bold rounded-2xl transition-all uppercase tracking-wider text-sm relative overflow-hidden flex items-center justify-center gap-2 mt-4",
             isLocked 
-              ? (darkMode ? "bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed" : "bg-slate-50 text-slate-400 cursor-not-allowed border border-slate-200")
-              : urgency === 'overdue' ? (darkMode ? "bg-amber-500 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.4)]" : "bg-red-50 text-red-500 hover:bg-red-100") : (darkMode ? "bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600/40" : "bg-sky-50 text-sky-600 hover:bg-sky-100 hover:text-sky-700")
+              ? (darkMode ? "bg-ui-dark text-ui-secondary border border-ui-dark cursor-not-allowed" : "bg-ui-soft text-ui-muted-2 cursor-not-allowed border border-ui")
+              : urgency === 'overdue' ? (darkMode ? "bg-amber-500 text-ui-primary shadow-[0_0_20px_rgba(245,158,11,0.4)]" : "bg-red-50 text-red-500 hover:bg-red-100") : (darkMode ? "bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600/40" : "bg-sky-50 text-sky-600 hover:bg-sky-100 hover:text-sky-700")
           )}
         >
           <span className="relative z-10 flex items-center justify-center gap-2">
@@ -157,3 +176,5 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
     </motion.div>
   );
 }
+
+

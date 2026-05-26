@@ -44,5 +44,17 @@ export const tasksClientService = {
 
   async getHistoryForKid(kidId: string, limitCount: number = 50): Promise<TaskCompletion[]> {
     return await fetchAPI('/kids/' + kidId + '/history?limit=' + limitCount);
+  },
+
+  async getPendingCompletions(parentId: string): Promise<any[]> {
+    return await fetchAPI(`/parents/${parentId}/pending-completions`);
+  },
+
+  async approveCompletion(completionId: string): Promise<void> {
+    await fetchAPI(`/completions/${completionId}/approve`, { method: 'PATCH' });
+  },
+
+  async rejectCompletion(completionId: string): Promise<void> {
+    await fetchAPI(`/completions/${completionId}/reject`, { method: 'PATCH' });
   }
 };
