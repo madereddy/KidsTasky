@@ -136,7 +136,7 @@ export function startBackgroundWorker() {
               }
             }
           } catch (connErr) {
-            console.error(`[Worker] IMAP error for ${conn.email}:`, connErr);
+            console.error('[Worker] IMAP error for', conn.email, ':', connErr);
           } finally {
             try { connection?.end(); } catch {}
           }
