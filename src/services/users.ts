@@ -55,4 +55,12 @@ export const userService = {
       body: JSON.stringify({ color })
     });
   },
+
+  async getCoParents(parentId: string): Promise<UserProfile[]> {
+    return await fetchAPI(`/parents/${parentId}/coparents`);
+  },
+
+  async removeCoParent(uid: string): Promise<void> {
+    await fetchAPI(`/users/${uid}/coparent`, { method: 'DELETE' });
+  },
 };
