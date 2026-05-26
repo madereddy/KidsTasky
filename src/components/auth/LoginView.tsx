@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ShieldCheck, ArrowLeft, KeyRound, User as UserIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { authService } from '../../services/auth';
+import { OnboardingView } from '../onboarding/OnboardingView';
 import { cn } from '../../lib/utils';
 
 export function LoginView({ onLogin, onKidLogin }: { 
@@ -12,7 +13,7 @@ export function LoginView({ onLogin, onKidLogin }: {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isRegister, setIsRegister] = useState(false);
-  const [view, setView] = useState<'login' | 'family' | 'pin'>('login');
+  const [view, setView] = useState<'login' | 'family' | 'pin' | 'coparent'>('login');
   const [familyProfiles, setFamilyProfiles] = useState<any[]>([]);
   const [selectedKid, setSelectedKid] = useState<any>(null);
   const [pin, setPin] = useState('');
@@ -49,6 +50,29 @@ export function LoginView({ onLogin, onKidLogin }: {
     }
   };
 
+  if (view === 'coparent') {
+    return (
+      <div className="min-h-screen w-full bg-ui-soft">
+        <div className="absolute top-6 left-6 z-10">
+          <button 
+            onClick={() => setView('login')}
+            className="p-3 bg-white border border-ui rounded-2xl text-ui-muted hover:bg-ui-soft shadow-sm flex items-center gap-2 font-bold text-xs uppercase"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to Login
+          </button>
+        </div>
+        <OnboardingView 
+          user={{ uid: 'placeholder', name: '', email: '' }} 
+          onComplete={(profile, creds) => {
+            if (creds) {
+              onLogin(creds.email, creds.pass, false);
+            }
+          }} 
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 backdrop-blur-sm">
       <motion.div 
@@ -68,8 +92,8 @@ export function LoginView({ onLogin, onKidLogin }: {
               <div className="bg-gradient-to-br from-sky-400 to-blue-500 w-24 h-24 rounded-3xl mx-auto mb-8 flex items-center justify-center shadow-lg">
                 <ShieldCheck className="text-white w-12 h-12" />
               </div>
-              <h1 className="text-4xl font-bold tracking-tight text-slate-800 mb-2">Family Hub</h1>
-              <p className="text-slate-500 mb-8 font-medium">Chore Charts & Rewards</p>
+              <h1 className="text-4xl font-bold tracking-tight text-ui-primary mb-2">Family Hub</h1>
+              <p className="text-ui-muted mb-8 font-medium">Chore Charts & Rewards</p>
               
               {isRegister && (
                 <input 
@@ -77,7 +101,7 @@ export function LoginView({ onLogin, onKidLogin }: {
                   value={name}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
                   placeholder="Parent Name" 
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder-slate-400 text-center font-medium focus:ring-2 focus:ring-sky-500 outline-none transition-all"
+                  className="w-full px-4 py-3 rounded-xl border border-ui bg-white text-ui-primary placeholder-slate-400 text-center font-medium focus:ring-2 focus:ring-sky-500 outline-none transition-all"
                 />
               )}
               <input 
@@ -85,17 +109,17 @@ export function LoginView({ onLogin, onKidLogin }: {
                 value={email}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 placeholder="Parent Email or Username" 
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder-slate-400 text-center font-medium focus:ring-2 focus:ring-sky-500 outline-none transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-ui bg-white text-ui-primary placeholder-slate-400 text-center font-medium focus:ring-2 focus:ring-sky-500 outline-none transition-all"
               />
               {!isRegister && (
-                <p className="text-xs text-slate-500 mb-4 font-medium">Enter Parent Username/Email to view kid profiles, plus password for parent login.</p>
+                <p className="text-xs text-ui-muted mb-4 font-medium">Enter Parent Username/Email to view kid profiles, plus password for parent login.</p>
               )}
               <input 
                 type="password" 
                 value={password}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 placeholder="Parent Password (Optional for Kids)" 
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder-slate-400 text-center font-medium focus:ring-2 focus:ring-sky-500 outline-none transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-ui bg-white text-ui-primary placeholder-slate-400 text-center font-medium focus:ring-2 focus:ring-sky-500 outline-none transition-all"
               />
 
               <button 
@@ -106,12 +130,20 @@ export function LoginView({ onLogin, onKidLogin }: {
                 {isRegister ? 'Register' : (password ? 'Log In' : 'Find My Account')}
               </button>
               
-              <button 
-                onClick={() => setIsRegister(!isRegister)}
-                className="text-slate-500 text-sm hover:text-sky-500 pt-4 font-medium"
-              >
-                {isRegister ? 'Already have access?' : 'Need to register?'}
-              </button>
+              <div className="flex flex-col gap-2 pt-4">
+                <button 
+                  onClick={() => setIsRegister(!isRegister)}
+                  className="text-ui-muted text-sm hover:text-sky-500 font-medium"
+                >
+                  {isRegister ? 'Already have access?' : 'Need to register?'}
+                </button>
+                <button 
+                  onClick={() => setView('coparent')}
+                  className="text-sky-500 text-xs hover:underline font-bold uppercase tracking-wider"
+                >
+                  Have a co-parent invite code?
+                </button>
+              </div>
             </motion.div>
           )}
 
@@ -124,10 +156,10 @@ export function LoginView({ onLogin, onKidLogin }: {
               className="space-y-6"
             >
               <div className="flex items-center gap-4 mb-8">
-                <button onClick={() => setView('login')} className="p-2 bg-white border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 shadow-sm">
+                <button onClick={() => setView('login')} className="p-2 bg-white border border-ui rounded-xl text-ui-muted hover:bg-ui-soft shadow-sm">
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <h2 className="text-xl font-bold text-slate-800">Who's logging in?</h2>
+                <h2 className="text-xl font-bold text-ui-primary">Who's logging in?</h2>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
@@ -135,12 +167,12 @@ export function LoginView({ onLogin, onKidLogin }: {
                   <button
                     key={kid.uid}
                     onClick={() => handleKidSelect(kid)}
-                    className="p-6 bg-white border border-slate-200 rounded-[2rem] hover:border-sky-300 hover:shadow-md transition-all group flex flex-col items-center gap-3 shadow-sm"
+                    className="p-6 bg-white border border-ui rounded-[2rem] hover:border-sky-300 hover:shadow-md transition-all group flex flex-col items-center gap-3 shadow-sm"
                   >
                     <div className="w-16 h-16 bg-sky-50 rounded-full flex items-center justify-center text-3xl font-bold text-sky-500 group-hover:bg-sky-100 transition-all">
                       {kid.name?.charAt(0)?.toUpperCase()}
                     </div>
-                    <span className="font-bold text-slate-800">{kid.name}</span>
+                    <span className="font-bold text-ui-primary">{kid.name}</span>
                   </button>
                 ))}
               </div>
@@ -156,12 +188,12 @@ export function LoginView({ onLogin, onKidLogin }: {
               className="space-y-8"
             >
               <div className="flex items-center gap-4">
-                <button onClick={() => setView('family')} className="p-2 bg-white border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 shadow-sm">
+                <button onClick={() => setView('family')} className="p-2 bg-white border border-ui rounded-xl text-ui-muted hover:bg-ui-soft shadow-sm">
                   <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div className="text-left">
-                  <h2 className="text-xl font-bold text-slate-800">{selectedKid.name}</h2>
-                  <p className="text-xs text-slate-500 font-medium">Enter your 4-digit PIN</p>
+                  <h2 className="text-xl font-bold text-ui-primary">{selectedKid.name}</h2>
+                  <p className="text-xs text-ui-muted font-medium">Enter your 4-digit PIN</p>
                 </div>
               </div>
 
@@ -171,7 +203,7 @@ export function LoginView({ onLogin, onKidLogin }: {
                     key={i} 
                     className={cn(
                       "w-14 h-16 rounded-2xl border-2 flex items-center justify-center text-3xl font-bold transition-all",
-                      pin.length > i ? "border-sky-500 text-sky-500 bg-sky-50" : "border-slate-200 text-slate-300 bg-white"
+                      pin.length > i ? "border-sky-500 text-sky-500 bg-sky-50" : "border-ui text-ui-muted-2 bg-white"
                     )}
                   >
                     {pin[i] ? '•' : ''}
@@ -188,7 +220,7 @@ export function LoginView({ onLogin, onKidLogin }: {
                       else if (n === '←') setPin(pin.slice(0, -1));
                       else if (pin.length < 4) setPin(pin + n);
                     }}
-                    className="h-16 rounded-full bg-white border border-slate-200 text-xl font-bold hover:bg-slate-50 active:scale-95 transition-all flex items-center justify-center text-slate-700 shadow-sm"
+                    className="h-16 rounded-full bg-white border border-ui text-xl font-bold hover:bg-ui-soft active:scale-95 transition-all flex items-center justify-center text-ui-secondary shadow-sm"
                   >
                     {n === '←' ? <ArrowLeft className="w-6 h-6" /> : n}
                   </button>
@@ -209,3 +241,4 @@ export function LoginView({ onLogin, onKidLogin }: {
     </div>
   );
 }
+

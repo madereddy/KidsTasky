@@ -1,4 +1,4 @@
-export type UserRole = 'parent' | 'kid';
+export type UserRole = 'parent' | 'kid' | 'coparent';
 
 type FirebaseTimestamp = { seconds: number; nanoseconds?: number } | number;
 
@@ -74,6 +74,7 @@ export interface Invite {
   id: string; // The 6-digit code
   parentId: string;
   parentName: string;
+  type?: 'kid' | 'coparent';
   createdAt: FirebaseTimestamp;
   status: 'active' | 'used' | 'expired';
 }
