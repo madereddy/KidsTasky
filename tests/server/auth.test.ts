@@ -5,12 +5,12 @@ import { db } from '../../src/server/db.js';
 
 test('Registration and Login flow', async () => {
   // Register
-  const regRes = await request(app).post('/api/auth/register').send({ email: 'test@example.com', password: 'pass', name: 'Tester' });
+  const regRes = await request(app).post('/api/auth/register').send({ email: 'test@example.com', password: 'password123', name: 'Tester' });
   expect(regRes.status).toBe(200);
   expect(regRes.body.token).toBeDefined();
 
   // Login
-  const loginRes = await request(app).post('/api/auth/login').send({ email: 'test@example.com', password: 'pass' });
+  const loginRes = await request(app).post('/api/auth/login').send({ email: 'test@example.com', password: 'password123' });
   expect(loginRes.status).toBe(200);
   expect(loginRes.body.token).toBeDefined();
   
@@ -25,8 +25,8 @@ test('Registration and Login flow', async () => {
 test('Kid PIN login and profile discovery', async () => {
   // 1. Setup Parent
   const parentEmail = 'parent@example.com';
-  await request(app).post('/api/auth/register').send({ email: parentEmail, password: 'password', name: 'Parent' });
-  const loginRes = await request(app).post('/api/auth/login').send({ email: parentEmail, password: 'password' });
+  await request(app).post('/api/auth/register').send({ email: parentEmail, password: 'password123', name: 'Parent' });
+  const loginRes = await request(app).post('/api/auth/login').send({ email: parentEmail, password: 'password123' });
   const token = loginRes.body.token;
   const parentId = loginRes.body.user.uid;
 

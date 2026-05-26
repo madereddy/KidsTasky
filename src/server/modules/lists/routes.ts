@@ -7,7 +7,7 @@ export const listsRouter = Router();
 
 listsRouter.get('/parents/:parentId/lists', (req, res) => {
   try {
-    const lists = listsService.getLists(req.params.parentId);
+    const lists = listsService.getLists(String(req.params.parentId));
     res.json(lists);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -16,7 +16,7 @@ listsRouter.get('/parents/:parentId/lists', (req, res) => {
 
 listsRouter.get('/lists/:listId/items', (req, res) => {
   try {
-    const items = listsService.getListItems(req.params.listId);
+    const items = listsService.getListItems(String(req.params.listId));
     res.json(items);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -36,7 +36,7 @@ listsRouter.post('/lists', requireAuth, (req, res) => {
 
 listsRouter.delete('/lists/:id', requireAuth, (req, res) => {
   try {
-    listsService.deleteList(req.params.id);
+    listsService.deleteList(String(req.params.id));
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -45,7 +45,7 @@ listsRouter.delete('/lists/:id', requireAuth, (req, res) => {
 
 listsRouter.post('/lists/:listId/items', requireAuth, (req, res) => {
   try {
-    const item = listsService.addItem(req.params.listId, req.body.text);
+    const item = listsService.addItem(String(req.params.listId), req.body.text);
     res.status(201).json(item);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -54,7 +54,7 @@ listsRouter.post('/lists/:listId/items', requireAuth, (req, res) => {
 
 listsRouter.put('/list-items/:itemId', requireAuth, (req, res) => {
   try {
-    listsService.toggleItem(req.params.itemId, req.body.completed);
+    listsService.toggleItem(String(req.params.itemId), req.body.completed);
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -63,7 +63,7 @@ listsRouter.put('/list-items/:itemId', requireAuth, (req, res) => {
 
 listsRouter.delete('/list-items/:itemId', requireAuth, (req, res) => {
   try {
-    listsService.deleteItem(req.params.itemId);
+    listsService.deleteItem(String(req.params.itemId));
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

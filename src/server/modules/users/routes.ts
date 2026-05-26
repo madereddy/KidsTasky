@@ -6,6 +6,8 @@ import { db } from '../../db.js';
 import { socketWrapper } from '../../socket.js';
 import { authenticateUser, getParentId } from '../../middleware/auth.js';
 
+import { randomBytes } from 'crypto';
+
 export const usersRouter = Router();
 
 const validate = (req: Request, res: Response, next: any) => {
@@ -51,7 +53,7 @@ usersRouter.post("/users", [
     if (invite.type === 'coparent') {
       if (!req.body.password) return res.status(400).json({ error: 'Password required for co-parent join' });
       // Generate uid server-side — never trust client-supplied uid for security-critical join
-      const uid = 'user_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      const uid = 'user_' + Date.now().toString(36) + randomBytes(4).toString('hex');
       await userService.createCoParent({
         uid,
         name: req.body.name,

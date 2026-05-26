@@ -77,10 +77,10 @@ export function ListsView({ parentId }: Props) {
   const selectedList = lists.find(l => l.id === selectedListId);
 
   return (
-    <div className="flex h-[calc(100vh-200px)] bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-      <div className="w-64 shrink-0 border-r border-slate-200 flex flex-col bg-slate-50">
-        <div className="p-4 border-b border-slate-200">
-          <h2 className="font-bold text-slate-800 text-lg">My Lists</h2>
+    <div className="flex h-[calc(100vh-200px)] bg-white rounded-2xl border border-ui overflow-hidden shadow-sm">
+      <div className="w-64 shrink-0 border-r border-ui flex flex-col bg-ui-soft">
+        <div className="p-4 border-b border-ui">
+          <h2 className="font-bold text-ui-primary text-lg">My Lists</h2>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {lists.map(list => {
@@ -93,7 +93,7 @@ export function ListsView({ parentId }: Props) {
                   "w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center justify-between group",
                   selectedListId === list.id
                     ? "bg-blue-500 text-white shadow-sm"
-                    : "text-slate-600 hover:bg-white hover:shadow-sm"
+                    : "text-ui-secondary hover:bg-white hover:shadow-sm"
                 )}
               >
                 <span className="truncate flex-1">{list.title}</span>
@@ -101,14 +101,14 @@ export function ListsView({ parentId }: Props) {
                   {count !== undefined && (
                     <span className={cn(
                       "text-[10px] font-bold px-1.5 py-0.5 rounded-full",
-                      selectedListId === list.id ? "bg-blue-400 text-white" : "bg-slate-200 text-slate-500"
+                      selectedListId === list.id ? "bg-blue-400 text-white" : "bg-ui-soft-3 text-ui-muted"
                     )}>{count}</span>
                   )}
                   <button
                     onClick={e => { e.stopPropagation(); handleDeleteList(list.id); }}
                     className={cn(
                       "p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-all",
-                      selectedListId === list.id ? "hover:bg-blue-400 text-white" : "hover:bg-red-100 text-slate-400 hover:text-red-500"
+                      selectedListId === list.id ? "hover:bg-blue-400 text-white" : "hover:bg-red-100 text-ui-muted-2 hover:text-red-500"
                     )}
                   >
                     <Trash2 size={12} />
@@ -118,16 +118,16 @@ export function ListsView({ parentId }: Props) {
             );
           })}
           {lists.length === 0 && (
-            <p className="text-xs text-slate-400 text-center py-6">No lists yet</p>
+            <p className="text-xs text-ui-muted-2 text-center py-6">No lists yet</p>
           )}
         </div>
-        <div className="p-3 border-t border-slate-200">
+        <div className="p-3 border-t border-ui">
           <form onSubmit={handleCreateList} className="flex gap-2">
             <input
               value={newListTitle}
               onChange={e => setNewListTitle(e.target.value)}
               placeholder="New list…"
-              className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+              className="flex-1 border border-ui rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
             />
             <button type="submit" className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
               <Plus size={14} />
@@ -139,13 +139,13 @@ export function ListsView({ parentId }: Props) {
       <div className="flex-1 flex flex-col overflow-hidden">
         {selectedList ? (
           <>
-            <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
-              <h3 className="font-bold text-slate-800 text-lg">{selectedList.title}</h3>
+            <div className="px-4 py-3 border-b border-ui flex items-center justify-between bg-white shrink-0">
+              <h3 className="font-bold text-ui-primary text-lg">{selectedList.title}</h3>
               <button
                 onClick={handleCopyItems}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border",
-                  copied ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                  copied ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-white text-ui-muted border-ui hover:bg-ui-soft"
                 )}
               >
                 {copied ? <ClipboardCheck size={14} /> : <Clipboard size={14} />}
@@ -164,7 +164,7 @@ export function ListsView({ parentId }: Props) {
             />
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-slate-400">
+          <div className="flex-1 flex items-center justify-center text-ui-muted-2">
             <div className="text-center">
               <p className="text-lg font-semibold">No list selected</p>
               <p className="text-sm mt-1">Create a list to get started</p>
@@ -175,3 +175,4 @@ export function ListsView({ parentId }: Props) {
     </div>
   );
 }
+

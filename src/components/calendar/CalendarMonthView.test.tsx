@@ -6,9 +6,16 @@ import { describe, it, expect } from 'vitest';
 import { CalendarMonthView } from './CalendarMonthView';
 
 describe('CalendarMonthView', () => {
-  it('renders a calendar UI indicating month view', () => {
-    render(<CalendarMonthView events={[]} />);
-    // Since we just want the minimal scaffold for now:
-    expect(screen.getByText('Month View')).toBeInTheDocument();
+  it('renders day-of-week headers', () => {
+    render(
+      <CalendarMonthView
+        events={[]}
+        currentMonth={new Date('2026-04-01')}
+        onDayClick={() => {}}
+        memberColorMap={{}}
+        forecast={[]}
+      />
+    );
+    expect(screen.getByText('Sun')).toBeInTheDocument();
   });
 });

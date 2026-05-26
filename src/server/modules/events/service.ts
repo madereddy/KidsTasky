@@ -3,8 +3,10 @@ import { addDays, addWeeks, addMonths, addYears, parseISO, format } from 'date-f
 import { db } from '../../db.js';
 import { CalendarEvent } from '../../../types.js';
 
+import { randomUUID } from 'crypto';
+
 function generateId() {
-  return 'evt_' + Math.random().toString(36).substring(2, 9);
+  return 'evt_' + randomUUID();
 }
 
 function clampToMonth(year: number, month: number, day: number): Date {

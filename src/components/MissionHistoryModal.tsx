@@ -37,7 +37,7 @@ export function MissionHistoryModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-slate-950/80 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-ui-deep-80 backdrop-blur-md"
     >
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
@@ -51,10 +51,10 @@ export function MissionHistoryModal({
             </div>
             <div>
               <h3 className="text-2xl font-black italic tracking-tighter uppercase leading-none">Mission Archive</h3>
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Chronological Activity Log</p>
+              <p className="text-[10px] text-ui-muted uppercase tracking-widest font-bold mt-1">Chronological Activity Log</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-500 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-2 text-ui-muted hover:text-white transition-colors">
             <LogOut className="w-6 h-6 rotate-180" />
           </button>
         </div>
@@ -63,11 +63,11 @@ export function MissionHistoryModal({
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 space-y-4">
               <Activity className={cn("w-8 h-8 animate-pulse", `text-${currentTheme.primary}`)} />
-              <p className="text-xs text-slate-500 uppercase tracking-widest font-black">Syncing with Archive...</p>
+              <p className="text-xs text-ui-muted uppercase tracking-widest font-black">Syncing with Archive...</p>
             </div>
           ) : history.length === 0 ? (
-            <div className="text-center py-20 bg-slate-900/30 rounded-3xl border border-slate-800 border-dashed">
-              <p className="text-slate-500 text-sm italic">No entries found in the mission archive.</p>
+            <div className="text-center py-20 bg-ui-dark-30 rounded-3xl border border-ui-dark border-dashed">
+              <p className="text-ui-muted text-sm italic">No entries found in the mission archive.</p>
             </div>
           ) : (
             history.map((entry: TaskCompletion, idx: number) => {
@@ -82,13 +82,13 @@ export function MissionHistoryModal({
                   transition={{ delay: idx * 0.05 }}
                   key={entry.id}
                   className={cn(
-                    "flex items-center gap-4 p-4 bg-slate-900/50 rounded-2xl border border-slate-800/50 transition-all group",
+                    "flex items-center gap-4 p-4 bg-ui-dark-50 rounded-2xl border border-ui-dark-50 transition-all group",
                     `hover:border-${currentTheme.primary}/30`
                   )}
                 >
                   <div className={cn(
                     "w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0",
-                    category ? category.color : "bg-slate-800 text-slate-500"
+                    category ? category.color : "bg-ui-dark-2 text-ui-muted"
                   )}>
                     {category ? category.icon : '🛰️'}
                   </div>
@@ -105,11 +105,11 @@ export function MissionHistoryModal({
                     </div>
                     
                     <div className="flex items-center gap-3 mt-1">
-                      <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold flex items-center gap-1">
+                      <p className="text-[10px] text-ui-muted uppercase tracking-widest font-bold flex items-center gap-1">
                         <Calendar className="w-3 h-3" /> {format(date, 'MMM d, yyyy')}
                       </p>
-                      <span className="w-1 h-1 bg-slate-700 rounded-full" />
-                      <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold flex items-center gap-1">
+                      <span className="w-1 h-1 bg-ui-dark-2 rounded-full" />
+                      <p className="text-[10px] text-ui-muted uppercase tracking-widest font-bold flex items-center gap-1">
                         <Clock className="w-3 h-3" /> {format(date, 'HH:mm')}
                       </p>
                     </div>
@@ -120,8 +120,8 @@ export function MissionHistoryModal({
           )}
         </div>
 
-        <div className="mt-8 pt-6 border-t border-slate-800">
-          <p className="text-[9px] text-slate-600 text-center uppercase tracking-[0.2em] font-black">
+        <div className="mt-8 pt-6 border-t border-ui-dark">
+          <p className="text-[9px] text-ui-secondary text-center uppercase tracking-[0.2em] font-black">
             End of Mission Log — Secure Channel 778
           </p>
         </div>
@@ -129,3 +129,5 @@ export function MissionHistoryModal({
     </motion.div>
   );
 }
+
+

@@ -16,7 +16,7 @@ export function LoginView({ onLogin }: { onLogin: (username: string) => void }) 
           <ShieldCheck className="text-white w-12 h-12" />
         </div>
         <h1 className="title-immersive text-5xl mb-4">KidTasker</h1>
-        <p className="text-slate-400 mb-8 italic uppercase tracking-widest text-xs font-bold">Stellar Mission Command</p>
+        <p className="text-ui-muted-2 mb-8 italic uppercase tracking-widest text-xs font-bold">Stellar Mission Command</p>
         
         <input 
           type="text" 
@@ -37,3 +37,4 @@ export function LoginView({ onLogin }: { onLogin: (username: string) => void }) 
     </div>
   );
 }
+

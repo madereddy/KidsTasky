@@ -55,7 +55,7 @@ export function CategoryManager({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-ui-deep-80 backdrop-blur-md"
     >
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
@@ -64,12 +64,12 @@ export function CategoryManager({
       >
         <div className="flex justify-between items-center mb-8">
           <h3 className="text-2xl font-black italic tracking-tighter uppercase">Categories</h3>
-          <button onClick={onClose} className="p-2 text-slate-500 hover:text-white"><LogOut className="w-5 h-5 rotate-180" /></button>
+          <button onClick={onClose} className="p-2 text-ui-muted hover:text-white"><LogOut className="w-5 h-5 rotate-180" /></button>
         </div>
 
-        <div className="space-y-6 mb-10 pb-10 border-b border-slate-800">
+        <div className="space-y-6 mb-10 pb-10 border-b border-ui-dark">
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Category Name</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Category Name</label>
             <input 
               value={name}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
@@ -79,7 +79,7 @@ export function CategoryManager({
           </div>
 
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Icon</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Icon</label>
             <div className="flex flex-wrap gap-2">
               {CATEGORY_ICONS.map(i => (
                 <button
@@ -87,7 +87,7 @@ export function CategoryManager({
                   onClick={() => setIcon(i)}
                   className={cn(
                     "w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all",
-                    icon === i ? "bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)] scale-110" : "bg-slate-900 border border-slate-800 text-slate-500"
+                    icon === i ? "bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)] scale-110" : "bg-ui-dark border border-ui-dark text-ui-muted"
                   )}
                 >
                   {i}
@@ -97,7 +97,7 @@ export function CategoryManager({
           </div>
 
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Color Accent</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Color Accent</label>
             <div className="flex flex-wrap gap-2">
               {CATEGORY_COLORS.map(c => (
                 <button
@@ -122,9 +122,9 @@ export function CategoryManager({
         </div>
 
         <div className="space-y-3">
-          <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Existing Categories</label>
+          <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Existing Categories</label>
           {categories.map(cat => (
-            <div key={cat.id} className="flex justify-between items-center bg-slate-900/50 p-3 rounded-2xl border border-slate-800">
+            <div key={cat.id} className="flex justify-between items-center bg-ui-dark-50 p-3 rounded-2xl border border-ui-dark">
               <div className="flex items-center gap-3">
                 <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-xl", cat.color)}>
                   {cat.icon}
@@ -134,13 +134,13 @@ export function CategoryManager({
               <div className="flex gap-2">
                 <button 
                   onClick={() => startEdit(cat)}
-                  className="p-2 text-slate-500 hover:text-blue-400"
+                  className="p-2 text-ui-muted hover:text-blue-400"
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
                 <button 
                   onClick={() => handleDelete(cat.id)}
-                  className="p-2 text-slate-500 hover:text-red-400"
+                  className="p-2 text-ui-muted hover:text-red-400"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -148,10 +148,12 @@ export function CategoryManager({
             </div>
           ))}
           {categories.length === 0 && (
-            <p className="text-center py-4 text-slate-600 italic text-sm">No categories defined yet.</p>
+            <p className="text-center py-4 text-ui-secondary italic text-sm">No categories defined yet.</p>
           )}
         </div>
       </motion.div>
     </motion.div>
   );
 }
+
+

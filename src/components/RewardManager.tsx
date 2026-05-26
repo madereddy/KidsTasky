@@ -27,10 +27,10 @@ export function RewardManager({ parentId, rewards, onUpdate }: { parentId: strin
       <h3 className="text-xl font-black italic tracking-tighter uppercase mb-6 text-yellow-500">Mission Rewards</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         {rewards.map(r => (
-            <div key={r.id} className="bg-slate-900 p-4 rounded-xl flex justify-between items-center border border-slate-800">
+            <div key={r.id} className="bg-ui-dark p-4 rounded-xl flex justify-between items-center border border-ui-dark">
                 <div>
-                  <p className="font-bold text-slate-200">{r.title}</p>
-                  <p className="text-slate-500 text-xs">{r.description} - <span className="text-yellow-500 font-bold">{r.xpCost} XP</span></p>
+                  <p className="font-bold text-ui-secondary">{r.title}</p>
+                  <p className="text-ui-muted text-xs">{r.description} - <span className="text-yellow-500 font-bold">{r.xpCost} XP</span></p>
                 </div>
                 <button onClick={() => deleteReward(r.id)} className="text-red-500 hover:text-red-400 p-2">
                     <Trash2 className="w-4 h-4" />
@@ -47,3 +47,5 @@ export function RewardManager({ parentId, rewards, onUpdate }: { parentId: strin
     </div>
   );
 }
+
+

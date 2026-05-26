@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Calendar, Link2, KeyRound, ExternalLink } from 'lucide-react';
+import { Calendar, KeyRound, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { SyncCalendar } from '../../types';
 
 interface Connection {
   id: string;
@@ -9,11 +10,13 @@ interface Connection {
 
 interface Props {
   connections: Connection[];
+  calendars?: SyncCalendar[];
   onConnect: (provider: string, data?: any) => void;
   onDisconnect: (connectionId: string) => void;
+  onToggleCalendar?: (calendarId: string, enabled: boolean) => void;
 }
 
-export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: Props) {
+export function ConnectedAccountsView({ connections, calendars = [], onConnect, onDisconnect, onToggleCalendar }: Props) {
   const [showManual, setShowManual] = useState(false);
   const [email, setEmail] = useState('');
   const [appPassword, setAppPassword] = useState('');
@@ -21,7 +24,7 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
   const isGoogleConnected = connections.some(c => c.provider === 'google' || c.provider === 'google_manual');
 
   return (
-    <div className="bg-white shadow-sm border border-slate-100 p-6 rounded-3xl border-l-4 border-l-emerald-500 overflow-hidden relative">
+    <div className="bg-white shadow-sm border border-ui-soft p-6 rounded-3xl border-l-4 border-l-emerald-500 overflow-hidden relative">
       <div className="relative z-10">
         <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
           <Calendar className="w-5 h-5 text-emerald-500" />
@@ -30,17 +33,69 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
         
         <div className="space-y-3">
           {connections.map(conn => (
-            <div key={conn.id} className="flex justify-between items-center p-3 bg-white shadow-sm border border-slate-200 rounded-xl">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-bold text-slate-800 capitalize">{conn.provider.replace('_', ' ')} Link Active</span>
+            <div key={conn.id} className="space-y-3 p-3 bg-white shadow-sm border border-ui rounded-xl">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-bold text-ui-primary capitalize">{conn.provider.replace('_', ' ')} Link Active</span>
+                </div>
+                <button
+                  onClick={() => onDisconnect(conn.id)}
+                  className="text-red-400 hover:text-red-300 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded"
+                >
+                  Disconnect
+                </button>
               </div>
-              <button 
-                onClick={() => onDisconnect(conn.id)}
-                className="text-red-400 hover:text-red-300 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded"
-              >
-                Disconnect
-              </button>
+
+              {conn.provider === 'google' && (
+                <div className="border-t border-ui-soft pt-3 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[9px] text-ui-muted uppercase tracking-widest font-black">
+                      Synced calendars
+                    </p>
+                    {calendars.filter(calendar => calendar.connectionId === conn.id).length > 0 && (
+                      <p className="text-[9px] text-ui-muted-2 font-bold">
+                        {calendars.filter(calendar => calendar.connectionId === conn.id && Boolean(calendar.enabled)).length}/{calendars.filter(calendar => calendar.connectionId === conn.id).length} on
+                      </p>
+                    )}
+                  </div>
+
+                  {calendars.filter(calendar => calendar.connectionId === conn.id).length === 0 ? (
+                    <p className="text-xs text-ui-muted bg-ui-soft rounded-xl px-3 py-2">
+                      Calendars will appear after the next Google sync discovers them.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {calendars
+                        .filter(calendar => calendar.connectionId === conn.id)
+                        .map(calendar => {
+                          const enabled = Boolean(calendar.enabled);
+                          return (
+                            <label
+                              key={calendar.id}
+                              className="flex items-center justify-between gap-3 rounded-xl border border-ui-soft bg-ui-soft px-3 py-2"
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-semibold text-ui-secondary">{calendar.name}</span>
+                                <span className="block truncate text-[10px] text-ui-muted">{calendar.calendarId}</span>
+                              </span>
+                              <input
+                                type="checkbox"
+                                checked={enabled}
+                                onChange={(event) => onToggleCalendar?.(calendar.id, event.target.checked)}
+                                className="h-5 w-5 accent-emerald-500"
+                                aria-label={`${enabled ? 'Disable' : 'Enable'} ${calendar.name}`}
+                              />
+                            </label>
+                          );
+                        })}
+                    </div>
+                  )}
+                  <p className="text-[10px] text-ui-muted-2">
+                    Turning a calendar off stops future imports and removes events imported from that calendar.
+                  </p>
+                </div>
+              )}
             </div>
           ))}
 
@@ -48,7 +103,7 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
             <div className="space-y-4 pt-2">
               <button 
                 onClick={() => onConnect('google')}
-                className="w-full bg-slate-100 border border-slate-200 text-white hover:bg-slate-700 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all"
+                className="w-full bg-ui-soft-2 border border-ui text-white hover:bg-ui-dark-2 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all"
               >
                 <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-4 h-4" />
                 Connect via Google OAuth
@@ -57,7 +112,7 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
               <div className="text-center">
                 <button 
                   onClick={() => setShowManual(!showManual)}
-                  className="text-[9px] text-slate-500 hover:text-emerald-400 uppercase tracking-widest font-black transition-colors"
+                  className="text-[9px] text-ui-muted hover:text-emerald-400 uppercase tracking-widest font-black transition-colors"
                 >
                   {showManual ? 'Hide Manual Options' : 'Other Options (App Password)'}
                 </button>
@@ -71,20 +126,20 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
                     exit={{ height: 0, opacity: 0 }}
                     className="space-y-4 overflow-hidden"
                   >
-                    <div className="bg-white/90 border border-slate-800 rounded-2xl p-4 space-y-3">
+                    <div className="bg-white/90 border border-ui-dark rounded-2xl p-4 space-y-3">
                       <div>
-                        <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-1 block">Gmail Frequency</label>
+                        <label className="text-[9px] text-ui-muted uppercase font-black tracking-widest mb-1 block">Gmail Frequency</label>
                         <input 
                           type="email" 
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="pilot@gmail.com"
-                          className="w-full bg-slate-50 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-500 transition-colors"
+                          className="w-full bg-ui-soft border border-ui-dark rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-500 transition-colors"
                         />
                       </div>
                       <div>
                         <div className="flex justify-between items-center mb-1">
-                          <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest block">App Identity Key</label>
+                          <label className="text-[9px] text-ui-muted uppercase font-black tracking-widest block">App Identity Key</label>
                           <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-[8px] text-blue-400 hover:underline flex items-center gap-1">
                             Guides <ExternalLink className="w-2 h-2" />
                           </a>
@@ -94,7 +149,7 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
                           value={appPassword}
                           onChange={(e) => setAppPassword(e.target.value)}
                           placeholder="abcd efgh ijkl mnop"
-                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-500 transition-colors tracking-widest font-mono"
+                          className="w-full bg-ui-deep border border-ui-dark rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-500 transition-colors tracking-widest font-mono"
                         />
                       </div>
                       <button 
@@ -104,7 +159,7 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
                       >
                         <KeyRound className="w-4 h-4" /> Link Command
                       </button>
-                      <p className="text-[8px] text-slate-500 italic text-center">
+                      <p className="text-[8px] text-ui-muted italic text-center">
                         This enables AI task extraction from your emails without OAuth.
                       </p>
                     </div>
@@ -115,7 +170,7 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
           )}
 
           {connections.length === 0 && !showManual && (
-             <p className="text-slate-500 text-[10px] uppercase tracking-widest font-black text-center pt-2">No active mission uplinks</p>
+             <p className="text-ui-muted text-[10px] uppercase tracking-widest font-black text-center pt-2">No active mission uplinks</p>
           )}
         </div>
       </div>
@@ -123,3 +178,5 @@ export function ConnectedAccountsView({ connections, onConnect, onDisconnect }: 
     </div>
   );
 }
+
+

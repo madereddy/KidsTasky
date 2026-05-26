@@ -7,11 +7,15 @@ export const rewardService = {
   },
   
   createReward: (parentId: string, title: string, description: string, xpCost: number, starCost?: number, allowanceCents?: number) => {
-    const id = "reward_" + Date.now().toString(36) + Math.random().toString(36).substr(2);
+    const id = "reward_" + randomUUID();
     db.prepare("INSERT INTO rewards (id, parentId, title, description, xpCost, starCost, allowanceCents) VALUES (?, ?, ?, ?, ?, ?, ?)").run(id, parentId, title, description, xpCost, starCost ?? null, allowanceCents ?? null);
     return id;
   },
   
+  getRewardById: (id: string) => {
+    return db.prepare("SELECT * FROM rewards WHERE id = ?").get(id) as { parentId: string } | undefined;
+  },
+
   deleteReward: (id: string) => {
     db.prepare("DELETE FROM rewards WHERE id = ?").run(id);
   },
@@ -21,7 +25,7 @@ export const rewardService = {
   },
   
   claimReward: db.transaction((kidId: string, rewardId: string, xpCost: number) => {
-    const id = "claim_" + Date.now().toString(36) + Math.random().toString(36).substr(2);
+    const id = "claim_" + randomUUID();
 
     const user = db.prepare("SELECT xp, earnedStars, spentStars FROM users WHERE uid = ?").get(kidId) as any;
     if (!user || user.xp < xpCost) {

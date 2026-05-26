@@ -20,12 +20,12 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
   const statusConfig = isDone 
     ? { label: 'MISSION COMPLETED', icon: <CheckCircle2 className="w-3 h-3" />, color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' }
     : (isLocked 
-        ? { label: 'SYSTEM LOCKED', icon: <Lock className="w-3 h-3" />, color: 'text-slate-400 bg-slate-800/80 border-slate-700' }
+        ? { label: 'SYSTEM LOCKED', icon: <Lock className="w-3 h-3" />, color: 'text-ui-muted-2 bg-ui-dark-50 border-ui-dark-2' }
         : (urgency === 'overdue' 
             ? { label: 'SYSTEM ALERT: OVERDUE', icon: <AlertCircle className="w-3 h-3" />, color: 'text-rose-400 bg-rose-500/10 border-rose-500/30 animate-pulse' }
             : urgency === 'soon'
             ? { label: 'IMMINENT: UPCOMING', icon: <Clock className="w-3 h-3" />, color: 'text-blue-400 bg-blue-500/10 border-blue-500/30' }
-            : { label: 'STATUS: PENDING', icon: <Activity className="w-3 h-3" />, color: 'text-slate-400 bg-slate-800/80 border-slate-700' }));
+            : { label: 'STATUS: PENDING', icon: <Activity className="w-3 h-3" />, color: 'text-ui-muted-2 bg-ui-dark-50 border-ui-dark-2' }));
 
   return (
     <motion.div 
@@ -37,13 +37,13 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
         "card-immersive group relative overflow-hidden",
         !isLocked ? "cursor-pointer" : "cursor-not-allowed opacity-80",
         accentColor,
-        isDone ? "opacity-60 bg-emerald-500/5 shadow-none" : (isLocked ? "bg-slate-900/50 grayscale-[0.5]" : (urgency === 'overdue' ? "bg-amber-500/5 glow-orange border-amber-500/30" : "hover:shadow-lg hover:shadow-blue-500/10")),
+        isDone ? "opacity-60 bg-emerald-500/5 shadow-none" : (isLocked ? "bg-ui-dark-50 grayscale-[0.5]" : (urgency === 'overdue' ? "bg-amber-500/5 glow-orange border-amber-500/30" : "hover:shadow-lg hover:shadow-blue-500/10")),
       )}
     >
       {/* Top Status Accent Bar */}
       <div className={cn(
         "absolute top-0 left-0 right-0 h-1",
-        isDone ? "bg-emerald-500" : (isLocked ? "bg-slate-700" : (urgency === 'overdue' ? "bg-amber-500 animate-pulse" : (urgency === 'soon' ? "bg-blue-500" : "bg-slate-700")))
+        isDone ? "bg-emerald-500" : (isLocked ? "bg-ui-dark-2" : (urgency === 'overdue' ? "bg-amber-500 animate-pulse" : (urgency === 'soon' ? "bg-blue-500" : "bg-ui-dark-2")))
       )} />
 
       {/* Background Effect for Overdue */}
@@ -68,7 +68,7 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
             <motion.span 
               layout
               className={cn(
-                "text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-500"
+                "text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-ui-dark border border-ui-dark text-ui-muted"
               )}
             >
               {slotLabel || (
@@ -96,11 +96,11 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
           </div>
           <motion.h3 
             layout
-            className={cn("text-xl font-bold mt-2", isDone && "line-through text-slate-500")}
+            className={cn("text-xl font-bold mt-2", isDone && "line-through text-ui-muted")}
           >
             {task.title}
           </motion.h3>
-          <p className={cn("text-[10px] mt-1 italic font-bold tracking-tight", isDone ? "text-emerald-500/70" : (isLocked ? "text-slate-500" : (urgency === 'overdue' ? "text-rose-500 animate-pulse" : "text-slate-500")))}>
+          <p className={cn("text-[10px] mt-1 italic font-bold tracking-tight", isDone ? "text-emerald-500/70" : (isLocked ? "text-ui-muted" : (urgency === 'overdue' ? "text-rose-500 animate-pulse" : "text-ui-muted")))}>
             {isDone ? "✓ MISSION NEUTRALIZED" : (isLocked ? "🔒 PREREQUISITES REQUIRED" : (urgency === 'overdue' ? "⚠ ALARM: MISSION OVERDUE" : "○ AWAITING DEPLOYMENT..."))}
           </p>
         </div>
@@ -116,12 +116,12 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
           }}
           transition={{ type: "spring", stiffness: 300, damping: 15 }}
           className={cn(
-            "w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-3xl shrink-0 ml-4 border-2 transition-colors",
+            "w-14 h-14 bg-ui-dark rounded-2xl flex items-center justify-center text-3xl shrink-0 ml-4 border-2 transition-colors",
             isDone 
               ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/50" 
-              : (isLocked ? "bg-slate-900 border-slate-800 text-slate-600" : (urgency === 'overdue' 
+              : (isLocked ? "bg-ui-dark border-ui-dark text-ui-secondary" : (urgency === 'overdue' 
                   ? "bg-rose-500/20 text-rose-500 border-rose-500/50 animate-pulse" 
-                  : (urgency === 'soon' ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "text-slate-400 border-slate-800")))
+                  : (urgency === 'soon' ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "text-ui-muted-2 border-ui-dark")))
           )}
         >
           <AnimatePresence mode="wait">
@@ -132,7 +132,7 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
               exit={{ opacity: 0, scale: 0.5, rotate: 45 }}
               transition={{ duration: 0.2 }}
             >
-              {isDone ? '🚀' : (isLocked ? <Lock className="w-6 h-6 text-slate-600" /> : (category ? category.icon : (slotLabel === 'Morning' ? '🌅' : (slotLabel === 'Evening' ? '🌙' : '🛰️'))))}
+              {isDone ? '🚀' : (isLocked ? <Lock className="w-6 h-6 text-ui-secondary" /> : (category ? category.icon : (slotLabel === 'Morning' ? '🌅' : (slotLabel === 'Evening' ? '🌙' : '🛰️'))))}
             </motion.span>
           </AnimatePresence>
         </motion.div>
@@ -146,8 +146,8 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
           className={cn(
             "w-full py-3 font-black rounded-xl transition-all uppercase tracking-widest text-[10px] relative overflow-hidden flex items-center justify-center gap-2",
             isLocked 
-              ? "bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed"
-              : urgency === 'overdue' ? "bg-amber-500 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.4)]" : "bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600/40"
+              ? "bg-ui-dark text-ui-secondary border border-ui-dark cursor-not-allowed"
+              : urgency === 'overdue' ? "bg-amber-500 text-ui-primary shadow-[0_0_20px_rgba(245,158,11,0.4)]" : "bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600/40"
           )}
         >
           <span className="relative z-10 flex items-center justify-center gap-2">
@@ -173,3 +173,5 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
     </motion.div>
   );
 }
+
+

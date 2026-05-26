@@ -261,22 +261,22 @@ export function KidDashboard({
         )}>
           <div className="relative z-10">
             <h3 className="text-lg font-bold mb-1">Cadet Mission Log</h3>
-            <p className="text-sm text-slate-500 uppercase tracking-widest font-black">Level {profile.level || 1} Elite</p>
+            <p className="text-sm text-ui-muted uppercase tracking-widest font-black">Level {profile.level || 1} Elite</p>
           </div>
           <div className="flex gap-4 items-center relative z-10">
             <button 
               onClick={() => setShowThemeSelector(true)}
-              className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700 shadow-lg"
+              className="w-10 h-10 bg-ui-dark-2 rounded-xl flex items-center justify-center text-ui-muted-2 hover:text-white transition-colors border border-ui-dark-2 shadow-lg"
             >
               <Settings className="w-5 h-5" />
             </button>
             <div className="text-right">
-              <p className="text-[10px] text-slate-500 uppercase font-black">Combustion</p>
+              <p className="text-[10px] text-ui-muted uppercase font-black">Combustion</p>
               <p className="text-2xl font-black italic text-orange-500 leading-none">{streak} DAYS</p>
             </div>
             <div className={cn(
               "w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-all",
-              streak > 0 ? "bg-orange-500/20 text-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.3)] animate-pulse" : "bg-slate-800 text-slate-600"
+              streak > 0 ? "bg-orange-500/20 text-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.3)] animate-pulse" : "bg-ui-dark-2 text-ui-secondary"
             )}>
               <Flame className={cn("w-7 h-7", streak > 0 && "fill-orange-500")} />
             </div>
@@ -290,19 +290,19 @@ export function KidDashboard({
         )}>
           <div className="flex justify-between items-end mb-3">
             <div>
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-1">Rank Progress</p>
+              <p className="text-[10px] text-ui-muted uppercase tracking-widest font-black mb-1">Rank Progress</p>
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl font-black text-white leading-none">{(profile.xp || 0) % 100}</span>
-                <span className="text-xs font-bold text-slate-500 uppercase">/ 100 XP</span>
+                <span className="text-xs font-bold text-ui-muted uppercase">/ 100 XP</span>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-[10px] text-slate-500 uppercase font-black mb-1">Total Career</p>
+              <p className="text-[10px] text-ui-muted uppercase font-black mb-1">Total Career</p>
               <p className={cn("text-sm font-bold leading-none", `text-${currentTheme.primary}`)}>{profile.xp || 0} XP</p>
             </div>
           </div>
           
-          <div className="w-full h-4 bg-slate-900 rounded-full border border-slate-800 p-0.5 overflow-hidden mb-3 shadow-inner">
+          <div className="w-full h-4 bg-ui-dark rounded-full border border-ui-dark p-0.5 overflow-hidden mb-3 shadow-inner">
             <motion.div 
               initial={{ width: 0 }}
               animate={{ width: `${(profile.xp || 0) % 100}%` }}
@@ -317,7 +317,7 @@ export function KidDashboard({
             <p className={cn("text-[10px] font-bold uppercase tracking-tight flex items-center gap-1", `text-${currentTheme.primary}/80`)}>
               <TrendingUp className="w-3 h-3" /> {100 - ((profile.xp || 0) % 100)} XP to LEVEL { (profile.level || 1) + 1}
             </p>
-            <span className="text-[10px] font-black text-slate-600 uppercase">{(profile.xp || 0) % 100}%</span>
+            <span className="text-[10px] font-black text-ui-secondary uppercase">{(profile.xp || 0) % 100}%</span>
           </div>
           
           {/* Subtle background flair */}
@@ -332,16 +332,16 @@ export function KidDashboard({
             const isClaimed = claimedRewards.some((cr: ClaimedReward) => cr.rewardId === r.id);
             const canAfford = (profile.xp || 0) >= r.xpCost;
             return (
-              <div key={r.id} className="bg-slate-950 p-4 rounded-xl flex justify-between items-center border border-slate-800">
+              <div key={r.id} className="bg-ui-deep p-4 rounded-xl flex justify-between items-center border border-ui-dark">
                  <div>
-                   <p className="font-bold text-slate-200">{r.title}</p>
-                   <p className="text-slate-500 text-xs">{r.description} - <span className="text-yellow-500 font-bold">{r.xpCost} XP</span></p>
+                   <p className="font-bold text-ui-secondary">{r.title}</p>
+                   <p className="text-ui-muted text-xs">{r.description} - <span className="text-yellow-500 font-bold">{r.xpCost} XP</span></p>
                  </div>
                  <button 
                    disabled={isClaimed || !canAfford}
                    onClick={() => claimReward(r.id, r.xpCost)}
                    className={cn("px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all", 
-                     isClaimed ? "bg-slate-800 text-slate-500" : (canAfford ? "bg-yellow-600 text-white" : "bg-slate-800 text-slate-500"),
+                     isClaimed ? "bg-ui-dark-2 text-ui-muted" : (canAfford ? "bg-yellow-600 text-white" : "bg-ui-dark-2 text-ui-muted"),
                      !isClaimed && canAfford && "hover:bg-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)]"
                    )}
                  >
@@ -353,14 +353,14 @@ export function KidDashboard({
         </div>
       </div>
 
-      <div className="flex justify-between items-center bg-slate-900/30 p-2 rounded-2xl">
+      <div className="flex justify-between items-center bg-ui-dark-30 p-2 rounded-2xl">
         <div className="flex gap-2 items-center">
-          <div className="flex gap-1 bg-slate-900/50 p-1 rounded-xl">
+          <div className="flex gap-1 bg-ui-dark-50 p-1 rounded-xl">
             <button 
               onClick={() => setSortBy('time')}
               className={cn(
                 "p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest",
-                sortBy === 'time' ? "bg-amber-500 text-slate-950 shadow-lg" : "text-slate-500 hover:text-slate-300"
+                sortBy === 'time' ? "bg-amber-500 text-ui-primary shadow-lg" : "text-ui-muted hover:text-ui-muted-2"
               )}
             >
               <Clock className="w-3 h-3" /> Time
@@ -369,7 +369,7 @@ export function KidDashboard({
               onClick={() => setSortBy('created')}
               className={cn(
                 "p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest",
-                sortBy === 'created' ? "bg-amber-500 text-slate-950 shadow-lg" : "text-slate-500 hover:text-slate-300"
+                sortBy === 'created' ? "bg-amber-500 text-ui-primary shadow-lg" : "text-ui-muted hover:text-ui-muted-2"
               )}
             >
               <CalendarDays className="w-3 h-3" /> New
@@ -447,7 +447,7 @@ export function KidDashboard({
         {filteredTasks.length === 0 && (
           <div className="col-span-full text-center py-12 glass-panel rounded-[40px]">
             <Award className="w-16 h-16 text-blue-500/20 mx-auto mb-4" />
-            <p className="text-slate-500 italic uppercase text-xs tracking-widest font-bold">No missions in current star-system.</p>
+            <p className="text-ui-muted italic uppercase text-xs tracking-widest font-bold">No missions in current star-system.</p>
           </div>
         )}
       </div>
@@ -467,12 +467,12 @@ export function KidDashboard({
       {/* Alert Banner / Notification */}
       {tasks.some((t: Task) => getUrgency(t) === 'overdue') && (
         <div className="flex items-center gap-4 bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl glow-orange">
-          <div className="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center text-slate-950">
+          <div className="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center text-ui-primary">
             <Bell className="w-6 h-6" />
           </div>
           <div className="flex-1">
             <p className="text-amber-500 font-black text-xs uppercase tracking-widest">Ground Control Alert</p>
-            <p className="text-slate-400 text-[10px] italic">Mission objectives are critical. Immediate deployment required.</p>
+            <p className="text-ui-muted-2 text-[10px] italic">Mission objectives are critical. Immediate deployment required.</p>
           </div>
         </div>
       )}
@@ -492,20 +492,20 @@ export function KidDashboard({
                 whileHover={isEarned ? { scale: 1.05 } : {}}
                 className={cn(
                   "p-5 rounded-[30px] border-2 flex flex-col items-center justify-center text-center gap-3 transition-all relative overflow-hidden",
-                  isEarned ? cn(badge.color, "bg-opacity-10 border-white/20 glow-blue shadow-lg") : "bg-slate-900 border-slate-800 opacity-40 grayscale"
+                  isEarned ? cn(badge.color, "bg-opacity-10 border-white/20 glow-blue shadow-lg") : "bg-ui-dark border-ui-dark opacity-40 grayscale"
                 )}
               >
                 <div className={cn(
                   "w-14 h-14 rounded-2xl flex items-center justify-center text-3xl mb-1 shadow-inner",
-                  isEarned ? "bg-white/10" : "bg-slate-800"
+                  isEarned ? "bg-white/10" : "bg-ui-dark-2"
                 )}>
                   {badge.icon}
                 </div>
                 <div>
-                  <p className={cn("font-black uppercase text-[10px] tracking-widest leading-tight", isEarned ? "text-white" : "text-slate-500")}>
+                  <p className={cn("font-black uppercase text-[10px] tracking-widest leading-tight", isEarned ? "text-white" : "text-ui-muted")}>
                     {badge.name}
                   </p>
-                  <p className="text-[8px] text-slate-500 italic mt-1 leading-tight px-1">{badge.description}</p>
+                  <p className="text-[8px] text-ui-muted italic mt-1 leading-tight px-1">{badge.description}</p>
                 </div>
                 {isEarned && (
                   <motion.div 
@@ -530,28 +530,28 @@ export function KidDashboard({
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-sm"
+            className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-ui-deep-80 backdrop-blur-sm"
           >
-            <div className="bg-slate-900 border-2 border-slate-700 rounded-[40px] p-8 shadow-2xl max-w-sm w-full text-center relative overflow-hidden">
+            <div className="bg-ui-dark border-2 border-ui-dark-2 rounded-[40px] p-8 shadow-2xl max-w-sm w-full text-center relative overflow-hidden">
               <div className="absolute inset-0 bg-blue-500/5 glow-blue" />
               <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6 relative z-10">
                 <CheckCircle2 className="w-10 h-10 text-blue-500" />
               </div>
               <h4 className="text-2xl font-black uppercase italic tracking-tighter mb-2 relative z-10">Verify Mission</h4>
-              <p className="text-slate-400 mb-8 relative z-10 uppercase text-[10px] font-bold tracking-widest leading-relaxed">
+              <p className="text-ui-muted-2 mb-8 relative z-10 uppercase text-[10px] font-bold tracking-widest leading-relaxed">
                 Did you complete<br/><span className="text-white text-base">"{confirmTask.taskTitle}"</span>?
               </p>
               
               <div className="flex gap-4 relative z-10">
                 <button 
                   onClick={() => setConfirmTask(null)}
-                  className="flex-1 py-4 bg-slate-800 text-slate-400 font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-slate-700 transition-all border border-slate-700"
+                  className="flex-1 py-4 bg-ui-dark-2 text-ui-muted-2 font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-ui-dark-2 transition-all border border-ui-dark-2"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={executeCompletion}
-                  className="flex-1 py-4 bg-emerald-500 text-slate-950 font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] glow-green"
+                  className="flex-1 py-4 bg-emerald-500 text-ui-primary font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] glow-green"
                 >
                   Confirm +{confirmTask.xpReward} XP
                 </button>
@@ -588,7 +588,7 @@ export function KidDashboard({
             initial={{ opacity: 0, scale: 0.8, y: 50 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 50 }}
-            className="fixed bottom-10 left-6 right-6 md:left-auto md:right-10 md:w-80 z-[100] bg-slate-950 border-2 border-blue-500 rounded-[40px] p-8 shadow-2xl glow-blue backdrop-blur-xl"
+            className="fixed bottom-10 left-6 right-6 md:left-auto md:right-10 md:w-80 z-[100] bg-ui-deep border-2 border-blue-500 rounded-[40px] p-8 shadow-2xl glow-blue backdrop-blur-xl"
           >
             <div className="flex flex-col items-center text-center">
               <div className="text-6xl mb-6 animate-bounce drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
@@ -596,7 +596,7 @@ export function KidDashboard({
               </div>
               <h4 className="text-xl font-black uppercase italic text-blue-400 mb-2 tracking-tighter">New Badge Earned!</h4>
               <p className="text-white font-black text-lg leading-tight mb-2 uppercase tracking-wide">{unlockedBadge.name}</p>
-              <p className="text-slate-500 text-xs mb-8 italic leading-relaxed">{unlockedBadge.description}</p>
+              <p className="text-ui-muted text-xs mb-8 italic leading-relaxed">{unlockedBadge.description}</p>
               <button 
                 onClick={() => setUnlockedBadge(null)}
                 className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-blue-500 transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] active:scale-95"
@@ -610,3 +610,5 @@ export function KidDashboard({
     </div>
   );
 }
+
+

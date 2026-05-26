@@ -1,12 +1,12 @@
 import { format, parse, isAfter, startOfDay, differenceInDays } from "date-fns";
 import { db } from "./db.js";
 import cron from "node-cron";
-import { google } from "googleapis";
 import { app } from "../../server.js";
 import imaps from 'imap-simple';
 import { simpleParser } from 'mailparser';
 import ical from 'node-ical';
 import { magicService } from './modules/magic/service.js';
+import { syncService } from './modules/sync/service.js';
 
 function getIo() {
   return app ? app.get("io") : null;
@@ -77,24 +77,22 @@ export function startBackgroundWorker() {
     try {
       const connections = db.prepare("SELECT * FROM sync_connections WHERE provider = 'google' AND refreshToken IS NOT NULL").all() as any[];
       for (const conn of connections) {
-        const oauth2Client = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID || 'mock', process.env.GOOGLE_CLIENT_SECRET || 'mock');
-        oauth2Client.setCredentials({ refresh_token: conn.refreshToken });
-        const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
         try {
-          const res = await calendar.events.list({ calendarId: 'primary', timeMin: (new Date()).toISOString(), maxResults: 50, singleEvents: true, orderBy: 'startTime' });
-          let changes = false;
-          for (const ev of (res.data.items || [])) {
-             if (!ev.id || !ev.summary || !ev.start?.dateTime || !ev.end?.dateTime) continue;
-             const eId = "ext_" + ev.id;
-             if (!db.prepare("SELECT id FROM events WHERE externalId = ?").get(eId)) {
-                 db.prepare(`INSERT INTO events (id, parentId, title, description, startTime, endTime, assignedToId, color, externalId, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(eId, conn.parentId, ev.summary, ev.description || '', new Date(ev.start.dateTime).getTime(), new Date(ev.end.dateTime).getTime(), null, 'blue', eId, 'google');
-                 changes = true;
-             }
+          const result = await syncService.syncGoogleConnectionNow(conn);
+          if (result.errors.some(e => e.message.includes('invalid_grant'))) {
+            console.error('[worker:invalid_grant]', { connectionId: conn.id });
+            db.prepare('DELETE FROM sync_connections WHERE id = ?').run(conn.id);
+          } else if (result.imported > 0) {
+            getIo()?.to(conn.parentId).emit('stale-data', { type: 'events' });
           }
-          if (changes) getIo()?.to(conn.parentId).emit('stale-data', { type: 'events' });
-        } catch (err: any) { if (err.message.includes('invalid_grant')) db.prepare("DELETE FROM sync_connections WHERE id = ?").run(conn.id); }
+          if (result.failureCount > 0) {
+            console.error('[worker:sync_partial]', { connectionId: conn.id, errors: result.errors });
+          }
+        } catch (err: any) {
+          console.error('[worker:sync_connection_error]', { connectionId: conn.id, error: err?.message });
+        }
       }
-    } catch (err) { console.error("[Worker] Global OAuth Sync Error:", err); }
+    } catch (err) { console.error('[worker:sync_global_error]', err); }
 
     try {
       const icalConns = db.prepare("SELECT * FROM sync_connections WHERE icalUrl IS NOT NULL").all() as any[];
@@ -119,23 +117,29 @@ export function startBackgroundWorker() {
       try {
         const manualConns = db.prepare("SELECT * FROM sync_connections WHERE provider = 'google_manual' AND appPassword IS NOT NULL AND email IS NOT NULL").all() as any[];
         for (const conn of manualConns) {
-          const config = { imap: { user: conn.email, password: conn.appPassword, host: 'imap.gmail.com', port: 993, tls: true, authTimeout: 3000 } };
-          const connection = await imaps.connect(config);
-          await connection.openBox('INBOX');
-          const messages = await connection.search(['UNSEEN'], { bodies: ['HEADER', 'TEXT'], markSeen: true });
-          for (const msg of messages) {
-            const all = msg.parts.find((p: any) => p.which === 'TEXT');
-            if (all) {
-              const parsed = await simpleParser(all.body);
-              const extracted = await magicService.parseEventsFromText(parsed.text || parsed.html || '', GEMINI_API_KEY);
-              if (extracted && extracted.title && extracted.date) {
-                const startTs = new Date(`${extracted.date}T${extracted.startTime || '09:00'}:00`).getTime();
-                db.prepare(`INSERT INTO events (id, parentId, title, description, startTime, endTime, assignedToId, color, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run("magic_" + Date.now() + "_" + msg.attributes.uid, conn.parentId, extracted.title, `From email: ${extracted.location || ''}`, startTs, startTs + 3600000, null, 'amber', 'magic');
-                getIo()?.to(conn.parentId).emit('stale-data', { type: 'events' });
+          let connection;
+          try {
+            const config = { imap: { user: conn.email, password: conn.appPassword, host: 'imap.gmail.com', port: 993, tls: true, authTimeout: 3000 } };
+            connection = await imaps.connect(config);
+            await connection.openBox('INBOX');
+            const messages = await connection.search(['UNSEEN'], { bodies: ['HEADER', 'TEXT'], markSeen: true });
+            for (const msg of messages) {
+              const all = msg.parts.find((p: any) => p.which === 'TEXT');
+              if (all) {
+                const parsed = await simpleParser(all.body);
+                const extracted = await magicService.parseEventsFromText(parsed.text || parsed.html || '', GEMINI_API_KEY);
+                if (extracted && extracted.title && extracted.date) {
+                  const startTs = new Date(`${extracted.date}T${extracted.startTime || '09:00'}:00`).getTime();
+                  db.prepare(`INSERT INTO events (id, parentId, title, description, startTime, endTime, assignedToId, color, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run("magic_" + Date.now() + "_" + msg.attributes.uid, conn.parentId, extracted.title, `From email: ${extracted.location || ''}`, startTs, startTs + 3600000, null, 'amber', 'magic');
+                  getIo()?.to(conn.parentId).emit('stale-data', { type: 'events' });
+                }
               }
             }
+          } catch (connErr) {
+            console.error(`[Worker] IMAP error for ${conn.email}:`, connErr);
+          } finally {
+            try { connection?.end(); } catch {}
           }
-          connection.end();
         }
       } catch (err) { console.error("[Worker] IMAP Sync Error", err); }
     }

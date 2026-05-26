@@ -1,8 +1,9 @@
 import { db } from '../../db.js';
+import { randomUUID } from 'crypto';
 
 export const taskServiceServer = {
   createTask: (task: any) => {
-    const id = "task_" + Date.now().toString(36) + Math.random().toString(36).substr(2);
+    const id = "task_" + randomUUID();
     const prereqs = task.prerequisiteTaskIds ? JSON.stringify(task.prerequisiteTaskIds) : "[]";
     db.prepare(`
       INSERT INTO tasks (id, title, description, frequency, reminderTime, assignedKidId, parentId, categoryId, difficulty, status, createdAt, customInterval, prerequisiteTaskIds, starValue)
@@ -18,25 +19,72 @@ export const taskServiceServer = {
   getParentsTasks: (parentId: string) => {
     return db.prepare("SELECT * FROM tasks WHERE parentId = ? AND status = 'active' ORDER BY createdAt DESC").all(parentId);
   },
-  
+
+  getTaskById: (taskId: string) => {
+    return db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as { parentId: string; assignedKidId: string; starValue: number; requiresApproval: number } | undefined;
+  },
+
+  getCompletionById: (completionId: string) => {
+    return db.prepare("SELECT * FROM completions WHERE id = ?").get(completionId) as { taskId: string; kidId: string } | undefined;
+  },
+
   archiveTask: (taskId: string) => {
     db.prepare("UPDATE tasks SET status = 'archived' WHERE id = ?").run(taskId);
   },
   
   createCompletion: (data: any) => {
     const id = `${data.taskId}_${data.dateString}_${data.count || 1}`;
-    db.prepare(`
-      INSERT OR REPLACE INTO completions (id, taskId, kidId, completedAt, dateString, count)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(id, data.taskId, data.kidId, Date.now(), data.dateString, data.count || null);
-    const task = db.prepare('SELECT starValue FROM tasks WHERE id = ?').get(data.taskId) as { starValue: number } | undefined;
-    const stars = task?.starValue ?? 1;
-    db.prepare('UPDATE users SET earnedStars = earnedStars + ? WHERE uid = ?').run(stars, data.kidId);
-    return id;
+    const task = db.prepare('SELECT starValue, requiresApproval FROM tasks WHERE id = ?').get(data.taskId) as { starValue: number; requiresApproval: number } | undefined;
+    const needsApproval = Boolean(task?.requiresApproval);
+    const approvalStatus = needsApproval ? 'pending' : 'approved';
+    const result = db.prepare(`
+      INSERT INTO completions (id, taskId, kidId, completedAt, dateString, count, approvalStatus)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO NOTHING
+    `).run(id, data.taskId, data.kidId, Date.now(), data.dateString, data.count || null, approvalStatus);
+    // Award stars immediately if approval not required
+    if (result.changes > 0 && !needsApproval) {
+      const stars = task?.starValue ?? 1;
+      db.prepare('UPDATE users SET earnedStars = earnedStars + ? WHERE uid = ?').run(stars, data.kidId);
+    }
+    return { id, approvalStatus };
   },
-  
+
   deleteCompletion: (completionId: string) => {
+    const completion = db.prepare("SELECT * FROM completions WHERE id = ?").get(completionId) as any;
+    if (completion) {
+      // Only revoke stars that were actually awarded (approved completions)
+      if (!completion.approvalStatus || completion.approvalStatus === 'approved') {
+        const task = db.prepare('SELECT starValue FROM tasks WHERE id = ?').get(completion.taskId) as { starValue: number } | undefined;
+        const stars = task?.starValue ?? 1;
+        db.prepare('UPDATE users SET earnedStars = MAX(0, earnedStars - ?) WHERE uid = ?').run(stars, completion.kidId);
+      }
+    }
     db.prepare("DELETE FROM completions WHERE id = ?").run(completionId);
+  },
+
+  approveCompletion: (completionId: string) => {
+    const completion = db.prepare("SELECT * FROM completions WHERE id = ? AND approvalStatus = 'pending'").get(completionId) as any;
+    if (!completion) throw new Error('Completion not found or not pending');
+    db.prepare("UPDATE completions SET approvalStatus = 'approved' WHERE id = ?").run(completionId);
+    const task = db.prepare('SELECT starValue FROM tasks WHERE id = ?').get(completion.taskId) as { starValue: number } | undefined;
+    const stars = task?.starValue ?? 1;
+    db.prepare('UPDATE users SET earnedStars = earnedStars + ? WHERE uid = ?').run(stars, completion.kidId);
+  },
+
+  rejectCompletion: (completionId: string) => {
+    db.prepare("UPDATE completions SET approvalStatus = 'rejected' WHERE id = ?").run(completionId);
+  },
+
+  getPendingCompletionsByParent: (parentId: string) => {
+    return db.prepare(`
+      SELECT c.*, t.title as taskTitle, t.parentId, u.name as kidName
+      FROM completions c
+      JOIN tasks t ON c.taskId = t.id
+      JOIN users u ON c.kidId = u.uid
+      WHERE t.parentId = ? AND c.approvalStatus = 'pending'
+      ORDER BY c.completedAt DESC
+    `).all(parentId);
   },
   
   getCompletionsByDateRange: (kidId: string, startDate: string, endDate: string) => {

@@ -3,6 +3,8 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import { app, db } from './server';
 import { Server } from 'socket.io';
+import jwt from 'jsonwebtoken';
+import { getJwtSecret } from './src/server/config.js';
 
 describe('WebSockets', () => {
   it('should start websocket server when main server starts', () => {
@@ -57,6 +59,10 @@ describe('Backend API Tests', () => {
   });
 
   it('POST /api/tasks should create a task', async () => {
+    // Create parent user first
+    db.prepare("INSERT OR IGNORE INTO users (uid, role, name, email, parentId) VALUES (?, ?, ?, ?, ?)").run('user_123', 'parent', 'Test Parent', 'parent@test.com', 'user_123');
+    const token = jwt.sign({ uid: 'user_123', role: 'parent', parentId: 'user_123' }, getJwtSecret());
+
     const taskData = {
       title: 'Clean room',
       assignedKidId: 'kid_123',
@@ -67,6 +73,7 @@ describe('Backend API Tests', () => {
 
     const res = await request(app)
       .post('/api/tasks')
+      .set('Authorization', `Bearer ${token}`)
       .send(taskData);
       
     expect(res.status).toBe(200);

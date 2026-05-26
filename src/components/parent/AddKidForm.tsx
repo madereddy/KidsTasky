@@ -13,7 +13,7 @@ export function AddKidForm({ parentId, onAdded }: { parentId: string, onAdded: (
 
     setLoading(true);
     try {
-      const uid = 'kid_' + Math.random().toString(36).substr(2, 9);
+      const uid = 'kid_' + self.crypto.randomUUID();
       await userService.createManagedUser({
         uid,
         name: name.trim(),
@@ -41,7 +41,7 @@ export function AddKidForm({ parentId, onAdded }: { parentId: string, onAdded: (
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="New Cadet Name"
-          className="w-full bg-white shadow-sm border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:border-purple-500 transition-colors"
+          className="w-full bg-white shadow-sm border border-ui rounded-xl px-3 py-2 text-xs text-ui-primary focus:border-purple-500 transition-colors"
           required
         />
         <input
@@ -51,7 +51,7 @@ export function AddKidForm({ parentId, onAdded }: { parentId: string, onAdded: (
           value={pin}
           onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
           placeholder="4-Digit Identity Key (PIN)"
-          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-purple-500 transition-colors"
+          className="w-full bg-ui-dark border border-ui-dark rounded-xl px-3 py-2 text-xs text-white focus:border-purple-500 transition-colors"
           required
         />
       </div>
@@ -66,3 +66,4 @@ export function AddKidForm({ parentId, onAdded }: { parentId: string, onAdded: (
     </form>
   );
 }
+

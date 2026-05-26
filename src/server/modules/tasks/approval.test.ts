@@ -1,0 +1,164 @@
+// src/server/modules/tasks/approval.test.ts
+// @vitest-environment node
+import { describe, it, expect, beforeEach } from 'vitest';
+import request from 'supertest';
+import { app } from '../../../../server.js';
+import { db } from '../../db.js';
+import jwt from 'jsonwebtoken';
+import { getJwtSecret } from '../../config.js';
+import { taskServiceServer } from './service.js';
+
+describe('Task Completion Approval', () => {
+  const parentId = 'approval_parent_test';
+  const kidId = 'approval_kid_test';
+  const parentToken = jwt.sign({ uid: parentId, role: 'parent', parentId }, getJwtSecret());
+
+  beforeEach(() => {
+    db.prepare("DELETE FROM completions WHERE taskId LIKE 'approval_task%'").run();
+    db.prepare('DELETE FROM tasks WHERE parentId = ?').run(parentId);
+    db.prepare('DELETE FROM users WHERE uid IN (?, ?)').run(parentId, kidId);
+    db.prepare("INSERT OR IGNORE INTO users (uid, role, name, email, parentId) VALUES (?, ?, ?, ?, ?)").run(parentId, 'parent', 'Test Parent', 'approval@test.com', parentId);
+    db.prepare("INSERT OR IGNORE INTO users (uid, role, name, email, parentId, earnedStars) VALUES (?, ?, ?, ?, ?, ?)").run(kidId, 'kid', 'Test Kid', 'kid@test.com', parentId, 0);
+  });
+
+  it('creates a pending completion when task requiresApproval=1', () => {
+    db.prepare("INSERT INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, requiresApproval, starValue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      'approval_task_1', 'Clean Room', 'daily', kidId, parentId, 'active', Date.now(), 1, 2
+    );
+
+    const result = taskServiceServer.createCompletion({
+      taskId: 'approval_task_1',
+      kidId,
+      dateString: '2026-01-01',
+    });
+
+    expect(result.approvalStatus).toBe('pending');
+    const row = db.prepare('SELECT * FROM completions WHERE id = ?').get(result.id) as any;
+    expect(row.approvalStatus).toBe('pending');
+
+    // Stars should NOT be awarded yet
+    const kid = db.prepare('SELECT earnedStars FROM users WHERE uid = ?').get(kidId) as any;
+    expect(kid.earnedStars).toBe(0);
+  });
+
+  it('creates an approved completion when task requiresApproval=0', () => {
+    db.prepare("INSERT INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, requiresApproval, starValue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      'approval_task_2', 'Brush Teeth', 'daily', kidId, parentId, 'active', Date.now(), 0, 1
+    );
+
+    const result = taskServiceServer.createCompletion({
+      taskId: 'approval_task_2',
+      kidId,
+      dateString: '2026-01-01',
+    });
+
+    expect(result.approvalStatus).toBe('approved');
+    const kid = db.prepare('SELECT earnedStars FROM users WHERE uid = ?').get(kidId) as any;
+    expect(kid.earnedStars).toBe(1);
+  });
+
+  it('approves a pending completion and awards stars', () => {
+    db.prepare("INSERT INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, requiresApproval, starValue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      'approval_task_3', 'Do Homework', 'daily', kidId, parentId, 'active', Date.now(), 1, 3
+    );
+
+    const result = taskServiceServer.createCompletion({
+      taskId: 'approval_task_3',
+      kidId,
+      dateString: '2026-01-02',
+    });
+    expect(result.approvalStatus).toBe('pending');
+
+    taskServiceServer.approveCompletion(result.id);
+
+    const row = db.prepare('SELECT * FROM completions WHERE id = ?').get(result.id) as any;
+    expect(row.approvalStatus).toBe('approved');
+
+    const kid = db.prepare('SELECT earnedStars FROM users WHERE uid = ?').get(kidId) as any;
+    expect(kid.earnedStars).toBe(3);
+  });
+
+  it('rejects a pending completion and does not award stars', () => {
+    db.prepare("INSERT INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, requiresApproval, starValue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      'approval_task_4', 'Take Out Trash', 'weekly', kidId, parentId, 'active', Date.now(), 1, 2
+    );
+
+    const result = taskServiceServer.createCompletion({
+      taskId: 'approval_task_4',
+      kidId,
+      dateString: '2026-01-03',
+    });
+
+    taskServiceServer.rejectCompletion(result.id);
+
+    const row = db.prepare('SELECT * FROM completions WHERE id = ?').get(result.id) as any;
+    expect(row.approvalStatus).toBe('rejected');
+
+    const kid = db.prepare('SELECT earnedStars FROM users WHERE uid = ?').get(kidId) as any;
+    expect(kid.earnedStars).toBe(0);
+  });
+
+  it('GET /parents/:parentId/pending-completions returns only pending', async () => {
+    db.prepare("INSERT INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, requiresApproval, starValue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      'approval_task_5', 'Walk Dog', 'daily', kidId, parentId, 'active', Date.now(), 1, 1
+    );
+
+    const result = taskServiceServer.createCompletion({
+      taskId: 'approval_task_5',
+      kidId,
+      dateString: '2026-01-04',
+    });
+    expect(result.approvalStatus).toBe('pending');
+
+    const res = await request(app)
+      .get(`/api/parents/${parentId}/pending-completions`)
+      .set('Authorization', `Bearer ${parentToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: result.id, taskTitle: 'Walk Dog', approvalStatus: 'pending' }),
+    ]));
+  });
+
+  it('PATCH /completions/:id/approve awards stars via API', async () => {
+    db.prepare("INSERT INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, requiresApproval, starValue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      'approval_task_6', 'Feed Cat', 'daily', kidId, parentId, 'active', Date.now(), 1, 2
+    );
+
+    const result = taskServiceServer.createCompletion({
+      taskId: 'approval_task_6',
+      kidId,
+      dateString: '2026-01-05',
+    });
+
+    const res = await request(app)
+      .patch(`/api/completions/${result.id}/approve`)
+      .set('Authorization', `Bearer ${parentToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    const kid = db.prepare('SELECT earnedStars FROM users WHERE uid = ?').get(kidId) as any;
+    expect(kid.earnedStars).toBe(2);
+  });
+
+  it('PATCH /completions/:id/reject marks rejected via API', async () => {
+    db.prepare("INSERT INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, requiresApproval, starValue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      'approval_task_7', 'Vacuum', 'weekly', kidId, parentId, 'active', Date.now(), 1, 1
+    );
+
+    const result = taskServiceServer.createCompletion({
+      taskId: 'approval_task_7',
+      kidId,
+      dateString: '2026-01-06',
+    });
+
+    const res = await request(app)
+      .patch(`/api/completions/${result.id}/reject`)
+      .set('Authorization', `Bearer ${parentToken}`);
+
+    expect(res.status).toBe(200);
+    const row = db.prepare('SELECT approvalStatus FROM completions WHERE id = ?').get(result.id) as any;
+    expect(row.approvalStatus).toBe('rejected');
+  });
+});

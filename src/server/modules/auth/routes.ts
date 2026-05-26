@@ -12,8 +12,8 @@ const validate = (req: Request, res: Response, next: any) => {
 };
 
 authRouter.post('/auth/register', [
-  body('email').isString().notEmpty(),
-  body('password').isString().isLength({ min: 4 }),
+  body('email').isEmail(),
+  body('password').isString().isLength({ min: 8 }),
   body('name').isString().notEmpty(),
   validate
 ], async (req: Request, res: Response) => {

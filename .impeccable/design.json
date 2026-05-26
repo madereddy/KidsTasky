@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-24T19:30:00-04:00",
+  "title": "Design System: KidTasky",
+  "extensions": {
+    "colorMeta": {
+      "primary-sky": {
+        "role": "primary",
+        "displayName": "Mission Sky",
+        "canonical": "#0ea5e9",
+        "tonalRamp": ["#082332", "#0a3b52", "#0d5473", "#0e6d94", "#0f86b5", "#0ea5e9", "#4ec0ef", "#d7f2fd"]
+      },
+      "accent-blue": {
+        "role": "primary",
+        "displayName": "Command Blue",
+        "canonical": "#3b82f6",
+        "tonalRamp": ["#101f40", "#163166", "#1f448d", "#2957b3", "#336ad9", "#3b82f6", "#75a7f8", "#dce9ff"]
+      },
+      "bg-night": {
+        "role": "neutral",
+        "displayName": "Night Core",
+        "canonical": "#05070a",
+        "tonalRamp": ["#05070a", "#101418", "#1b2027", "#262d35", "#39424d", "#525d69", "#8b95a1", "#d7dde5"]
+      },
+      "surface-light": {
+        "role": "neutral",
+        "displayName": "Light Surface",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#161616", "#2c2c2c", "#434343", "#5a5a5a", "#717171", "#888888", "#d1d1d1", "#ffffff"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Major section and completion moments." },
+      "title": { "displayName": "Title", "purpose": "Card and module headings." },
+      "body": { "displayName": "Body", "purpose": "General explanatory content." },
+      "label": { "displayName": "Label", "purpose": "Compact status and metadata labels." }
+    },
+    "shadows": [
+      { "name": "blue-glow", "value": "0 0 20px rgba(59, 130, 246, 0.4)", "purpose": "Mission-primary emphasis." },
+      { "name": "green-glow", "value": "0 0 20px rgba(16, 185, 129, 0.4)", "purpose": "Completion/reward emphasis." },
+      { "name": "orange-glow", "value": "0 0 30px rgba(245, 158, 11, 0.5)", "purpose": "Warning emphasis." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.2, 0.8, 0.2, 1)", "purpose": "Default state transitions." },
+      { "name": "duration-fast", "value": "180ms", "purpose": "Button and chip feedback." },
+      { "name": "duration-medium", "value": "280ms", "purpose": "Panel transitions and section swaps." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main call-to-action for parent and kid actions.",
+      "html": "<button class=\"ds-btn-primary\">New Objective</button>",
+      "css": ".ds-btn-primary { background: #3b82f6; color: #ffffff; border: 0; border-radius: 12px; padding: 12px 16px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-weight: 800; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; transition: background 180ms cubic-bezier(0.2,0.8,0.2,1), transform 180ms cubic-bezier(0.2,0.8,0.2,1); } .ds-btn-primary:hover { background: #0ea5e9; transform: translateY(-1px); } .ds-btn-primary:focus-visible { outline: 2px solid #0ea5e9; outline-offset: 2px; } .ds-btn-primary:active { transform: translateY(0); }"
+    },
+    {
+      "name": "Dark Glass Panel",
+      "kind": "card",
+      "refersTo": "panel-dark",
+      "description": "Default dark container with explicit readable foreground pairing.",
+      "html": "<article class=\"ds-panel-dark\"><h3>Ground Control</h3><p>Mission status is readable on dark glass.</p></article>",
+      "css": ".ds-panel-dark { background: #0f172a99; color: #e2e8f0; border: 1px solid #33415580; border-radius: 24px; padding: 24px; backdrop-filter: blur(12px); } .ds-panel-dark h3 { margin: 0 0 8px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 20px; font-weight: 700; line-height: 1.3; } .ds-panel-dark p { margin: 0; color: #94a3b8; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.6; }"
+    },
+    {
+      "name": "Light Surface Panel",
+      "kind": "card",
+      "refersTo": "panel-light",
+      "description": "Light mode panel with explicit dark text to avoid mixed-theme contrast loss.",
+      "html": "<article class=\"ds-panel-light\"><h3>Family Hub</h3><p>Text remains readable in light cards.</p></article>",
+      "css": ".ds-panel-light { background: #ffffff; color: #0f172a; border: 1px solid #e2e8f0; border-radius: 24px; padding: 24px; } .ds-panel-light h3 { margin: 0 0 8px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 20px; font-weight: 700; line-height: 1.3; } .ds-panel-light p { margin: 0; color: #475569; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.6; }"
+    },
+    {
+      "name": "Immersive Input",
+      "kind": "input",
+      "refersTo": "input-immersive",
+      "description": "Dark-theme field with clear text/placeholder separation.",
+      "html": "<label class=\"ds-input-wrap\"><span>Email</span><input class=\"ds-input\" placeholder=\"Parent Email\" /></label>",
+      "css": ".ds-input-wrap { display: grid; gap: 8px; color: #e2e8f0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; } .ds-input { width: 100%; border-radius: 12px; border: 1px solid #33415580; background: #0f172a99; color: #e2e8f0; padding: 12px 16px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.4; } .ds-input::placeholder { color: #94a3b8; } .ds-input:focus-visible { outline: 2px solid #0ea5e9; outline-offset: 1px; }"
+    },
+    {
+      "name": "Segmented Nav Tab",
+      "kind": "nav",
+      "refersTo": "button-primary-hover",
+      "description": "Compact section switcher with strong active-state contrast.",
+      "html": "<nav class=\"ds-tabs\"><button class=\"ds-tab ds-tab-active\">Tasks</button><button class=\"ds-tab\">Calendar</button><button class=\"ds-tab\">Lists</button></nav>",
+      "css": ".ds-tabs { display: inline-flex; gap: 4px; background: #e2e8f0; border-radius: 16px; padding: 4px; } .ds-tab { border: 0; background: transparent; color: #475569; border-radius: 12px; padding: 8px 14px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; transition: background 180ms cubic-bezier(0.2,0.8,0.2,1), color 180ms cubic-bezier(0.2,0.8,0.2,1); } .ds-tab:hover { color: #0f172a; } .ds-tab:focus-visible { outline: 2px solid #0ea5e9; outline-offset: 1px; } .ds-tab-active { background: #3b82f6; color: #ffffff; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Skylight Mission Board",
+    "overview": "KidTasky is a shared family control surface, not a generic productivity dashboard. Parents need fast command clarity, kids need momentum and positive feedback. The system uses high-contrast mission-style framing, bright sky accents, and clear status language that always answers: what is next, what is complete, and what needs attention now. The visual voice stays playful but disciplined. Surfaces can be dark or light depending on theme, but readability is never negotiable. Every panel must carry an explicit foreground/background pairing instead of inheriting color from parent containers. This system explicitly rejects generic B2B SaaS chrome, sterile enterprise UI tone, and dense admin-first layouts that suppress kid engagement.",
+    "keyCharacteristics": [
+      "Family-first clarity across parent and kid roles",
+      "High-contrast text and controls in every theme",
+      "Motivational accents used intentionally, not everywhere",
+      "Soft rounded geometry with strong state cues",
+      "Fast-scan hierarchy for busy routines"
+    ],
+    "rules": [
+      { "name": "The Explicit Pairing Rule", "body": "Every surface token must specify its matching text token (text-on-dark or text-on-light) in the component. Inherited text color is prohibited.", "section": "colors" },
+      { "name": "The Fast Scan Rule", "body": "Status-critical text must use title or label styles with strong contrast, never muted body styling.", "section": "typography" },
+      { "name": "The Contrast Before Glow Rule", "body": "Glows are decorative reinforcement only. If text contrast fails, glow must not be used to compensate.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do assign explicit text color tokens for every surface token pair in components and utilities.",
+      "Do target WCAG AA minimum for body text and controls in both dark and light themes.",
+      "Do keep action emphasis concentrated in sky/blue accents so progress and CTAs remain obvious.",
+      "Do preserve playful language and visual momentum for kid-facing experiences without reducing clarity."
+    ],
+    "donts": [
+      "Don't ship generic B2B SaaS visual patterns or sterile enterprise styling.",
+      "Don't use inherited text color inside mixed dark/light boxes, this is the root cause of unreadable panels.",
+      "Don't rely on low-opacity slate text on tinted or translucent surfaces.",
+      "Don't bury kid motivation under dense admin-heavy card stacks and tiny metadata-first UI."
+    ]
+  }
+}

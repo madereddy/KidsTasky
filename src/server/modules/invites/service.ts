@@ -1,4 +1,5 @@
 import { db } from '../../db.js';
+import { randomBytes } from 'crypto';
 
 export const inviteService = {
   createInvite: (parentId: string, parentName: string, type: 'kid' | 'coparent' = 'kid') => {
@@ -6,7 +7,7 @@ export const inviteService = {
     db.prepare("UPDATE invites SET status = 'expired' WHERE parentId = ? AND type = ? AND status = 'active'")
       .run(parentId, type);
     
-    const id = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const id = randomBytes(3).toString('hex').toUpperCase();
     db.prepare("INSERT INTO invites (id, parentId, parentName, createdAt, status, type) VALUES (?, ?, ?, ?, 'active', ?)")
       .run(id, parentId, parentName, Date.now(), type);
     return id;

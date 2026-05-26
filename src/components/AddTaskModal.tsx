@@ -36,7 +36,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-ui-deep-80 backdrop-blur-md"
     >
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
@@ -47,7 +47,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
         
         <div className="space-y-6">
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Mission Objective</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Mission Objective</label>
             <input 
               value={title}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
@@ -57,13 +57,13 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
           </div>
 
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Mission Category</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Mission Category</label>
             <div className="grid grid-cols-4 gap-2">
               <button
                 onClick={() => setCategoryId('')}
                 className={cn(
                   "py-2 rounded-xl font-bold text-[10px] uppercase border transition-all",
-                  categoryId === '' ? "bg-slate-700 text-white border-slate-600" : "bg-slate-900 border-slate-800 text-slate-500"
+                  categoryId === '' ? "bg-ui-dark-2 text-white border-ui-dark-2" : "bg-ui-dark border-ui-dark text-ui-muted"
                 )}
               >
                 None
@@ -74,7 +74,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
                   onClick={() => setCategoryId(cat.id)}
                   className={cn(
                     "py-2 rounded-xl font-bold text-[10px] uppercase border transition-all flex flex-col items-center justify-center gap-1",
-                    categoryId === cat.id ? cn(cat.color, "text-white border-white/20 glow-blue") : "bg-slate-900 border-slate-800 text-slate-500"
+                    categoryId === cat.id ? cn(cat.color, "text-white border-white/20 glow-blue") : "bg-ui-dark border-ui-dark text-ui-muted"
                   )}
                 >
                   <span className="text-sm">{cat.icon}</span>
@@ -85,7 +85,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
           </div>
 
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Cycle Frequency</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Cycle Frequency</label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {(['daily', 'twice-daily', 'weekly', 'bi-weekly', 'custom'] as TaskFrequency[]).map(f => (
                 <button
@@ -93,7 +93,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
                   onClick={() => setFrequency(f)}
                   className={cn(
                     "py-2 rounded-xl font-bold text-[8px] md:text-[10px] uppercase border transition-all",
-                    frequency === f ? "bg-blue-600 text-white border-blue-500 glow-blue shadow-lg" : "bg-slate-900 border-slate-800 text-slate-500"
+                    frequency === f ? "bg-blue-600 text-white border-blue-500 glow-blue shadow-lg" : "bg-ui-dark border-ui-dark text-ui-muted"
                   )}
                 >
                   {f.replace('-', ' ')}
@@ -104,7 +104,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
 
           {frequency === 'custom' && (
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Interval Days</label>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Interval Days</label>
               <div className="flex items-center gap-4">
                 <input 
                   type="range"
@@ -116,12 +116,12 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
                 />
                 <span className="text-xl font-black text-blue-400 font-mono w-8">{customInterval}</span>
               </div>
-              <p className="text-[8px] text-slate-500 italic mt-1 uppercase tracking-tight">Mission resets every {customInterval} days</p>
+              <p className="text-[8px] text-ui-muted italic mt-1 uppercase tracking-tight">Mission resets every {customInterval} days</p>
             </motion.div>
           )}
 
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Mission Difficulty</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Mission Difficulty</label>
             <div className="grid grid-cols-3 gap-2">
               {(['easy', 'medium', 'hard'] as TaskDifficulty[]).map(d => (
                 <button
@@ -134,7 +134,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
                       d === 'medium' ? "bg-amber-600 border-amber-500" : 
                       "bg-rose-600 border-rose-500",
                       "text-white glow-blue"
-                    ) : "bg-slate-900 border-slate-800 text-slate-500"
+                    ) : "bg-ui-dark border-ui-dark text-ui-muted"
                   )}
                 >
                   {d}
@@ -144,7 +144,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
           </div>
 
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Assign to Cadet</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Assign to Cadet</label>
             <input 
               value={assignedKidId}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAssignedKidId(e.target.value)}
@@ -155,7 +155,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
 
           {eligiblePrereqs.length > 0 && (
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block flex items-center gap-1">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block flex items-center gap-1">
                 <Lock className="w-3 h-3" /> Prerequisites 
               </label>
               <div className="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
@@ -167,7 +167,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
                       "w-full text-left px-3 py-2 rounded-xl text-xs font-bold border transition-all truncate",
                       prerequisiteTaskIds.includes(t.id) 
                         ? "bg-purple-600/20 text-purple-400 border-purple-500/50" 
-                        : "bg-slate-900/50 text-slate-500 border-slate-800 hover:border-slate-700"
+                        : "bg-ui-dark-50 text-ui-muted border-ui-dark hover:border-ui-dark-2"
                     )}
                   >
                     {prerequisiteTaskIds.includes(t.id) && <CheckCircle2 className="inline w-3 h-3 mr-1" />}
@@ -179,7 +179,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
           )}
 
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Launch Time</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Launch Time</label>
             <input 
               type="time"
               value={reminderTime}
@@ -189,7 +189,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
           </div>
 
           <div className="flex gap-3 pt-6">
-            <button onClick={onClose} className="flex-1 py-3 bg-slate-900 border border-slate-800 text-slate-500 font-black rounded-xl uppercase tracking-widest text-xs">Abort</button>
+            <button onClick={onClose} className="flex-1 py-3 bg-ui-dark border border-ui-dark text-ui-muted font-black rounded-xl uppercase tracking-widest text-xs">Abort</button>
             <button 
               onClick={() => onSubmit({ 
                 title, 
@@ -212,3 +212,5 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
     </motion.div>
   );
 }
+
+

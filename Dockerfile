@@ -1,37 +1,27 @@
 # Stage 1: Build Environment
-FROM node:24-alpine AS builder
-
-# Install Python and build tools for native dependencies (like better-sqlite3)
-RUN apk add --no-cache python3 make g++ 
+FROM cgr.dev/chainguard/node:latest-dev AS builder
 
 WORKDIR /app
 
 # Copy dependency definitions
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install dependencies (including devDependencies for building)
-RUN npm install
+RUN pnpm install --frozen-lockfile
 
 # Copy the entire project
 COPY . .
 
 # Build the Vite frontend application
-RUN npm run build
-
-# Remove development dependencies to keep the image clean
-RUN npm prune --production
-
+RUN pnpm run build
 
 # Stage 2: Production Environment
-FROM node:24-alpine
-
-# Provide minimum required shared libraries for native modules
-RUN apk add --no-cache libstdc++
+FROM cgr.dev/chainguard/node:latest
 
 WORKDIR /app
 
 # Copy package configurations
-COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/package.json ./
 
 # Copy built node_modules (including native modules compiled in step 1)
 COPY --from=builder /app/node_modules ./node_modules
@@ -40,9 +30,9 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 
 # Create data directory for SQLite and set permissions
-RUN mkdir -p /data && chown -R node:node /data /app
-
-USER node
+USER root
+RUN mkdir -p /data && chown -R 65532:65532 /data /app
+USER 65532:65532
 
 # Expose the designated application port
 EXPOSE 3000
@@ -51,4 +41,4 @@ EXPOSE 3000
 ENV NODE_ENV=production
 
 # Start the Node.js application
-CMD ["node", "dist/server.js"]
+CMD ["dist/server.js"]

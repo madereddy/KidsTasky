@@ -35,30 +35,30 @@ export function RecipeFormModal({ parentId, onClose, onCreated }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold text-slate-800">New Recipe</h2>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-full"><X size={18} /></button>
+          <h2 className="text-lg font-bold text-ui-primary">New Recipe</h2>
+          <button onClick={onClose} className="p-1 hover:bg-ui-soft-2 rounded-full"><X size={18} /></button>
         </div>
 
-        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Recipe Name</label>
+        <label className="block text-xs font-bold text-ui-muted uppercase mb-1">Recipe Name</label>
         <input
-          className="w-full border border-slate-200 rounded-xl px-3 py-2 mb-4 text-sm"
+          className="w-full border border-ui rounded-xl px-3 py-2 mb-4 text-sm"
           placeholder="e.g. Spaghetti Bolognese"
           value={name}
           onChange={e => setName(e.target.value)}
         />
 
-        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Ingredients</label>
+        <label className="block text-xs font-bold text-ui-muted uppercase mb-2">Ingredients</label>
         <div className="space-y-2 mb-3">
           {ingredients.map((ing, i) => (
             <div key={i} className="flex gap-2">
               <input
-                className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm"
+                className="flex-1 border border-ui rounded-xl px-3 py-2 text-sm"
                 placeholder={`Ingredient ${i + 1}`}
                 value={ing}
                 onChange={e => updateIngredient(i, e.target.value)}
               />
               {ingredients.length > 1 && (
-                <button onClick={() => removeIngredient(i)} className="p-2 text-slate-400 hover:text-rose-500">
+                <button onClick={() => removeIngredient(i)} className="p-2 text-ui-muted-2 hover:text-rose-500">
                   <X size={14} />
                 </button>
               )}
@@ -70,7 +70,7 @@ export function RecipeFormModal({ parentId, onClose, onCreated }: Props) {
         </button>
 
         <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2 bg-slate-100 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200">Cancel</button>
+          <button onClick={onClose} className="flex-1 py-2 bg-ui-soft-2 rounded-xl text-sm font-semibold text-ui-secondary hover:bg-ui-soft-3">Cancel</button>
           <button onClick={handleSave} disabled={saving || !name.trim()} className="flex-1 py-2 bg-blue-500 text-white rounded-xl text-sm font-semibold hover:bg-blue-600 disabled:opacity-50">
             {saving ? 'Saving...' : 'Save Recipe'}
           </button>
@@ -79,3 +79,4 @@ export function RecipeFormModal({ parentId, onClose, onCreated }: Props) {
     </div>
   );
 }
+

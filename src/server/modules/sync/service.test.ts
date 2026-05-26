@@ -1,10 +1,11 @@
 // src/server/modules/sync/service.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
-import { syncService } from './service.js';
+import { syncService, resolveEventColor, GOOGLE_EVENT_COLOR_MAP } from './service.js';
 import { db } from '../../db.js';
 
 describe('Sync Service', () => {
   beforeEach(() => {
+    db.prepare('DELETE FROM sync_calendars WHERE parentId = ?').run('test_parent');
     db.prepare('DELETE FROM sync_connections WHERE parentId = ?').run('test_parent');
     db.prepare('DELETE FROM events WHERE parentId = ?').run('test_parent');
   });
@@ -35,5 +36,86 @@ describe('Sync Service', () => {
 
     const eventCheck = db.prepare('SELECT * FROM events WHERE id = ?').get(evtId);
     expect(eventCheck).toBeUndefined();
+  });
+
+  it('upsertSyncCalendar stores color and isSharedCalendar', () => {
+    syncService.saveGoogleTokens('test_parent', 'access_123', 'refresh_456');
+    const [conn] = syncService.getConnections('test_parent') as any[];
+    syncService.upsertSyncCalendar(conn.id, 'test_parent', 'family@example.com', 'Family Calendar', '#f59e0b', 1);
+
+    const row = db.prepare('SELECT * FROM sync_calendars WHERE calendarId = ?').get('family@example.com') as any;
+    expect(row.color).toBe('#f59e0b');
+    expect(row.isSharedCalendar).toBe(1);
+  });
+
+  it('upsertSyncCalendar works without optional color params', () => {
+    syncService.saveGoogleTokens('test_parent', 'access_123', 'refresh_456');
+    const [conn] = syncService.getConnections('test_parent') as any[];
+    syncService.upsertSyncCalendar(conn.id, 'test_parent', 'personal@example.com', 'My Calendar');
+
+    const row = db.prepare('SELECT * FROM sync_calendars WHERE calendarId = ?').get('personal@example.com') as any;
+    expect(row).toBeTruthy();
+    expect(row.name).toBe('My Calendar');
+  });
+
+  it('upsertSyncCalendar color is returned by getSyncCalendarsByParent', () => {
+    syncService.saveGoogleTokens('test_parent', 'access_123', 'refresh_456');
+    const [conn] = syncService.getConnections('test_parent') as any[];
+    syncService.upsertSyncCalendar(conn.id, 'test_parent', 'colortest@example.com', 'Color Test', '#abc123', 0);
+
+    const cals = syncService.getSyncCalendarsByParent('test_parent') as any[];
+    const found = cals.find((c: any) => c.calendarId === 'colortest@example.com');
+    expect(found).toBeTruthy();
+    expect(found.color).toBe('#abc123');
+    expect(found.isSharedCalendar).toBe(0);
+  });
+
+  it('toggles sync calendars and deletes events imported from disabled calendars', () => {
+    syncService.saveGoogleTokens('test_parent', 'access_123', 'refresh_456');
+    const [conn] = syncService.getConnections('test_parent') as any[];
+    syncService.upsertSyncCalendar(conn.id, 'test_parent', 'shared@example.com', 'Shared Calendar');
+
+    const [calendar] = syncService.getSyncCalendars(conn.id) as any[];
+    db.prepare('INSERT INTO events (id, parentId, title, startTime, endTime, source, sourceCalendarId) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+      'evt_shared_calendar', 'test_parent', 'Shared Event', Date.now(), Date.now() + 1000, 'google', 'shared@example.com'
+    );
+
+    syncService.toggleSyncCalendar(calendar.id, false);
+
+    expect(db.prepare('SELECT enabled FROM sync_calendars WHERE id = ?').get(calendar.id)).toEqual({ enabled: 0 });
+    expect(db.prepare('SELECT id FROM events WHERE id = ?').get('evt_shared_calendar')).toBeUndefined();
+  });
+});
+
+describe('resolveEventColor — color precedence regression', () => {
+  it('uses colorId mapping when colorId matches a known Google color', () => {
+    const color = resolveEventColor('1', GOOGLE_EVENT_COLOR_MAP, '#f59e0b');
+    expect(color).toBe('#a4bdfc');
+  });
+
+  it('falls back to calendar color when colorId is absent', () => {
+    const color = resolveEventColor(null, GOOGLE_EVENT_COLOR_MAP, '#f59e0b');
+    expect(color).toBe('#f59e0b');
+  });
+
+  it('falls back to calendar color when colorId has no mapping', () => {
+    const color = resolveEventColor('999', GOOGLE_EVENT_COLOR_MAP, '#abc123');
+    expect(color).toBe('#abc123');
+  });
+
+  it('falls back to default indigo when both colorId and calendar color are absent', () => {
+    const color = resolveEventColor(null, GOOGLE_EVENT_COLOR_MAP, undefined);
+    expect(color).toBe('#6366f1');
+  });
+
+  it('colorId takes precedence over calendar color', () => {
+    const color = resolveEventColor('11', GOOGLE_EVENT_COLOR_MAP, '#0000ff');
+    expect(color).toBe('#dc2127');
+  });
+
+  it('GOOGLE_EVENT_COLOR_MAP covers all 11 standard Google event colors', () => {
+    for (let i = 1; i <= 11; i++) {
+      expect(GOOGLE_EVENT_COLOR_MAP[String(i)]).toMatch(/^#[0-9a-f]{6}$/i);
+    }
   });
 });

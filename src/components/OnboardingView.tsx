@@ -52,22 +52,22 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-md glass-panel p-10 rounded-[40px]">
         <h2 className="title-immersive text-3xl mb-2">Identify Payload</h2>
-        <p className="text-slate-500 mb-8 uppercase text-[10px] font-bold tracking-widest">Scanning user credentials...</p>
+        <p className="text-ui-muted mb-8 uppercase text-[10px] font-bold tracking-widest">Scanning user credentials...</p>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <button 
             onClick={() => setRole('parent')}
             className={cn(
               "p-6 rounded-3xl border-2 transition-all text-left flex flex-col gap-4",
-              role === 'parent' ? "border-blue-500 bg-blue-500/10 glow-blue" : "border-slate-800 bg-slate-900/50"
+              role === 'parent' ? "border-blue-500 bg-blue-500/10 glow-blue" : "border-ui-dark bg-ui-dark-50"
             )}
           >
-            <div className={cn("p-3 rounded-2xl w-fit", role === 'parent' ? "bg-blue-500 text-white" : "bg-slate-800 text-slate-500")}>
+            <div className={cn("p-3 rounded-2xl w-fit", role === 'parent' ? "bg-blue-500 text-white" : "bg-ui-dark-2 text-ui-muted")}>
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
               <p className="font-black uppercase tracking-tight text-sm">Ground Control</p>
-              <p className="text-[10px] text-slate-500 mt-1 uppercase">Coordinate Missions</p>
+              <p className="text-[10px] text-ui-muted mt-1 uppercase">Coordinate Missions</p>
             </div>
           </button>
 
@@ -75,15 +75,15 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
             onClick={() => setRole('kid')}
             className={cn(
               "p-6 rounded-3xl border-2 transition-all text-left flex flex-col gap-4",
-              role === 'kid' ? "border-purple-500 bg-purple-500/10 shadow-[0_0_20px_rgba(168,85,247,0.2)]" : "border-slate-800 bg-slate-900/50"
+              role === 'kid' ? "border-purple-500 bg-purple-500/10 shadow-[0_0_20px_rgba(168,85,247,0.2)]" : "border-ui-dark bg-ui-dark-50"
             )}
           >
-            <div className={cn("p-3 rounded-2xl w-fit", role === 'kid' ? "bg-purple-500 text-white" : "bg-slate-800 text-slate-500")}>
+            <div className={cn("p-3 rounded-2xl w-fit", role === 'kid' ? "bg-purple-500 text-white" : "bg-ui-dark-2 text-ui-muted")}>
               <Baby className="w-6 h-6" />
             </div>
             <div>
               <p className="font-black uppercase tracking-tight text-sm">Space Cadet</p>
-              <p className="text-[10px] text-slate-500 mt-1 uppercase">Execute Objectives</p>
+              <p className="text-[10px] text-ui-muted mt-1 uppercase">Execute Objectives</p>
             </div>
           </button>
         </div>
@@ -96,7 +96,7 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
               className="space-y-6 overflow-hidden"
             >
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">Personnel Name</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-ui-muted mb-2 block">Personnel Name</label>
                 <input 
                   value={name}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
@@ -107,7 +107,7 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
 
               {role === 'kid' && (
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">Mission Access Code</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-ui-muted mb-2 block">Mission Access Code</label>
                   <input 
                     value={inviteCode}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInviteCode(e.target.value.toUpperCase())}
@@ -115,7 +115,7 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
                     placeholder="X7R9Z2"
                     maxLength={6}
                   />
-                  <p className="text-[10px] text-slate-500 mt-2 italic text-center">Your Ground Control officer will provide this code.</p>
+                  <p className="text-[10px] text-ui-muted mt-2 italic text-center">Your Ground Control officer will provide this code.</p>
                 </div>
               )}
 
@@ -142,3 +142,5 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
     </div>
   );
 }
+
+

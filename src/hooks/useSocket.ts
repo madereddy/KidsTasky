@@ -1,28 +1,32 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 let socket: Socket | null = null;
-let listeners: Array<(data: any) => void> = [];
+let listeners: Array<{ current: (data: any) => void }> = [];
 
 export const initSocket = (parentId: string) => {
   if (!socket) {
     socket = io(window.location.origin);
     socket.on('connect', () => {
-      socket?.emit('join-room', parentId);
+      const token = localStorage.getItem('kidtasker_token');
+      socket?.emit('join-room', parentId, token);
     });
 
     socket.on('stale-data', (data) => {
       console.log('Received stale-data event:', data);
-      listeners.forEach(fn => fn(data));
+      listeners.forEach(ref => ref.current(data));
     });
   }
 };
 
 export const useSocketStaleData = (onStaleData: (data: { entity: string, timestamp: number }) => void) => {
+  const callbackRef = useRef(onStaleData);
+  callbackRef.current = onStaleData;
+
   useEffect(() => {
-    listeners.push(onStaleData);
+    listeners.push(callbackRef);
     return () => {
-      listeners = listeners.filter(fn => fn !== onStaleData);
+      listeners = listeners.filter(ref => ref !== callbackRef);
     };
-  }, [onStaleData]);
+  }, []);
 };

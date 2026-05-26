@@ -3,6 +3,8 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { getJwtSecret } from '../../config.js';
 
+import { randomBytes } from 'crypto';
+
 export const authService = {
   getMe: (uid: string) => {
     return db.prepare("SELECT uid, role, name, email, parentId, xp, level, badges, themeId FROM users WHERE uid = ?").get(uid) as any;
@@ -21,7 +23,7 @@ export const authService = {
     const existing = db.prepare("SELECT uid FROM users WHERE email = ?").get(email);
     if (existing) throw new Error("Email taken");
 
-    const uid = 'user_' + Date.now().toString(36);
+    const uid = 'user_' + randomBytes(8).toString('hex');
     const hash = await bcrypt.hash(passwordString, 10);
     
     db.prepare("INSERT INTO users (uid, role, name, email, parentId, passwordHash) VALUES (?, ?, ?, ?, ?, ?)")

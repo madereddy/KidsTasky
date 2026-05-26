@@ -21,7 +21,8 @@ export const magicService = {
       }
     });
 
-    const parsed = JSON.parse(response.text || '{}');
+    if (!response.text) throw new Error('Empty response from Gemini API');
+    const parsed = JSON.parse(response.text);
     return {
       title: parsed.title,
       date: parsed.date,

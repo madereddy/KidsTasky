@@ -18,7 +18,7 @@ export function ThemeSelectorModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-ui-deep-80 backdrop-blur-md"
     >
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
@@ -28,9 +28,9 @@ export function ThemeSelectorModal({
         <div className="flex justify-between items-center mb-8">
           <div>
             <h3 className="text-2xl font-black italic tracking-tighter uppercase leading-none">UI Customization</h3>
-            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Select your command aesthetic</p>
+            <p className="text-[10px] text-ui-muted uppercase tracking-widest font-bold mt-1">Select your command aesthetic</p>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-500 hover:text-white"><LogOut className="w-5 h-5 rotate-180" /></button>
+          <button onClick={onClose} className="p-2 text-ui-muted hover:text-white"><LogOut className="w-5 h-5 rotate-180" /></button>
         </div>
 
         <div className="grid grid-cols-1 gap-4">
@@ -44,7 +44,7 @@ export function ThemeSelectorModal({
                 "p-5 rounded-3xl border-2 transition-all flex items-center gap-4 text-left relative overflow-hidden group",
                 currentThemeId === theme.id 
                   ? `bg-${theme.primary}/10 border-${theme.primary} shadow-[0_0_20px_rgba(59,130,246,0.2)]` 
-                  : "bg-slate-900/50 border-slate-800 text-slate-400 hover:border-slate-700"
+                  : "bg-ui-dark-50 border-ui-dark text-ui-muted-2 hover:border-ui-dark-2"
               )}
             >
               <div className={cn(
@@ -74,7 +74,7 @@ export function ThemeSelectorModal({
 
         <button 
           onClick={onClose}
-          className="w-full mt-8 py-4 bg-slate-900 border border-slate-800 text-slate-500 font-black rounded-2xl uppercase tracking-widest text-xs hover:text-white transition-colors"
+          className="w-full mt-8 py-4 bg-ui-dark border border-ui-dark text-ui-muted font-black rounded-2xl uppercase tracking-widest text-xs hover:text-white transition-colors"
         >
           Confirm Selection
         </button>
@@ -82,3 +82,5 @@ export function ThemeSelectorModal({
     </motion.div>
   );
 }
+
+

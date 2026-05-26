@@ -61,21 +61,21 @@ export function MealPlanView({ parentId }: Props) {
     <div className="space-y-6" onClick={() => setPickerCell(null)}>
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left: Weekly Grid */}
-        <div className="flex-[2] bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="flex-[2] bg-white rounded-2xl border border-ui shadow-sm overflow-hidden">
           {/* Week nav */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-ui bg-ui-soft">
             <div className="flex items-center gap-2">
-              <button onClick={(e) => { e.stopPropagation(); setCurrentWeek(d => subWeeks(d, 1)); }} className="p-2 hover:bg-slate-200 rounded-full">
+              <button onClick={(e) => { e.stopPropagation(); setCurrentWeek(d => subWeeks(d, 1)); }} className="p-2 hover:bg-ui-soft-3 rounded-full">
                 <ChevronLeft size={16} />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); setCurrentWeek(new Date()); }} className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
+              <button onClick={(e) => { e.stopPropagation(); setCurrentWeek(new Date()); }} className="px-3 py-1.5 text-xs font-semibold bg-white border border-ui rounded-lg hover:bg-ui-soft">
                 This Week
               </button>
-              <button onClick={(e) => { e.stopPropagation(); setCurrentWeek(d => addWeeks(d, 1)); }} className="p-2 hover:bg-slate-200 rounded-full">
+              <button onClick={(e) => { e.stopPropagation(); setCurrentWeek(d => addWeeks(d, 1)); }} className="p-2 hover:bg-ui-soft-3 rounded-full">
                 <ChevronRight size={16} />
               </button>
             </div>
-            <span className="text-sm font-semibold text-slate-700">
+            <span className="text-sm font-semibold text-ui-secondary">
               {format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d, yyyy')}
             </span>
           </div>
@@ -85,14 +85,14 @@ export function MealPlanView({ parentId }: Props) {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr>
-                  <th className="w-24 py-2 px-3 text-left text-xs font-bold text-slate-400 uppercase border-b border-r border-slate-100">Meal</th>
+                  <th className="w-24 py-2 px-3 text-left text-xs font-bold text-ui-muted-2 uppercase border-b border-r border-ui-soft">Meal</th>
                   {days.map(day => (
                     <th key={day.toISOString()} className={cn(
-                      "py-2 px-2 text-center border-b border-r border-slate-100 last:border-r-0",
+                      "py-2 px-2 text-center border-b border-r border-ui-soft last:border-r-0",
                       isSameDay(day, today) && "bg-blue-50"
                     )}>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">{format(day, 'EEE')}</p>
-                      <p className={cn("text-sm font-bold", isSameDay(day, today) ? "text-blue-500" : "text-slate-700")}>
+                      <p className="text-[10px] font-bold text-ui-muted-2 uppercase">{format(day, 'EEE')}</p>
+                      <p className={cn("text-sm font-bold", isSameDay(day, today) ? "text-blue-500" : "text-ui-secondary")}>
                         {format(day, 'd')}
                       </p>
                     </th>
@@ -102,7 +102,7 @@ export function MealPlanView({ parentId }: Props) {
               <tbody>
                 {MEAL_TYPES.map(mealType => (
                   <tr key={mealType}>
-                    <td className="py-2 px-3 text-xs font-bold text-slate-500 border-b border-r border-slate-100 bg-slate-50">
+                    <td className="py-2 px-3 text-xs font-bold text-ui-muted border-b border-r border-ui-soft bg-ui-soft">
                       {mealType}
                     </td>
                     {days.map(day => {
@@ -111,7 +111,7 @@ export function MealPlanView({ parentId }: Props) {
                       const isOpen = pickerCell?.date === dateStr && pickerCell?.mealType === mealType;
                       return (
                         <td key={day.toISOString()} className={cn(
-                          "py-1 px-1 border-b border-r border-slate-100 last:border-r-0 relative align-top",
+                          "py-1 px-1 border-b border-r border-ui-soft last:border-r-0 relative align-top",
                           isSameDay(day, today) && "bg-blue-50/30"
                         )}>
                           {meal ? (
@@ -124,15 +124,15 @@ export function MealPlanView({ parentId }: Props) {
                           ) : (
                             <button
                               onClick={(e) => { e.stopPropagation(); setPickerCell({ date: dateStr, mealType }); }}
-                              className="w-full flex items-center justify-center py-2 text-slate-300 hover:text-blue-400 hover:bg-blue-50 rounded-lg transition-colors"
+                              className="w-full flex items-center justify-center py-2 text-ui-muted-2 hover:text-blue-400 hover:bg-blue-50 rounded-lg transition-colors"
                             >
                               <Plus size={14} />
                             </button>
                           )}
 
                           {isOpen && (
-                            <div className="absolute top-full left-0 z-50 bg-white border border-slate-200 rounded-xl shadow-xl w-48 p-2 mt-1" onClick={e => e.stopPropagation()}>
-                              <p className="text-[10px] font-bold uppercase text-slate-400 px-2 pb-1">Pick recipe</p>
+                            <div className="absolute top-full left-0 z-50 bg-white border border-ui rounded-xl shadow-xl w-48 p-2 mt-1" onClick={e => e.stopPropagation()}>
+                              <p className="text-[10px] font-bold uppercase text-ui-muted-2 px-2 pb-1">Pick recipe</p>
                               <div className="max-h-40 overflow-y-auto space-y-0.5">
                                 {recipes.map(r => (
                                   <button key={r.id} onClick={() => assignMeal(dateStr, mealType, r.id)}
@@ -140,7 +140,7 @@ export function MealPlanView({ parentId }: Props) {
                                     {r.name}
                                   </button>
                                 ))}
-                                {recipes.length === 0 && <p className="text-xs text-slate-400 px-2 py-1">No recipes yet</p>}
+                                {recipes.length === 0 && <p className="text-xs text-ui-muted-2 px-2 py-1">No recipes yet</p>}
                               </div>
                               {meal && (
                                 <button onClick={() => assignMeal(dateStr, mealType, null)}
@@ -148,7 +148,7 @@ export function MealPlanView({ parentId }: Props) {
                                   Clear
                                 </button>
                               )}
-                              <button onClick={() => setPickerCell(null)} className="w-full text-center text-xs text-slate-400 hover:text-slate-600 py-1">Cancel</button>
+                              <button onClick={() => setPickerCell(null)} className="w-full text-center text-xs text-ui-muted-2 hover:text-ui-secondary py-1">Cancel</button>
                             </div>
                           )}
                         </td>
@@ -162,9 +162,9 @@ export function MealPlanView({ parentId }: Props) {
         </div>
 
         {/* Right: Recipe Library */}
-        <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
-            <h3 className="text-sm font-bold text-slate-700">Recipe Library</h3>
+        <div className="flex-1 bg-white rounded-2xl border border-ui shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-ui bg-ui-soft">
+            <h3 className="text-sm font-bold text-ui-secondary">Recipe Library</h3>
             <button onClick={(e) => { e.stopPropagation(); setShowRecipeForm(true); }}
               className="flex items-center gap-1 text-xs font-semibold text-white bg-blue-500 hover:bg-blue-600 px-3 py-1.5 rounded-lg">
               <Plus size={12} /> New
@@ -172,7 +172,7 @@ export function MealPlanView({ parentId }: Props) {
           </div>
 
           {recipes.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+            <div className="flex flex-col items-center justify-center py-12 text-ui-muted-2">
               <UtensilsCrossed size={32} className="mb-2 opacity-50" />
               <p className="text-sm font-semibold">No recipes yet</p>
               <p className="text-xs mt-1">Add your first recipe!</p>
@@ -183,22 +183,22 @@ export function MealPlanView({ parentId }: Props) {
                 const ings = (() => { try { return JSON.parse(r.ingredients) as string[]; } catch { return []; } })();
                 const isSelected = selectedRecipe?.id === r.id;
                 return (
-                  <div key={r.id} className={cn("p-3 cursor-pointer hover:bg-slate-50 transition-colors", isSelected && "bg-blue-50")}>
+                  <div key={r.id} className={cn("p-3 cursor-pointer hover:bg-ui-soft transition-colors", isSelected && "bg-blue-50")}>
                     <div className="flex items-center justify-between" onClick={() => setSelectedRecipe(isSelected ? null : r)}>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 truncate">{r.name}</p>
-                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">{ings.length} ingredient{ings.length !== 1 ? 's' : ''}</p>
+                        <p className="text-sm font-semibold text-ui-primary truncate">{r.name}</p>
+                        <p className="text-[10px] text-ui-muted-2 font-medium mt-0.5">{ings.length} ingredient{ings.length !== 1 ? 's' : ''}</p>
                       </div>
                       <button onClick={e => { e.stopPropagation(); if (confirm(`Delete "${r.name}"?`)) deleteRecipe(r.id); }}
                         disabled={deletingRecipe === r.id}
-                        className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors ml-2">
+                        className="p-1.5 text-ui-muted-2 hover:text-rose-500 transition-colors ml-2">
                         <Trash2 size={14} />
                       </button>
                     </div>
                     {isSelected && ings.length > 0 && (
                       <ul className="mt-2 space-y-0.5">
                         {ings.map((ing, i) => (
-                          <li key={i} className="text-xs text-slate-600 flex items-center gap-1.5">
+                          <li key={i} className="text-xs text-ui-secondary flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                             {ing}
                           </li>
@@ -219,3 +219,4 @@ export function MealPlanView({ parentId }: Props) {
     </div>
   );
 }
+
