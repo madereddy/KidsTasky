@@ -1,6 +1,8 @@
 # Stage 1: Build Environment
 FROM cgr.dev/chainguard/node:latest-dev AS builder
 
+USER root
+
 WORKDIR /app
 
 # Enable pnpm
