@@ -1,8 +1,9 @@
 import { db } from '../../db.js';
+import { randomBytes } from 'crypto';
 
 export const categoryService = {
   createCategory: (cat: any) => {
-    const id = "cat_" + Date.now().toString(36);
+    const id = "cat_" + randomBytes(8).toString('hex');
     db.prepare("INSERT INTO categories (id, name, icon, color, parentId) VALUES (?, ?, ?, ?, ?)").run(id, cat.name, cat.icon, cat.color, cat.parentId);
     return id;
   },
@@ -17,5 +18,9 @@ export const categoryService = {
   
   getCategories: (parentId: string) => {
     return db.prepare("SELECT * FROM categories WHERE parentId = ?").all(parentId);
+  },
+
+  getCategoryById: (id: string) => {
+    return db.prepare("SELECT * FROM categories WHERE id = ?").get(id) as { parentId: string } | undefined;
   }
 };

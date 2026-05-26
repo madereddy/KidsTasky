@@ -6,8 +6,14 @@ export const mealsService = {
   getRecipes: (parentId: string): Recipe[] => {
     return db.prepare('SELECT * FROM recipes WHERE parentId = ?').all(parentId) as Recipe[];
   },
+  getRecipeById: (id: string): Recipe | undefined => {
+    return db.prepare('SELECT * FROM recipes WHERE id = ?').get(id) as Recipe | undefined;
+  },
   getMealPlans: (parentId: string, date: string): MealPlan[] => {
     return db.prepare('SELECT * FROM meal_plans WHERE parentId = ? AND date = ?').all(parentId, date) as MealPlan[];
+  },
+  getMealPlanById: (id: string): MealPlan | undefined => {
+    return db.prepare('SELECT * FROM meal_plans WHERE id = ?').get(id) as MealPlan | undefined;
   },
   createRecipe: (parentId: string, name: string, ingredients: string[]): Recipe => {
     const id = randomUUID();

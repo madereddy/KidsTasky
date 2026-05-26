@@ -20,6 +20,7 @@ describe('co-parent flow', () => {
 
   it('creates co-parent invite via type param', async () => {
     const res = await request(app).post('/api/invites')
+      .set('Authorization', `Bearer ${ownerToken}`)
       .send({ parentId: ownerUid, parentName: 'Owner', type: 'coparent' });
     expect(res.status).toBe(200);
     expect(res.body.id).toHaveLength(6);
@@ -30,6 +31,7 @@ describe('co-parent flow', () => {
   it('co-parent joins via POST /users with code', async () => {
     // Create co-parent invite
     const invRes = await request(app).post('/api/invites')
+      .set('Authorization', `Bearer ${ownerToken}`)
       .send({ parentId: ownerUid, parentName: 'Owner', type: 'coparent' });
     const code = invRes.body.id;
 

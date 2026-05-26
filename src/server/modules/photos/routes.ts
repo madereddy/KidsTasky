@@ -46,6 +46,8 @@ photosRouter.post('/photos/upload', requireAuth, upload.single("photo"), (req, r
 });
 
 photosRouter.get("/parents/:parentId/photos", requireAuth, (req, res) => {
+  const userParentId = (req as any).user?.role === "parent" ? (req as any).user.uid : (req as any).user?.parentId;
+  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
   const photos = photosService.getPhotos(String(req.params.parentId));
   res.json(photos);
 });

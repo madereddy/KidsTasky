@@ -11,10 +11,12 @@ const validate = (req: Request, res: Response, next: any) => {
   next();
 };
 
-rewardsRouter.get("/parents/:parentId/rewards", [
+rewardsRouter.get("/parents/:parentId/rewards", authenticateUser, [
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
+  const userParentId = getParentId(req);
+  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
   const rewards = rewardService.getRewards(req.params.parentId as string);
   res.json(rewards);
 });
@@ -43,11 +45,19 @@ rewardsRouter.delete("/rewards/:id", authenticateUser, [
   res.json({ success: true });
 });
 
-rewardsRouter.get("/kids/:kidId/claimedRewards", [
+rewardsRouter.get("/kids/:kidId/claimedRewards", authenticateUser, [
   param('kidId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  const claimed = rewardService.getClaimedRewards(req.params.kidId as string);
+  const caller = (req as any).user;
+  const kidId = req.params.kidId as string;
+  const user = (db.prepare("SELECT parentId FROM users WHERE uid = ?").get(kidId)) as { parentId: string } | undefined;
+  if (!user) return res.status(404).json({ error: 'Not found' });
+
+  const userParentId = getParentId(req);
+  if (user.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
+
+  const claimed = rewardService.getClaimedRewards(kidId);
   res.json(claimed.map((c: any) => ({ ...c, createdAt: { seconds: c.createdAt / 1000 } })));
 });
 

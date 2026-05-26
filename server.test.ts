@@ -51,7 +51,9 @@ describe('Backend API Tests', () => {
     expect(createRes.status).toBe(200);
     expect(createRes.body.success).toBe(true);
     
-    const fetchRes = await request(app).get('/api/users/user_123');
+    const token = jwt.sign({ uid: 'user_123', role: 'parent', parentId: 'user_123' }, getJwtSecret());
+    const fetchRes = await request(app).get('/api/users/user_123')
+      .set('Authorization', `Bearer ${token}`);
     expect(fetchRes.status).toBe(200);
     expect(fetchRes.body.name).toBe('Test Parent');
     expect(fetchRes.body.role).toBe('parent');
@@ -59,8 +61,9 @@ describe('Backend API Tests', () => {
   });
 
   it('POST /api/tasks should create a task', async () => {
-    // Create parent user first
+    // Create users first
     db.prepare("INSERT OR IGNORE INTO users (uid, role, name, email, parentId) VALUES (?, ?, ?, ?, ?)").run('user_123', 'parent', 'Test Parent', 'parent@test.com', 'user_123');
+    db.prepare("INSERT OR IGNORE INTO users (uid, role, name, email, parentId) VALUES (?, ?, ?, ?, ?)").run('kid_123', 'kid', 'Test Kid', 'kid@test.com', 'user_123');
     const token = jwt.sign({ uid: 'user_123', role: 'parent', parentId: 'user_123' }, getJwtSecret());
 
     const taskData = {
@@ -80,15 +83,20 @@ describe('Backend API Tests', () => {
     expect(res.body.id).toBeDefined();
     
     // Verify it appeared in the kid's task list
-    const fetchRes = await request(app).get('/api/kids/kid_123/tasks');
+    const fetchRes = await request(app).get('/api/kids/kid_123/tasks')
+      .set('Authorization', `Bearer ${token}`);
     expect(fetchRes.status).toBe(200);
     expect(fetchRes.body.length).toBe(1);
     expect(fetchRes.body[0].title).toBe('Clean room');
   });
 
   it('POST /api/categories should create a category and GET should retrieve it', async () => {
+    db.prepare("INSERT OR IGNORE INTO users (uid, role, name, email, parentId) VALUES (?, ?, ?, ?, ?)").run('user_123', 'parent', 'Test Parent', 'parent@test.com', 'user_123');
+    const token = jwt.sign({ uid: 'user_123', role: 'parent', parentId: 'user_123' }, getJwtSecret());
+
     const createRes = await request(app)
       .post('/api/categories')
+      .set('Authorization', `Bearer ${token}`)
       .send({
         name: 'Chores',
         icon: 'Broom',
@@ -100,7 +108,8 @@ describe('Backend API Tests', () => {
     expect(createRes.body.id).toBeDefined();
     
     // Verify it appeared in the parent's category list
-    const fetchRes = await request(app).get('/api/parents/user_123/categories');
+    const fetchRes = await request(app).get('/api/parents/user_123/categories')
+      .set('Authorization', `Bearer ${token}`);
     expect(fetchRes.status).toBe(200);
     expect(fetchRes.body.length).toBe(1);
     expect(fetchRes.body[0].name).toBe('Chores');

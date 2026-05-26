@@ -7,6 +7,9 @@ export const listsService = {
   getLists: (parentId: string): AppList[] => {
     return db.prepare('SELECT * FROM lists WHERE parentId = ?').all(parentId) as AppList[];
   },
+  getListById: (id: string): AppList | undefined => {
+    return db.prepare('SELECT * FROM lists WHERE id = ?').get(id) as AppList | undefined;
+  },
   getListItems: (listId: string): AppListItem[] => {
     return db.prepare('SELECT * FROM list_items WHERE listId = ?').all(listId) as AppListItem[];
   },

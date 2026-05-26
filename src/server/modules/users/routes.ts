@@ -16,16 +16,23 @@ const validate = (req: Request, res: Response, next: any) => {
   next();
 };
 
-usersRouter.get("/users/:uid", [
+usersRouter.get("/users/:uid", authenticateUser, [
   param('uid').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  const user = userService.getUser(req.params.uid as string);
-  if (user) {
-     user.badges = JSON.parse(user.badges || "[]");
-     return res.json(user);
-  }
-  res.status(404).json({ error: "Not found" });
+  const caller = (req as any).user;
+  // Can only get self or if caller is parent and target is kid in same family
+  const targetUid = req.params.uid as string;
+  const user = userService.getUser(targetUid);
+  if (!user) return res.status(404).json({ error: "Not found" });
+
+  const isSelf = caller.uid === targetUid;
+  const isParentOfTarget = caller.role === 'parent' && (user.parentId === caller.uid || user.parentId === caller.parentId);
+  
+  if (!isSelf && !isParentOfTarget) return res.status(403).json({ error: 'Forbidden' });
+
+  user.badges = JSON.parse(user.badges || "[]");
+  return res.json(user);
 });
 
 usersRouter.post("/users", [
@@ -127,10 +134,12 @@ usersRouter.post("/users/:uid/theme", [
   res.json({ success: true });
 });
 
-usersRouter.get("/parents/:parentId/kids", [
+usersRouter.get("/parents/:parentId/kids", authenticateUser, [
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
+  const userParentId = getParentId(req);
+  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
   const kids = userService.getKidsByParent(req.params.parentId as string);
   kids.forEach(k => k.badges = JSON.parse(k.badges || "[]"));
   res.json(kids);

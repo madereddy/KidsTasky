@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { categoryService } from './service.js';
+import { authenticateUser, getParentId } from '../../middleware/auth.js';
 
 export const categoriesRouter = Router();
 
@@ -10,18 +11,20 @@ const validate = (req: Request, res: Response, next: any) => {
   next();
 };
 
-categoriesRouter.post("/categories", [
+categoriesRouter.post("/categories", authenticateUser, [
   body('name').isString().notEmpty(),
   body('icon').isString().optional(),
   body('color').isString().optional(),
   body('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
+  const userParentId = getParentId(req);
+  if (userParentId !== req.body.parentId) return res.status(403).json({ error: 'Forbidden' });
   const id = categoryService.createCategory(req.body);
   res.json({ id });
 });
 
-categoriesRouter.put("/categories/:id", [
+categoriesRouter.put("/categories/:id", authenticateUser, [
   param('id').isString().notEmpty(),
   body('name').isString().notEmpty(),
   body('icon').isString().optional(),
@@ -29,22 +32,31 @@ categoriesRouter.put("/categories/:id", [
   body('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
+  const userParentId = getParentId(req);
+  if (userParentId !== req.body.parentId) return res.status(403).json({ error: 'Forbidden' });
   categoryService.updateCategory(req.params.id as string, req.body);
   res.json({ success: true });
 });
 
-categoriesRouter.delete("/categories/:id", [
+categoriesRouter.delete("/categories/:id", authenticateUser, [
   param('id').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
+  const cat = categoryService.getCategoryById(req.params.id as string);
+  if (!cat) return res.status(404).json({ error: 'Not found' });
+  const userParentId = getParentId(req);
+  if (cat.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
+  
   categoryService.deleteCategory(req.params.id as string);
   res.json({ success: true });
 });
 
-categoriesRouter.get("/parents/:parentId/categories", [
+categoriesRouter.get("/parents/:parentId/categories", authenticateUser, [
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
+  const userParentId = getParentId(req);
+  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
   const cats = categoryService.getCategories(req.params.parentId as string);
   res.json(cats);
 });

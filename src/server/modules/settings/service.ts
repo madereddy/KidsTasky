@@ -22,7 +22,15 @@ export const settingsService = {
     const existing = db.prepare('SELECT * FROM family_settings WHERE parentId = ?').get(parentId) as FamilySettings | undefined;
     const merged = { ...DEFAULTS, ...(existing ?? {}), ...data, parentId };
     const payload = {
-      ...merged,
+      parentId: merged.parentId,
+      locationLat: merged.locationLat ?? DEFAULTS.locationLat,
+      locationLon: merged.locationLon ?? DEFAULTS.locationLon,
+      timezone: merged.timezone ?? DEFAULTS.timezone,
+      temperatureUnit: merged.temperatureUnit ?? DEFAULTS.temperatureUnit,
+      timeFormat: merged.timeFormat ?? DEFAULTS.timeFormat,
+      pin: merged.pin ?? null,
+      sleepStart: merged.sleepStart ?? DEFAULTS.sleepStart,
+      sleepEnd: merged.sleepEnd ?? DEFAULTS.sleepEnd,
       isLocked: merged.isLocked ? 1 : 0,
     };
     db.prepare(`

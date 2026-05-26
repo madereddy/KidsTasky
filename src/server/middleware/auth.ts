@@ -9,7 +9,7 @@ export function authenticateUser(req: Request, res: Response, next: NextFunction
 
   const token = authHeader.replace('Bearer ', '');
   try {
-    const payload = jwt.verify(token, getJwtSecret()) as { uid: string; role: string; parentId: string; iat?: number };
+    const payload = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as { uid: string; role: string; parentId: string; iat?: number };
     
     // Check token revocation — payload.iat is epoch seconds, revokedAt is epoch ms
     const row = db.prepare("SELECT revokedAt FROM users WHERE uid = ?").get(payload.uid) as { revokedAt: number | null } | undefined;

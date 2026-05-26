@@ -47,7 +47,7 @@ syncRouter.get('/sync/connect/google', (req, res) => {
   const token = req.query.token as string;
   let parentId = '';
   try {
-    const payload = jwt.verify(token, getJwtSecret()) as any;
+    const payload = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as any;
     parentId = payload.parentId;
     if (!parentId) throw new Error("No parent id generated");
   } catch (err) {
