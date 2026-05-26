@@ -1,0 +1,3 @@
+ALTER TABLE invites ADD COLUMN type TEXT DEFAULT 'kid';
+ALTER TABLE users ADD COLUMN revokedAt INTEGER DEFAULT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_parentId ON users(parentId);
