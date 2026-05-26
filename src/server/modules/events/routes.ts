@@ -1,45 +1,78 @@
 import { Router } from 'express';
 import { eventsService } from './service.js';
 import { syncService } from '../sync/service.js';
+import { authenticateUser, getParentId } from '../../middleware/auth.js';
 
 export const eventsRouter = Router();
 
-eventsRouter.post('/events', async (req, res) => {
-  try {
-    const id = eventsService.createEvent(req.body);
-    const event = eventsService.getEventById(id);
-    res.json({ success: true, id });
+const ALLOWED_CREATE_FIELDS = [
+  'title', 'description', 'startTime', 'endTime', 'assignedToId', 'color',
+  'isAllDay', 'recurrence', 'recurrenceEnd', 'isCountdown', 'reminderMinutes'
+] as const;
 
-    if (event) {
-      const googleId = await syncService.pushEventToGoogle(event.parentId, event);
-      if (googleId) eventsService.setExternalId(id, googleId, 'google');
+eventsRouter.post('/events', authenticateUser, async (req, res) => {
+  try {
+    const parentId = getParentId(req);
+    const allowed: Record<string, any> = {};
+    for (const field of ALLOWED_CREATE_FIELDS) {
+      if (req.body[field] !== undefined) allowed[field] = req.body[field];
+    }
+    const eventData = { ...allowed, parentId };
+
+    let ids: string[];
+    if (allowed.recurrence && allowed.recurrence !== 'none' && allowed.recurrenceEnd) {
+      ids = eventsService.createRecurringEvents(eventData as any, allowed.recurrence, allowed.recurrenceEnd);
+    } else {
+      ids = [eventsService.createEvent(eventData as any)];
+    }
+
+    res.json({ success: true, ids });
+
+    // Google sync: push first event only (or all — push first is sufficient for display)
+    const first = eventsService.getEventById(ids[0]);
+    if (first) {
+      const googleId = await syncService.pushEventToGoogle(first.parentId, first).catch(() => null);
+      if (googleId) eventsService.setExternalId(ids[0], googleId, 'google');
     }
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
-eventsRouter.get('/parents/:parentId/events', (req, res) => {
+eventsRouter.get('/parents/:parentId/events', authenticateUser, (req, res) => {
   try {
-    const events = eventsService.getEventsByParent(req.params.parentId);
-    res.json(events);
+    const userParentId = getParentId(req);
+    if (userParentId !== req.params.parentId as string) return res.status(403).json({ error: 'Forbidden' });
+    res.json(eventsService.getEventsByParent(req.params.parentId as string));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
-eventsRouter.put('/events/:id', async (req, res) => {
+eventsRouter.put('/events/:id', authenticateUser, async (req, res) => {
   try {
-    eventsService.updateEvent(req.params.id, req.body);
-    const updated = eventsService.getEventById(req.params.id);
+    const event = eventsService.getEventById(req.params.id as string);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    if (event.parentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const scope = (req.query.scope as string) === 'future' ? 'future' : 'one';
+    const allowed: Record<string, any> = {};
+    for (const field of ALLOWED_CREATE_FIELDS) {
+      if (req.body[field] !== undefined) allowed[field] = req.body[field];
+    }
+
+    const affectedIds = eventsService.updateEvent(req.params.id as string, allowed, scope);
     res.json({ success: true });
 
-    if (updated) {
+    // Sync each affected event to Google
+    for (const aid of affectedIds) {
+      const updated = eventsService.getEventById(aid);
+      if (!updated) continue;
       if (updated.externalId) {
-        await syncService.updateEventInGoogle(updated.parentId, updated);
+        await syncService.updateEventInGoogle(updated.parentId, updated).catch(() => {});
       } else {
-        const googleId = await syncService.pushEventToGoogle(updated.parentId, updated);
-        if (googleId) eventsService.setExternalId(updated.id, googleId, 'google');
+        const googleId = await syncService.pushEventToGoogle(updated.parentId, updated).catch(() => null);
+        if (googleId) eventsService.setExternalId(aid, googleId, 'google');
       }
     }
   } catch (error: any) {
@@ -47,14 +80,18 @@ eventsRouter.put('/events/:id', async (req, res) => {
   }
 });
 
-eventsRouter.delete('/events/:id', async (req, res) => {
+eventsRouter.delete('/events/:id', authenticateUser, async (req, res) => {
   try {
-    const event = eventsService.getEventById(req.params.id);
-    eventsService.deleteEvent(req.params.id);
+    const event = eventsService.getEventById(req.params.id as string);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    if (event.parentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const scope = (req.query.scope as string) === 'future' ? 'future' : 'one';
+    eventsService.deleteEvent(req.params.id as string, scope);
     res.json({ success: true });
 
-    if (event?.externalId) {
-      await syncService.deleteEventFromGoogle(event.parentId, event.externalId);
+    if (event.externalId) {
+      await syncService.deleteEventFromGoogle(event.parentId, event.externalId).catch(() => {});
     }
   } catch (error: any) {
     res.status(500).json({ error: error.message });
