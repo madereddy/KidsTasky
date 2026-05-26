@@ -1,13 +1,14 @@
 import { authService } from './services/auth';
 import { userService } from './services/users';
 import { categoryService } from './services/categories';
-import React, { useState, useEffect, useMemo } from 'react';
-import { LogOut, Rocket, User as UserIcon, Activity, CalendarDays, List, UtensilsCrossed } from 'lucide-react';
+import { settingsClientService } from './services/settings';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { LogOut, Rocket, User as UserIcon, Activity, CalendarDays, List, UtensilsCrossed, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, Category } from './types';
 import { cn } from './lib/utils';
 import { THEMES, MEMBER_COLORS } from './constants';
-import { initSocket } from './hooks/useSocket';
+import { initSocket, useSocketStaleData } from './hooks/useSocket';
 
 import { LoginView } from './components/auth/LoginView';
 import { OnboardingView } from './components/onboarding/OnboardingView';
@@ -16,6 +17,8 @@ import { KidDashboard } from './components/kid/KidDashboard';
 import { CalendarView } from './components/calendar/CalendarView';
 import { ListsView } from './components/lists/ListsView';
 import { MealPlanView } from './components/parent/MealPlanView';
+import { SettingsView } from './components/parent/SettingsView';
+import { ParentalLockOverlay } from './components/shared/ParentalLockOverlay';
 
 interface AppUser {
   uid: string;
@@ -33,6 +36,9 @@ export default function App() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<'tasks' | 'calendar' | 'lists' | 'meals'>('tasks');
   const [kids, setKids] = useState<UserProfile[]>([]);
+  const [isLocked, setIsLocked] = useState(false);
+  const [initError, setInitError] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -51,6 +57,8 @@ export default function App() {
               if (u.role === 'parent') {
                 const k = await userService.getKidsForParent(parentId);
                 setKids(k || []);
+                const settings = await settingsClientService.getSettings(parentId).catch(() => null);
+                if (settings?.isLocked) setIsLocked(true);
               }
             }
           } else {
@@ -58,7 +66,7 @@ export default function App() {
           }
         } catch (e) {
           console.error("Auth initialization failed (network or server error)", e);
-          // Do not log the user out (leave token intact) and possibly show a retry logic later.
+          setInitError(true);
         }
       }
       setLoading(false);
@@ -71,6 +79,21 @@ export default function App() {
     setUser(null);
     setProfile(null);
   };
+
+  const refreshCategories = useCallback(async () => {
+    if (!profile) return;
+    const parentId = profile.role === 'parent' ? profile.uid : profile.parentId;
+    if (parentId) {
+      const cats = await categoryService.getCategories(parentId);
+      setCategories(cats || []);
+    }
+  }, [profile]);
+
+  useSocketStaleData(useCallback((data: { entity: string }) => {
+    if (data.entity === 'categories') {
+      refreshCategories();
+    }
+  }, [refreshCategories]));
 
   const handleProfileUpdate = async () => {
     if (user) {
@@ -89,11 +112,31 @@ export default function App() {
 
   const currentThemeId = profile?.themeId || 'space';
   const currentTheme = THEMES.find(t => t.id === currentThemeId) || THEMES[0];
+  const isDarkTheme = !!currentTheme.vocab?.darkMode;
+
+  useEffect(() => {
+    if (!profile || profile.role !== 'parent' || isLocked) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const resetIdle = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setIsLocked(true), 10 * 60 * 1000);
+    };
+    window.addEventListener("mousemove", resetIdle);
+    window.addEventListener("keydown", resetIdle);
+    window.addEventListener("touchstart", resetIdle);
+    resetIdle();
+    return () => {
+      window.removeEventListener("mousemove", resetIdle);
+      window.removeEventListener("keydown", resetIdle);
+      window.removeEventListener("touchstart", resetIdle);
+      clearTimeout(timer);
+    };
+  }, [profile, isLocked]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <motion.div 
+      <div className="min-h-screen bg-ui-soft flex items-center justify-center">
+        <motion.div
           animate={{ scale: [1, 1.2, 1], rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
           className="w-16 h-16 border-4 border-sky-500 border-t-transparent rounded-full"
@@ -102,9 +145,23 @@ export default function App() {
     );
   }
 
+  if (initError) {
+    return (
+      <div className="min-h-screen bg-ui-soft flex items-center justify-center flex-col gap-4">
+        <p className="text-ui-muted font-medium">Failed to connect to server</p>
+        <button
+          onClick={() => { setInitError(false); setLoading(true); window.location.reload(); }}
+          className="px-6 py-3 bg-sky-500 text-white font-bold rounded-xl hover:bg-sky-400 transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-sky-500/30 overflow-x-hidden">
+      <div className="min-h-screen bg-ui-soft text-ui-primary selection:bg-sky-500/30 overflow-x-hidden">
         <LoginView 
           onLogin={async (email: string, passwordString: string, isRegister: boolean, name?: string) => {
             const res = isRegister ? await authService.register(email, passwordString, name || '') : await authService.signIn(email, passwordString);
@@ -139,7 +196,7 @@ export default function App() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-sky-500/30">
+      <div className="min-h-screen bg-ui-soft text-ui-primary selection:bg-sky-500/30">
         <OnboardingView 
           user={{ uid: user.uid, email: user.email, name: user.name }} 
           onComplete={async (p: UserProfile) => {
@@ -157,28 +214,28 @@ export default function App() {
   }
 
   return (
-    <div className={cn("min-h-screen selection:bg-sky-500/30 overflow-x-hidden pb-12 transition-colors duration-500", currentTheme.vocab?.darkMode ? "text-white" : "text-slate-900")} style={{ background: currentTheme.bg }}>
-      <header className={cn("sticky top-0 z-40 backdrop-blur-xl border-b mx-4 mt-4 rounded-[2rem] px-6 py-3 mb-8 shadow-sm", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-slate-200")}>
+    <div className={cn("min-h-screen selection:bg-sky-500/30 overflow-x-hidden pb-12 transition-colors duration-500", currentTheme.vocab?.darkMode ? "text-white theme-dark" : "text-ui-primary theme-light")} style={{ background: currentTheme.bg }}>
+      <header className={cn("sticky top-0 z-40 backdrop-blur-xl border-b mx-4 mt-4 rounded-[2rem] px-6 py-3 mb-8 shadow-sm", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-ui")}>
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3">
               <div className={cn("p-2 rounded-xl bg-gradient-to-br", `from-${currentTheme.primary} to-${currentTheme.accent}`, "shadow-sm")}>
                 <Rocket className={cn("w-6 h-6", currentTheme.vocab?.darkMode ? "text-white" : "text-white")} />
               </div>
-              <h1 className={cn("text-xl font-bold tracking-tight hidden sm:block", currentTheme.vocab?.textPrimary || "text-slate-800")}>
+              <h1 className={cn("text-xl font-bold tracking-tight hidden sm:block", currentTheme.vocab?.textPrimary || "text-ui-primary")}>
                 {profile.role === 'parent' ? 'Family Hub' : currentTheme.vocab?.hub || 'My Chores'}
               </h1>
             </div>
             
-            <div className="h-8 w-[1px] bg-slate-200 hidden sm:block" />
+            <div className="h-8 w-[1px] bg-ui-soft-3 hidden sm:block" />
 
             {profile?.role === 'parent' && (
-              <nav className="hidden md:flex gap-1 bg-slate-100 p-1 rounded-2xl">
+              <nav className={cn("hidden md:flex gap-1 p-1 rounded-2xl", isDarkTheme ? "bg-ui-dark-50" : "bg-ui-soft-2")}>
                 <button
                   onClick={() => setActiveSection('tasks')}
                   className={cn(
                     "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
-                    activeSection === 'tasks' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : "text-slate-500 hover:text-slate-900"
+                    activeSection === 'tasks' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary")
                   )}
                 >
                   Tasks
@@ -187,7 +244,7 @@ export default function App() {
                   onClick={() => setActiveSection('calendar')}
                   className={cn(
                     "px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5",
-                    activeSection === 'calendar' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : "text-slate-500 hover:text-slate-900"
+                    activeSection === 'calendar' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary")
                   )}
                 >
                   <CalendarDays className="w-4 h-4" /> Calendar
@@ -196,7 +253,7 @@ export default function App() {
                   onClick={() => setActiveSection('lists')}
                   className={cn(
                     "px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5",
-                    activeSection === 'lists' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : "text-slate-500 hover:text-slate-900"
+                    activeSection === 'lists' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary")
                   )}
                 >
                   <List className="w-4 h-4" /> Lists
@@ -205,7 +262,7 @@ export default function App() {
                   onClick={() => setActiveSection('meals')}
                   className={cn(
                     "px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5",
-                    activeSection === 'meals' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : "text-slate-500 hover:text-slate-900"
+                    activeSection === 'meals' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary")
                   )}
                 >
                   <UtensilsCrossed className="w-4 h-4" /> Meals
@@ -214,12 +271,12 @@ export default function App() {
             )}
 
             {profile?.role !== 'parent' && (
-              <nav className="hidden md:flex gap-1 bg-slate-100 p-1 rounded-2xl">
+              <nav className={cn("hidden md:flex gap-1 p-1 rounded-2xl", isDarkTheme ? "bg-ui-dark-50" : "bg-ui-soft-2")}>
                  <button
                    onClick={() => setSelectedCategoryId(null)}
                    className={cn(
                      "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
-                     !selectedCategoryId ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : "text-slate-500 hover:text-slate-900"
+                     !selectedCategoryId ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary")
                    )}
                  >
                    All
@@ -230,7 +287,7 @@ export default function App() {
                      onClick={() => setSelectedCategoryId(cat.id)}
                      className={cn(
                        "px-4 py-2 rounded-xl text-sm font-semibold transition-all gap-2 flex items-center",
-                       selectedCategoryId === cat.id ? cn(cat.color, "text-white shadow-sm") : "text-slate-500 hover:text-slate-900"
+                       selectedCategoryId === cat.id ? cn(cat.color, "text-white shadow-sm") : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary")
                      )}
                    >
                      <span>{cat.icon}</span>
@@ -242,15 +299,29 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
+            {profile?.role === 'parent' && (
+              <button
+                onClick={() => setShowSettings(true)}
+                className={cn(
+                  "p-2 rounded-full border transition-colors",
+                  isDarkTheme
+                    ? "text-ui-secondary border-ui-dark-3 hover:text-white hover:bg-ui-dark-2"
+                    : "text-ui-muted-2 border-ui hover:text-ui-primary hover:bg-ui-soft"
+                )}
+                title="Settings"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+            )}
             <div className="relative group">
-              <div className="w-10 h-10 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center text-slate-400 group-hover:text-sky-500 transition-colors cursor-pointer">
+              <div className="w-10 h-10 bg-ui-soft-2 border border-ui rounded-full flex items-center justify-center text-ui-muted-2 group-hover:text-sky-500 transition-colors cursor-pointer">
                 <UserIcon className="w-5 h-5" />
               </div>
             </div>
             
             <button 
               onClick={handleLogout}
-              className="p-2 text-slate-400 hover:text-rose-500 transition-colors hover:bg-rose-50 rounded-full"
+              className="p-2 text-ui-muted-2 hover:text-rose-500 transition-colors hover:bg-rose-50 rounded-full"
               title="Log Out"
             >
               <LogOut className="w-5 h-5" />
@@ -260,7 +331,7 @@ export default function App() {
 
         {/* Global Progress Line (Top Decoration) */}
         {profile.role === 'kid' && (
-          <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-100 px-8 rounded-b-[2rem] overflow-hidden">
+          <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-ui-soft-2 px-8 rounded-b-[2rem] overflow-hidden">
             <motion.div 
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
@@ -285,6 +356,11 @@ export default function App() {
                 categories={categories}
                 onCategoriesChange={setCategories}
                 selectedCategoryId={selectedCategoryId}
+                isLocked={isLocked}
+                onLockNow={async () => {
+                  await settingsClientService.lockDisplay(profile.uid);
+                  setIsLocked(true);
+                }}
               />
             </motion.div>
           )}
@@ -296,7 +372,13 @@ export default function App() {
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.3 }}
             >
-              <CalendarView parentId={profile.uid} kids={kids} memberColorMap={memberColorMap} />
+              <CalendarView 
+                parentId={profile.uid} 
+                kids={kids} 
+                memberColorMap={memberColorMap} 
+                isLocked={isLocked} 
+                userRole={profile.role} 
+              />
             </motion.div>
           )}
           {profile.role === 'parent' && activeSection === 'lists' && (
@@ -334,17 +416,36 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+      {profile.role === "parent" && isLocked && (
+        <ParentalLockOverlay
+          parentId={profile.uid}
+          onUnlock={() => setIsLocked(false)}
+        />
+      )}
+      {profile.role === "parent" && showSettings && (
+        <SettingsView
+          parentId={profile.uid}
+          onClose={() => setShowSettings(false)}
+          onLockNow={async () => {
+            await settingsClientService.lockDisplay(profile.uid);
+            setIsLocked(true);
+            setShowSettings(false);
+          }}
+        />
+      )}
 
-      <footer className="mt-20 pt-10 border-t border-slate-200 mx-6">
+      <footer className="mt-20 pt-10 border-t border-ui mx-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 pb-6">
           <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-emerald-500">
+            <div className="w-8 h-8 rounded-full bg-ui-soft-2 flex items-center justify-center text-emerald-500">
               <Activity className="w-4 h-4" />
             </div>
-            <p className="text-xs text-slate-500 font-medium">Synced</p>
+            <p className="text-xs text-ui-muted font-medium">Synced</p>
           </div>
         </div>
       </footer>
     </div>
   );
 }
+
+
