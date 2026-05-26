@@ -57,6 +57,7 @@ export interface Task {
   customInterval?: number; // Days for custom frequency
   prerequisiteTaskIds?: string[];
   starValue?: number;
+  requiresApproval?: boolean;
 }
 
 export interface TaskCompletion {
@@ -66,6 +67,7 @@ export interface TaskCompletion {
   completedAt: FirebaseTimestamp; // Firestore Timestamp
   dateString: string; // YYYY-MM-DD
   count?: number; // 1 or 2
+  approvalStatus?: 'pending' | 'approved' | 'rejected' | null;
 }
 
 export interface Invite {
@@ -130,6 +132,26 @@ export interface CalendarEvent {
   color: string;
   externalId?: string;
   source?: string;
+  sourceCalendarId?: string;
+  // New fields
+  isAllDay?: number;        // 0 or 1
+  masterId?: string;        // links recurring instances
+  recurrence?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+  recurrenceEnd?: string;   // YYYY-MM-DD
+  isCountdown?: number;     // 0 or 1
+  reminderMinutes?: number | null;
+}
+
+export interface RoutineTemplate {
+  id: string;
+  parentId: string;
+  title: string;
+  description?: string;
+  defaultStartTime?: string;
+  defaultDuration: number;
+  assignedToId?: string;
+  color: string;
+  createdAt: number;
 }
 
 export interface FamilySettings {
@@ -137,9 +159,12 @@ export interface FamilySettings {
   locationLat: number;
   locationLon: number;
   timezone: string;
+  temperatureUnit?: 'celsius' | 'fahrenheit';
+  timeFormat?: '12h' | '24h';
   pin?: string | null;
   sleepStart?: string;
   sleepEnd?: string;
+  isLocked?: boolean;
 }
 
 export interface SyncConnection {
@@ -148,6 +173,18 @@ export interface SyncConnection {
   provider: string;
   accessToken: string;
   refreshToken: string;
+}
+
+export interface SyncCalendar {
+  id: string;
+  connectionId: string;
+  parentId: string;
+  calendarId: string;
+  name: string;
+  enabled: number | boolean;
+  provider?: string;
+  color?: string;
+  isSharedCalendar?: number | boolean;
 }
 
 export interface AppList {
@@ -183,4 +220,11 @@ export interface FamilyPhoto {
   parentId: string;
   url: string;
   uploadedAt: string;
+  caption?: string;
+}
+
+export interface FeatureFlags {
+  wall_v2_layout: boolean;
+  sync_diagnostics: boolean;
+  calendar_visibility_profiles: boolean;
 }
