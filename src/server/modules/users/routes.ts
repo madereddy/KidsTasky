@@ -1,6 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { userService } from './service.js';
+import { inviteService } from '../invites/service.js';
+import { db } from '../../db.js';
+import { socketWrapper } from '../../socket.js';
+import { authenticateUser, getParentId } from '../../middleware/auth.js';
 
 export const usersRouter = Router();
 
@@ -28,6 +32,8 @@ usersRouter.post("/users", [
   body('name').isString().notEmpty(),
   body('email').isEmail().optional(),
   body('parentId').isString().optional(),
+  body('password').isString().optional(),
+  body('code').isString().optional(), // invite code for co-parent join
   body('xp').isInt({min: 0}).optional(),
   body('level').isInt({min: 1}).optional(),
   body('badges').isArray().optional(),
@@ -36,8 +42,60 @@ usersRouter.post("/users", [
   body('pin').isString().optional(),
   validate
 ], async (req: Request, res: Response) => {
+  // Co-parent join path: code present + invite type is 'coparent'
+  if (req.body.code) {
+    const invite = db.prepare("SELECT * FROM invites WHERE id = ? AND status = 'active'")
+      .get(req.body.code) as any;
+    if (!invite) return res.status(400).json({ error: 'Invalid or expired invite code' });
+
+    if (invite.type === 'coparent') {
+      if (!req.body.password) return res.status(400).json({ error: 'Password required for co-parent join' });
+      // Generate uid server-side — never trust client-supplied uid for security-critical join
+      const uid = 'user_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      await userService.createCoParent({
+        uid,
+        name: req.body.name,
+        email: req.body.email || '',
+        password: req.body.password,
+        parentId: invite.parentId,
+      });
+      inviteService.markInviteUsed(req.body.code);
+      return res.json({ success: true, uid });
+    }
+    // else: kid join — fall through to existing logic with invite.parentId
+  }
+
+  // Existing kid/parent create path
   await userService.createUser(req.body);
   res.json({ success: true });
+});
+
+// List co-parents for a family
+usersRouter.get("/parents/:parentId/coparents", authenticateUser, [
+  param('parentId').isString().notEmpty(),
+  validate
+], (req: Request, res: Response) => {
+  const userParentId = getParentId(req);
+  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
+  res.json(userService.getCoParents(req.params.parentId));
+});
+
+// Remove co-parent (owner only)
+usersRouter.delete("/users/:uid/coparent", authenticateUser, [
+  param('uid').isString().notEmpty(),
+  validate
+], (req: Request, res: Response) => {
+  const caller = (req as any).user;
+  // Only the family owner (uid === parentId) can remove co-parents
+  if (caller.uid !== caller.parentId) return res.status(403).json({ error: 'Only family owner can remove co-parent' });
+  try {
+    userService.removeCoParent(req.params.uid, caller.uid);
+    // Force-disconnect all active sessions for the removed co-parent
+    socketWrapper.emitToUser(req.params.uid, 'forceLogout');
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 usersRouter.post("/users/:uid/badge", [
