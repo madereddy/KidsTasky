@@ -89,9 +89,9 @@ usersRouter.delete("/users/:uid/coparent", authenticateUser, [
   // Only the family owner (uid === parentId) can remove co-parents
   if (caller.uid !== caller.parentId) return res.status(403).json({ error: 'Only family owner can remove co-parent' });
   try {
-    userService.removeCoParent(req.params.uid, caller.uid);
+    userService.removeCoParent(req.params.uid as string, caller.uid);
     // Force-disconnect all active sessions for the removed co-parent
-    socketWrapper.emitToUser(req.params.uid, 'forceLogout');
+    socketWrapper.emitToUser(req.params.uid as string, 'forceLogout');
     res.json({ success: true });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
