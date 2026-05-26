@@ -1,5 +1,5 @@
 # Stage 1: Build Environment
-FROM node:22-alpine AS builder
+FROM cgr.dev/chainguard/node:latest-dev AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ COPY . .
 RUN pnpm run build
 
 # Stage 2: Production Environment
-FROM node:22-alpine
+FROM cgr.dev/chainguard/node:latest
 
 WORKDIR /app
 
@@ -34,8 +34,8 @@ COPY --from=builder /app/dist ./dist
 
 # Create data directory for SQLite and set permissions
 USER root
-RUN mkdir -p /data && chown -R node:node /data /app
-USER node:node
+RUN mkdir -p /data && chown -R 65532:65532 /data /app
+USER 65532:65532
 
 # Expose the designated application port
 EXPOSE 3000
@@ -44,4 +44,4 @@ EXPOSE 3000
 ENV NODE_ENV=production
 
 # Start the Node.js application
-CMD ["node", "dist/server.js"]
+CMD ["dist/server.js"]
