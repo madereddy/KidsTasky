@@ -1,7 +1,10 @@
 # Stage 1: Build Environment
-FROM cgr.dev/chainguard/node:latest-dev AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
+
+# Enable pnpm
+RUN corepack enable pnpm
 
 # Copy dependency definitions
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -16,7 +19,7 @@ COPY . .
 RUN pnpm run build
 
 # Stage 2: Production Environment
-FROM cgr.dev/chainguard/node:latest
+FROM node:22-alpine
 
 WORKDIR /app
 
@@ -31,8 +34,8 @@ COPY --from=builder /app/dist ./dist
 
 # Create data directory for SQLite and set permissions
 USER root
-RUN mkdir -p /data && chown -R 65532:65532 /data /app
-USER 65532:65532
+RUN mkdir -p /data && chown -R node:node /data /app
+USER node:node
 
 # Expose the designated application port
 EXPOSE 3000
@@ -41,4 +44,4 @@ EXPOSE 3000
 ENV NODE_ENV=production
 
 # Start the Node.js application
-CMD ["dist/server.js"]
+CMD ["node", "dist/server.js"]
