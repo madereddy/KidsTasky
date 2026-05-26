@@ -84,13 +84,19 @@ CREATE INDEX IF NOT EXISTS idx_events_parent_start ON events(parentId, startTime
 - "Just this event" — update single row by id
 - "This and all future" — `UPDATE events SET ... WHERE masterId = X AND startTime >= thisEvent.startTime`
 
+**Time-change edits (scope=future):** if `startTime` or `endTime` changes, apply a delta rather than a literal value:
+```sql
+UPDATE events SET startTime = startTime + delta, endTime = endTime + delta, ... WHERE masterId = X AND startTime >= thisEvent.startTime
+```
+where `delta = newStartTime - thisEvent.startTime`. This preserves relative offsets between future instances. For non-time-change edits (title, color, etc.) a literal value UPDATE is correct.
+
 The `updateEvent` service method must include all new columns in its SET clause: `title, description, startTime, endTime, assignedToId, color, isAllDay, recurrence, recurrenceEnd, reminderMinutes, isCountdown`.
 
 **Delete scope:** same two options via `DELETE ... WHERE masterId = X AND startTime >= thisEvent.startTime`.
 
 **Google Calendar sync note:** KidsTasky uses the upfront-expansion strategy (individual rows, no RRULE). When "this and future" edit fires, each updated row gets an individual PATCH call to Google. The existing sync route already handles per-event external updates — no special handling needed beyond iterating the affected rows.
 
-**"This and future" orphaned head handling:** when scope=`future` targets a middle instance (not the first), the first part of the series becomes orphaned — it still has `masterId` set but the series is now shorter. Update the immediate predecessor's `recurrenceEnd` to `thisEvent.startTime - 1` to cap it. If no predecessor exists (targeting the first instance), set `masterId=null` and `recurrence='none'` on all remaining rows to convert them to one-time events, then re-issue them as a new series with a new `masterId`.
+**"This and future" orphaned head handling:** when scope=`future` targets a middle instance (not the first), the first part of the series becomes orphaned — it still has `masterId` set but the series is now shorter. Update the immediate predecessor's `recurrenceEnd` to `thisEvent.startTime - 1` to cap it. If no predecessor exists (targeting the first instance), generate a new UUID and UPDATE all surviving rows with `masterId = newUuid` directly — do NOT first null out `masterId` or clear `recurrence`. The surviving rows become a new series with the new UUID and retain their recurrence metadata.
 
 **`createEvent` column security:** the service must use an explicit named INSERT with all accepted columns rather than spreading `req.body`. The route must extract only the allowed fields before passing to the service.
 
@@ -362,7 +368,16 @@ CREATE TABLE IF NOT EXISTS family_notes (
 
 **Routes** (new module `src/server/modules/notes/`):
 - `GET /family-notes/:parentId` — returns note row or `{ content: '', updatedAt: null }`
-- `PUT /family-notes/:parentId` — upsert, requires auth, ownership check, sets `updatedByName` from JWT user name. Emits `staleData` on save.
+- `PUT /family-notes/:parentId` — upsert, requires auth, ownership check (`getParentId(req) === req.params.parentId`), sets `updatedByName` from JWT user name. Emits `staleData` on save. Must use explicit conflict-target SQL:
+  ```sql
+  INSERT INTO family_notes (id, parentId, content, updatedAt, updatedByName)
+  VALUES (?, ?, ?, ?, ?)
+  ON CONFLICT(parentId) DO UPDATE SET
+    content = excluded.content,
+    updatedAt = excluded.updatedAt,
+    updatedByName = excluded.updatedByName
+  ```
+  A plain `INSERT` or `INSERT OR REPLACE` without `ON CONFLICT(parentId)` will fail on the second save with a UNIQUE constraint error.
 
 **Component** `src/components/shared/FamilyNote.tsx`:
 - Yellow sticky-note aesthetic
