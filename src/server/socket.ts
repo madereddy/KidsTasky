@@ -1,15 +1,45 @@
 import { Server } from "socket.io";
+import jwt from 'jsonwebtoken';
+import { getJwtSecret } from './config.js';
 
 let io: Server;
+const userSocketMap = new Map<string, Set<string>>();
 
 export const socketWrapper = {
   init: (serverIo: Server) => {
     io = serverIo;
     io.on('connection', (socket) => {
-      // Client must emit 'join-room' with their parentId
-      socket.on('join-room', (parentId: string) => {
-        socket.join(parentId);
-        console.log(`Socket ${socket.id} joined room for parent: ${parentId}`);
+      socket.on('join-room', (parentId: string, token?: string) => {
+        try {
+          if (!token) {
+            console.warn(`Socket ${socket.id} join-room rejected: no token`);
+            return;
+          }
+          const payload = jwt.verify(token, getJwtSecret()) as { uid: string; role: string; parentId: string };
+          const expectedParentId = payload.role === 'parent' ? payload.uid : payload.parentId;
+          if (expectedParentId !== parentId) {
+            console.warn(`Socket ${socket.id} join-room rejected: parentId mismatch`);
+            return;
+          }
+          socket.join(parentId);
+
+          // Track uid -> socket mapping
+          const uid = payload.uid;
+          if (!userSocketMap.has(uid)) userSocketMap.set(uid, new Set());
+          userSocketMap.get(uid)!.add(socket.id);
+
+          console.log(`Socket ${socket.id} joined room for parent: ${parentId}`);
+        } catch (err) {
+          console.warn(`Socket ${socket.id} join-room rejected: invalid token`);
+        }
+      });
+
+      socket.on('disconnect', () => {
+        userSocketMap.forEach((ids, uid) => {
+          if (ids.delete(socket.id)) {
+            if (ids.size === 0) userSocketMap.delete(uid);
+          }
+        });
       });
     });
   },
@@ -17,6 +47,13 @@ export const socketWrapper = {
   emitStaleData: (parentId: string, entityType: string) => {
     if (io) {
       io.to(parentId).emit('stale-data', { entity: entityType, timestamp: Date.now() });
+    }
+  },
+
+  emitToUser: (uid: string, event: string, data?: any) => {
+    const socketIds = userSocketMap.get(uid);
+    if (socketIds && io) {
+      socketIds.forEach(socketId => io.to(socketId).emit(event, data));
     }
   }
 };
