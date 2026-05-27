@@ -94,8 +94,11 @@ photosRouter.delete("/photos/:id", requireAuth, (req, res) => {
   const parentId = (req as any).user?.role === "parent" ? (req as any).user.uid : (req as any).user?.parentId;
   const url = photosService.deletePhoto(String(req.params.id));
   if (url) {
+    const uploadsBase = path.resolve("uploads");
     const filePath = path.resolve(url.replace(/^\//, ""));
-    fs.unlink(filePath, () => {});
+    if (filePath.startsWith(uploadsBase + path.sep) || filePath.startsWith(uploadsBase + "/")) {
+      fs.unlink(filePath, () => {});
+    }
   }
   if (parentId) googleMediaCache.clearPrefix(`${parentId}:`);
   res.json({ success: true });

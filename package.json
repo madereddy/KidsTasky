@@ -7,8 +7,8 @@
     "start": "NODE_ENV=production node dist/server.js",
     "test": "vitest run",
     "dev": "tsx server.ts",
-    "build": "vite build && npm run build:server",
-    "build:server": "npx esbuild ././server.ts --bundle --platform=node --target=node24 --outfile=dist/server.js --format=esm --packages=external --loader:.sql=text && node -e \"require('fs').cpSync('src/server/migrations','dist/migrations',{recursive:true})\"",
+    "build": "vite build && pnpm run build:server",
+    "build:server": "esbuild server.ts --bundle --platform=node --target=node24 --outfile=dist/server.js --format=esm --packages=external --loader:.sql=text && node --input-type=commonjs -e \"require('fs').cpSync('src/server/migrations','dist/migrations',{recursive:true})\"",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"

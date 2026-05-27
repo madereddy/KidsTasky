@@ -39,7 +39,10 @@ export default defineConfig(({mode}) => {
     },
     test: {
       globals: true,
-      setupFiles: './src/setupTests.ts'
+      setupFiles: './src/setupTests.ts',
+      env: {
+        JWT_SECRET: 'test-secret'
+      }
     }
   };
 });

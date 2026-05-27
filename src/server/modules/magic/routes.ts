@@ -18,7 +18,9 @@ magicRouter.post('/magic/import', async (req, res) => {
           .createHmac('sha256', signingKey)
           .update(timestamp.concat(token))
           .digest('hex');
-      if (encodedToken !== signature) {
+      const expected = Buffer.from(encodedToken);
+      const provided = Buffer.from(String(signature));
+      if (expected.length !== provided.length || !crypto.timingSafeEqual(expected, provided)) {
         return res.status(401).json({ error: 'Invalid webhook signature' });
       }
     } else if (process.env.NODE_ENV === 'production' && signingKey) {
