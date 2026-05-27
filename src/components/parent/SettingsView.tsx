@@ -4,7 +4,7 @@ import { settingsClientService } from '../../services/settings';
 import { syncClientService, SyncNowResult } from '../../services/sync';
 import { userService } from '../../services/users';
 import { inviteService } from '../../services/invites';
-import { FamilySettings } from '../../types';
+import { FamilySettings, SyncCalendar } from '../../types';
 import { PhotoManager } from './PhotoManager';
 
 interface Props {
@@ -58,6 +58,9 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
   const [connectionId, setConnectionId] = useState<string | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   const [lastSyncStatus, setLastSyncStatus] = useState<string | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [calendars, setCalendars] = useState<SyncCalendar[]>([]);
+  const [calendarVisibility, setCalendarVisibility] = useState<Record<string, boolean>>({});
   const [coParents, setCoParents] = useState<{uid: string; name: string; email: string}[]>([]);
   const [coParentInvite, setCoParentInvite] = useState<{id: string} | null>(null);
   const [generatingCoInvite, setGeneratingCoInvite] = useState(false);
@@ -102,7 +105,18 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
   }, []);
 
   useEffect(() => {
-    syncClientService.getCalendars(parentId).then(() => {}).catch(() => {});
+    Promise.all([
+      settingsClientService.getCalendars(parentId).catch(() => []),
+      settingsClientService.getCalendarVisibility().catch(() => [])
+    ]).then(([calRes, visRes]) => {
+      setCalendars(calRes as SyncCalendar[]);
+      const visMap: Record<string, boolean> = {};
+      (visRes as Array<{ calendarId: string; isVisible: number }>).forEach(v => {
+        visMap[v.calendarId] = v.isVisible === 1;
+      });
+      setCalendarVisibility(visMap);
+    });
+
     // Load connections to surface lastSyncAt/lastSyncStatus
     fetch(`/api/settings/${parentId}/connections`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('kidtasker_token')}` },
@@ -194,6 +208,16 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
     }
   };
 
+  const handleToggleVisibility = async (calendarId: string) => {
+    const current = calendarVisibility[calendarId] ?? true;
+    const next = !current;
+    setCalendarVisibility(prev => ({ ...prev, [calendarId]: next }));
+    try {
+      await settingsClientService.setCalendarVisibility(calendarId, next);
+    } catch {
+      setCalendarVisibility(prev => ({ ...prev, [calendarId]: current }));
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -452,16 +476,51 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
               </p>
             )}
             {syncResult && syncResult.errors.length > 0 && (
-              <div className="mt-2 space-y-1">
-                {syncResult.errors.map((e, i) => (
-                  <p key={i} className="text-xs text-red-500 bg-red-50 rounded px-2 py-1">
-                    {e.calendarId !== 'connection' ? `Calendar ${e.calendarId}: ` : ''}{e.message}
-                  </p>
-                ))}
+              <div className="mt-3">
+                <button
+                  onClick={() => setShowDiagnostics(!showDiagnostics)}
+                  className="text-xs text-blue-600 font-medium hover:underline focus:outline-none"
+                >
+                  {showDiagnostics ? 'Hide Diagnostic' : 'Show Diagnostic'}
+                </button>
+                {showDiagnostics && (
+                  <div className="mt-2 space-y-1">
+                    {syncResult.errors.map((e, i) => (
+                      <p key={i} className="text-xs text-red-500 bg-red-50 rounded px-2 py-1 break-words">
+                        {e.calendarId !== 'connection' ? `Calendar ${e.calendarId}: ` : ''}{e.message}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {calendars.length > 0 && (
+              <div className="mt-4 border-t pt-4">
+                <h4 className="text-sm font-semibold text-ui-secondary mb-3">Wall Visibility</h4>
+                <div className="space-y-3">
+                  {calendars.map(cal => {
+                    const isVisible = calendarVisibility[cal.id] ?? true;
+                    return (
+                      <div key={cal.id} className="flex items-center justify-between text-sm">
+                        <span className="truncate pr-2 text-ui-primary flex-1">{cal.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-ui-muted">{isVisible ? 'Visible' : 'Hidden'}</span>
+                          <button
+                            onClick={() => handleToggleVisibility(cal.id)}
+                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isVisible ? 'bg-blue-500' : 'bg-gray-300'}`}
+                            aria-label={`Toggle visibility for ${cal.name}`}
+                          >
+                            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isVisible ? 'translate-x-4' : 'translate-x-0'}`} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </section>
-
           <section>
             <h3 className="font-bold text-ui-secondary mb-2">Family Photos</h3>
             <p className="text-xs text-ui-muted mb-3">These photos are used by the screensaver.</p>
