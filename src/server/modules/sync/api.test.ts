@@ -6,6 +6,8 @@ import { app } from '../../../../server.js';
 import { db } from '../../db.js';
 import jwt from 'jsonwebtoken';
 import { getJwtSecret } from '../../config.js';
+import { syncService } from './service.js';
+import { vi } from 'vitest';
 
 describe('Sync API', () => {
   const parentId = 'parent_123';
@@ -94,6 +96,16 @@ describe('Sync API', () => {
       'conn_test_5', parentId, 'google', 'token'
     );
 
+    const spy = vi.spyOn(syncService, 'syncGoogleConnectionNow').mockResolvedValue({
+      successCount: 0,
+      failureCount: 0,
+      errors: [],
+      startedAt: Date.now(),
+      finishedAt: Date.now(),
+      imported: 0,
+      updated: 0,
+    });
+
     const res = await request(app)
       .post('/api/sync/conn_test_5/now')
       .set('Authorization', `Bearer ${token}`);
@@ -101,13 +113,15 @@ describe('Sync API', () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({
       successCount: 0,
-      failureCount: 0, // Mock google calendar doesn't fail but returns no calendars
+      failureCount: 0,
       errors: [],
       imported: 0,
       updated: 0,
     });
     expect(typeof res.body.startedAt).toBe('number');
     expect(typeof res.body.finishedAt).toBe('number');
+
+    spy.mockRestore();
   });
 
   it('toggles a calendar off and removes imported events from that source calendar', async () => {
