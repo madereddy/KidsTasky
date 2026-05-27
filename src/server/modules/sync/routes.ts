@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { google } from 'googleapis';
-import { authenticateUser } from '../../middleware/auth.js';
+import { authenticateUser, getParentId } from '../../middleware/auth.js';
 import jwt from 'jsonwebtoken';
 import { getJwtSecret } from '../../config.js';
 import { syncService } from './service.js';
@@ -128,6 +128,20 @@ syncRouter.post('/sync/connect/manual', authenticateUser, (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: "Failed to save connection" });
+  }
+});
+
+syncRouter.post('/sync/:id/now', authenticateUser, async (req, res) => {
+  try {
+    const connection = syncService.getConnectionById(req.params.id);
+    if (!connection || connection.parentId !== getParentId(req)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const result = await syncService.syncGoogleConnectionNow(connection as any);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 

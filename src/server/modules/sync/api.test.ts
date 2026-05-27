@@ -89,6 +89,27 @@ describe('Sync API', () => {
     expect(typeof res.body.finishedAt).toBe('number');
   });
 
+  it('granular sync-now route returns SyncNowResult for a specific connection', async () => {
+    db.prepare('INSERT INTO sync_connections (id, parentId, provider, accessToken) VALUES (?, ?, ?, ?)').run(
+      'conn_test_5', parentId, 'google', 'token'
+    );
+
+    const res = await request(app)
+      .post('/api/sync/conn_test_5/now')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      successCount: 0,
+      failureCount: 0, // Mock google calendar doesn't fail but returns no calendars
+      errors: [],
+      imported: 0,
+      updated: 0,
+    });
+    expect(typeof res.body.startedAt).toBe('number');
+    expect(typeof res.body.finishedAt).toBe('number');
+  });
+
   it('toggles a calendar off and removes imported events from that source calendar', async () => {
     db.prepare('INSERT INTO sync_connections (id, parentId, provider, accessToken) VALUES (?, ?, ?, ?)').run(
       'conn_test_4', parentId, 'google', 'token'

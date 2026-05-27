@@ -1,16 +1,27 @@
 import { SyncCalendar } from '../types';
 import { fetchAPI } from './http';
 
-export type SyncNowResponse = {
-  success: boolean;
-  imported: number;
-  updated: number;
+export type SyncCalendarError = {
+  calendarId: string;
+  message: string;
+};
+
+export type SyncNowResult = {
   successCount: number;
   failureCount: number;
-  errors: Array<{ connectionId: string; calendarId: string; message: string }>;
-  connections: number;
+  errors: SyncCalendarError[];
   startedAt: number;
   finishedAt: number;
+  imported: number;
+  updated: number;
+};
+
+/**
+ * @deprecated Use SyncNowResult
+ */
+export type SyncNowResponse = SyncNowResult & {
+  success: boolean;
+  connections: number;
 };
 
 export const syncClientService = {
@@ -23,8 +34,8 @@ export const syncClientService = {
       body: JSON.stringify({ enabled }),
     }),
 
-  syncNow: (parentId: string): Promise<SyncNowResponse> =>
-    fetchAPI(`/settings/${parentId}/sync-now`, {
+  syncNow: (id: string): Promise<SyncNowResult> =>
+    fetchAPI(`/sync/${id}/now`, {
       method: 'POST',
     }),
 };

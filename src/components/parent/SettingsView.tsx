@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, MapPin, Globe, Moon, Lock, RefreshCw, CheckCircle, AlertTriangle, Users, Trash2 } from 'lucide-react';
 import { settingsClientService } from '../../services/settings';
-import { syncClientService, SyncNowResponse } from '../../services/sync';
+import { syncClientService, SyncNowResult } from '../../services/sync';
 import { userService } from '../../services/users';
 import { inviteService } from '../../services/invites';
 import { FamilySettings } from '../../types';
@@ -54,7 +54,8 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [syncingNow, setSyncingNow] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string>('');
-  const [syncResult, setSyncResult] = useState<SyncNowResponse | null>(null);
+  const [syncResult, setSyncResult] = useState<SyncNowResult | null>(null);
+  const [connectionId, setConnectionId] = useState<string | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   const [lastSyncStatus, setLastSyncStatus] = useState<string | null>(null);
   const [coParents, setCoParents] = useState<{uid: string; name: string; email: string}[]>([]);
@@ -107,7 +108,10 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
       headers: { Authorization: `Bearer ${localStorage.getItem('kidtasker_token')}` },
     })
       .then(r => r.json())
-      .then((conns: Array<{ lastSyncAt?: number; lastSyncStatus?: string }>) => {
+      .then((conns: Array<{ id: string; lastSyncAt?: number; lastSyncStatus?: string }>) => {
+        if (conns.length > 0) {
+          setConnectionId(conns[0].id);
+        }
         const withSync = conns.filter(c => c.lastSyncAt);
         if (withSync.length > 0) {
           const latest = withSync.reduce((a, b) => (a.lastSyncAt! > b.lastSyncAt! ? a : b));
@@ -166,11 +170,15 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
   };
 
   const handleSyncNow = async () => {
+    if (!connectionId) {
+      setSyncStatus('No Google connection found to sync.');
+      return;
+    }
     setSyncingNow(true);
     setSyncStatus('');
     setSyncResult(null);
     try {
-      const res = await syncClientService.syncNow(parentId);
+      const res = await syncClientService.syncNow(connectionId);
       setSyncResult(res);
       setLastSyncAt(res.finishedAt);
       setLastSyncStatus(res.failureCount === 0 ? 'ok' : res.successCount > 0 ? 'partial' : 'error');
@@ -185,6 +193,7 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
       setSyncingNow(false);
     }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex">
