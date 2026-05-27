@@ -135,10 +135,10 @@ git commit -m "feat: PWA manifest, icons, and service worker registration"
 - [ ] **Step 1: Read CalendarView to find calendarFilteredEvents and isWallMode**
 
 ```bash
-grep -n "calendarFilteredEvents\|filteredEvents\|isWallMode\|wallMode\|isCountdown" src/components/calendar/CalendarView.tsx | head -20
+grep -n "calendarFilteredEvents\|filteredEvents\|applyWallFilter\|isWallMode\|wallMode\|isCountdown" src/components/calendar/CalendarView.tsx | head -25
 ```
 
-Use whichever filtered array is used by the child view components (after member color + source calendar filters are applied). Do NOT use the raw `events` state — that ignores active filters and would show countdown chips for events the user has hidden.
+Use **`calendarFilteredEvents`** — the array after member color + source calendar filters are applied, but **before** `applyWallFilter` (today/week/allday). Do NOT use the post-`applyWallFilter` `filteredEvents` — the wall filter strips non-allday events which would hide countdown chips in `allday` mode. Do NOT use raw `events` state — that ignores member/source filters entirely.
 
 - [ ] **Step 2: Add countdown derivation**
 
@@ -279,7 +279,7 @@ describe('family notes', () => {
 
   it('returns empty note for new family', async () => {
     const res = await request(app)
-      .get(`/family-notes/${parentId}`)
+      .get(`/api/family-notes/${parentId}`)
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.content).toBe('');
@@ -287,12 +287,12 @@ describe('family notes', () => {
 
   it('saves note and retrieves it with updatedByName', async () => {
     await request(app)
-      .put(`/family-notes/${parentId}`)
+      .put(`/api/family-notes/${parentId}`)
       .set('Authorization', `Bearer ${token}`)
       .send({ content: 'Remember soccer practice Tuesday!' });
 
     const res = await request(app)
-      .get(`/family-notes/${parentId}`)
+      .get(`/api/family-notes/${parentId}`)
       .set('Authorization', `Bearer ${token}`);
     expect(res.body.content).toBe('Remember soccer practice Tuesday!');
     expect(res.body.updatedByName).toBe('TestUser');
@@ -743,7 +743,7 @@ export function AvatarPicker({ uid, current, onUpdated }: PickerProps) {
   async function uploadPhoto(file: File) {
     const formData = new FormData();
     formData.append('photo', file);
-    const res = await fetch('/photos/upload', {
+    const res = await fetch('/api/photos/upload', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${localStorage.getItem('kidtasker_token')}` },
       body: formData,
@@ -903,8 +903,8 @@ import { AvatarDisplay, AvatarPicker } from '../shared/AvatarPicker';
 const [editingAvatar, setEditingAvatar] = useState(false);
 // Track local avatar state so it updates without page refresh:
 const [localAvatar, setLocalAvatar] = useState<{ preset?: string; url?: string }>({
-  avatarPreset: profile.avatarPreset,
-  avatarUrl: profile.avatarUrl,
+  preset: profile.avatarPreset,
+  url: profile.avatarUrl,
 });
 
 // In header, replace initial-letter circle with:

@@ -97,7 +97,7 @@ describe('authenticateUser revokedAt', () => {
   });
 
   it('allows valid non-revoked token', async () => {
-    const res = await request(app).get('/auth/me').set('Authorization', `Bearer ${token}`);
+    const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`);
     expect(res.status).not.toBe(401);
   });
 
@@ -107,7 +107,7 @@ describe('authenticateUser revokedAt', () => {
     const revokedToken = jwt.sign({ uid, role: 'parent', parentId: uid, iat: issuedAt }, JWT_SECRET);
     // Revoke after token was issued
     db.prepare("UPDATE users SET revokedAt = ? WHERE uid = ?").run(Date.now(), uid);
-    const res = await request(app).get('/auth/me').set('Authorization', `Bearer ${revokedToken}`);
+    const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${revokedToken}`);
     expect(res.status).toBe(401);
   });
 
@@ -116,7 +116,7 @@ describe('authenticateUser revokedAt', () => {
     db.prepare("UPDATE users SET revokedAt = ? WHERE uid = ?").run(Date.now() - 5000, uid);
     const freshToken = jwt.sign({ uid, role: 'parent', parentId: uid }, JWT_SECRET);
     // freshToken.iat = now (in seconds), revokedAt = now-5000ms — fresh token iat*1000 > revokedAt
-    const res = await request(app).get('/auth/me').set('Authorization', `Bearer ${freshToken}`);
+    const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${freshToken}`);
     expect(res.status).not.toBe(401);
   });
 });
@@ -299,11 +299,13 @@ invitesRouter.post("/invites", [
   res.json({ id });
 });
 
-// Add: get active co-parent invite for a parent
-invitesRouter.get("/parents/:parentId/invites/coparent/active", [
+// Add: get active co-parent invite for a parent (authenticated, owner only)
+invitesRouter.get("/parents/:parentId/invites/coparent/active", authenticateUser, [
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
+  const userParentId = getParentId(req);
+  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
   const invite = db.prepare("SELECT * FROM invites WHERE parentId = ? AND type = 'coparent' AND status = 'active'")
     .get(req.params.parentId);
   res.json(invite || null);
@@ -353,7 +355,7 @@ describe('co-parent flow', () => {
   });
 
   it('creates co-parent invite via type param', async () => {
-    const res = await request(app).post('/invites')
+    const res = await request(app).post('/api/invites')
       .send({ parentId: ownerUid, parentName: 'Owner', type: 'coparent' });
     expect(res.status).toBe(200);
     expect(res.body.id).toHaveLength(6);
@@ -363,23 +365,24 @@ describe('co-parent flow', () => {
 
   it('co-parent joins via POST /users with code', async () => {
     // Create co-parent invite
-    const invRes = await request(app).post('/invites')
+    const invRes = await request(app).post('/api/invites')
       .send({ parentId: ownerUid, parentName: 'Owner', type: 'coparent' });
     const code = invRes.body.id;
 
-    // Join using POST /users with the code
-    const joinRes = await request(app).post('/users')
-      .send({ uid: 'cp_new_1', name: 'CoParent', email: 'cop@test.com', code, password: 'password123' });
+    // Join using POST /users with the code. Server generates uid server-side — use returned uid.
+    const joinRes = await request(app).post('/api/users')
+      .send({ name: 'CoParent', email: 'cop@test.com', code, password: 'password123' });
     expect(joinRes.status).toBe(200);
+    expect(joinRes.body.uid).toBeTruthy();
 
-    const user = db.prepare("SELECT role, parentId FROM users WHERE uid = 'cp_new_1'").get() as any;
+    const user = db.prepare("SELECT role, parentId FROM users WHERE uid = ?").get(joinRes.body.uid) as any;
     expect(user.role).toBe('parent');
     expect(user.parentId).toBe(ownerUid);
   });
 
   it('rejects invalid co-parent code', async () => {
-    const res = await request(app).post('/users')
-      .send({ uid: 'cp_new_2', name: 'Bad', email: 'bad@test.com', code: 'BADCOD', password: 'password123' });
+    const res = await request(app).post('/api/users')
+      .send({ name: 'Bad', email: 'bad@test.com', code: 'BADCOD', password: 'password123' });
     expect(res.status).toBe(400);
   });
 
@@ -389,13 +392,13 @@ describe('co-parent flow', () => {
       .run(ownerUid);
 
     // List
-    const listRes = await request(app).get(`/parents/${ownerUid}/coparents`)
+    const listRes = await request(app).get(`/api/parents/${ownerUid}/coparents`)
       .set('Authorization', `Bearer ${ownerToken}`);
     expect(listRes.status).toBe(200);
     expect(listRes.body.some((c: any) => c.uid === 'cp_new_3')).toBe(true);
 
     // Remove
-    const delRes = await request(app).delete('/users/cp_new_3/coparent')
+    const delRes = await request(app).delete('/api/users/cp_new_3/coparent')
       .set('Authorization', `Bearer ${ownerToken}`);
     expect(delRes.status).toBe(200);
     const user = db.prepare("SELECT revokedAt, parentId FROM users WHERE uid = 'cp_new_3'").get() as any;
@@ -456,8 +459,9 @@ try {
 In `src/server/modules/users/routes.ts`, modify the existing `POST /users` route to detect when a `code` is supplied and a co-parent invite exists:
 
 ```typescript
+// uid is optional: co-parent join generates uid server-side, existing kid/parent flows supply it
 usersRouter.post("/users", [
-  body('uid').isString().notEmpty(),
+  body('uid').isString().optional(),
   body('role').isString().optional(),
   body('name').isString().notEmpty(),
   body('email').isEmail().optional(),
@@ -738,7 +742,7 @@ if (!validateRes || validateRes.type !== 'coparent') {
 // Join via POST /users with code
 const joinRes = await fetchAPI('/users', {
   method: 'POST',
-  body: JSON.stringify({ uid: 'placeholder', name, email, password, code }),
+  body: JSON.stringify({ name, email, password, code }), // no uid — server generates it
 });
 // Login to get token
 const loginResult = await authService.login(email, password);

@@ -313,14 +313,14 @@ describe('push subscription endpoints', () => {
   });
 
   it('returns vapid public key', async () => {
-    const res = await request(app).get('/notifications/vapid-public-key');
+    const res = await request(app).get('/api/notifications/vapid-public-key');
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('publicKey');
   });
 
   it('subscribes a push endpoint', async () => {
     const res = await request(app)
-      .post('/notifications/subscribe')
+      .post('/api/notifications/subscribe')
       .set('Authorization', `Bearer ${token}`)
       .send({ endpoint: 'https://push.example.com/test', p256dh: 'abc123', auth: 'def456' });
     expect(res.status).toBe(200);
@@ -332,7 +332,7 @@ describe('push subscription endpoints', () => {
     db.prepare("INSERT INTO push_subscriptions (id, userId, parentId, endpoint, p256dh, auth, createdAt) VALUES ('s1', ?, ?, 'https://push.example.com/test', 'abc', 'def', ?)")
       .run(userId, parentId, Date.now());
     const res = await request(app)
-      .delete('/notifications/subscribe')
+      .delete('/api/notifications/subscribe')
       .send({ endpoint: 'https://push.example.com/test' });
     expect(res.status).toBe(200);
     const sub = db.prepare("SELECT * FROM push_subscriptions WHERE userId = ?").get(userId);
@@ -425,7 +425,7 @@ git commit -m "feat: push subscription API endpoints"
 cat src/server/worker.ts
 ```
 
-Note the existing pattern — likely uses `node-cron` with `cron.schedule`. The new reminder cron uses `setInterval` for simplicity; both coexist fine.
+Note the existing pattern — the cron jobs live inside the `startBackgroundWorker()` exported function. The new `setInterval` and `sendEventReminders` function must also go **inside** `startBackgroundWorker()`, not at module level. Place them after the existing cron job calls.
 
 - [ ] **Step 2: Add imports to worker.ts**
 
@@ -479,7 +479,10 @@ async function sendEventReminders() {
       .get(event.id, event.reminderMinutes);
     if (already) continue;
 
-    // Record before sending to prevent duplicates even if send fails
+    // Record BEFORE the member loop. Intent: all family members are notified in this one cron run.
+    // The PK (eventId, reminderMinutes) prevents future ticks from re-sending to anyone.
+    // If the loop fails mid-way, some members miss the notification — acceptable trade-off
+    // versus sending duplicate reminders. Do NOT move this inside the member loop.
     db.prepare("INSERT OR IGNORE INTO sent_reminders (eventId, reminderMinutes, sentAt) VALUES (?, ?, ?)")
       .run(event.id, event.reminderMinutes, now);
 
@@ -535,7 +538,7 @@ export async function subscribeToPush(): Promise<void> {
   const registration = await navigator.serviceWorker.register('/sw.js');
   await navigator.serviceWorker.ready;
 
-  const vapidRes = await fetch('/notifications/vapid-public-key');
+  const vapidRes = await fetch('/api/notifications/vapid-public-key');
   const { publicKey } = await vapidRes.json();
   if (!publicKey) return;
 
@@ -552,7 +555,7 @@ async function sendSubscriptionToServer(subscription: PushSubscription): Promise
   const token = localStorage.getItem('kidtasker_token');
   if (!token) return;
   const json = subscription.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
-  await fetch('/notifications/subscribe', {
+  await fetch('/api/notifications/subscribe', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -573,7 +576,7 @@ export async function unsubscribeFromPush(): Promise<void> {
   const subscription = await registration.pushManager.getSubscription();
   if (!subscription) return;
   // Unsubscribe from server BEFORE revoking locally — token still valid at this point
-  await fetch('/notifications/subscribe', {
+  await fetch('/api/notifications/subscribe', {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ endpoint: subscription.endpoint }),
