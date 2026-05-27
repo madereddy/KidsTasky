@@ -19,7 +19,13 @@ export const initSocket = (parentId: string) => {
   }
 };
 
-export const useSocketStaleData = (onStaleData: (data: { entity: string, timestamp: number }) => void) => {
+export type StaleDataEvent = {
+  entity?: string;
+  type?: string;
+  timestamp?: number;
+};
+
+export const useSocketStaleData = (onStaleData: (data: StaleDataEvent) => void) => {
   const callbackRef = useRef(onStaleData);
   callbackRef.current = onStaleData;
 

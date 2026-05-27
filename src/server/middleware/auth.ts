@@ -28,5 +28,12 @@ export const requireAuth = authenticateUser;
 
 export function getParentId(req: Request): string {
   const user = (req as any).user;
-  return user.role === 'parent' ? user.uid : user.parentId;
+  return user.parentId || user.uid;
+}
+
+export function enforceEditUnlocked(req: Request, res: Response, next: NextFunction) {
+  const parentId = getParentId(req);
+  const row = db.prepare('SELECT isLocked FROM family_settings WHERE parentId = ?').get(parentId) as { isLocked?: number } | undefined;
+  if (row?.isLocked) return res.status(423).json({ error: 'Display is locked for edits' });
+  next();
 }

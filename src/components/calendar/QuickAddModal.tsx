@@ -262,6 +262,18 @@ export function QuickAddModal({ onClose, onSubmit, kids, parentId, defaultDate, 
               <div>
                 <label className="block text-xs font-bold text-ui-muted uppercase tracking-wider mb-1.5">Assign To *</label>
                 <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setTaskAssignedKidId('all')}
+                    className={cn(
+                      "px-4 py-3 rounded-xl border-2 text-sm font-bold transition-all text-center",
+                      taskAssignedKidId === 'all'
+                        ? "border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700 shadow-sm"
+                        : "border-ui bg-ui-soft/30 text-ui-muted hover:border-ui-soft-strong hover:text-ui-secondary"
+                    )}
+                  >
+                    Up for Grabs
+                  </button>
                   {kids.map(k => (
                     <button
                       key={k.uid}

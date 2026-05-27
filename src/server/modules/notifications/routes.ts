@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { param, validationResult } from 'express-validator';
 import { notificationService } from './service.js';
 import { authenticateUser, getParentId } from '../../middleware/auth.js';
+import { db } from '../../db.js';
 
 export const notificationsRouter = Router();
 
@@ -35,4 +36,29 @@ notificationsRouter.put("/notifications/:id/read", authenticateUser, [
   }
   notificationService.markRead(req.params.id as string);
   res.json({ success: true });
+});
+
+notificationsRouter.get('/notifications/vapid-public-key', (req: Request, res: Response) => {
+  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
+});
+
+notificationsRouter.post('/notifications/subscribe', authenticateUser, (req: Request, res: Response) => {
+  const userId = (req as any).user.uid;
+  const parentId = getParentId(req);
+  const { endpoint, p256dh, auth } = req.body || {};
+  if (!endpoint || !p256dh || !auth) return res.status(400).json({ error: 'Missing subscription fields' });
+  const id = 'sub_' + Date.now().toString(36) + Math.random().toString(36).slice(2);
+  db.prepare(`
+    INSERT INTO push_subscriptions (id, userId, parentId, endpoint, p256dh, auth, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(endpoint) DO UPDATE SET userId = excluded.userId, parentId = excluded.parentId, p256dh = excluded.p256dh, auth = excluded.auth
+  `).run(id, userId, parentId, endpoint, p256dh, auth, Date.now());
+  return res.json({ success: true });
+});
+
+notificationsRouter.delete('/notifications/subscribe', (req: Request, res: Response) => {
+  const { endpoint } = req.body || {};
+  if (!endpoint) return res.status(400).json({ error: 'Missing endpoint' });
+  db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(endpoint);
+  return res.json({ success: true });
 });

@@ -8,10 +8,12 @@ import { format, startOfToday, isAfter, parse, addHours, subDays, differenceInDa
 import { Task, TaskCompletion, UserProfile, Category, Reward, ClaimedReward, BadgeDef } from '../../types';
 import { cn, parseTimestamp } from '../../lib/utils';
 import { THEMES, XP_REWARDS, BADGE_DEFS } from '../../constants';
-import { TaskCard } from './TaskCard';
+import { KidTaskBoard } from './KidTaskBoard';
 import { MissionHistoryModal } from './MissionHistoryModal';
 import { ThemeSelectorModal } from './ThemeSelectorModal';
 import { useSocketStaleData } from '../../hooks/useSocket';
+import { AvatarDisplay, AvatarPicker } from '../shared/AvatarPicker';
+import { FamilyNote } from '../shared/FamilyNote';
 
 export function KidDashboard({ 
   profile, 
@@ -33,10 +35,16 @@ export function KidDashboard({
   const today = format(startOfToday(), 'yyyy-MM-dd');
   const [unlockedBadge, setUnlockedBadge] = useState<BadgeDef | null>(null);
   const [sortBy, setSortBy] = useState<'time' | 'created'>('time');
+  const [taskView, setTaskView] = useState<'all' | 'upforgrabs' | 'assigned'>('all');
   const [showHistory, setShowHistory] = useState(false);
   const [showThemeSelector, setShowThemeSelector] = useState(false);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [claimedRewards, setClaimedRewards] = useState<ClaimedReward[]>([]);
+  const [editingAvatar, setEditingAvatar] = useState(false);
+  const [localAvatar, setLocalAvatar] = useState<{ preset?: string; url?: string }>({
+    preset: profile.avatarPreset,
+    url: profile.avatarUrl,
+  });
   
   // Task Confirmation & Animation
   const [confirmTask, setConfirmTask] = useState<{taskId: string, count?: number, xpReward: number, taskTitle: string} | null>(null);
@@ -46,9 +54,7 @@ export function KidDashboard({
 
   const currentTheme = THEMES.find(t => t.id === profile.themeId) || THEMES[0];
   const isDarkMode = !!currentTheme.vocab?.darkMode;
-  const tonePrimary = currentTheme.vocab?.textPrimary || (isDarkMode ? "text-ui-primary" : "text-ui-primary");
   const toneSecondary = currentTheme.vocab?.textSecondary || (isDarkMode ? "text-ui-muted-2" : "text-ui-muted");
-  const toneMuted = isDarkMode ? "text-ui-muted-2" : "text-ui-muted";
 
   const claimReward = async (rewardId: string, xpCost: number) => {
     try {
@@ -195,6 +201,24 @@ export function KidDashboard({
     }
   };
 
+  const skipTask = async (taskId: string, count?: number) => {
+    try {
+      await tasksClientService.skipTask(taskId, profile.uid, today, count);
+      setCompletions([...completions, {
+        id: `${taskId}_${today}_${count || 1}`,
+        taskId,
+        kidId: profile.uid,
+        completedAt: { seconds: Date.now() / 1000 },
+        dateString: today,
+        count,
+        approvalStatus: 'skipped'
+      }]);
+    } catch (e) {
+      console.error("Failed to skip task", e);
+      alert("Could not skip task. Please try again.");
+    }
+  };
+
   const executeCompletion = async () => {
     if (!confirmTask) return;
     const { taskId, count, xpReward } = confirmTask;
@@ -260,6 +284,23 @@ export function KidDashboard({
       }
       return parseTimestamp(b.createdAt).getTime() - parseTimestamp(a.createdAt).getTime();
     });
+  const upForGrabsTasks = filteredTasks.filter((t) => t.assignedKidId === 'all');
+  const assignedTasks = filteredTasks.filter((t) => t.assignedKidId !== 'all');
+  const taskSections = taskView === 'all'
+    ? [
+        { key: 'upforgrabs', title: 'Up for Grabs', titleClass: isDarkMode ? 'text-fuchsia-300' : 'text-fuchsia-700', tasks: upForGrabsTasks },
+        { key: 'assigned', title: 'Assigned to Me', titleClass: isDarkMode ? 'text-ui-secondary' : 'text-ui-muted', tasks: assignedTasks },
+      ]
+    : [
+        {
+          key: taskView,
+          title: taskView === 'upforgrabs' ? 'Up for Grabs' : 'Assigned to Me',
+          titleClass: taskView === 'upforgrabs'
+            ? (isDarkMode ? 'text-fuchsia-300' : 'text-fuchsia-700')
+            : (isDarkMode ? 'text-ui-secondary' : 'text-ui-muted'),
+          tasks: taskView === 'upforgrabs' ? upForGrabsTasks : assignedTasks,
+        },
+      ];
 
   const todayTasks = tasks.filter((t: Task) => shouldShowToday(t));
   const totalSlots = todayTasks.reduce((acc: number, t: Task) => acc + (t.frequency === 'twice-daily' ? 2 : 1), 0);
@@ -304,6 +345,14 @@ export function KidDashboard({
             <p className={cn("text-sm font-medium", toneSecondary)}>{currentTheme.vocab?.level || 'Level'} {profile.level || 1}</p>
           </div>
           <div className="flex gap-4 items-center relative z-10">
+            <button onClick={() => setEditingAvatar(true)}>
+              <AvatarDisplay
+                avatarPreset={localAvatar.preset ?? profile.avatarPreset}
+                avatarUrl={localAvatar.url ?? profile.avatarUrl}
+                name={profile.name}
+                size={48}
+              />
+            </button>
             <button 
               onClick={() => setShowThemeSelector(true)}
               className={cn("w-12 h-12 rounded-full flex items-center justify-center transition-colors border", currentTheme.vocab?.darkMode ? "bg-ui-dark-2 border-ui-dark-2 text-ui-muted-2 hover:text-white" : "bg-ui-soft border-ui-soft text-ui-muted-2 hover:text-ui-primary hover:bg-ui-soft-2")}
@@ -368,6 +417,7 @@ export function KidDashboard({
           </div>
         </div>
       </div>
+      <FamilyNote parentId={profile.parentId || profile.uid} readOnly={true} />
 
       <div className={cn("p-6 rounded-[3rem] border", currentTheme.vocab?.panelBg || "bg-amber-50", currentTheme.vocab?.panelBorder || "border-amber-100")}>
         <h3 className={cn("text-2xl font-bold mb-6", `text-${currentTheme.primary}`)}>{currentTheme.vocab?.rewards || 'Rewards'}</h3>
@@ -422,6 +472,35 @@ export function KidDashboard({
               <CalendarDays className="w-4 h-4" /> New
             </button>
           </div>
+          <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-black/20" : "bg-ui-soft")}>
+            <button
+              onClick={() => setTaskView('all')}
+              className={cn(
+                "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
+                taskView === 'all' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
+              )}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setTaskView('upforgrabs')}
+              className={cn(
+                "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
+                taskView === 'upforgrabs' ? (isDarkMode ? "bg-fuchsia-800 text-white" : "bg-fuchsia-100 text-fuchsia-800 shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
+              )}
+            >
+              Up for Grabs
+            </button>
+            <button
+              onClick={() => setTaskView('assigned')}
+              className={cn(
+                "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
+                taskView === 'assigned' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
+              )}
+            >
+              Assigned
+            </button>
+          </div>
         </div>
 
         <button 
@@ -450,59 +529,41 @@ export function KidDashboard({
             onClose={() => setShowThemeSelector(false)}
           />
         )}
-      </AnimatePresence>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filteredTasks.map((task: Task) => {
-          const urgency = getUrgency(task);
-          const category = categories.find(c => c.id === task.categoryId);
-          const locked = isTaskLocked(task);
-          
-          if (task.frequency === 'twice-daily') {
-            return (
-              <React.Fragment key={task.id}>
-                {[1, 2].map(slot => (
-                  <TaskCard 
-                    key={`${task.id}-${slot}`}
-                    task={task}
-                    isDone={isCompleted(task.id, slot)}
-                    completion={getCompletion(task.id, slot)}
-                    isLocked={locked}
-                    onToggle={() => toggleTask(task.id, isCompleted(task.id, slot), slot)}
-                    urgency={urgency}
-                    slotLabel={slot === 1 ? 'Morning' : 'Evening'}
-                    category={category}
-                    themeVocab={currentTheme.vocab}
-                    darkMode={currentTheme.vocab?.darkMode}
-                  />
-                ))}
-              </React.Fragment>
-            );
-          }
-
-          return (
-            <TaskCard 
-              key={task.id}
-              task={task}
-              isDone={isCompleted(task.id)}
-              completion={getCompletion(task.id)}
-              isLocked={locked}
-              onToggle={() => toggleTask(task.id, isCompleted(task.id))}
-              urgency={urgency}
-              category={category}
-              themeVocab={currentTheme.vocab}
-              darkMode={currentTheme.vocab?.darkMode}
-            />
-          );
-        })}
-
-        {filteredTasks.length === 0 && (
-          <div className={cn("col-span-full text-center py-20 rounded-[3rem]", currentTheme.vocab?.panelBg || "bg-white", currentTheme.vocab?.panelBorder ? `border ${currentTheme.vocab?.panelBorder}` : "shadow-sm")}>
-            <Award className={cn("w-20 h-20 mx-auto mb-4", isDarkMode ? "text-ui-muted" : "text-ui-secondary")} />
-            <p className={cn("text-lg font-bold", isDarkMode ? "text-ui-secondary" : "text-ui-muted-2")}>{currentTheme.vocab?.noTasks || "No chores right now. You're all caught up!"}</p>
+        {editingAvatar && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl p-6 w-80">
+              <h3 className="font-semibold mb-3 text-ui-primary">My Avatar</h3>
+              <AvatarPicker
+                uid={profile.uid}
+                current={{ ...profile, ...localAvatar, name: profile.name }}
+                onUpdated={(preset, url) => {
+                  setLocalAvatar({ preset: preset ?? undefined, url: url ?? undefined });
+                  setEditingAvatar(false);
+                }}
+              />
+              <button onClick={() => setEditingAvatar(false)} className="mt-3 text-sm text-gray-500">Cancel</button>
+            </div>
           </div>
         )}
-      </div>
+      </AnimatePresence>
+
+      <KidTaskBoard
+        sections={taskSections}
+        taskView={taskView}
+        filteredTasksLength={filteredTasks.length}
+        isDarkMode={isDarkMode}
+        panelBgClass={currentTheme.vocab?.panelBg}
+        panelBorderClass={currentTheme.vocab?.panelBorder}
+        noTasksText={currentTheme.vocab?.noTasks || "No chores right now. You're all caught up!"}
+        categories={categories}
+        themeVocab={currentTheme.vocab}
+        getUrgency={getUrgency}
+        isTaskLocked={isTaskLocked}
+        isCompleted={isCompleted}
+        getCompletion={getCompletion}
+        onToggleTask={toggleTask}
+        onSkipTask={skipTask}
+      />
 
       {progressPercent === 100 && totalSlots > 0 && (
         <motion.div 

@@ -16,6 +16,8 @@ export interface UserProfile {
   earnedStars?: number;
   spentStars?: number;
   color?: string;
+  avatarPreset?: string;
+  avatarUrl?: string;
 }
 
 export interface EarnedBadge {
@@ -67,7 +69,7 @@ export interface TaskCompletion {
   completedAt: FirebaseTimestamp; // Firestore Timestamp
   dateString: string; // YYYY-MM-DD
   count?: number; // 1 or 2
-  approvalStatus?: 'pending' | 'approved' | 'rejected' | null;
+  approvalStatus?: 'pending' | 'approved' | 'rejected' | 'skipped' | null;
 }
 
 export interface Invite {
@@ -153,6 +155,7 @@ export interface RoutineTemplate {
   assignedToId?: string;
   color: string;
   createdAt: number;
+  sortOrder?: number;
 }
 
 export interface FamilySettings {
@@ -166,6 +169,10 @@ export interface FamilySettings {
   sleepStart?: string;
   sleepEnd?: string;
   isLocked?: boolean;
+  photoCleanupEnabled?: boolean;
+  photoCleanupIntervalHours?: number;
+  googlePhotosEnabled?: boolean;
+  googlePhotosAlbumId?: string | null;
 }
 
 export interface SyncConnection {
@@ -174,6 +181,9 @@ export interface SyncConnection {
   provider: string;
   accessToken: string;
   refreshToken: string;
+  createdAt?: number;
+  lastSyncAt?: number | null;
+  lastSyncStatus?: 'ok' | 'partial' | 'error' | null;
 }
 
 export interface SyncCalendar {

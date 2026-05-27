@@ -1,5 +1,16 @@
 # Group D: Push Notifications Implementation Plan
 
+## Plan Status (2026-05-27)
+- PARTIALLY COMPLETED
+
+
+## Status Update (2026-05-27)
+
+- Completed: lock-safe mutation behavior is enforced before edit operations, reducing noisy mutation notifications while locked.
+- In progress: broadened real-time UI refresh coverage has been added for key calendar/task views using stale-data socket callbacks.
+- Remaining: any deeper push-notification reliability tuning should be handled as a separate hardening pass.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Web push notifications (VAPID) with email fallback for calendar event reminders and task overdue alerts.
@@ -653,3 +664,5 @@ Fix any type errors.
 git add -p
 git commit -m "fix: Group D type errors and test failures"
 ```
+
+

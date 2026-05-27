@@ -62,6 +62,11 @@ export const userService = {
     db.prepare('UPDATE users SET color = ? WHERE uid = ?').run(color, uid);
   },
 
+  setAvatar: (uid: string, avatarPreset: string | null, avatarUrl: string | null) => {
+    db.prepare('UPDATE users SET avatarPreset = ?, avatarUrl = ? WHERE uid = ?')
+      .run(avatarPreset, avatarUrl, uid);
+  },
+
   createCoParent: async (data: { uid: string; name: string; email: string; password: string; parentId: string }) => {
     const passwordHash = await bcrypt.hash(data.password, 10);
     db.prepare(`
@@ -81,7 +86,7 @@ export const userService = {
     
     // Clean up push subscriptions
     try {
-      db.prepare("DELETE FROM push_subscriptions WHERE uid = ?").run(uid);
+      db.prepare("DELETE FROM push_subscriptions WHERE userId = ?").run(uid);
     } catch { /* table created in Group D */ }
   },
 

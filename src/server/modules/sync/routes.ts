@@ -56,7 +56,10 @@ syncRouter.get('/sync/connect/google', (req, res) => {
 
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
-    scope: ['https://www.googleapis.com/auth/calendar.readonly'],
+    scope: [
+      'https://www.googleapis.com/auth/calendar.readonly',
+      'https://www.googleapis.com/auth/photoslibrary.readonly',
+    ],
     state: parentId, // pass parentId in state securely
     prompt: 'consent'
   });

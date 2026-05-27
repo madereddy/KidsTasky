@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import { taskServiceServer } from './service.js';
 import { db } from '../../db.js';
-import { authenticateUser, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, enforceEditUnlocked, getParentId } from '../../middleware/auth.js';
 
 export const tasksRouter = Router();
 
@@ -12,7 +12,7 @@ const validate = (req: Request, res: Response, next: any) => {
   next();
 };
 
-tasksRouter.post("/tasks", authenticateUser, [
+tasksRouter.post("/tasks", authenticateUser, enforceEditUnlocked, [
   body('title').isString().notEmpty(),
   body('assignedKidId').isString().notEmpty(),
   body('frequency').isString().notEmpty(),
@@ -73,7 +73,7 @@ tasksRouter.get("/parents/:parentId/tasks", authenticateUser, [
   }
 });
 
-tasksRouter.put("/tasks/:taskId/archive", authenticateUser, [
+tasksRouter.put("/tasks/:taskId/archive", authenticateUser, enforceEditUnlocked, [
   param('taskId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
@@ -91,7 +91,7 @@ tasksRouter.put("/tasks/:taskId/archive", authenticateUser, [
 });
 
 // Completions
-tasksRouter.post("/completions", authenticateUser, [
+tasksRouter.post("/completions", authenticateUser, enforceEditUnlocked, [
   body('taskId').isString().notEmpty(),
   body('kidId').isString().notEmpty(),
   body('dateString').isString().notEmpty(),
@@ -111,7 +111,7 @@ tasksRouter.post("/completions", authenticateUser, [
   }
 });
 
-tasksRouter.delete("/completions/:completionId", authenticateUser, [
+tasksRouter.delete("/completions/:completionId", authenticateUser, enforceEditUnlocked, [
   param('completionId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
@@ -125,6 +125,34 @@ tasksRouter.delete("/completions/:completionId", authenticateUser, [
     res.json({ success: true });
   } catch (error: any) {
     console.error('[tasks:delete_completion]', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+tasksRouter.post("/tasks/:taskId/skip", authenticateUser, enforceEditUnlocked, [
+  param('taskId').isString().notEmpty(),
+  body('kidId').isString().notEmpty(),
+  body('dateString').isString().notEmpty(),
+  body('count').isInt().optional(),
+  validate
+], (req: Request, res: Response) => {
+  try {
+    const task = taskServiceServer.getTaskById(req.params.taskId as string);
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    const userParentId = getParentId(req);
+    if (task.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
+    if (task.assignedKidId !== 'all' && task.assignedKidId !== req.body.kidId) {
+      return res.status(403).json({ error: 'Task not assigned to this kid' });
+    }
+    const result = taskServiceServer.skipTask({
+      taskId: req.params.taskId as string,
+      kidId: req.body.kidId as string,
+      dateString: req.body.dateString as string,
+      count: req.body.count,
+    });
+    res.json(result);
+  } catch (error: any) {
+    console.error('[tasks:skip]', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -200,7 +228,7 @@ tasksRouter.get("/parents/:parentId/pending-completions", authenticateUser, [
   }
 });
 
-tasksRouter.patch("/completions/:completionId/approve", authenticateUser, [
+tasksRouter.patch("/completions/:completionId/approve", authenticateUser, enforceEditUnlocked, [
   param('completionId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
@@ -217,7 +245,7 @@ tasksRouter.patch("/completions/:completionId/approve", authenticateUser, [
   }
 });
 
-tasksRouter.patch("/completions/:completionId/reject", authenticateUser, [
+tasksRouter.patch("/completions/:completionId/reject", authenticateUser, enforceEditUnlocked, [
   param('completionId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {

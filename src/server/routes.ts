@@ -17,6 +17,7 @@ import { syncRouter } from './modules/sync/routes.js';
 import { settingsRouter } from './modules/settings/routes.js';
 import { routinesRouter } from './modules/routines/routes.js';
 import { flagsRouter } from './modules/flags/routes.js';
+import { notesRouter } from './modules/notes/routes.js';
 
 const router = Router();
 
@@ -64,6 +65,7 @@ router.use(syncRouter);
 router.use(settingsRouter);
 router.use(routinesRouter);
 router.use(flagsRouter);
+router.use(notesRouter);
 
 export const apiRouter = router;
 

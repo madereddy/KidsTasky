@@ -1,93 +1,129 @@
-# KidTasker Architecture & Developer Guide
+# KidTasky Architecture
 
-Welcome to the KidTasker codebase! This document serves as the compass for any developer onboarding onto the code. The application has been built prioritizing a local-first, low-dependency philosophy, meaning everything required for production runs entirely inside this repository—no external cloud databases to manage.
+## Scope
+This document reflects the current production behavior of the legacy-in-flight codebase and tracks migration direction without rewriting core behavior.
 
-## Overview of the Stack
-KidTasker combines extreme deployment simplicity with high developer velocity.
+## Phase 1: Behavioral Inventory
 
-*   **Frontend**: React 19, TypeScript, Vite. (Includes `lucide-react` for iconography and `motion` for beautiful standard framer animations).
-*   **Styling**: Tailwind CSS v4 using utility classes directly. Note: There is almost zero custom CSS needed, we inject Tailwind natively.
-*   **Backend**: Node.js, Express, Socket.io (for real-time synchronization).
-*   **Smart Parsing**: Uses Gemini API integrated via Webhooks to map natural language directly to `eventsService`.
-*   **External Integrations**: Optional 2-way Google Calendar synchronization and Open-Meteo SDK for weather forecasts.
-*   **Database**: SQLite (`better-sqlite3`). Bypasses heavy ORMs, opting for ultra-fast raw parameterized SQL queries handled securely inside Express.
+### 1. Authentication and Family Membership (confidence: high)
+- Feature: parent and kid login, invite-based joining, co-parent support.
+- Inputs: email/password, invite code, JWT bearer tokens.
+- Outputs: authenticated profile, family-scoped access.
+- Side effects: user/invite writes, token issuance, token revocation checks.
+- Contracts: `uid`, `role`, `parentId` define family boundary.
 
-> **Want to learn how to set up integrations like Google Calendar Sync?** Check out the [Setup Guide](docs/SETUP_GUIDE.md).
+### 2. Tasks and Kid Tasking (confidence: high)
+- Feature: parent creates tasks, kids claim/complete, parent approvals.
+- Inputs: task payload, assignment (`kid uid` or `all`), completion actions.
+- Outputs: task lists by role and state.
+- Side effects: task rows, completion rows, socket stale-data broadcasts.
+- Contracts: completion `approvalStatus` includes `pending|approved|rejected|skipped`.
 
----
+### 3. Routines (confidence: high)
+- Feature: routine templates and generated routine tasks.
+- Inputs: template CRUD, reorder payload.
+- Outputs: ordered template views and routine task generation.
+- Side effects: persistent `sortOrder` updates.
+- Contracts: reorder endpoint expects family-scoped ordered IDs.
 
-## Code Modularization Strategy
+### 4. Rewards and Stars (confidence: high)
+- Feature: star economy, reward catalog and redemption flow.
+- Inputs: reward/task mutation calls.
+- Outputs: balances and reward states.
+- Side effects: star updates and reward logs.
+- Contracts: skip flow does not grant stars.
 
-The codebase adheres strictly to horizontal separation of concerns:
+### 5. Calendar and Wall Mode (confidence: high)
+- Feature: event CRUD, recurring/all-day/countdown support, wall-oriented views.
+- Inputs: event payload (including recurrence/reminder/countdown fields).
+- Outputs: family calendar views by mode/filter.
+- Side effects: event writes, sync jobs, stale-data refetch.
+- Contracts: recurring scope semantics (`one` vs `future`) on mutation paths.
 
-### 1. The Backend (`/src/server/`)
-Our backend is split into logically decoupled modules so that they can be easily containerized or managed independently in the future.
-*   `server.ts` -> **The Orchestrator**. Simply pulls in Express, mounts the React build hooks, and attaches the master router. Sets up Socket.io connection.
-*   `src/server/db.ts` -> **The Storage Engine**. Exports the `db` singleton. Sets up the SQLite database mapping to `:memory:` during testing. Runs migrations automatically on boot.
-*   `src/server/socket.ts` -> **The Realtime Manager**. Defines namespaces/rooms for sockets and exposes the ability for controllers to broadcast `stale-data` events whenever mutations occur.
-*   `src/server/modules/` -> **The Domain Modules**. The true backbone of the system. Each domain (e.g., `auth`, `users`, `tasks`, `rewards`, `weather`, `sync`) gets its own folder with a `routes.ts` (for REST presentation) and `service.ts` (encapsulating raw SQL queries via `db.ts`). This allows HTTP parsing to completely decouple from database operations.
-*   `src/server/routes.ts` -> **The Master Router**. Gathers routes from `src/server/modules/*/routes.ts` and bundles them into `apiRouter`. Also injects the magical `socketWrapper.emitStaleData` hook automatically intercepting `POST`, `PUT`, `DELETE` methods out of convention to ease frontend synchronization.
-*   `src/server/worker.ts` -> **The Cron**. Contains the natively spinning `startBackgroundWorker()` interval, used for flagging overdue tasks, regenerating streaks, and routinely polling any integrated third-party platforms (like Google Calendar).
+### 6. Shared Lists and Meals (confidence: high)
+- Feature: collaborative family lists and meal planning.
+- Inputs: list/meal CRUD.
+- Outputs: family-scoped items.
+- Side effects: writes + stale-data broadcasts.
+- Contracts: parent edit-lock blocks mutations.
 
-### 2. The Frontend Layer (`/src/services/` and `/src/components/`)
-*   **Data Services (`/src/services/`)**: The backbone of the UI. It translates TypeScript structs into cleanly chunked modular REST clients bound to the Express environment. We have individual files (`auth.ts`, `tasks.ts`, `rewards.ts`, etc.) mapping to each domain, inheriting a base `http.ts` caller rather than throwing `fetch()` blocks into every React component.
-*   **Component Structure (`/src/components/`)**: The UI component hierarchy is split domain-first (`/parent/`, `/kid/`, `/onboarding/`, `/auth/`). This drastically speeds up developer navigation and encapsulates logic where it clearly belongs.
+### 7. Notes and Photos (confidence: medium)
+- Feature: family pinboard note, local photo upload/storage, optional Google Photos album display.
+- Inputs: note content, multipart upload.
+- Outputs: note state and photo URLs.
+- Side effects: sqlite metadata writes, file storage updates, scheduled hard-delete cleanup for orphaned photo artifacts.
+- Contracts: upload path persistence and auth-scoped retrieval.
 
-### 3. The Test Lifecycle
-The project relies on **Vitest**.
-*   **Frontend Testing** (`src/App.test.tsx`, `src/services/taskService.test.ts`): We mock the actual backend calls to completely seal the UI testing environment, ensuring tests complete in ~40ms using `jsdom`.
-*   **Backend Testing** (`server.test.ts`): Built specifically on standard Node utilizing `supertest`. During `beforeEach()`, we assert `db.prepare('DELETE FROM tasks')` guaranteeing idempotent pipeline validity across API boundary checks.
+### 8. Notifications and Worker (confidence: medium)
+- Feature: push/email channels with background checks.
+- Inputs: subscription payloads, reminder windows.
+- Outputs: push/email attempt outcomes.
+- Side effects: subscription writes, reminder-send tracking.
+- Contracts: one-reminder-per-event/reminder pairing.
 
----
+### 9. External Integrations (confidence: medium)
+- Google Calendar sync (import/export), weather feeds, magic email ingestion.
+- Inputs: provider credentials/webhooks.
+- Outputs: imported events/weather, parsed updates.
+- Side effects: network calls, sync metadata writes.
+- Contracts: integrations are optional and must fail safely without blocking core app flows.
 
-## File Navigational Guide
-```text
-Root
-│── package.json          # Node modules, Vite / Express script definitions.
-│── server.ts             # Application Entry Point (Ports, Build static routing)
-│── Dockerfile            # Multi-stage CI structure
-│── docker-compose.yml    # Development compose mount with volumes attached
-│
-└── src/
-    │── App.tsx           # Primary React entry boundary containing UI Flow
-    │── types.ts          # Vital shared Domain objects (Users, Tasks, Badges, etc)
-    │
-    ├── components/       # Domain-separated React components
-    │   ├── auth/         # Login Views
-    │   ├── parent/       # Parent Dashboard & Management Modals
-    │   ├── kid/          # Kid Dashboard & Theme/History Modals
-    │   └── onboarding/   # Initial Setup Flow
-    │
-    ├── server/           # Natively run Backend components
-    │   ├── db.ts         # SQLite Singleton
-    │   ├── routes.ts     # Master Express Route Bundler with generic stale-data Socket interceptor
-    │   ├── socket.ts     # Centralizes Socket.io rooms and emit functions
-    │   ├── worker.ts     # Asynchronous Overdue Task Manager & Periodic Sync
-    │   └── modules/      # Independent Domain API logic
-    │       ├── auth/     
-    │       ├── magic/    # Webhook signature validation and Gemini AI text parsing
-    │       ├── sync/     # Google API polling logic and OAuth routines
-    │       ├── weather/  # Open-Meteo SDK integration
-    │       ├── meals/    # Recipe mapping and parsing
-    │       ├── photos/   # Upload storage tracking
-    │       ├── tasks/    # Each contains `routes.ts` and `service.ts`
-    │       └── ...
-    │
-    └── services/         # Modular HTTP Data-Fetching Client
-        ├── auth.ts       # Maps UI -> Backend
-        ├── tasks.ts
-        ├── http.ts       # Shared configured JSON Fetch client
-        └── ...
+## Phase 2: Targeted Clarification
+Only low/medium-confidence and non-code constraints are listed here.
+
+### Clarifications resolved (2026-05-27)
+1. Notifications reliability target: near-exact timing is sufficient; small drift is acceptable.
+2. Photo retention policy: hard delete removed photos/users' photo artifacts on a configured cleanup schedule.
+3. Google sync conflict policy: latest-write-wins.
+4. Worker scheduling tolerance: near-exact is sufficient; minor cron drift is acceptable.
+
+### Constraint assumptions (until confirmed)
+- Uptime target: best-effort home deployment, no strict enterprise SLA.
+- Scale target: one family per deployment, low to moderate concurrent device count.
+- Compliance target: no special regulated-data requirements beyond family privacy.
+- Failure tolerance: local-first behavior should continue even when all integrations are down.
+- Data lifecycle: deleted photo assets should be permanently removed by scheduled cleanup tasks.
+
+## Runtime Architecture
+- API aggregator: `src/server/routes.ts`
+- Domain modules: `src/server/modules/*`
+- Cross-device updates: socket stale-data events and client refetch
+- Data layer: SQLite + migration files in `src/server/migrations`
+- Frontend services: `src/services/*`
+- Feature surfaces: `src/components/{parent,kid,calendar,shared,...}`
+
+## Guardrails Already in Place
+- Parent edit lock enforced server-side on mutation routes.
+- Family scoping by authenticated `parentId` boundary.
+- Incremental modularization of large dashboard task surfaces:
+  - `KidTaskBoard`
+  - `ParentTaskBoard`
+
+## Strangler-Fig Migration Direction
+1. Keep module boundaries stable (`routes -> service -> db`).
+2. Extract hot paths into narrower service contracts without changing API behavior.
+3. Add regression tests before each boundary refactor.
+4. Shift UI feature blocks into isolated components behind existing service calls.
+5. Maintain rollback per increment using reversible DB migrations + compose image tags.
+
+## Rebuild and Recovery Runbook
+1. Native dependency refresh:
+```bash
+pnpm rebuild better-sqlite3
 ```
-
-## Adding a New Feature (Developer Workflow)
-
-If you are a developer looking to add a new "Feature" to KidTasker (for instance, **"Pets"** that level up when kids get XP):
-
-1.  **Define the Schema (`db.ts`)**: Append a simple `CREATE TABLE IF NOT EXISTS pets (...)`
-2.  **Define the Type (`types.ts`)**: Add your `interface Pet { id: string }`
-3.  **Build the Module (`modules/pets/`)**: Add a `service.ts` for database CRUD logic and a `routes.ts` file mapping explicit inputs to `apiRouter.post('/kids/:kidId/pets')`. Register the new module in `server/routes.ts`.
-4.  **Expose to Service (`services/pets.ts`)**: Add a client side mapping `export const petsService = { createPet(...) { fetchAPI(...) } }`.
-5.  **Inject into React (`components/kid/`)**: Import the function and bind it dynamically, utilizing robust Tailwind colors!
-
-*Happy building!*
+2. App validation:
+```bash
+pnpm exec tsc --noEmit
+pnpm build
+```
+3. Container rebuild/relaunch:
+```bash
+docker compose build
+docker compose down
+docker compose up -d
+docker compose ps
+```
+4. If runtime issue appears, inspect:
+```bash
+docker compose logs --tail=300 webapp
+```

@@ -13,7 +13,7 @@ export const taskServiceServer = {
   },
   
   getKidsTasks: (kidId: string) => {
-    return db.prepare("SELECT * FROM tasks WHERE assignedKidId = ? AND status = 'active' ORDER BY createdAt DESC").all(kidId);
+    return db.prepare("SELECT * FROM tasks WHERE (assignedKidId = ? OR assignedKidId = 'all') AND status = 'active' ORDER BY createdAt DESC").all(kidId);
   },
   
   getParentsTasks: (parentId: string) => {
@@ -48,6 +48,16 @@ export const taskServiceServer = {
       db.prepare('UPDATE users SET earnedStars = earnedStars + ? WHERE uid = ?').run(stars, data.kidId);
     }
     return { id, approvalStatus };
+  },
+
+  skipTask: (data: { taskId: string; kidId: string; dateString: string; count?: number }) => {
+    const id = `${data.taskId}_${data.dateString}_${data.count || 1}`;
+    db.prepare(`
+      INSERT INTO completions (id, taskId, kidId, completedAt, dateString, count, approvalStatus)
+      VALUES (?, ?, ?, ?, ?, ?, 'skipped')
+      ON CONFLICT(id) DO UPDATE SET approvalStatus = 'skipped', completedAt = excluded.completedAt
+    `).run(id, data.taskId, data.kidId, Date.now(), data.dateString, data.count || null);
+    return { id };
   },
 
   deleteCompletion: (completionId: string) => {

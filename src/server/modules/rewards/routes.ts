@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { rewardService } from './service.js';
-import { authenticateUser, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, enforceEditUnlocked, getParentId } from '../../middleware/auth.js';
 import { db } from '../../db.js';
 
 export const rewardsRouter = Router();
@@ -22,7 +22,7 @@ rewardsRouter.get("/parents/:parentId/rewards", authenticateUser, [
   res.json(rewards);
 });
 
-rewardsRouter.post("/rewards", authenticateUser, [
+rewardsRouter.post("/rewards", authenticateUser, enforceEditUnlocked, [
   body('title').isString().notEmpty(),
   body('description').isString().optional(),
   body('xpCost').isInt({min: 0}),
@@ -34,7 +34,7 @@ rewardsRouter.post("/rewards", authenticateUser, [
   res.json({ id });
 });
 
-rewardsRouter.delete("/rewards/:id", authenticateUser, [
+rewardsRouter.delete("/rewards/:id", authenticateUser, enforceEditUnlocked, [
   param('id').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
@@ -62,7 +62,7 @@ rewardsRouter.get("/kids/:kidId/claimedRewards", authenticateUser, [
   res.json(claimed.map((c: any) => ({ ...c, createdAt: { seconds: c.createdAt / 1000 } })));
 });
 
-rewardsRouter.post("/claimedRewards", authenticateUser, [
+rewardsRouter.post("/claimedRewards", authenticateUser, enforceEditUnlocked, [
   body('kidId').isString().notEmpty(),
   body('rewardId').isString().notEmpty(),
   body('xpCost').isInt({min: 0}),
@@ -93,7 +93,7 @@ rewardsRouter.get("/parents/:parentId/allowances", authenticateUser, [
   res.json(entries);
 });
 
-rewardsRouter.put("/allowances/:id/pay", authenticateUser, [
+rewardsRouter.put("/allowances/:id/pay", authenticateUser, enforceEditUnlocked, [
   param('id').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {

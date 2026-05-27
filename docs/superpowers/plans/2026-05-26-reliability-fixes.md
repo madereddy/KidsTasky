@@ -1,5 +1,17 @@
 # Reliability Fixes Implementation Plan
 
+## Plan Status (2026-05-27)
+- COMPLETED
+
+
+## Status Update (2026-05-27)
+
+- Completed: critical data-integrity/runtime fix for co-parent cleanup (push_subscriptions.userId delete path corrected).
+- Completed: edit-lock guard middleware (enforceEditUnlocked) now protects core mutation routes (tasks, routines, events, lists, rewards).
+- Completed: local container rebuild and compose relaunch validated after these changes.
+- Remaining: existing unrelated auth test failures still require separate investigation.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fix 14 reliability issues (auth gaps, data integrity bugs, frontend error handling) to make KidsTasky safe for long-term family use.
@@ -649,3 +661,5 @@ Expected: PASS
 ```
 feat: add retry with exponential backoff for transient HTTP failures
 ```
+
+

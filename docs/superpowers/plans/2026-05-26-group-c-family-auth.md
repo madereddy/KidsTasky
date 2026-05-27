@@ -1,5 +1,17 @@
 # Group C: Family & Auth Implementation Plan
 
+## Plan Status (2026-05-27)
+- COMPLETED
+
+
+## Status Update (2026-05-27)
+
+- Completed: task approval pipeline is active end-to-end with pending/approved/rejected status surfaces.
+- Completed: task model extended with skipped completion status to support skip semantics without stars.
+- Completed: parent and kid surfaces now expose Up for Grabs tasks explicitly.
+- Remaining: no critical auth blockers tied to this plan in current code path.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add co-parent accounts (second adult sharing a family), task approval UI, and proper token revocation.
@@ -923,3 +935,5 @@ Fix any type errors.
 git add -p
 git commit -m "fix: Group C type errors and test failures"
 ```
+
+

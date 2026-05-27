@@ -1,5 +1,17 @@
 # Group E: Polish Implementation Plan
 
+## Plan Status (2026-05-27)
+- COMPLETED
+
+
+## Status Update (2026-05-27)
+
+- Completed: kid and parent experiences now show stronger task context (Up for Grabs, skipped-state badges, claim-oriented flows).
+- Completed: KidDashboard task area refactored into modular section rendering and extracted KidTaskBoard component.
+- Completed: ParentDashboard task area extracted into ParentTaskBoard for cleaner future feature extension.
+- Remaining: incremental visual polish is optional; architecture is now cleaner for iteration.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** PWA installability, countdown widgets in calendar, family pinboard (single sticky note per family), and kid avatars (preset emoji or photo upload).
@@ -1029,3 +1041,5 @@ Fix any type errors.
 git add -p
 git commit -m "fix: Group E type errors and test failures"
 ```
+
+

@@ -1,5 +1,17 @@
 # Group B — Family Wall Experience Implementation Plan
 
+## Plan Status (2026-05-27)
+- COMPLETED
+
+
+## Status Update (2026-05-27)
+
+- Completed: wall-mode quick add, calendar visibility profiles, and wall summary widgets (weather/meals/lists/countdowns).
+- Completed: routine templates now support persistent ordering and drag-and-drop reordering.
+- Completed: wall views now refresh faster across devices via stale-data socket refetch in CalendarView.
+- Remaining: optional wall UX refinements only.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Enhance the KidsTasky "Wall Mode" into a production-ready home hub with sync diagnostics, per-parent calendar visibility, and a unified touch-first Quick Add panel.
@@ -235,3 +247,5 @@ git commit -m "feat: Settings UI diagnostic and visibility enhancements"
 git add src/components/calendar/CalendarView.tsx
 git commit -m "feat: CalendarView integration for QuickAdd and visibility"
 ```
+
+

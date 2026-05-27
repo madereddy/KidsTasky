@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS family_notes (
+  id TEXT PRIMARY KEY,
+  parentId TEXT NOT NULL UNIQUE,
+  content TEXT NOT NULL DEFAULT '',
+  updatedByName TEXT NOT NULL DEFAULT '',
+  updatedAt INTEGER NOT NULL
+);

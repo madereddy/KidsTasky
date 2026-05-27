@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateUser, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, enforceEditUnlocked, getParentId } from '../../middleware/auth.js';
 import { routinesService } from './service.js';
 
 export const routinesRouter = Router();
@@ -11,7 +11,7 @@ routinesRouter.get('/parents/:parentId/routines', authenticateUser, (req, res) =
   res.json(templates);
 });
 
-routinesRouter.post('/parents/:parentId/routines', authenticateUser, (req, res) => {
+routinesRouter.post('/parents/:parentId/routines', authenticateUser, enforceEditUnlocked, (req, res) => {
   const userParentId = getParentId(req);
   if (userParentId !== (req.params.parentId as string)) return res.status(403).json({ error: 'Forbidden' });
   const { title, description, defaultStartTime, defaultDuration, assignedToId, color } = req.body;
@@ -28,11 +28,19 @@ routinesRouter.post('/parents/:parentId/routines', authenticateUser, (req, res) 
   res.json({ id });
 });
 
-routinesRouter.delete('/routines/:id', authenticateUser, (req, res) => {
+routinesRouter.delete('/routines/:id', authenticateUser, enforceEditUnlocked, (req, res) => {
   const template = routinesService.getTemplateById(req.params.id as string);
   if (!template) return res.status(404).json({ error: 'Not found' });
   const userParentId = getParentId(req);
   if (template.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
   routinesService.deleteTemplate(req.params.id as string);
+  res.json({ success: true });
+});
+
+routinesRouter.put('/parents/:parentId/routines/reorder', authenticateUser, enforceEditUnlocked, (req, res) => {
+  const userParentId = getParentId(req);
+  if (userParentId !== (req.params.parentId as string)) return res.status(403).json({ error: 'Forbidden' });
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
+  routinesService.reorderTemplates(userParentId, ids);
   res.json({ success: true });
 });

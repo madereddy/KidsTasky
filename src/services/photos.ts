@@ -27,5 +27,9 @@ export const photosClientService = {
   updateCaption: (id: string, caption: string): Promise<{ success: boolean }> =>
     fetchAPI(`/photos/${id}/caption`, { method: "PUT", body: JSON.stringify({ caption }) }),
   deletePhoto: (id: string): Promise<{ success: boolean }> =>
-    fetchAPI(`/photos/${id}`, { method: "DELETE" })
+    fetchAPI(`/photos/${id}`, { method: "DELETE" }),
+  getGoogleAlbums: (parentId: string): Promise<Array<{ id: string; title: string; mediaItemsCount: number; coverPhotoBaseUrl: string | null }>> =>
+    fetchAPI(`/parents/${parentId}/google-photos/albums`),
+  getGoogleAlbumMedia: (parentId: string, albumId: string, limit = 30): Promise<Array<{ id: string; baseUrl: string; filename?: string }>> =>
+    fetchAPI(`/parents/${parentId}/google-photos/albums/${albumId}/media?limit=${limit}`),
 };

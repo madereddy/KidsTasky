@@ -63,4 +63,11 @@ export const userService = {
   async removeCoParent(uid: string): Promise<void> {
     await fetchAPI(`/users/${uid}/coparent`, { method: 'DELETE' });
   },
+
+  async updateAvatar(uid: string, avatarPreset: string | null, avatarUrl: string | null): Promise<void> {
+    await fetchAPI(`/users/${uid}/avatar`, {
+      method: 'PUT',
+      body: JSON.stringify({ avatarPreset, avatarUrl })
+    });
+  },
 };

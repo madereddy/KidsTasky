@@ -2,11 +2,16 @@ import { format, parse, isAfter, startOfDay, differenceInDays } from "date-fns";
 import { db } from "./db.js";
 import cron from "node-cron";
 import { app } from "../../server.js";
+import fs from 'fs';
+import path from 'path';
 import imaps from 'imap-simple';
 import { simpleParser } from 'mailparser';
 import ical from 'node-ical';
 import { magicService } from './modules/magic/service.js';
 import { syncService } from './modules/sync/service.js';
+import { sendPushToUser } from './modules/notifications/pushService.js';
+import { sendEmail } from './modules/notifications/emailService.js';
+import { ensurePhotosUploadsDir } from './modules/photos/storage.js';
 
 function getIo() {
   return app ? app.get("io") : null;
@@ -15,6 +20,78 @@ function getIo() {
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 export function startBackgroundWorker() {
+  const lastPhotoCleanupRun = new Map<string, number>();
+  const REMINDER_WINDOW_MS = 60_000;
+  const MAX_NOTIFICATION_CONCURRENCY = 4;
+
+  async function runWithConcurrency<T>(
+    items: T[],
+    workerFn: (item: T) => Promise<void>,
+    concurrency = MAX_NOTIFICATION_CONCURRENCY
+  ) {
+    const queue = [...items];
+    const runners = new Array(Math.max(1, concurrency)).fill(null).map(async () => {
+      while (queue.length > 0) {
+        const item = queue.shift();
+        if (!item) return;
+        try {
+          await workerFn(item);
+        } catch (e) {
+          console.error('[worker] async worker item failed:', e);
+        }
+      }
+    });
+    await Promise.all(runners);
+  }
+
+  setInterval(async () => {
+    try {
+      await sendEventReminders();
+    } catch (e) {
+      console.error('[worker] reminder error:', e);
+    }
+  }, REMINDER_WINDOW_MS);
+
+  async function sendEventReminders() {
+    const now = Date.now();
+    const events = db.prepare(`
+      SELECT e.id, e.title, e.startTime, e.reminderMinutes, e.parentId,
+             fs.timezone as familyTimezone
+      FROM events e
+      JOIN family_settings fs ON e.parentId = fs.parentId
+      WHERE e.reminderMinutes IS NOT NULL
+        AND e.startTime > ?
+    `).all(now - REMINDER_WINDOW_MS) as any[];
+
+    for (const event of events) {
+      const reminderMs = Number(event.reminderMinutes) * 60 * 1000;
+      const fireAt = Number(event.startTime) - reminderMs;
+      if (Math.abs(now - fireAt) > REMINDER_WINDOW_MS) continue;
+
+      const already = db.prepare('SELECT 1 FROM sent_reminders WHERE eventId = ? AND reminderMinutes = ?')
+        .get(event.id, event.reminderMinutes);
+      if (already) continue;
+
+      db.prepare('INSERT OR IGNORE INTO sent_reminders (eventId, reminderMinutes, sentAt) VALUES (?, ?, ?)')
+        .run(event.id, event.reminderMinutes, now);
+
+      const title = `Reminder: ${event.title}`;
+      const body = Number(event.reminderMinutes) === 0
+        ? 'Starting now'
+        : `Starting in ${event.reminderMinutes} minute${Number(event.reminderMinutes) !== 1 ? 's' : ''}`;
+      const payload = { title, body, tag: `event-${event.id}` };
+
+      const members = db.prepare('SELECT uid, email FROM users WHERE parentId = ? OR uid = ?')
+        .all(event.parentId, event.parentId) as Array<{ uid: string; email?: string }>;
+      await runWithConcurrency(members, async (member) => {
+        const pushed = await sendPushToUser(member.uid, payload);
+        if (!pushed && member.email) {
+          await sendEmail(member.email, title, body);
+        }
+      });
+    }
+  }
+
   setInterval(() => {
     console.log("[Worker] Checking for overdue tasks...");
     try {
@@ -22,9 +99,33 @@ export function startBackgroundWorker() {
       const now = new Date();
       
       const tasks = db.prepare("SELECT * FROM tasks WHERE status = 'active'").all() as any[];
+      const dueTasks = tasks.filter((task) => !!task.reminderTime);
+      if (dueTasks.length === 0) return;
 
-      for (const task of tasks) {
-        if (!task.reminderTime) continue;
+      const taskIdToTask = new Map<string, any>(tasks.map((t) => [t.id, t]));
+      const kidIds = Array.from(new Set(dueTasks.map((t) => t.assignedKidId).filter(Boolean)));
+      const kidNameById = new Map<string, string>(
+        kidIds.length === 0
+          ? []
+          : (db.prepare(
+            `SELECT uid, name FROM users WHERE uid IN (${kidIds.map(() => '?').join(',')})`
+          ).all(...kidIds) as Array<{ uid: string; name: string }>).map((k) => [k.uid, k.name])
+      );
+
+      const completionRows = db.prepare(`
+        SELECT taskId, dateString, COUNT(*) as completionCount
+        FROM completions
+        WHERE dateString = ?
+          AND taskId IN (${dueTasks.map(() => '?').join(',')})
+        GROUP BY taskId, dateString
+      `).all(today, ...dueTasks.map((t) => t.id)) as Array<{ taskId: string; dateString: string; completionCount: number }>;
+      const completionCountByTaskDate = new Map<string, number>(
+        completionRows.map((r) => [`${r.taskId}:${r.dateString}`, Number(r.completionCount) || 0])
+      );
+      const createdNotifIds = new Set<string>();
+      const parentIdsWithNewNotifications = new Set<string>();
+
+      for (const task of dueTasks) {
 
         let scheduledForToday = false;
         if (task.frequency === 'daily' || task.frequency === 'twice-daily') {
@@ -41,19 +142,19 @@ export function startBackgroundWorker() {
 
         const reminderDate = parse(task.reminderTime, 'HH:mm', now);
         if (isAfter(now, reminderDate)) {
-          const completions = db.prepare("SELECT * FROM completions WHERE taskId = ? AND dateString = ?").all(task.id, today);
-          const isCompleted = task.frequency === 'twice-daily' ? completions.length >= 2 : completions.length >= 1;
+          const taskCompletionCount = completionCountByTaskDate.get(`${task.id}:${today}`) || 0;
+          const isCompleted = task.frequency === 'twice-daily' ? taskCompletionCount >= 2 : taskCompletionCount >= 1;
           if (!isCompleted) {
             let isLocked = false;
             if (task.prerequisiteTaskIds) {
               try {
                 const prereqIds = JSON.parse(task.prerequisiteTaskIds);
                 for (const pid of prereqIds) {
-                  const pTask = tasks.find(t => t.id === pid);
+                  const pTask = taskIdToTask.get(pid);
                   if (pTask) {
                     const reqCount = pTask.frequency === 'twice-daily' ? 2 : 1;
-                    const pComps = db.prepare("SELECT * FROM completions WHERE taskId = ? AND dateString = ?").all(pid, today);
-                    if (pComps.length < reqCount) { isLocked = true; break; }
+                    const prereqCompletionCount = completionCountByTaskDate.get(`${pid}:${today}`) || 0;
+                    if (prereqCompletionCount < reqCount) { isLocked = true; break; }
                   }
                 }
               } catch (e) {}
@@ -61,15 +162,75 @@ export function startBackgroundWorker() {
             if (isLocked) continue;
 
             const notifId = `overdue_${task.id}_${today}`;
-            if (!db.prepare("SELECT id FROM notifications WHERE id = ?").get(notifId)) {
-              const kid = db.prepare("SELECT name FROM users WHERE uid = ?").get(task.assignedKidId) as any;
-              db.prepare(`INSERT INTO notifications (id, parentId, kidId, taskId, taskTitle, kidName, type, status, createdAt, dateString) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(notifId, task.parentId, task.assignedKidId, task.id, task.title, kid ? kid.name : 'Cadet', 'overdue', 'unread', Date.now(), today);
+            if (createdNotifIds.has(notifId)) continue;
+            const kidName = kidNameById.get(task.assignedKidId) || 'Cadet';
+            const result = db.prepare(`INSERT OR IGNORE INTO notifications (id, parentId, kidId, taskId, taskTitle, kidName, type, status, createdAt, dateString) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(notifId, task.parentId, task.assignedKidId, task.id, task.title, kidName, 'overdue', 'unread', Date.now(), today);
+            if (result.changes > 0) {
+              createdNotifIds.add(notifId);
+              parentIdsWithNewNotifications.add(task.parentId);
             }
           }
         }
       }
+      for (const parentId of parentIdsWithNewNotifications) {
+        getIo()?.to(parentId).emit('stale-data', { type: 'notifications' });
+      }
     } catch (error) { console.error("[Worker Error]", error); }
   }, 5 * 60 * 1000); 
+
+  setInterval(() => {
+    try {
+      const families = db.prepare(`
+        SELECT parentId, photoCleanupEnabled, photoCleanupIntervalHours
+        FROM family_settings
+      `).all() as Array<{ parentId: string; photoCleanupEnabled?: number; photoCleanupIntervalHours?: number }>;
+
+      const now = Date.now();
+      let shouldRunGlobalOrphanSweep = false;
+      for (const family of families) {
+        if (!family.parentId || Number(family.photoCleanupEnabled ?? 1) !== 1) continue;
+        const intervalHours = Math.max(1, Number(family.photoCleanupIntervalHours || 24));
+        const intervalMs = intervalHours * 60 * 60 * 1000;
+        const lastRun = lastPhotoCleanupRun.get(family.parentId) ?? 0;
+        if (now - lastRun < intervalMs) continue;
+
+        const photos = db.prepare('SELECT id, url FROM family_photos WHERE parentId = ?')
+          .all(family.parentId) as Array<{ id: string; url: string }>;
+
+        const parentExists = db.prepare('SELECT 1 FROM users WHERE uid = ?').get(family.parentId);
+        for (const photo of photos) {
+          const shouldRemove = !parentExists;
+          const localPath = path.resolve(photo.url.replace(/^\//, ''));
+          if (shouldRemove) {
+            db.prepare('DELETE FROM family_photos WHERE id = ?').run(photo.id);
+            fs.unlink(localPath, () => {});
+            continue;
+          }
+          if (!fs.existsSync(localPath)) {
+            db.prepare('DELETE FROM family_photos WHERE id = ?').run(photo.id);
+          }
+        }
+        shouldRunGlobalOrphanSweep = true;
+        lastPhotoCleanupRun.set(family.parentId, now);
+      }
+
+      if (shouldRunGlobalOrphanSweep) {
+        const uploadsDir = ensurePhotosUploadsDir();
+        const trackedFiles = new Set(
+          (db.prepare("SELECT url FROM family_photos WHERE url LIKE '/uploads/photos/%'")
+            .all() as Array<{ url: string }>)
+            .map((r) => path.basename(r.url))
+        );
+        for (const file of fs.readdirSync(uploadsDir)) {
+          if (!trackedFiles.has(file)) {
+            fs.unlink(path.join(uploadsDir, file), () => {});
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[worker] photo cleanup error:', error);
+    }
+  }, 15 * 60 * 1000);
 
   cron.schedule("*/5 * * * *", async () => {
     console.log("[Worker] Start Multi-Source Sync...");
@@ -99,13 +260,19 @@ export function startBackgroundWorker() {
       for (const conn of icalConns) {
         if (!conn.icalUrl) continue;
         const webEvents = await ical.fromURL(conn.icalUrl);
+        const existingExternalIds = new Set(
+          (db.prepare("SELECT externalId FROM events WHERE parentId = ? AND source = 'ical' AND externalId IS NOT NULL")
+            .all(conn.parentId) as Array<{ externalId: string }>)
+            .map((row) => row.externalId)
+        );
         let changes = false;
         for (const k in webEvents) {
           const ev: any = webEvents[k];
           if (!ev || ev.type !== 'VEVENT' || !ev.summary || !ev.start || !ev.end) continue;
           const eId = "ical_" + (ev.uid || k);
-          if (!db.prepare("SELECT id FROM events WHERE externalId = ?").get(eId)) {
+          if (!existingExternalIds.has(eId)) {
             db.prepare(`INSERT INTO events (id, parentId, title, description, startTime, endTime, assignedToId, color, externalId, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(eId, conn.parentId, ev.summary, ev.description || '', new Date(ev.start).getTime(), new Date(ev.end).getTime(), null, 'purple', eId, 'ical');
+            existingExternalIds.add(eId);
             changes = true;
           }
         }

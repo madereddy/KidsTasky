@@ -4,6 +4,7 @@ import { settingsClientService } from '../../services/settings';
 import { syncClientService, SyncNowResult } from '../../services/sync';
 import { userService } from '../../services/users';
 import { inviteService } from '../../services/invites';
+import { photosClientService } from '../../services/photos';
 import { FamilySettings, SyncCalendar } from '../../types';
 import { PhotoManager } from './PhotoManager';
 
@@ -65,6 +66,13 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
   const [coParentInvite, setCoParentInvite] = useState<{id: string} | null>(null);
   const [generatingCoInvite, setGeneratingCoInvite] = useState(false);
   const [coInviteCopied, setCoInviteCopied] = useState(false);
+  const [photoCleanupEnabled, setPhotoCleanupEnabled] = useState(true);
+  const [photoCleanupIntervalHours, setPhotoCleanupIntervalHours] = useState(24);
+  const [googlePhotosEnabled, setGooglePhotosEnabled] = useState(false);
+  const [googlePhotosAlbumId, setGooglePhotosAlbumId] = useState<string>('');
+  const [googleAlbums, setGoogleAlbums] = useState<Array<{ id: string; title: string; mediaItemsCount: number; coverPhotoBaseUrl: string | null }>>([]);
+  const [loadingGoogleAlbums, setLoadingGoogleAlbums] = useState(false);
+  const [googleAlbumsError, setGoogleAlbumsError] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -92,8 +100,25 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
       setSleepStart(s.sleepStart || '21:00');
       setSleepEnd(s.sleepEnd || '07:00');
       if (s.pin) setPin(s.pin);
+      setPhotoCleanupEnabled(s.photoCleanupEnabled ?? true);
+      setPhotoCleanupIntervalHours(s.photoCleanupIntervalHours ?? 24);
+      setGooglePhotosEnabled(Boolean(s.googlePhotosEnabled));
+      setGooglePhotosAlbumId(s.googlePhotosAlbumId || '');
     }).catch(() => {});
   }, [parentId]);
+
+  useEffect(() => {
+    setGoogleAlbumsError('');
+    if (!googlePhotosEnabled) return;
+    setLoadingGoogleAlbums(true);
+    photosClientService.getGoogleAlbums(parentId)
+      .then((albums) => setGoogleAlbums(albums || []))
+      .catch((e: any) => {
+        setGoogleAlbums([]);
+        setGoogleAlbumsError(e?.message || 'Could not load albums');
+      })
+      .finally(() => setLoadingGoogleAlbums(false));
+  }, [parentId, googlePhotosEnabled]);
 
   useEffect(() => {
     try {
@@ -111,8 +136,8 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
     ]).then(([calRes, visRes]) => {
       setCalendars(calRes as SyncCalendar[]);
       const visMap: Record<string, boolean> = {};
-      (visRes as Array<{ calendarId: string; isVisible: number }>).forEach(v => {
-        visMap[v.calendarId] = v.isVisible === 1;
+      (visRes as Array<{ calendarId: string; isVisible: number | boolean }>).forEach(v => {
+        visMap[v.calendarId] = Number(v.isVisible) === 1;
       });
       setCalendarVisibility(visMap);
     });
@@ -174,6 +199,10 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
         sleepStart,
         sleepEnd,
         pin: pin || null,
+        photoCleanupEnabled,
+        photoCleanupIntervalHours: Math.max(1, photoCleanupIntervalHours),
+        googlePhotosEnabled,
+        googlePhotosAlbumId: googlePhotosEnabled ? (googlePhotosAlbumId || null) : null,
       };
       await settingsClientService.saveSettings(parentId, data);
       onSaved?.({ parentId, ...data } as FamilySettings);
@@ -500,14 +529,14 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
                 <h4 className="text-sm font-semibold text-ui-secondary mb-3">Wall Visibility</h4>
                 <div className="space-y-3">
                   {calendars.map(cal => {
-                    const isVisible = calendarVisibility[cal.id] ?? true;
+                    const isVisible = calendarVisibility[cal.calendarId] ?? true;
                     return (
                       <div key={cal.id} className="flex items-center justify-between text-sm">
                         <span className="truncate pr-2 text-ui-primary flex-1">{cal.name}</span>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-ui-muted">{isVisible ? 'Visible' : 'Hidden'}</span>
                           <button
-                            onClick={() => handleToggleVisibility(cal.id)}
+                            onClick={() => handleToggleVisibility(cal.calendarId)}
                             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isVisible ? 'bg-blue-500' : 'bg-gray-300'}`}
                             aria-label={`Toggle visibility for ${cal.name}`}
                           >
@@ -524,7 +553,78 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
           <section>
             <h3 className="font-bold text-ui-secondary mb-2">Family Photos</h3>
             <p className="text-xs text-ui-muted mb-3">These photos are used by the screensaver.</p>
-            <PhotoManager parentId={parentId} />
+            <div className="mb-4 p-3 rounded-lg border border-ui bg-ui-soft space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-ui-secondary">Scheduled Cleanup</h4>
+                  <p className="text-xs text-ui-muted">Hard-delete orphaned photo rows/files on a schedule.</p>
+                </div>
+                <button
+                  onClick={() => setPhotoCleanupEnabled(v => !v)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${photoCleanupEnabled ? 'bg-blue-500' : 'bg-gray-300'}`}
+                  aria-label="Toggle photo cleanup"
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${photoCleanupEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                </button>
+              </div>
+              <div>
+                <label className="block text-xs text-ui-muted mb-1">Cleanup interval (hours)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={168}
+                  value={photoCleanupIntervalHours}
+                  onChange={(e) => setPhotoCleanupIntervalHours(Math.max(1, Number(e.target.value || 1)))}
+                  className="w-28 border border-ui rounded-lg px-3 py-2 text-sm bg-white text-ui-primary focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+            </div>
+
+            <div className="mb-4 p-3 rounded-lg border border-ui bg-ui-soft space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-ui-secondary">Google Photos Albums</h4>
+                  <p className="text-xs text-ui-muted">Display a selected Google Photos album in this app.</p>
+                </div>
+                <button
+                  onClick={() => setGooglePhotosEnabled(v => !v)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${googlePhotosEnabled ? 'bg-blue-500' : 'bg-gray-300'}`}
+                  aria-label="Toggle Google Photos"
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${googlePhotosEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                </button>
+              </div>
+              {googlePhotosEnabled && (
+                <div className="space-y-2">
+                  <button
+                    onClick={() => window.open('/api/sync/connect/google?token=' + encodeURIComponent(localStorage.getItem('kidtasker_token') || ''), '_blank')}
+                    className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-semibold hover:bg-blue-600"
+                  >
+                    Reconnect Google (Calendar + Photos scopes)
+                  </button>
+                  <label className="block text-xs text-ui-muted mb-1">Album</label>
+                  <select
+                    value={googlePhotosAlbumId}
+                    onChange={(e) => setGooglePhotosAlbumId(e.target.value)}
+                    className="w-full border border-ui rounded-lg px-3 py-2 text-sm bg-white text-ui-primary focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  >
+                    <option value="">Select album</option>
+                    {googleAlbums.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.title} ({a.mediaItemsCount})
+                      </option>
+                    ))}
+                  </select>
+                  {loadingGoogleAlbums && <p className="text-xs text-ui-muted">Loading albums...</p>}
+                  {googleAlbumsError && <p className="text-xs text-rose-600">{googleAlbumsError}</p>}
+                </div>
+              )}
+            </div>
+            <PhotoManager
+              parentId={parentId}
+              googlePhotosEnabled={googlePhotosEnabled}
+              googlePhotosAlbumId={googlePhotosAlbumId || null}
+            />
           </section>
         </div>
 

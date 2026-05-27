@@ -116,10 +116,10 @@ export const syncService = {
   saveGoogleTokens: (parentId: string, accessToken: string, refreshToken?: string | null) => {
     const connId = 'sync_' + Date.now();
     db.prepare(`
-      INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET accessToken=excluded.accessToken, refreshToken=excluded.refreshToken
-    `).run(connId, parentId, 'google', accessToken, refreshToken);
+    `).run(connId, parentId, 'google', accessToken, refreshToken, Date.now());
   },
 
   saveManualConnection: (parentId: string, email: string, appPassword: string) => {
@@ -132,7 +132,7 @@ export const syncService = {
 
   getActiveGoogleConnection: (parentId: string): SyncConnection | null => {
     return db.prepare(
-      "SELECT * FROM sync_connections WHERE parentId = ? AND provider = 'google' LIMIT 1"
+      "SELECT * FROM sync_connections WHERE parentId = ? AND provider = 'google' ORDER BY COALESCE(createdAt, 0) DESC, rowid DESC LIMIT 1"
     ).get(parentId) as SyncConnection | null;
   },
 
@@ -257,6 +257,40 @@ export const syncService = {
         const enabledIds = enabledRows.map(r => r.calendarId);
         const calendarIds = calendarRows.length === 0 ? allCals.map(c => c.id!) : enabledIds;
         if (calendarRows.length === 0 && calendarIds.length === 0) calendarIds.push('primary');
+        const existingEvents = db.prepare(
+          "SELECT id, externalId, title, description, startTime, endTime, color, sourceCalendarId FROM events WHERE parentId = ? AND source = 'google' AND externalId IS NOT NULL"
+        ).all(conn.parentId) as Array<{
+          id: string;
+          externalId: string;
+          title: string;
+          description: string | null;
+          startTime: number;
+          endTime: number;
+          color: string | null;
+          sourceCalendarId: string | null;
+        }>;
+        const existingEventByExternalId = new Map<string, {
+          id: string;
+          title: string;
+          description: string | null;
+          startTime: number;
+          endTime: number;
+          color: string | null;
+          sourceCalendarId: string | null;
+        }>(
+          existingEvents.map((row) => [
+            row.externalId,
+            {
+              id: row.id,
+              title: row.title,
+              description: row.description,
+              startTime: row.startTime,
+              endTime: row.endTime,
+              color: row.color,
+              sourceCalendarId: row.sourceCalendarId,
+            },
+          ])
+        );
 
         for (const calId of calendarIds) {
           try {
@@ -271,21 +305,49 @@ export const syncService = {
               if (!ev.id || !ev.summary || !ev.start?.dateTime || !ev.end?.dateTime) continue;
               const eId = 'ext_' + ev.id;
               const derivedColor = resolveEventColor(ev.colorId, googleEventColors, calendarColorById.get(calId));
-              const existing = db.prepare('SELECT id FROM events WHERE externalId = ?').get(eId) as { id: string } | undefined;
+              const startTime = new Date(ev.start.dateTime).getTime();
+              const endTime = new Date(ev.end.dateTime).getTime();
+              const description = ev.description || '';
+              const existing = existingEventByExternalId.get(eId);
               if (!existing) {
                 db.prepare('INSERT INTO events (id, parentId, title, description, startTime, endTime, assignedToId, color, externalId, source, sourceCalendarId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
                   eId, conn.parentId, ev.summary, ev.description || '',
-                  new Date(ev.start.dateTime).getTime(), new Date(ev.end.dateTime).getTime(),
+                  startTime, endTime,
                   null, derivedColor, eId, 'google', calId
                 );
+                existingEventByExternalId.set(eId, {
+                  id: eId,
+                  title: ev.summary,
+                  description,
+                  startTime,
+                  endTime,
+                  color: derivedColor,
+                  sourceCalendarId: calId,
+                });
                 imported += 1;
               } else {
-                db.prepare('UPDATE events SET title = ?, description = ?, startTime = ?, endTime = ?, color = ?, sourceCalendarId = ? WHERE id = ?').run(
-                  ev.summary, ev.description || '',
-                  new Date(ev.start.dateTime).getTime(), new Date(ev.end.dateTime).getTime(),
-                  derivedColor, calId, existing.id
-                );
-                updated += 1;
+                const hasChanges =
+                  existing.title !== ev.summary ||
+                  (existing.description || '') !== description ||
+                  existing.startTime !== startTime ||
+                  existing.endTime !== endTime ||
+                  (existing.color || '') !== (derivedColor || '') ||
+                  (existing.sourceCalendarId || '') !== (calId || '');
+                if (hasChanges) {
+                  db.prepare('UPDATE events SET title = ?, description = ?, startTime = ?, endTime = ?, color = ?, sourceCalendarId = ? WHERE id = ?').run(
+                    ev.summary, description, startTime, endTime, derivedColor, calId, existing.id
+                  );
+                  existingEventByExternalId.set(eId, {
+                    id: existing.id,
+                    title: ev.summary,
+                    description,
+                    startTime,
+                    endTime,
+                    color: derivedColor,
+                    sourceCalendarId: calId,
+                  });
+                  updated += 1;
+                }
               }
             }
             successCount += 1;

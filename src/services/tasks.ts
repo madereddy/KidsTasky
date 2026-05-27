@@ -56,5 +56,12 @@ export const tasksClientService = {
 
   async rejectCompletion(completionId: string): Promise<void> {
     await fetchAPI(`/completions/${completionId}/reject`, { method: 'PATCH' });
+  },
+
+  async skipTask(taskId: string, kidId: string, dateString: string, count?: number): Promise<void> {
+    await fetchAPI(`/tasks/${taskId}/skip`, {
+      method: 'POST',
+      body: JSON.stringify({ kidId, dateString, count }),
+    });
   }
 };

@@ -10,13 +10,22 @@ const DEFAULTS: Partial<FamilySettings> = {
   sleepStart: '21:00',
   sleepEnd: '07:00',
   isLocked: false,
+  photoCleanupEnabled: true,
+  photoCleanupIntervalHours: 24,
+  googlePhotosEnabled: false,
+  googlePhotosAlbumId: null,
 };
 
 export const settingsService = {
   getSettings: (parentId: string): FamilySettings => {
     const row = db.prepare('SELECT * FROM family_settings WHERE parentId = ?').get(parentId) as FamilySettings | undefined;
     if (!row) return { ...DEFAULTS, parentId } as FamilySettings;
-    return { ...row, isLocked: Boolean((row as any).isLocked) };
+    return {
+      ...row,
+      isLocked: Boolean((row as any).isLocked),
+      photoCleanupEnabled: Boolean((row as any).photoCleanupEnabled),
+      googlePhotosEnabled: Boolean((row as any).googlePhotosEnabled),
+    };
   },
   saveSettings: (parentId: string, data: Partial<FamilySettings>) => {
     const existing = db.prepare('SELECT * FROM family_settings WHERE parentId = ?').get(parentId) as FamilySettings | undefined;
@@ -32,10 +41,20 @@ export const settingsService = {
       sleepStart: merged.sleepStart ?? DEFAULTS.sleepStart,
       sleepEnd: merged.sleepEnd ?? DEFAULTS.sleepEnd,
       isLocked: merged.isLocked ? 1 : 0,
+      photoCleanupEnabled: merged.photoCleanupEnabled ? 1 : 0,
+      photoCleanupIntervalHours: Math.max(1, Number(merged.photoCleanupIntervalHours ?? DEFAULTS.photoCleanupIntervalHours)),
+      googlePhotosEnabled: merged.googlePhotosEnabled ? 1 : 0,
+      googlePhotosAlbumId: merged.googlePhotosAlbumId ?? null,
     };
     db.prepare(`
-      INSERT INTO family_settings (parentId, locationLat, locationLon, timezone, temperatureUnit, timeFormat, pin, sleepStart, sleepEnd, isLocked)
-      VALUES (@parentId, @locationLat, @locationLon, @timezone, @temperatureUnit, @timeFormat, @pin, @sleepStart, @sleepEnd, @isLocked)
+      INSERT INTO family_settings (
+        parentId, locationLat, locationLon, timezone, temperatureUnit, timeFormat, pin, sleepStart, sleepEnd, isLocked,
+        photoCleanupEnabled, photoCleanupIntervalHours, googlePhotosEnabled, googlePhotosAlbumId
+      )
+      VALUES (
+        @parentId, @locationLat, @locationLon, @timezone, @temperatureUnit, @timeFormat, @pin, @sleepStart, @sleepEnd, @isLocked,
+        @photoCleanupEnabled, @photoCleanupIntervalHours, @googlePhotosEnabled, @googlePhotosAlbumId
+      )
       ON CONFLICT(parentId) DO UPDATE SET
         locationLat = excluded.locationLat,
         locationLon = excluded.locationLon,
@@ -45,7 +64,11 @@ export const settingsService = {
         pin = excluded.pin,
         sleepStart = excluded.sleepStart,
         sleepEnd = excluded.sleepEnd,
-        isLocked = excluded.isLocked
+        isLocked = excluded.isLocked,
+        photoCleanupEnabled = excluded.photoCleanupEnabled,
+        photoCleanupIntervalHours = excluded.photoCleanupIntervalHours,
+        googlePhotosEnabled = excluded.googlePhotosEnabled,
+        googlePhotosAlbumId = excluded.googlePhotosAlbumId
     `).run(payload);
   },
   setLocked: (parentId: string, isLocked: boolean) => {

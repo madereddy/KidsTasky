@@ -5,7 +5,7 @@ import { Task, Category, TaskCompletion } from '../../types';
 import { cn } from '../../lib/utils';
 import { XP_REWARDS } from '../../constants';
 
-export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel, category, themeVocab, darkMode = false, completion }: { 
+export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel, category, themeVocab, darkMode = false, completion, onSkip }: { 
   task: Task, 
   isDone: boolean, 
   isLocked?: boolean,
@@ -16,6 +16,7 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
   themeVocab?: any,
   darkMode?: boolean,
   key?: React.Key,
+  onSkip?: () => void | Promise<void>
   completion?: TaskCompletion
 }) {
   const accentColor = isDone ? 'border-emerald-500' : (isLocked ? (darkMode ? 'border-ui-dark' : 'border-ui') : (urgency === 'overdue' ? 'border-red-400' : (darkMode ? 'border-ui-dark' : 'border-ui')));
@@ -27,6 +28,9 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
       }
       if (completion?.approvalStatus === 'rejected') {
         return { label: 'Rejected', icon: <ShieldAlert className="w-4 h-4" />, color: darkMode ? 'text-rose-400 bg-rose-500/10 border-rose-500/30' : 'text-rose-700 bg-rose-50 border-rose-200' };
+      }
+      if (completion?.approvalStatus === 'skipped') {
+        return { label: 'Skipped', icon: <Hourglass className="w-4 h-4" />, color: darkMode ? 'text-slate-300 bg-slate-500/10 border-slate-500/30' : 'text-slate-700 bg-slate-50 border-slate-200' };
       }
       return { label: themeVocab?.completed || 'Done', icon: <CheckCircle2 className="w-4 h-4" />, color: darkMode ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-emerald-700 bg-emerald-50 border-emerald-200' };
     }
@@ -106,6 +110,14 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
                 {category.icon} {category.name}
               </span>
             )}
+            {task.assignedKidId === 'all' && (
+              <span className={cn(
+                "text-[10px] font-bold px-2.5 py-1.5 rounded-xl uppercase tracking-wider border",
+                darkMode ? "bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/30" : "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200"
+              )}>
+                Up for Grabs
+              </span>
+            )}
           </div>
           <motion.h3 
             layout
@@ -149,21 +161,35 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
       </div>
       
       {!isDone ? (
-        <motion.button 
-          whileHover={!isLocked ? { scale: 1.02 } : {}}
-          whileTap={!isLocked ? { scale: 0.98 } : {}}
-          disabled={isLocked}
-          className={cn(
-            "w-full py-4 font-bold rounded-2xl transition-all uppercase tracking-wider text-sm relative overflow-hidden flex items-center justify-center gap-2 mt-4",
-            isLocked 
-              ? (darkMode ? "bg-ui-dark text-ui-secondary border border-ui-dark cursor-not-allowed" : "bg-ui-soft text-ui-muted-2 cursor-not-allowed border border-ui")
-              : urgency === 'overdue' ? (darkMode ? "bg-amber-500 text-ui-primary shadow-[0_0_20px_rgba(245,158,11,0.4)]" : "bg-red-50 text-red-500 hover:bg-red-100") : (darkMode ? "bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600/40" : "bg-sky-50 text-sky-600 hover:bg-sky-100 hover:text-sky-700")
+        <div className="mt-4 flex gap-2">
+          <motion.button 
+            whileHover={!isLocked ? { scale: 1.02 } : {}}
+            whileTap={!isLocked ? { scale: 0.98 } : {}}
+            disabled={isLocked}
+            className={cn(
+              "flex-1 py-4 font-bold rounded-2xl transition-all uppercase tracking-wider text-sm relative overflow-hidden flex items-center justify-center gap-2",
+              isLocked 
+                ? (darkMode ? "bg-ui-dark text-ui-secondary border border-ui-dark cursor-not-allowed" : "bg-ui-soft text-ui-muted-2 cursor-not-allowed border border-ui")
+                : urgency === 'overdue' ? (darkMode ? "bg-amber-500 text-ui-primary shadow-[0_0_20px_rgba(245,158,11,0.4)]" : "bg-red-50 text-red-500 hover:bg-red-100") : (darkMode ? "bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600/40" : "bg-sky-50 text-sky-600 hover:bg-sky-100 hover:text-sky-700")
+            )}
+          >
+            <span className="relative z-10 flex items-center justify-center gap-2">
+              {isLocked ? <><Lock className="w-4 h-4" /> {themeVocab?.locked || 'Locked'}</> : (themeVocab?.markDone || "Mark Done")}
+            </span>
+          </motion.button>
+          {onSkip && !isLocked && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onSkip(); }}
+              className={cn(
+                "px-4 py-4 rounded-2xl font-bold uppercase tracking-wider text-xs border",
+                darkMode ? "bg-ui-dark border-ui-dark text-ui-secondary hover:text-white" : "bg-white border-ui text-ui-muted hover:text-ui-primary"
+              )}
+            >
+              Skip
+            </button>
           )}
-        >
-          <span className="relative z-10 flex items-center justify-center gap-2">
-            {isLocked ? <><Lock className="w-4 h-4" /> {themeVocab?.locked || 'Locked'}</> : (themeVocab?.markDone || "Mark Done")}
-          </span>
-        </motion.button>
+        </div>
       ) : (
         <motion.div 
           initial={{ opacity: 0, y: 10 }}

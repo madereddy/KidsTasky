@@ -17,8 +17,10 @@ import { CategoryManager } from './CategoryManager';
 import { RewardManager } from './RewardManager';
 import { AllowanceLedger } from './AllowanceLedger';
 import { ConnectedAccountsView } from './ConnectedAccountsView';
-import { parseTimestamp } from '../../lib/utils';
-import { useSocketStaleData } from '../../hooks/useSocket';
+import { StaleDataEvent, useSocketStaleData } from '../../hooks/useSocket';
+import { FamilyNote } from '../shared/FamilyNote';
+import { AvatarDisplay, AvatarPicker } from '../shared/AvatarPicker';
+import { ParentTaskBoard } from './ParentTaskBoard';
 
 export function ParentDashboard({ 
   profile, 
@@ -54,19 +56,20 @@ export function ParentDashboard({
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
   const [savingColor, setSavingColor] = useState<string | null>(null);
+  const [editingAvatarFor, setEditingAvatarFor] = useState<UserProfile | null>(null);
+  const familyId = profile.parentId || profile.uid;
 
   const fetchData = useCallback(async () => {
     try {
-      const familyId = profile.role === 'coparent' && profile.parentId ? profile.parentId : profile.uid;
       const [t, pc, k, i, n, r, c, sc] = await Promise.all([
-        tasksClientService.getTasksForParent(profile.uid),
+        tasksClientService.getTasksForParent(familyId),
         tasksClientService.getPendingCompletions(familyId),
-        userService.getKidsForParent(profile.uid),
-        inviteService.getActiveInvite(profile.uid),
-        notificationService.getUnreadNotifications(profile.uid),
-        rewardService.getRewards(profile.uid),
-        fetchAPI('/settings/' + profile.uid + '/connections').catch(() => []),
-        syncClientService.getCalendars(profile.uid).catch(() => [])
+        userService.getKidsForParent(familyId),
+        inviteService.getActiveInvite(familyId),
+        notificationService.getUnreadNotifications(familyId),
+        rewardService.getRewards(familyId),
+        fetchAPI('/settings/' + familyId + '/connections').catch(() => []),
+        syncClientService.getCalendars(familyId).catch(() => [])
       ]);
       setTasks(t || []);
       setPendingCompletions(pc || []);
@@ -81,24 +84,60 @@ export function ParentDashboard({
     } finally {
       setLoading(false);
     }
-  }, [profile.uid, profile.role, profile.parentId]);
+  }, [familyId]);
 
-  useSocketStaleData((data) => {
-    // Only fetch if data was mutated somewhere else
-    fetchData();
+  const refreshTasksAndPending = useCallback(async () => {
+    const [t, pc] = await Promise.all([
+      tasksClientService.getTasksForParent(familyId),
+      tasksClientService.getPendingCompletions(familyId),
+    ]);
+    setTasks(t || []);
+    setPendingCompletions(pc || []);
+  }, [familyId]);
+
+  const refreshNotifications = useCallback(async () => {
+    const n = await notificationService.getUnreadNotifications(familyId);
+    setNotifications(n || []);
+  }, [familyId]);
+
+  const refreshKids = useCallback(async () => {
+    const k = await userService.getKidsForParent(familyId);
+    setKids(k || []);
+  }, [familyId]);
+
+  const refreshConnectionsAndCalendars = useCallback(async () => {
+    const [c, sc] = await Promise.all([
+      fetchAPI('/settings/' + familyId + '/connections').catch(() => []),
+      syncClientService.getCalendars(familyId).catch(() => []),
+    ]);
+    setConnections(c || []);
+    setSyncCalendars(sc || []);
+  }, [familyId]);
+
+  useSocketStaleData((data: StaleDataEvent) => {
+    const signal = data.type || data.entity;
+    if (signal === 'tasks' || signal === 'completions' || signal === 'events') {
+      refreshTasksAndPending().catch((e) => console.error('Failed to refresh tasks/pending:', e));
+      return;
+    }
+    if (signal === 'notifications') {
+      refreshNotifications().catch((e) => console.error('Failed to refresh notifications:', e));
+      return;
+    }
+    if (signal === 'users' || signal === 'kids') {
+      refreshKids().catch((e) => console.error('Failed to refresh kids:', e));
+      return;
+    }
+    if (signal === 'sync' || signal === 'calendars' || signal === 'connections') {
+      refreshConnectionsAndCalendars().catch((e) => console.error('Failed to refresh sync settings:', e));
+      return;
+    }
+    fetchData().catch((e) => console.error('Failed full dashboard refresh:', e));
   });
 
   useEffect(() => {
     fetchData();
-
-    // Poll for notifications every minute
-    const interval = setInterval(async () => {
-      const n = await notificationService.getUnreadNotifications(profile.uid);
-      setNotifications(n || []);
-    }, 60000);
-
-    return () => clearInterval(interval);
-  }, [fetchData, profile.uid]);
+  }, [fetchData, familyId]);
 
   const markRead = async (id: string) => {
     await notificationService.markNotificationRead(id);
@@ -107,8 +146,8 @@ export function ParentDashboard({
 
   const generateInvite = async () => {
     setGeneratingInvite(true);
-    await inviteService.createInvite(profile.uid, profile.name);
-    const updatedInvite = await inviteService.getActiveInvite(profile.uid);
+    await inviteService.createInvite(familyId, profile.name);
+    const updatedInvite = await inviteService.getActiveInvite(familyId);
     setInvite(updatedInvite);
     setGeneratingInvite(false);
   };
@@ -123,13 +162,13 @@ export function ParentDashboard({
 
   const addTask = async (task: Omit<Task, 'id' | 'createdAt' | 'status'>) => {
     await tasksClientService.createTask(task);
-    const updated = await tasksClientService.getTasksForParent(profile.uid);
+    const updated = await tasksClientService.getTasksForParent(familyId);
     setTasks(updated);
     setIsAddingTask(false);
   };
 
   const refreshRewards = async () => {
-    const r = await rewardService.getRewards(profile.uid);
+    const r = await rewardService.getRewards(familyId);
     setRewards(r || []);
   };
 
@@ -175,21 +214,10 @@ export function ParentDashboard({
 
   if (loading) return null;
 
-  const filteredTasks = (selectedCategoryId 
-    ? tasks.filter((t: Task) => t.categoryId === selectedCategoryId)
-    : [...tasks]).sort((a: Task, b: Task) => {
-      if (sortBy === 'time') {
-        const timeA = a.reminderTime || '99:99';
-        const timeB = b.reminderTime || '99:99';
-        return timeA.localeCompare(timeB);
-      }
-      return parseTimestamp(b.createdAt).getTime() - parseTimestamp(a.createdAt).getTime();
-    });
-
   return (
     <div className="space-y-8">
-      <RewardManager parentId={profile.uid} rewards={rewards} onUpdate={refreshRewards} />
-      <AllowanceLedger parentId={profile.uid} />
+      <RewardManager parentId={familyId} rewards={rewards} onUpdate={refreshRewards} />
+      <AllowanceLedger parentId={familyId} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 bg-white shadow-sm border border-ui-soft p-6 rounded-3xl border-l-4 border-l-blue-500 flex justify-between items-center relative overflow-hidden">
           <div className="relative z-10">
@@ -301,12 +329,14 @@ export function ParentDashboard({
           <div className="flex -space-x-2 mb-4 flex-wrap">
             {kids.length > 0 ? kids.map((k: UserProfile) => (
               <div key={k.uid} className="relative group/kid mb-2">
-                <div
-                  className={cn("w-10 h-10 rounded-full border-2 flex items-center justify-center text-xs font-bold cursor-pointer", isDarkMode ? "bg-ui-dark-2 border-ui-dark-3 text-ui-secondary" : "bg-ui-soft-2 border-ui text-ui-secondary")}
-                  title={`${k.name} - LVL ${k.level || 1}`}
-                >
-                  {k.name?.charAt(0)?.toUpperCase()}
-                </div>
+                <button onClick={() => setEditingAvatarFor(k)} title={`${k.name} - LVL ${k.level || 1}`}>
+                  <AvatarDisplay
+                    avatarPreset={k.avatarPreset}
+                    avatarUrl={k.avatarUrl}
+                    name={k.name}
+                    size={40}
+                  />
+                </button>
                 {/* color dot */}
                 <button
                   onClick={(e) => { e.stopPropagation(); setColorPickerFor(colorPickerFor === k.uid ? null : k.uid); }}
@@ -331,11 +361,34 @@ export function ParentDashboard({
             )}
           </div>
           
-          <AddKidForm parentId={profile.uid} onAdded={fetchData} />
+          <AddKidForm parentId={familyId} onAdded={fetchData} />
+          <div className="mt-4">
+            <FamilyNote parentId={familyId} readOnly={false} />
+          </div>
           
           <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-purple-500/5 blur-xl rounded-full" />
         </div>
       </div>
+      {editingAvatarFor && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-80">
+            <h3 className="font-semibold mb-3">{editingAvatarFor.name}'s Avatar</h3>
+            <AvatarPicker
+              uid={editingAvatarFor.uid}
+              current={{ ...editingAvatarFor, name: editingAvatarFor.name }}
+              onUpdated={(preset, url) => {
+                setKids((prev) => prev.map((kid) => (
+                  kid.uid === editingAvatarFor.uid
+                    ? { ...kid, avatarPreset: preset ?? undefined, avatarUrl: url ?? undefined }
+                    : kid
+                )));
+                setEditingAvatarFor(null);
+              }}
+            />
+            <button onClick={() => setEditingAvatarFor(null)} className="mt-3 text-sm text-gray-500">Cancel</button>
+          </div>
+        </div>
+      )}
 
       <ConnectedAccountsView 
         connections={connections} 
@@ -396,103 +449,19 @@ export function ParentDashboard({
         </div>
       )}
 
-      <div className="flex justify-between items-center bg-ui-soft p-2 rounded-2xl">
-        <div className="flex gap-2 items-center">
-          <div className={cn("flex gap-1 p-1 rounded-xl mr-2", isDarkMode ? "bg-ui-dark-50" : "bg-ui-soft-2")}>
-            <button 
-              onClick={() => setSortBy('time')}
-              className={cn(
-                "p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest",
-                sortBy === 'time' ? "bg-sky-500 text-white shadow-md" : (isDarkMode ? "text-ui-secondary hover:text-white hover:bg-ui-dark-2" : "text-ui-muted hover:text-ui-secondary hover:bg-ui-soft")
-              )}
-            >
-              <Clock className="w-3 h-3" /> Time
-            </button>
-            <button 
-              onClick={() => setSortBy('created')}
-              className={cn(
-                "p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest",
-                sortBy === 'created' ? "bg-sky-500 text-white shadow-md" : (isDarkMode ? "text-ui-secondary hover:text-white hover:bg-ui-dark-2" : "text-ui-muted hover:text-ui-secondary hover:bg-ui-soft")
-              )}
-            >
-              <CalendarDays className="w-3 h-3" /> New
-            </button>
-          </div>
-          {categories.map(cat => (
-            <button 
-              key={cat.id}
-              onClick={() => onCategoriesChange(categories)} // Dummy for now
-              className="p-2 rounded-xl hover:bg-ui-dark-2 transition-colors"
-              title={cat.name}
-            >
-              <span className="text-xl">{cat.icon}</span>
-            </button>
-          ))}
-          <button 
-            onClick={() => setIsManagingCategories(true)}
-            className="p-2 bg-white rounded-xl text-ui-muted hover:bg-ui-soft border border-ui transition-colors shadow-sm"
-          >
-            <Tag className="w-5 h-5" />
-          </button>
-        </div>
-        
-        {!isLocked && (
-          <button 
-            onClick={() => setIsAddingTask(true)}
-            className="btn-immersive-primary !w-auto bg-blue-600 px-6 py-2 text-xs flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> New Objective
-          </button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filteredTasks.length === 0 ? (
-          <div className="col-span-full text-center py-20 glass-panel rounded-[40px] border-dashed">
-            <Calendar className={cn("w-12 h-12 mx-auto mb-4", isDarkMode ? "text-ui-muted-2" : "text-ui-secondary")} />
-            <p className={cn(isDarkMode ? "text-ui-secondary" : "text-ui-muted")}>No active missions in sector.</p>
-          </div>
-        ) : (
-          filteredTasks.map((task: Task) => {
-            const category = categories.find(c => c.id === task.categoryId);
-            return (
-              <div key={task.id} className="card-immersive border-l-slate-700 group transition-all hover:scale-[1.01]">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <div className="flex gap-2 items-center mb-2">
-                      <span className={cn("text-[10px] border font-bold px-2 py-1 rounded uppercase tracking-wider", isDarkMode ? "bg-ui-dark-2 border-ui-dark-2 text-ui-secondary" : "bg-ui-soft-2 border-ui text-ui-muted")}>
-                        {task.frequency}
-                      </span>
-                      {category && (
-                        <span className={cn("text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider", category.color, "text-white")}>
-                          {category.icon} {category.name}
-                        </span>
-                      )}
-                      {task.reminderTime && (
-                        <span className="text-[10px] bg-sky-50 border border-sky-100 text-sky-600 font-bold px-2 py-1 rounded uppercase tracking-wider flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> {task.reminderTime}
-                        </span>
-                      )}
-                    </div>
-                    <h4 className="text-xl font-bold">{task.title}</h4>
-                  </div>
-                  {!isLocked && (
-                    <button 
-                      onClick={() => archiveTask(task.id)}
-                      className="p-2 text-ui-secondary hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  )}
-                </div>
-                <div className={cn("w-full py-2 border font-black rounded-xl text-center uppercase tracking-widest text-[10px]", isDarkMode ? "bg-ui-dark-70 border-ui-dark-2 text-ui-secondary" : "bg-ui-soft border-ui text-ui-muted")}>
-                  Monitoring Active
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+      <ParentTaskBoard
+        tasks={tasks}
+        categories={categories}
+        selectedCategoryId={selectedCategoryId}
+        isDarkMode={isDarkMode}
+        isLocked={isLocked}
+        sortBy={sortBy}
+        onSortByChange={setSortBy}
+        onArchiveTask={archiveTask}
+        onOpenCategories={() => setIsManagingCategories(true)}
+        onOpenAddTask={() => setIsAddingTask(true)}
+        onCategoriesChange={onCategoriesChange}
+      />
 
       <AnimatePresence>
         {isAddingTask && (
@@ -500,14 +469,14 @@ export function ParentDashboard({
             onClose={() => setIsAddingTask(false)}
             onSubmit={addTask}
             kids={kids}
-            parentId={profile.uid}
+            parentId={familyId}
             categories={categories}
             existingTasks={tasks}
           />
         )}
         {isManagingCategories && (
           <CategoryManager
-            parentId={profile.uid}
+            parentId={familyId}
             categories={categories}
             onClose={() => setIsManagingCategories(false)}
             onUpdate={onCategoriesChange}

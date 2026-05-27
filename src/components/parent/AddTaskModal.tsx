@@ -16,7 +16,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
   const [frequency, setFrequency] = useState<TaskFrequency>('daily');
   const [customInterval, setCustomInterval] = useState(3);
   const [difficulty, setDifficulty] = useState<TaskDifficulty>('easy');
-  const [assignedKidId, setAssignedKidId] = useState(kids[0]?.uid || '');
+  const [assignedKidId, setAssignedKidId] = useState(kids[0]?.uid || 'all');
   const [reminderTime, setReminderTime] = useState('08:00');
   const [categoryId, setCategoryId] = useState<string>('');
   const [prerequisiteTaskIds, setPrerequisiteTaskIds] = useState<string[]>([]);
@@ -30,7 +30,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
     }
   };
 
-  const eligiblePrereqs = existingTasks.filter(t => t.assignedKidId === assignedKidId);
+  const eligiblePrereqs = existingTasks.filter(t => t.assignedKidId === assignedKidId || (assignedKidId === 'all' && t.assignedKidId === 'all'));
 
   return (
     <motion.div 
@@ -146,12 +146,16 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
 
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Assign to Cadet</label>
-            <input 
+            <select
               value={assignedKidId}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAssignedKidId(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setAssignedKidId(e.target.value)}
               className="input-immersive"
-              placeholder="Cadet UID"
-            />
+            >
+              <option value="all">Up for Grabs (All Kids)</option>
+              {kids.map((kid) => (
+                <option key={kid.uid} value={kid.uid}>{kid.name}</option>
+              ))}
+            </select>
           </div>
 
           {eligiblePrereqs.length > 0 && (

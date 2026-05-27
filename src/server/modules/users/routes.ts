@@ -36,7 +36,7 @@ usersRouter.get("/users/:uid", authenticateUser, [
 });
 
 usersRouter.post("/users", [
-  body('uid').isString().notEmpty(),
+  body('uid').isString().optional(),
   body('role').isString().optional(),
   body('name').isString().notEmpty(),
   body('email').isEmail().optional(),
@@ -72,6 +72,10 @@ usersRouter.post("/users", [
       return res.json({ success: true, uid });
     }
     // else: kid join — fall through to existing logic with invite.parentId
+  }
+
+  if (!req.body.uid) {
+    return res.status(400).json({ error: 'uid is required' });
   }
 
   // Existing kid/parent create path
@@ -153,5 +157,28 @@ usersRouter.put('/users/:uid/color', [
   const { color } = req.body;
   if (!/^#[0-9a-fA-F]{6}$/.test(color)) return res.status(400).json({ error: 'Invalid color' });
   userService.setMemberColor(req.params.uid as string, color);
+  res.json({ success: true });
+});
+
+usersRouter.put('/users/:uid/avatar', authenticateUser, [
+  param('uid').isString().notEmpty(),
+  body('avatarPreset').isString().optional({ nullable: true }),
+  body('avatarUrl').isString().optional({ nullable: true }),
+  validate
+], (req: Request, res: Response) => {
+  const caller = (req as any).user;
+  const targetUid = req.params.uid as string;
+  const callerParentId = getParentId(req);
+
+  const target = userService.getUser(targetUid) as any;
+  if (!target) return res.status(404).json({ error: 'User not found' });
+
+  const targetFamily = target.parentId ?? target.uid;
+  const isSelf = caller.uid === targetUid;
+  const isFamilyMember = callerParentId === targetFamily;
+  if (!isSelf && !isFamilyMember) return res.status(403).json({ error: 'Forbidden' });
+
+  const { avatarPreset = null, avatarUrl = null } = req.body;
+  userService.setAvatar(targetUid, avatarPreset, avatarUrl);
   res.json({ success: true });
 });

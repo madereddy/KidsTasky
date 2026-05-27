@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateUser, getParentId, requireAuth } from '../../middleware/auth.js';
+import { authenticateUser, enforceEditUnlocked, getParentId, requireAuth } from '../../middleware/auth.js';
 import { listsService } from './service.js';
 
 export const listsRouter = Router();
@@ -30,7 +30,7 @@ listsRouter.get('/lists/:listId/items', authenticateUser, (req, res) => {
   }
 });
 
-listsRouter.post('/lists', requireAuth, (req, res) => {
+listsRouter.post('/lists', requireAuth, enforceEditUnlocked, (req, res) => {
   try {
     const { title } = req.body;
     const user = (req as any).user;
@@ -41,7 +41,7 @@ listsRouter.post('/lists', requireAuth, (req, res) => {
   }
 });
 
-listsRouter.delete('/lists/:id', requireAuth, (req, res) => {
+listsRouter.delete('/lists/:id', requireAuth, enforceEditUnlocked, (req, res) => {
   try {
     listsService.deleteList(String(req.params.id));
     res.json({ success: true });
@@ -50,7 +50,7 @@ listsRouter.delete('/lists/:id', requireAuth, (req, res) => {
   }
 });
 
-listsRouter.post('/lists/:listId/items', requireAuth, (req, res) => {
+listsRouter.post('/lists/:listId/items', requireAuth, enforceEditUnlocked, (req, res) => {
   try {
     const item = listsService.addItem(String(req.params.listId), req.body.text);
     res.status(201).json(item);
@@ -59,7 +59,7 @@ listsRouter.post('/lists/:listId/items', requireAuth, (req, res) => {
   }
 });
 
-listsRouter.put('/list-items/:itemId', requireAuth, (req, res) => {
+listsRouter.put('/list-items/:itemId', requireAuth, enforceEditUnlocked, (req, res) => {
   try {
     listsService.toggleItem(String(req.params.itemId), req.body.completed);
     res.json({ success: true });
@@ -68,7 +68,7 @@ listsRouter.put('/list-items/:itemId', requireAuth, (req, res) => {
   }
 });
 
-listsRouter.delete('/list-items/:itemId', requireAuth, (req, res) => {
+listsRouter.delete('/list-items/:itemId', requireAuth, enforceEditUnlocked, (req, res) => {
   try {
     listsService.deleteItem(String(req.params.itemId));
     res.json({ success: true });

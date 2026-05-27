@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Plus, UserPlus } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import { userService } from '../../services/users';
+import { AvatarPicker } from '../shared/AvatarPicker';
 
 export function AddKidForm({ parentId, onAdded }: { parentId: string, onAdded: () => void }) {
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
+  const [kidAvatar, setKidAvatar] = useState<{ preset: string | null; url: string | null }>({ preset: null, url: null });
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,8 +24,12 @@ export function AddKidForm({ parentId, onAdded }: { parentId: string, onAdded: (
         isManaged: true,
         pin
       });
+      if (kidAvatar.preset || kidAvatar.url) {
+        await userService.updateAvatar(uid, kidAvatar.preset, kidAvatar.url).catch(console.warn);
+      }
       setName('');
       setPin('');
+      setKidAvatar({ preset: null, url: null });
       onAdded();
     } catch (err) {
       console.error(err);
@@ -54,6 +60,14 @@ export function AddKidForm({ parentId, onAdded }: { parentId: string, onAdded: (
           className="w-full bg-ui-dark border border-ui-dark rounded-xl px-3 py-2 text-xs text-white focus:border-purple-500 transition-colors"
           required
         />
+        <div className="mt-2">
+          <label className="text-xs text-gray-500">Avatar (optional)</label>
+          <AvatarPicker
+            uid="__new__"
+            current={{ avatarPreset: kidAvatar.preset ?? undefined, avatarUrl: kidAvatar.url ?? undefined, name: name || '?' }}
+            onUpdated={(preset, url) => setKidAvatar({ preset, url })}
+          />
+        </div>
       </div>
       <button
         type="submit"

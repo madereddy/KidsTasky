@@ -10,4 +10,7 @@ export const routinesClientService = {
 
   deleteTemplate: (id: string): Promise<{ success: boolean }> =>
     fetchAPI(`/routines/${id}`, { method: 'DELETE' }),
+
+  reorderTemplates: (parentId: string, ids: string[]): Promise<{ success: boolean }> =>
+    fetchAPI(`/parents/${parentId}/routines/reorder`, { method: 'PUT', body: JSON.stringify({ ids }) }),
 };

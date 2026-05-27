@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { format, addMonths, subMonths, startOfWeek, addWeeks, subWeeks, addDays, subDays, startOfDay, endOfDay, endOfWeek } from 'date-fns';
 import { ChevronLeft, ChevronRight, Plus, MonitorSmartphone, ListTodo, RefreshCw } from 'lucide-react';
 import { eventsClientService } from '../../services/events';
@@ -17,6 +17,7 @@ import { AgendaView } from './AgendaView';
 import { QuickAddModal } from './QuickAddModal';
 import { RoutineTemplatesModal } from './RoutineTemplatesModal';
 import { EventDetailModal } from './EventDetailModal';
+import { useSocketStaleData } from '../../hooks/useSocket';
 
 type ViewMode = 'month' | 'week' | 'day' | 'agenda';
 type WallFilter = 'today' | 'week' | 'allday';
@@ -53,6 +54,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
   const [isWallMode, setIsWallMode] = useState(false);
   const [wallFilter, setWallFilter] = useState<WallFilter>('today');
   const [syncCalendars, setSyncCalendars] = useState<SyncCalendar[]>([]);
+  const [calendarVisibility, setCalendarVisibility] = useState<Record<string, boolean>>({});
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<Set<string>>(new Set());
   const [listsSummary, setListsSummary] = useState<Array<{ list: AppList; total: number; done: number }>>([]);
   const [routineTemplates, setRoutineTemplates] = useState<RoutineTemplate[]>([]);
@@ -67,6 +69,25 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
   }, [parentId]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
+
+  useSocketStaleData((data) => {
+    fetchEvents();
+    if (isWallMode) {
+      routinesClientService.getTemplates(parentId).then(setRoutineTemplates).catch(() => {});
+      listsClientService.getLists(parentId)
+        .then(async (lists) => {
+          const topLists = (lists || []).slice(0, 2);
+          const summaries = await Promise.all(topLists.map(async (list) => {
+            const items = await listsClientService.getItems(list.id).catch(() => [] as AppListItem[]);
+            const total = items.length;
+            const done = items.filter((item) => Boolean(item.completed)).length;
+            return { list, total, done };
+          }));
+          setListsSummary(summaries);
+        })
+        .catch(() => {});
+    }
+  });
 
   // Auto-refresh events every 60s in wall mode
   useEffect(() => {
@@ -90,6 +111,18 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
       .then((calendars) => setSyncCalendars(calendars || []))
       .catch(() => setSyncCalendars([]));
   }, [parentId]);
+
+  useEffect(() => {
+    settingsClientService.getCalendarVisibility()
+      .then((rows) => {
+        const map: Record<string, boolean> = {};
+        rows.forEach((row) => {
+          map[row.calendarId] = Number(row.isVisible) === 1;
+        });
+        setCalendarVisibility(map);
+      })
+      .catch(() => setCalendarVisibility({}));
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -146,7 +179,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
   }, [parentId]);
 
   useEffect(() => {
-    const enabled = syncCalendars.filter((cal) => Boolean(cal.enabled));
+    const enabled = syncCalendars.filter((cal) => Boolean(cal.enabled) && (calendarVisibility[cal.calendarId] ?? true));
     const preferredFamily = enabled.filter((cal) => /family|shared|home|household/i.test(cal.name));
     if (preferredFamily.length > 0) {
       setSelectedCalendarIds(new Set(preferredFamily.map((cal) => cal.calendarId)));
@@ -155,7 +188,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
     } else {
       setSelectedCalendarIds(new Set());
     }
-  }, [syncCalendars]);
+  }, [syncCalendars, calendarVisibility]);
 
   const navigatePrev = () => {
     if (viewMode === 'month') setCurrentDate((d) => subMonths(d, 1));
@@ -194,9 +227,13 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
   const visibleEvents = visibleMemberIds.has('all')
     ? events
     : events.filter((e) => !e.assignedToId || visibleMemberIds.has(e.assignedToId));
-  const enabledSourceCalendarIds = new Set(syncCalendars.filter((cal) => Boolean(cal.enabled)).map((cal) => cal.calendarId));
+  const enabledVisibleCalendarIds = new Set(
+    syncCalendars
+      .filter((cal) => Boolean(cal.enabled) && (calendarVisibility[cal.calendarId] ?? true))
+      .map((cal) => cal.calendarId)
+  );
   const calendarFilteredEvents = selectedCalendarIds.size === 0
-    ? visibleEvents.filter((e) => !e.sourceCalendarId || enabledSourceCalendarIds.has(e.sourceCalendarId))
+    ? visibleEvents.filter((e) => !e.sourceCalendarId || enabledVisibleCalendarIds.has(e.sourceCalendarId))
     : visibleEvents.filter((e) => !e.sourceCalendarId || selectedCalendarIds.has(e.sourceCalendarId));
 
   const applyWallFilter = (evs: CalendarEvent[]): CalendarEvent[] => {
@@ -219,6 +256,14 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
   };
 
   const filteredEvents = applyWallFilter(calendarFilteredEvents);
+  const countdownEvents = useMemo(() => {
+    const now = Date.now();
+    return calendarFilteredEvents
+      .filter((e) => Boolean(e.isCountdown) && e.startTime > now)
+      .sort((a, b) => a.startTime - b.startTime)
+      .slice(0, 3);
+  }, [calendarFilteredEvents]);
+  const daysUntil = (ts: number): number => Math.ceil((ts - Date.now()) / (1000 * 60 * 60 * 24));
   const dayKey = format(currentDate, 'yyyy-MM-dd');
   const todaysWeather = forecast.find((f) => f.date === dayKey);
   const todaysMeals = dayMeals;
@@ -326,7 +371,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
       {syncCalendars.length > 0 && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-ui-soft bg-ui-soft shrink-0 flex-wrap">
           {syncCalendars
-            .filter((cal) => Boolean(cal.enabled))
+            .filter((cal) => Boolean(cal.enabled) && (calendarVisibility[cal.calendarId] ?? true))
             .map((cal) => {
               const active = selectedCalendarIds.size === 0 || selectedCalendarIds.has(cal.calendarId);
               const calColor = cal.color || '#6366f1';
@@ -357,6 +402,28 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
 
       {isWallMode && (
         <div className="flex flex-col border-b border-ui-soft bg-ui-soft">
+          <div className="flex gap-3 px-4 py-2 overflow-x-auto min-h-[72px] items-center">
+            {countdownEvents.length === 0 ? (
+              <p className="text-sm text-gray-400 italic">No countdowns set.</p>
+            ) : (
+              countdownEvents.map((event) => {
+                const days = daysUntil(event.startTime);
+                return (
+                  <div
+                    key={event.id}
+                    className="flex-shrink-0 flex items-center gap-2 rounded-xl px-4 py-2 text-white"
+                    style={{ backgroundColor: event.color || '#6366f1' }}
+                  >
+                    <div className="text-center">
+                      <span className="text-2xl font-bold">{days}</span>
+                      <span className="text-xs ml-1 opacity-90">day{days !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div className="text-sm font-medium truncate max-w-[100px]">{event.title}</div>
+                  </div>
+                );
+              })
+            )}
+          </div>
           <div className="flex items-center justify-between px-4 pt-2 pb-1">
             <div className="flex items-center gap-1 bg-white border border-ui rounded-xl p-1">
               {(['today', 'week', 'allday'] as WallFilter[]).map((f) => (
@@ -474,6 +541,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
             startDate={currentDate}
             onEventClick={setSelectedEvent}
             memberColorMap={memberColorMap}
+            members={kids}
             timeFormat={timeFormat}
             timezone={timezone}
           />

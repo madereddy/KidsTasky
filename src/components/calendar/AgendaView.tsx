@@ -1,13 +1,15 @@
 ﻿import React from 'react';
 import { format, addDays, startOfDay } from 'date-fns';
-import { CalendarEvent } from '../../types';
+import { CalendarEvent, UserProfile } from '../../types';
 import { TimeFormatPref, formatTimeWithPrefs } from '../../lib/dateTimePrefs';
+import { AvatarDisplay } from '../shared/AvatarPicker';
 
 interface Props {
   events: CalendarEvent[];
   startDate: Date;
   onEventClick?: (event: CalendarEvent) => void;
   memberColorMap: Record<string, string>;
+  members?: UserProfile[];
   timeFormat?: TimeFormatPref;
   timezone?: string;
 }
@@ -17,6 +19,7 @@ export function AgendaView({
   startDate,
   onEventClick,
   memberColorMap,
+  members = [],
   timeFormat = '12h',
   timezone = 'America/Chicago'
 }: Props) {
@@ -55,9 +58,18 @@ export function AgendaView({
             <div className="divide-y divide-slate-50">
               {dayEvents.map((ev) => {
                 const color = (ev.assignedToId && memberColorMap[ev.assignedToId]) || ev.color || '#6366f1';
+                const assignedMember = ev.assignedToId ? members.find((m) => m.uid === ev.assignedToId) : undefined;
                 return (
                   <div key={ev.id} onClick={() => onEventClick?.(ev)} className="flex items-start gap-3 px-4 py-3 hover:bg-ui-soft cursor-pointer">
                     <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: color }} />
+                    {assignedMember && (
+                      <AvatarDisplay
+                        avatarPreset={assignedMember.avatarPreset}
+                        avatarUrl={assignedMember.avatarUrl}
+                        name={assignedMember.name}
+                        size={20}
+                      />
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-ui-primary truncate">{ev.title}</p>
                       <p className="text-xs text-ui-muted mt-0.5">

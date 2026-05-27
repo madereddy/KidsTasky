@@ -1,5 +1,17 @@
 # Group A — Calendar Core Implementation Plan
 
+## Plan Status (2026-05-27)
+- COMPLETED
+
+
+## Status Update (2026-05-27)
+
+- Completed: recurring events, all-day rendering, countdown/reminder event fields, event detail modal, scoped update/delete APIs.
+- Completed: server-side edit lock enforcement on POST/PUT/DELETE /events (via enforceEditUnlocked).
+- Completed: calendar now listens to socket stale-data and refetches events for faster multi-device convergence.
+- Remaining: broader UX polish and optional parity enhancements (no known blocker for family use).
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add recurring events, event edit/delete modal, and all-day events to the KidsTasky calendar.
@@ -975,3 +987,5 @@ git commit -m "feat: CalendarView — selectedEvent state, EventDetailModal inte
 ```
 
 ---
+
+

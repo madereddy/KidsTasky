@@ -1,86 +1,91 @@
-# KidTasker: Level Up Your Parenting
+# KidTasky
 
-Remember when gaming was just about the *game*? No live-service monetization, no intrusive trackers, no BS? That's the energy I brought to this project. KidTasker is the ultimate couch co-op for parents and kids. It turns the chore grind into a gamified experience where the kids actually *want* to complete their missions.
+Local-first family planner and kid tasking app with parent controls, approvals, rewards, routines, calendar, wall mode, shared lists, meals, photos, and optional external integrations.
 
-This is a totally self-hosted, offline-friendly setup. No cloud trackers, no third-party data sales, no analytics—just a solid React frontend and a Node back-end running on your own hardware.
+## Current Status
+- Core family workflows are implemented and in active local use.
+- Recent delivery includes: `Up for Grabs` tasks, task skip without stars, routine drag-reorder with persistence, and server-enforced parent edit-lock checks on mutation routes.
+- Multi-device convergence is improved through socket `stale-data` refetch behavior.
 
-## ✨ The Loot Drops (Features)
+## Tech Stack
+- Frontend: React 19, TypeScript, Vite, Tailwind CSS 4
+- Backend: Node.js + Express 5 + Socket.IO
+- Storage: SQLite via `better-sqlite3`
+- Tests: Vitest + Testing Library + Supertest
+- Containerization: Docker + Docker Compose
 
-*   **Immersive Quest UI**: Smooth animations, XP pop-ups, and a progress bar that gives that dopamine hit when you finish a mission.
-*   **Player 1 (Parent) Controls**: Assign missions, set the XP difficulty, manage custom categories, keep track of mission logs, and more. 
-*   **Player 2 (Cadet) Experience**: Track XP, unlock badges, earn special customized themes, and spend hard-earned XP in the in-game Reward Store.
-*   **Real-time Co-op Multiplayer**: State syncs instantaneously across devices using WebSockets! No more fighting over "Did you check the box yet?".
-*   **Magic Add via Email Webhooks**: Forward emails to your unique KidTasker magic address, and Gemini AI parses them and inserts them directly into the Family Calendar or Meal Planners securely, validated with Mailgun signing!
-*   **Ultimate Family Hub**: Native app modules for:
-    *   ⛅ **Weather**: Open-Meteo SDK integration to keep track of the daily forecast.
-    *   📅 **Google Calendar 2-way Sync**: Sync multiple Google accounts per family gracefully, importing events seamlessly into a unified family view.
-    *   🖼️ **Family Photos Screensaver**: A native Sleep Mode that cycles through uploaded family memories like a digital picture frame.
-    *   📝 **Shared Lists**: Real-time collaborative shopping, packing, and to-do lists.
-    *   🍳 **Meal & Recipe Tracking**: Manage meal plans, map them to recipes, and keep the family fed.
-*   **Zero-Telemetry Privacy**: Your data stays on your machine. I built this using native SQLite because databases are meant to be fast and local, not data-mined for a tech giant's profit.
-*   **Built-in Co-op Monitoring**: A robust Node.js worker loop that handles alerts, mission timeouts, and notifications locally.
-*   **Dev-Friendly Foundation**: Fully container-ready decoupled architecture with cleanly separated React components and backend domain modules. Plus, a pre-configured testing suite (Vitest + Supertest).
+## Prerequisites
+- Node.js 24+
+- pnpm 10+
+- Docker Desktop (for container workflow)
 
-## 🛠 Loadout (Tech Stack)
-
-*   **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, Motion (animations that actually feel good).
-*   **Backend**: Node.js 22, Express, `better-sqlite3`, `socket.io` (Realtime Updates).
-*   **Smart Features**: Magic import webhook (parsing AI text to DB events via Gemini AI API), Photo Upload schema, and Google Calendar integrations.
-*   **Testing**: Vitest, `@testing-library`, `supertest`.
-*   **Deployment**: Docker/Docker Compose (Multi-stage build) with an automated GitHub Actions pipeline (Semgrep SAST security scanning + GHCR publishing).
-
-> **For environment variable configuration and third-party API setup instructions (like Google OAuth), please see the [Setup Guide](docs/SETUP_GUIDE.md).**
-
----
-
-## 💻 Start Your Game
-
-### Prerequisites
-- Node.js 22+
-
-### First Run
+## Local Dev Setup
 1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Fire up the dev environment:
-   ```bash
-   npm run dev
-   ```
-   *The server goes live at `http://localhost:3000`.*
-
----
-
-## 🧪 Testing
-
-I've set this up so you can test React components and Express database routes in the same flow.
 ```bash
-npm run test
+pnpm install
 ```
-*Note: Configured to map `better-sqlite3` to `:memory:`, keeping your test environment glitch-free and fast.*
+2. Rebuild native modules if needed (Windows/local ABI issues):
+```bash
+pnpm rebuild better-sqlite3
+```
+3. Start dev server:
+```bash
+pnpm dev
+```
+4. Open app:
+- `http://localhost:3000`
 
----
+## Build and Validation
+- Typecheck:
+```bash
+pnpm exec tsc --noEmit
+```
+- Production build:
+```bash
+pnpm build
+```
+- Test suite:
+```bash
+pnpm test
+```
 
-## 🐳 Docker Deployment (Production)
+## Docker / Compose (Local Production-like)
+This repo maps container port `3000` to host port `3010`.
 
-If you're running this on a home server, Docker Compose is the meta-strategy. You can build it locally or use the pre-built image from GitHub Container Registry (GHCR):
+1. Rebuild containers:
+```bash
+docker compose build
+```
+2. Relaunch stack:
+```bash
+docker compose down
+docker compose up -d
+```
+3. Verify status and logs:
+```bash
+docker compose ps
+docker compose logs --tail=200 webapp
+```
+4. Open app:
+- `http://localhost:3010`
 
-1. **Pull the latest automated build:**
-   ```bash
-   docker pull ghcr.io/madereddy/kidstasky:latest
-   ```
+## Environment
+Copy `.env.example` to `.env` and set values as needed for optional integrations.
 
-2. **Or build it manually from source:**
-   ```bash
-   docker-compose up -d --build
-   ```
+Optional integrations include:
+- Google Calendar sync
+- Google Photos album display (via Google OAuth)
+- Weather provider
+- Magic email/webhook ingestion
+- Push notifications / SMTP fallback
 
-*Port 3000 will be hosting your instance.*
+Family photo controls now include:
+- in-app scheduled hard-delete cleanup settings
+- Google Photos album selector for display in photo surfaces
 
----
+If unset, core local task/calendar/list/reward flows still run.
 
-## 🔐 The "Anti-Tracking" Promise
-
-Look, I didn't add any Google Analytics, trackers, or suspicious 3rd-party dependencies. KidTasker uses local `localStorage` keys mapped to user aliases for session handling and Mission Access Codes (Invite IDs) for pairing Player 1 and Player 2. 
-
-While it now supports **optional** external integrations (like Google Calendar, Gemini Webhooks, or Open-Meteo Weather), the core engine stays local, and it stays yours. Zero forced telemetry. No external calls unless you specifically provide the API keys to opt into those features. Just you, your kids, and the chores.
+## Project Docs
+- Architecture and migration strategy: [ARCHITECTURE.md](ARCHITECTURE.md)
+- Setup variables and integration specifics: [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md)
+- Superpowers implementation plans: `docs/superpowers/plans/`

@@ -25,6 +25,12 @@ export function RoutineTemplatesModal({ parentId, kids, templates, onClose, onAp
   const [newTime, setNewTime] = useState('09:00');
   const [newColor, setNewColor] = useState('#6366f1');
   const [saving, setSaving] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [localTemplates, setLocalTemplates] = useState<RoutineTemplate[]>(templates);
+
+  React.useEffect(() => {
+    setLocalTemplates(templates);
+  }, [templates]);
 
   const handleAddPreset = async (preset: typeof PRESET_ROUTINES[0]) => {
     setSaving(true);
@@ -66,6 +72,12 @@ export function RoutineTemplatesModal({ parentId, kids, templates, onClose, onAp
     onRefresh();
   };
 
+  const persistOrder = async (next: RoutineTemplate[]) => {
+    setLocalTemplates(next);
+    await routinesClientService.reorderTemplates(parentId, next.map((t) => t.id));
+    onRefresh();
+  };
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -98,8 +110,26 @@ export function RoutineTemplatesModal({ parentId, kids, templates, onClose, onAp
 
           {templates.length > 0 && (
             <div className="space-y-2">
-              {templates.map((t) => (
-                <div key={t.id} className="flex items-center gap-3 px-3 py-3 rounded-xl border border-ui bg-white">
+              {localTemplates.map((t) => (
+                <div
+                  key={t.id}
+                  draggable
+                  onDragStart={() => setDraggingId(t.id)}
+                  onDragEnd={() => setDraggingId(null)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    if (!draggingId || draggingId === t.id) return;
+                    const from = localTemplates.findIndex((x) => x.id === draggingId);
+                    const to = localTemplates.findIndex((x) => x.id === t.id);
+                    if (from < 0 || to < 0) return;
+                    const next = [...localTemplates];
+                    const [item] = next.splice(from, 1);
+                    next.splice(to, 0, item);
+                    await persistOrder(next);
+                  }}
+                  className="flex items-center gap-3 px-3 py-3 rounded-xl border border-ui bg-white"
+                >
                   <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-ui-primary truncate">{t.title}</p>
@@ -115,6 +145,7 @@ export function RoutineTemplatesModal({ parentId, kids, templates, onClose, onAp
                   >
                     Use
                   </button>
+                  <div className="px-2 text-[10px] text-ui-muted font-semibold">Drag</div>
                   <button
                     onClick={() => handleDelete(t.id)}
                     className="p-1.5 rounded-lg text-ui-muted hover:text-red-500 hover:bg-red-50 transition-colors"

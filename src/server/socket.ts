@@ -16,7 +16,7 @@ export const socketWrapper = {
             return;
           }
           const payload = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as { uid: string; role: string; parentId: string };
-          const expectedParentId = payload.role === 'parent' ? payload.uid : payload.parentId;
+          const expectedParentId = payload.parentId || payload.uid;
           if (expectedParentId !== parentId) {
             console.warn(`Socket ${socket.id} join-room rejected: parentId mismatch`);
             return;
