@@ -51,5 +51,16 @@ export const settingsService = {
   setLocked: (parentId: string, isLocked: boolean) => {
     db.prepare("UPDATE family_settings SET isLocked = ? WHERE parentId = ?")
       .run(isLocked ? 1 : 0, parentId);
+  },
+  getCalendarVisibility: (userId: string) => {
+    return db.prepare('SELECT calendarId, isVisible FROM calendar_visibility WHERE userId = ?')
+      .all(userId) as Array<{ calendarId: string; isVisible: number }>;
+  },
+  setCalendarVisibility: (userId: string, calendarId: string, isVisible: boolean) => {
+    db.prepare(`
+      INSERT INTO calendar_visibility (userId, calendarId, isVisible)
+      VALUES (?, ?, ?)
+      ON CONFLICT(userId, calendarId) DO UPDATE SET isVisible = excluded.isVisible
+    `).run(userId, calendarId, isVisible ? 1 : 0);
   }
 };

@@ -59,3 +59,28 @@ settingsRouter.post("/settings/:parentId/unlock", requireAuth, (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 });
+
+settingsRouter.get('/settings/visibility', requireAuth, (req, res) => {
+  try {
+    const userId = (req as any).user.uid;
+    const visibility = settingsService.getCalendarVisibility(userId);
+    res.json(visibility);
+  } catch (error: any) {
+    console.error('[settings:get-visibility]', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+settingsRouter.post('/settings/visibility', requireAuth, (req, res) => {
+  try {
+    const userId = (req as any).user.uid;
+    const { calendarId, isVisible } = req.body;
+    if (!calendarId) return res.status(400).json({ error: 'calendarId is required' });
+    
+    settingsService.setCalendarVisibility(userId, calendarId, !!isVisible);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('[settings:post-visibility]', error);
+    res.status(500).json({ error: error.message });
+  }
+});

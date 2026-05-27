@@ -12,5 +12,12 @@ export const settingsClientService = {
   lockDisplay: (parentId: string): Promise<{ success: boolean }> =>
     fetchAPI(`/settings/${parentId}/lock`, { method: "POST" }),
   unlockDisplay: (parentId: string, pin: string): Promise<{ success: boolean }> =>
-    fetchAPI(`/settings/${parentId}/unlock`, { method: "POST", body: JSON.stringify({ pin }) })
+    fetchAPI(`/settings/${parentId}/unlock`, { method: "POST", body: JSON.stringify({ pin }) }),
+  getCalendarVisibility: (): Promise<Array<{ calendarId: string; isVisible: number }>> =>
+    fetchAPI('/settings/visibility'),
+  setCalendarVisibility: (calendarId: string, isVisible: boolean): Promise<{ success: boolean }> =>
+    fetchAPI('/settings/visibility', { 
+      method: 'POST', 
+      body: JSON.stringify({ calendarId, isVisible: isVisible ? 1 : 0 }) 
+    }),
 };
