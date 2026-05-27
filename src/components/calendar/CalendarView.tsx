@@ -14,7 +14,7 @@ import { CalendarMonthView } from './CalendarMonthView';
 import { CalendarWeekView } from './CalendarWeekView';
 import { CalendarDayView } from './CalendarDayView';
 import { AgendaView } from './AgendaView';
-import { AddEventModal } from './AddEventModal';
+import { QuickAddModal } from './QuickAddModal';
 import { RoutineTemplatesModal } from './RoutineTemplatesModal';
 import { EventDetailModal } from './EventDetailModal';
 
@@ -283,7 +283,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
               onClick={() => { setDefaultDate(currentDate); setDefaultStartTime(undefined); setShowAddModal(true); }}
               className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 text-white rounded-xl text-sm font-semibold hover:bg-blue-600 transition-colors min-h-[40px] min-w-[100px]"
             >
-              <Plus size={16} /> Add Event
+              <Plus size={16} /> Quick Add
             </button>
           )}
         </div>
@@ -481,7 +481,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
       </div>
 
       {showAddModal && !isLocked && (
-        <AddEventModal
+        <QuickAddModal
           onClose={() => setShowAddModal(false)}
           onSubmit={fetchEvents}
           kids={kids}

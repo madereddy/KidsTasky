@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { rewardService } from './service.js';
 import { authenticateUser, getParentId } from '../../middleware/auth.js';
+import { db } from '../../db.js';
 
 export const rewardsRouter = Router();
 

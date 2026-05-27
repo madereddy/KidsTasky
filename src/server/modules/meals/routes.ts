@@ -23,12 +23,12 @@ mealsRouter.post('/recipes', authenticateUser, (req, res) => {
 
 mealsRouter.delete('/recipes/:id', authenticateUser, (req, res) => {
   try {
-    const recipe = mealsService.getRecipeById(req.params.id);
+    const recipe = mealsService.getRecipeById(String(req.params.id));
     if (!recipe) return res.status(404).json({ error: 'Not found' });
     const userParentId = getParentId(req);
     if (recipe.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
 
-    mealsService.deleteRecipe(req.params.id);
+    mealsService.deleteRecipe(String(req.params.id));
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -55,12 +55,12 @@ mealsRouter.post('/meal-plans', authenticateUser, (req, res) => {
 
 mealsRouter.delete('/meal-plans/:id', authenticateUser, (req, res) => {
   try {
-    const plan = mealsService.getMealPlanById(req.params.id);
+    const plan = mealsService.getMealPlanById(String(req.params.id));
     if (!plan) return res.status(404).json({ error: 'Not found' });
     const userParentId = getParentId(req);
     if (plan.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
 
-    mealsService.deleteMealPlan(req.params.id);
+    mealsService.deleteMealPlan(String(req.params.id));
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

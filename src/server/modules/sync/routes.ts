@@ -133,7 +133,7 @@ syncRouter.post('/sync/connect/manual', authenticateUser, (req, res) => {
 
 syncRouter.post('/sync/:id/now', authenticateUser, async (req, res) => {
   try {
-    const connection = syncService.getConnectionById(req.params.id);
+    const connection = syncService.getConnectionById(String(req.params.id));
     if (!connection || connection.parentId !== getParentId(req)) {
       return res.status(403).json({ error: 'Forbidden' });
     }

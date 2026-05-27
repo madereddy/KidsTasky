@@ -14,18 +14,20 @@ interface Props {
   onSubmit: () => void;
   kids: UserProfile[];
   parentId: string;
+  defaultDate?: Date;
+  defaultStartTime?: string;
 }
 
 type TabType = 'event' | 'task' | 'list';
 
-export function QuickAddModal({ onClose, onSubmit, kids, parentId }: Props) {
+export function QuickAddModal({ onClose, onSubmit, kids, parentId, defaultDate, defaultStartTime }: Props) {
   const [activeTab, setActiveTab] = useState<TabType>('event');
   const [saving, setSaving] = useState(false);
 
   // Event Form State
   const [eventTitle, setEventTitle] = useState('');
-  const [eventDate, setEventDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [eventStartTime, setEventStartTime] = useState('09:00');
+  const [eventDate, setEventDate] = useState(defaultDate ? format(defaultDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
+  const [eventStartTime, setEventStartTime] = useState(defaultStartTime || '09:00');
   const [eventEndTime, setEventEndTime] = useState('10:00');
   const [eventColor, setEventColor] = useState(PRESET_COLORS[0]);
   const [eventAssignedToId, setEventAssignedToId] = useState('');
