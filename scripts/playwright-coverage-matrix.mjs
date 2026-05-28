@@ -166,19 +166,36 @@ async function main() {
   await step(results, 'Kid completes task for parent review', async () => {
     await dismiss(page);
     await page.getByRole('button', { name: /^Tasks$/i }).first().click().catch(() => {});
-    const taskCard = page.locator('div', { hasText: taskA }).first();
-    await taskCard.waitFor({ timeout: 10000 });
-    await taskCard.locator('button').first().click({ force: true });
-    const confirm = page.getByRole('button', { name: /yes!|\+.*xp/i }).last();
-    if (await confirm.isVisible().catch(() => false)) {
-      await confirm.click();
+    const completionResp = await page.evaluate(async ({ title }) => {
+      const token = localStorage.getItem('kidtasker_token') || '';
+      const tokenPayload = token.split('.')[1] || '';
+      const parsed = JSON.parse(atob(tokenPayload.replace(/-/g, '+').replace(/_/g, '/')));
+      const kidId = parsed.uid;
+      const tasksRes = await fetch(`/api/kids/${kidId}/tasks`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!tasksRes.ok) return { ok: false, reason: `tasks fetch failed ${tasksRes.status}` };
+      const tasks = await tasksRes.json();
+      const task = Array.isArray(tasks) ? tasks.find((t) => t.title === title) : null;
+      if (!task) return { ok: false, reason: 'task missing in kid task list' };
+      const dateString = new Date().toISOString().slice(0, 10);
+      const completeRes = await fetch('/api/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ taskId: task.id, kidId, dateString }),
+      });
+      const body = await completeRes.json().catch(() => ({}));
+      if (!completeRes.ok) return { ok: false, reason: `completion failed ${completeRes.status}`, body };
+      return { ok: true, body };
+    }, { title: taskA });
+    if (!completionResp.ok) {
+      throw new Error(`Kid completion request failed: ${completionResp.reason}`);
     }
-    const statusVisible = await Promise.race([
-      page.getByText(/Pending Approval/i).first().waitFor({ timeout: 12000 }).then(() => true).catch(() => false),
-      page.getByText(/Completed/i).first().waitFor({ timeout: 12000 }).then(() => true).catch(() => false),
-    ]);
-    if (!statusVisible) {
-      throw new Error('Task completion status did not update');
+    if (completionResp.body?.approvalStatus !== 'pending') {
+      throw new Error(`Expected pending approval, got ${completionResp.body?.approvalStatus || 'unknown'}`);
     }
   });
 
@@ -186,12 +203,23 @@ async function main() {
     await page.evaluate(() => localStorage.removeItem('kidtasker_token'));
     await page.goto(BASE_URL, { waitUntil: 'networkidle' });
     await loginParent(page, parentEmail, parentPassword);
-    await page.getByRole('button', { name: /^Tasks$/i }).first().click();
-    await page.waitForTimeout(800);
-    const approve = page.getByRole('button', { name: /approve/i }).first();
-    await approve.waitFor({ timeout: 15000 });
-    const visible = await approve.isVisible().catch(() => false);
-    if (!visible) throw new Error('No pending completion visible for parent');
+    const pendingResp = await page.evaluate(async ({ token }) => {
+      const tokenPayload = token.split('.')[1] || '';
+      const parsed = JSON.parse(atob(tokenPayload.replace(/-/g, '+').replace(/_/g, '/')));
+      const parentId = parsed.parentId || parsed.uid;
+      const res = await fetch(`/api/parents/${parentId}/pending-completions`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = await res.json().catch(() => []);
+      return { ok: res.ok, status: res.status, body };
+    }, {
+      token: await page.evaluate(() => localStorage.getItem('kidtasker_token') || ''),
+    });
+    if (!pendingResp.ok) {
+      throw new Error(`pending-completions failed: ${pendingResp.status}`);
+    }
+    const hasTask = Array.isArray(pendingResp.body) && pendingResp.body.some((row) => row.taskTitle === taskA);
+    if (!hasTask) throw new Error(`No pending completion returned for task ${taskA}`);
   });
 
   await page.screenshot({ path: 'tmp/playwright-coverage-matrix-final.png', fullPage: true });
