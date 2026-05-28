@@ -6,6 +6,7 @@ Local-first family planner and kid tasking app with parent controls, approvals, 
 - Core family workflows are implemented and in active local use.
 - Recent delivery includes: `Up for Grabs` tasks, task skip without stars, routine drag-reorder with persistence, and server-enforced parent edit-lock checks on mutation routes.
 - Multi-device convergence is improved through socket `stale-data` refetch behavior.
+- Reliability hardening includes a stabilized coverage E2E approval flow and refreshed dependency security updates (`nodemailer` patched line).
 
 ## Tech Stack
 - Frontend: React 19, TypeScript, Vite, Tailwind CSS 4
@@ -47,6 +48,10 @@ pnpm build
 - Test suite:
 ```bash
 pnpm test
+```
+- Focused E2E reliability workflow:
+```bash
+node scripts/playwright-coverage-matrix.mjs
 ```
 
 ## Docker / Compose (Local Production-like)

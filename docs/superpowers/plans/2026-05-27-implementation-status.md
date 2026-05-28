@@ -73,3 +73,13 @@
   - OAuth scope now requests `photoslibrary.readonly` in addition to calendar scope.
   - New API endpoints to list albums and album media.
   - Settings UI album selector and PhotoManager display for selected album content.
+
+## Additional Reliability + Security Updates (2026-05-28)
+
+- E2E reliability:
+  - Stabilized `scripts/playwright-coverage-matrix.mjs` approval verification flow.
+  - Reduced false negatives by verifying pending completions against API source-of-truth.
+- Dependency security posture:
+  - Upgraded `nodemailer` to patched `8.x` line.
+  - Updated lockfile and related type package (`@types/nodemailer`).
+  - `pnpm audit -r` reports no known vulnerabilities at update time.
