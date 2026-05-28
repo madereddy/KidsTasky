@@ -13,6 +13,7 @@ async function main() {
     await page.getByPlaceholder('Parent Password (Optional for Kids)').fill(state.parentPassword);
     await page.getByRole('button', { name: /log in/i }).click();
     await page.getByRole('button', { name: /^Tasks$/i }).first().waitFor({ timeout: 20000 });
+    await page.getByRole('button', { name: /^Tasks$/i }).first().click();
     await page.getByText(new RegExp(state.kidTaskTitle)).first().waitFor({ timeout: 15000 });
     console.log(JSON.stringify({ ok: true, task: state.kidTaskTitle }, null, 2));
   } finally {

@@ -227,6 +227,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
                 customInterval: frequency === 'custom' ? customInterval : undefined,
                 prerequisiteTaskIds: prerequisiteTaskIds.length > 0 ? prerequisiteTaskIds : undefined,
                 starValue,
+                requiresApproval: true,
               })}
               className="flex-1 btn-immersive-primary bg-blue-600"
             >
