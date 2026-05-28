@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Plus, Trash2, Clock } from 'lucide-react';
 import { RoutineTemplate, UserProfile } from '../../types';
 import { routinesClientService } from '../../services/routines';
+import { useDialogA11y } from '../../hooks/useDialogA11y';
 
 const PRESET_ROUTINES = [
   { title: 'School Pickup', defaultStartTime: '15:30', color: '#f59e0b', description: 'Pick up from school' },
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function RoutineTemplatesModal({ parentId, kids, templates, onClose, onApply, onRefresh }: Props) {
+  const { dialogRef, onKeyDown } = useDialogA11y(true, onClose);
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newTime, setNewTime] = useState('09:00');
@@ -79,10 +81,10 @@ export function RoutineTemplatesModal({ parentId, kids, templates, onClose, onAp
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ui-deep-80 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="routine-templates-title" tabIndex={-1} onKeyDown={onKeyDown} className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-ui">
-          <h2 className="text-lg font-bold text-ui-primary">Routine Templates</h2>
+          <h2 id="routine-templates-title" className="text-lg font-bold text-ui-primary">Routine Templates</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-ui-soft transition-colors">
             <X size={18} />
           </button>
@@ -141,7 +143,7 @@ export function RoutineTemplatesModal({ parentId, kids, templates, onClose, onAp
                   </div>
                   <button
                     onClick={() => onApply(t)}
-                    className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-semibold hover:bg-blue-600 transition-colors min-h-[32px]"
+                    className="px-3 py-2 bg-blue-500 text-white rounded-lg text-xs font-semibold hover:bg-blue-600 transition-colors min-h-[44px]"
                   >
                     Use
                   </button>

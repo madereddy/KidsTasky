@@ -16,6 +16,7 @@ tasksRouter.post("/tasks", authenticateUser, enforceEditUnlocked, [
   body('title').isString().notEmpty(),
   body('assignedKidId').isString().notEmpty(),
   body('frequency').isString().notEmpty(),
+  body('requiresApproval').optional().isBoolean(),
   validate
 ], (req: Request, res: Response) => {
   try {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { format, addMonths, subMonths, startOfWeek, addWeeks, subWeeks, addDays, subDays, startOfDay, endOfDay, endOfWeek } from 'date-fns';
-import { ChevronLeft, ChevronRight, Plus, MonitorSmartphone, ListTodo, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, MonitorSmartphone, ListTodo, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
 import { eventsClientService } from '../../services/events';
 import { mealsClientService, MealPlanWithRecipe } from '../../services/meals';
 import { settingsClientService } from '../../services/settings';
@@ -18,6 +18,8 @@ import { QuickAddModal } from './QuickAddModal';
 import { RoutineTemplatesModal } from './RoutineTemplatesModal';
 import { EventDetailModal } from './EventDetailModal';
 import { useSocketStaleData } from '../../hooks/useSocket';
+import { useFullscreen } from '../../hooks/useFullscreen';
+import { useWakeLock } from '../../hooks/useWakeLock';
 
 type ViewMode = 'month' | 'week' | 'day' | 'agenda';
 type WallFilter = 'today' | 'week' | 'allday';
@@ -38,7 +40,7 @@ const VIEW_LABELS: { mode: ViewMode; label: string }[] = [
 ];
 
 export function CalendarView({ parentId, kids, memberColorMap, isLocked = false, userRole = 'parent' }: Props) {
-  const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -60,7 +62,11 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
   const [routineTemplates, setRoutineTemplates] = useState<RoutineTemplate[]>([]);
   const [showRoutinesModal, setShowRoutinesModal] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
+  const [isKioskMode, setIsKioskMode] = useState(false);
   const wallRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const staleRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
+  useWakeLock(isKioskMode);
 
   const fetchEvents = useCallback(async () => {
     const ev = await eventsClientService.getEvents(parentId);
@@ -70,9 +76,33 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
+  useEffect(() => {
+    if (!isFullscreen && isKioskMode) setIsKioskMode(false);
+  }, [isFullscreen, isKioskMode]);
+
+  useEffect(() => {
+    if (isKioskMode) document.body.classList.add('kiosk-mode');
+    else document.body.classList.remove('kiosk-mode');
+    return () => document.body.classList.remove('kiosk-mode');
+  }, [isKioskMode]);
+
   useSocketStaleData((data) => {
-    fetchEvents();
-    if (isWallMode) {
+    const type = data?.type || data?.entity || '';
+    const shouldRefreshEvents =
+      !type ||
+      type === 'events' ||
+      type === 'sync' ||
+      type === 'calendar' ||
+      type === 'calendars';
+
+    if (shouldRefreshEvents) {
+      if (staleRefreshTimeoutRef.current) clearTimeout(staleRefreshTimeoutRef.current);
+      staleRefreshTimeoutRef.current = setTimeout(() => {
+        fetchEvents().catch(() => {});
+      }, 200);
+    }
+
+    if (isWallMode && (type === 'events' || type === 'lists' || type === 'tasks' || type === 'calendar' || !type)) {
       routinesClientService.getTemplates(parentId).then(setRoutineTemplates).catch(() => {});
       listsClientService.getLists(parentId)
         .then(async (lists) => {
@@ -88,6 +118,12 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
         .catch(() => {});
     }
   });
+
+  useEffect(() => {
+    return () => {
+      if (staleRefreshTimeoutRef.current) clearTimeout(staleRefreshTimeoutRef.current);
+    };
+  }, []);
 
   // Auto-refresh events every 60s in wall mode
   useEffect(() => {
@@ -299,7 +335,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
           <button onClick={navigateNext} className="p-2 hover:bg-ui-soft-3 rounded-full transition-colors">
             <ChevronRight size={18} />
           </button>
-          <span className="text-sm font-semibold text-ui-secondary min-w-[160px] text-center">{getDateLabel()}</span>
+          <span className="text-sm font-semibold text-ui-secondary text-center px-2 sm:min-w-[160px]">{getDateLabel()}</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -312,6 +348,26 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
             title="Toggle wall display mode"
           >
             <MonitorSmartphone size={16} /> Wall
+          </button>
+          <button
+            onClick={() => {
+              const entering = !isKioskMode;
+              setIsKioskMode(entering);
+              if (entering) {
+                setIsWallMode(true);
+              }
+              toggleFullscreen();
+            }}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-colors border',
+              isKioskMode
+                ? 'bg-indigo-600 text-white border-indigo-600'
+                : 'bg-white text-ui-secondary border-ui hover:bg-ui-soft'
+            )}
+            title="Toggle kiosk / fullscreen mode"
+          >
+            {isKioskMode ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            Kiosk
           </button>
           {isWallMode && (
             <button
@@ -326,7 +382,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
           {!isLocked && (
             <button
               onClick={() => { setDefaultDate(currentDate); setDefaultStartTime(undefined); setShowAddModal(true); }}
-              className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 text-white rounded-xl text-sm font-semibold hover:bg-blue-600 transition-colors min-h-[40px] min-w-[100px]"
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 text-white rounded-xl text-sm font-semibold hover:bg-blue-600 transition-colors min-h-[44px] min-w-[100px]"
             >
               <Plus size={16} /> Quick Add
             </button>
@@ -404,7 +460,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
         <div className="flex flex-col border-b border-ui-soft bg-ui-soft">
           <div className="flex gap-3 px-4 py-2 overflow-x-auto min-h-[72px] items-center">
             {countdownEvents.length === 0 ? (
-              <p className="text-sm text-gray-400 italic">No countdowns set.</p>
+              <p className="text-sm text-ui-muted-2 italic">No countdowns set.</p>
             ) : (
               countdownEvents.map((event) => {
                 const days = daysUntil(event.startTime);
@@ -418,7 +474,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
                       <span className="text-2xl font-bold">{days}</span>
                       <span className="text-xs ml-1 opacity-90">day{days !== 1 ? 's' : ''}</span>
                     </div>
-                    <div className="text-sm font-medium truncate max-w-[100px]">{event.title}</div>
+                    <div className="text-sm font-medium truncate max-w-[90px] sm:max-w-[100px]">{event.title}</div>
                   </div>
                 );
               })
@@ -431,7 +487,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
                   key={f}
                   onClick={() => setWallFilter(f)}
                   className={cn(
-                    'px-4 py-2 rounded-lg text-sm font-semibold transition-all min-h-[36px]',
+                    'px-4 py-2 rounded-lg text-sm font-semibold transition-all min-h-[44px]',
                     wallFilter === f ? 'bg-blue-500 text-white shadow-sm' : 'text-ui-muted hover:text-ui-primary'
                   )}
                 >
@@ -484,10 +540,12 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
                     <div
                       key={e.id}
                       onClick={() => setSelectedEvent(e)}
-                      className="flex-shrink-0 rounded-xl border border-ui bg-white px-4 py-2 min-w-[160px] cursor-pointer"
-                      style={{ borderLeftColor: e.color, borderLeftWidth: 3 }}
+                      className="flex-shrink-0 rounded-xl border border-ui bg-white px-4 py-2 min-w-[140px] sm:min-w-[160px] cursor-pointer"
                     >
-                      <p className="text-xs font-bold text-ui-secondary truncate">{e.title}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: e.color || '#6366f1' }} />
+                        <p className="text-xs font-bold text-ui-secondary truncate">{e.title}</p>
+                      </div>
                       <p className="text-xs text-ui-muted">{format(new Date(e.startTime), 'MMM d, h:mm a')}</p>
                     </div>
                   ))}
@@ -584,6 +642,14 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
           }}
           onRefresh={() => routinesClientService.getTemplates(parentId).then(setRoutineTemplates).catch(() => {})}
         />
+      )}
+      {isKioskMode && (
+        <button
+          onClick={() => { setIsKioskMode(false); toggleFullscreen(); }}
+          className="fixed bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-2 bg-ui-deep-80 text-white rounded-full text-xs font-bold hover:bg-ui-dark-95 transition-colors backdrop-blur-sm"
+        >
+          <Minimize2 size={14} /> Exit Kiosk
+        </button>
       )}
     </div>
   );

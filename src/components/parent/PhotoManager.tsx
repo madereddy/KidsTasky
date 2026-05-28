@@ -4,15 +4,12 @@ import { photosClientService } from '../../services/photos';
 
 interface Props {
   parentId: string;
-  googlePhotosEnabled?: boolean;
-  googlePhotosAlbumId?: string | null;
+  refreshToken?: number;
 }
 
-export function PhotoManager({ parentId, googlePhotosEnabled = false, googlePhotosAlbumId = null }: Props) {
+export function PhotoManager({ parentId, refreshToken = 0 }: Props) {
   const [photos, setPhotos] = useState<FamilyPhoto[]>([]);
-  const [googlePhotos, setGooglePhotos] = useState<Array<{ id: string; baseUrl: string; filename?: string }>>([]);
   const [loading, setLoading] = useState(false);
-  const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [error, setError] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [captionDraft, setCaptionDraft] = useState('');
@@ -25,20 +22,7 @@ export function PhotoManager({ parentId, googlePhotosEnabled = false, googlePhot
 
   useEffect(() => {
     refresh().catch(() => {});
-  }, [parentId]);
-
-  useEffect(() => {
-    if (!googlePhotosEnabled || !googlePhotosAlbumId) {
-      setGooglePhotos([]);
-      return;
-    }
-    setLoadingGoogle(true);
-    photosClientService
-      .getGoogleAlbumMedia(parentId, googlePhotosAlbumId, 36)
-      .then((items) => setGooglePhotos(items || []))
-      .catch(() => setGooglePhotos([]))
-      .finally(() => setLoadingGoogle(false));
-  }, [parentId, googlePhotosEnabled, googlePhotosAlbumId]);
+  }, [parentId, refreshToken]);
 
   const onFilesSelected = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -63,7 +47,7 @@ export function PhotoManager({ parentId, googlePhotosEnabled = false, googlePhot
         <button
           onClick={() => inputRef.current?.click()}
           disabled={loading}
-          className="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm font-semibold hover:bg-blue-600 transition-colors disabled:opacity-60"
+          className="px-3 py-2 min-h-[44px] bg-blue-500 text-white rounded-lg text-sm font-semibold hover:bg-blue-600 transition-colors disabled:opacity-60"
         >
           {loading ? 'Uploading...' : 'Upload Photos'}
         </button>
@@ -91,6 +75,10 @@ export function PhotoManager({ parentId, googlePhotosEnabled = false, googlePhot
                       await photosClientService.updateCaption(photo.id, captionDraft);
                       setEditingId(null);
                       refresh().catch(() => {});
+                    }
+                    if (e.key === 'Escape') {
+                      setCaptionDraft(photo.caption || '');
+                      setEditingId(null);
                     }
                   }}
                   className="w-full text-xs border border-ui rounded px-2 py-1 bg-white text-ui-primary"
@@ -120,30 +108,6 @@ export function PhotoManager({ parentId, googlePhotosEnabled = false, googlePhot
           </div>
         ))}
       </div>
-
-      {googlePhotosEnabled && googlePhotosAlbumId && (
-        <div className="pt-3 border-t border-ui">
-          <h4 className="text-sm font-semibold text-ui-secondary mb-2">Google Photos Album</h4>
-          {loadingGoogle ? (
-            <p className="text-xs text-ui-muted">Loading album photos...</p>
-          ) : googlePhotos.length === 0 ? (
-            <p className="text-xs text-ui-muted">No album photos available. Reconnect Google if needed.</p>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {googlePhotos.map((photo) => (
-                <div key={photo.id} className="border border-ui rounded-xl overflow-hidden bg-white shadow-sm">
-                  <img
-                    src={`${photo.baseUrl}=w640-h480`}
-                    alt={photo.filename || 'Google photo'}
-                    className="w-full h-28 object-cover"
-                    loading="lazy"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

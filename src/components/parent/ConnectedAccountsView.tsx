@@ -24,7 +24,7 @@ export function ConnectedAccountsView({ connections, calendars = [], onConnect, 
   const isGoogleConnected = connections.some(c => c.provider === 'google' || c.provider === 'google_manual');
 
   return (
-    <div className="bg-white shadow-sm border border-ui-soft p-6 rounded-3xl border-l-4 border-l-emerald-500 overflow-hidden relative">
+    <div className="bg-white shadow-sm border border-ui-soft p-6 rounded-3xl overflow-hidden relative">
       <div className="relative z-10">
         <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
           <Calendar className="w-5 h-5 text-emerald-500" />
@@ -50,11 +50,11 @@ export function ConnectedAccountsView({ connections, calendars = [], onConnect, 
               {conn.provider === 'google' && (
                 <div className="border-t border-ui-soft pt-3 space-y-2">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-[9px] text-ui-muted uppercase tracking-widest font-black">
+                    <p className="text-xs text-ui-muted uppercase tracking-widest font-black">
                       Synced calendars
                     </p>
                     {calendars.filter(calendar => calendar.connectionId === conn.id).length > 0 && (
-                      <p className="text-[9px] text-ui-muted-2 font-bold">
+                      <p className="text-xs text-ui-muted-2 font-bold">
                         {calendars.filter(calendar => calendar.connectionId === conn.id && Boolean(calendar.enabled)).length}/{calendars.filter(calendar => calendar.connectionId === conn.id).length} on
                       </p>
                     )}
@@ -77,7 +77,7 @@ export function ConnectedAccountsView({ connections, calendars = [], onConnect, 
                             >
                               <span className="min-w-0">
                                 <span className="block truncate text-sm font-semibold text-ui-secondary">{calendar.name}</span>
-                                <span className="block truncate text-[10px] text-ui-muted">{calendar.calendarId}</span>
+                                <span className="block truncate text-xs text-ui-muted">{calendar.calendarId}</span>
                               </span>
                               <input
                                 type="checkbox"
@@ -91,7 +91,7 @@ export function ConnectedAccountsView({ connections, calendars = [], onConnect, 
                         })}
                     </div>
                   )}
-                  <p className="text-[10px] text-ui-muted-2">
+                  <p className="text-xs text-ui-muted-2">
                     Turning a calendar off stops future imports and removes events imported from that calendar.
                   </p>
                 </div>
@@ -103,7 +103,7 @@ export function ConnectedAccountsView({ connections, calendars = [], onConnect, 
             <div className="space-y-4 pt-2">
               <button 
                 onClick={() => onConnect('google')}
-                className="w-full bg-ui-soft-2 border border-ui text-white hover:bg-ui-dark-2 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all"
+                className="w-full bg-ui-soft-2 border border-ui text-ui-primary hover:bg-ui-dark-2 hover:text-white p-4 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all"
               >
                 <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-4 h-4" />
                 Connect via Google OAuth
@@ -112,7 +112,7 @@ export function ConnectedAccountsView({ connections, calendars = [], onConnect, 
               <div className="text-center">
                 <button 
                   onClick={() => setShowManual(!showManual)}
-                  className="text-[9px] text-ui-muted hover:text-emerald-400 uppercase tracking-widest font-black transition-colors"
+                  className="text-xs text-ui-muted hover:text-emerald-400 uppercase tracking-widest font-black transition-colors"
                 >
                   {showManual ? 'Hide Manual Options' : 'Other Options (App Password)'}
                 </button>
@@ -128,7 +128,7 @@ export function ConnectedAccountsView({ connections, calendars = [], onConnect, 
                   >
                     <div className="bg-white/90 border border-ui-dark rounded-2xl p-4 space-y-3">
                       <div>
-                        <label className="text-[9px] text-ui-muted uppercase font-black tracking-widest mb-1 block">Gmail Frequency</label>
+                        <label className="text-xs text-ui-muted uppercase font-black tracking-widest mb-1 block">Gmail Email</label>
                         <input 
                           type="email" 
                           value={email}
@@ -139,8 +139,8 @@ export function ConnectedAccountsView({ connections, calendars = [], onConnect, 
                       </div>
                       <div>
                         <div className="flex justify-between items-center mb-1">
-                          <label className="text-[9px] text-ui-muted uppercase font-black tracking-widest block">App Identity Key</label>
-                          <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-[8px] text-blue-400 hover:underline flex items-center gap-1">
+                          <label className="text-xs text-ui-muted uppercase font-black tracking-widest block">App Password Key</label>
+                          <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline flex items-center gap-1">
                             Guides <ExternalLink className="w-2 h-2" />
                           </a>
                         </div>
@@ -155,11 +155,11 @@ export function ConnectedAccountsView({ connections, calendars = [], onConnect, 
                       <button 
                         disabled={!email || !appPassword}
                         onClick={() => onConnect('manual', { email, appPassword })}
-                        className="w-full bg-emerald-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                        className="w-full bg-emerald-600 text-white py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2 disabled:opacity-50"
                       >
                         <KeyRound className="w-4 h-4" /> Link Command
                       </button>
-                      <p className="text-[8px] text-ui-muted italic text-center">
+                      <p className="text-xs text-ui-muted italic text-center">
                         This enables AI task extraction from your emails without OAuth.
                       </p>
                     </div>
@@ -170,7 +170,7 @@ export function ConnectedAccountsView({ connections, calendars = [], onConnect, 
           )}
 
           {connections.length === 0 && !showManual && (
-             <p className="text-ui-muted text-[10px] uppercase tracking-widest font-black text-center pt-2">No active mission uplinks</p>
+             <p className="text-ui-muted text-xs uppercase tracking-widest font-black text-center pt-2">No active mission uplinks</p>
           )}
         </div>
       </div>

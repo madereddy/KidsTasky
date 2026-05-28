@@ -1,0 +1,41 @@
+{
+  "ok": false,
+  "parentEmail": "cov_parent_1779937929206@example.com",
+  "parentPassword": "pass1234",
+  "kidPin": "1234",
+  "taskA": "TaskA_1779937929207",
+  "results": [
+    {
+      "step": "Register parent",
+      "ok": true
+    },
+    {
+      "step": "Add two kids",
+      "ok": false,
+      "error": "locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: /commission cadet/i })\u001b[22m\n\u001b[2m    - locator resolved to <button disabled type=\"submit\" class=\"w-full bg-purple-600/20 border border-purple-500/50 text-purple-400 hover:bg-purple-600/40 px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 transition-all\">…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    57 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is not enabled\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n"
+    },
+    {
+      "step": "Create kid-specific/all tasks",
+      "ok": false,
+      "error": "locator.selectOption: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('select').first()\u001b[22m\n\u001b[2m    - locator resolved to <select class=\"input-immersive\">…</select>\u001b[22m\n\u001b[2m  - attempting select option action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible and enabled\u001b[22m\n\u001b[2m      - did not find some options\u001b[22m\n\u001b[2m    - retrying select option action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible and enabled\u001b[22m\n\u001b[2m      - did not find some options\u001b[22m\n\u001b[2m    - retrying select option action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    59 × waiting for element to be visible and enabled\u001b[22m\n\u001b[2m       - did not find some options\u001b[22m\n\u001b[2m     - retrying select option action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n"
+    },
+    {
+      "step": "Lock/unlock wrong+correct PIN",
+      "ok": true
+    },
+    {
+      "step": "Kid permissions and visibility",
+      "ok": false,
+      "error": "locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText(/TaskAll_1779937929207/).first() to be visible\u001b[22m\n"
+    },
+    {
+      "step": "Kid completes task for parent review",
+      "ok": true
+    },
+    {
+      "step": "Parent sees pending completion",
+      "ok": false,
+      "error": "No pending completion visible for parent"
+    }
+  ]
+}

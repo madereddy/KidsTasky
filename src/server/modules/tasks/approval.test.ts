@@ -41,6 +41,47 @@ describe('Task Completion Approval', () => {
     expect(kid.earnedStars).toBe(0);
   });
 
+  it('createTask defaults requiresApproval to enabled', () => {
+    const taskId = taskServiceServer.createTask({
+      title: 'Default Approval Task',
+      frequency: 'daily',
+      assignedKidId: kidId,
+      parentId,
+      starValue: 1,
+    });
+
+    const task = db.prepare('SELECT requiresApproval FROM tasks WHERE id = ?').get(taskId) as any;
+    expect(task.requiresApproval).toBe(1);
+
+    const completion = taskServiceServer.createCompletion({
+      taskId,
+      kidId,
+      dateString: '2026-01-07',
+    });
+    expect(completion.approvalStatus).toBe('pending');
+  });
+
+  it('createTask honors requiresApproval=false when provided', () => {
+    const taskId = taskServiceServer.createTask({
+      title: 'No Approval Task',
+      frequency: 'daily',
+      assignedKidId: kidId,
+      parentId,
+      starValue: 1,
+      requiresApproval: false,
+    });
+
+    const task = db.prepare('SELECT requiresApproval FROM tasks WHERE id = ?').get(taskId) as any;
+    expect(task.requiresApproval).toBe(0);
+
+    const completion = taskServiceServer.createCompletion({
+      taskId,
+      kidId,
+      dateString: '2026-01-08',
+    });
+    expect(completion.approvalStatus).toBe('approved');
+  });
+
   it('creates an approved completion when task requiresApproval=0', () => {
     db.prepare("INSERT INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, requiresApproval, starValue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
       'approval_task_2', 'Brush Teeth', 'daily', kidId, parentId, 'active', Date.now(), 0, 1

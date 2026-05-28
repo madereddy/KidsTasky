@@ -5,6 +5,7 @@ import path from "path";
 
 const dbPath = process.env.DB_PATH || 'database.db';
 const isDevOrTest = process.env.VITEST || process.env.NODE_ENV === 'test';
+const sqlDebugEnabled = process.env.SQL_DEBUG === '1' || process.env.DB_VERBOSE === '1';
 
 if (!isDevOrTest) {
   try {
@@ -21,7 +22,7 @@ if (!isDevOrTest) {
 }
 
 export const db = new Database(isDevOrTest ? ':memory:' : dbPath, { 
-  verbose: isDevOrTest ? undefined : console.log 
+  verbose: isDevOrTest || !sqlDebugEnabled ? undefined : console.log
 });
 
 db.pragma('journal_mode = WAL');

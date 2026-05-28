@@ -5,10 +5,11 @@ export const taskServiceServer = {
   createTask: (task: any) => {
     const id = "task_" + randomUUID();
     const prereqs = task.prerequisiteTaskIds ? JSON.stringify(task.prerequisiteTaskIds) : "[]";
+    const requiresApproval = task.requiresApproval === undefined ? 1 : (task.requiresApproval ? 1 : 0);
     db.prepare(`
-      INSERT INTO tasks (id, title, description, frequency, reminderTime, assignedKidId, parentId, categoryId, difficulty, status, createdAt, customInterval, prerequisiteTaskIds, starValue)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, task.title, task.description || null, task.frequency, task.reminderTime || null, task.assignedKidId, task.parentId, task.categoryId || null, task.difficulty || 'easy', 'active', Date.now(), task.customInterval || null, prereqs, task.starValue ?? 1);
+      INSERT INTO tasks (id, title, description, frequency, reminderTime, assignedKidId, parentId, categoryId, difficulty, status, createdAt, customInterval, prerequisiteTaskIds, starValue, requiresApproval)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, task.title, task.description || null, task.frequency, task.reminderTime || null, task.assignedKidId, task.parentId, task.categoryId || null, task.difficulty || 'easy', 'active', Date.now(), task.customInterval || null, prereqs, task.starValue ?? 1, requiresApproval);
     return id;
   },
   

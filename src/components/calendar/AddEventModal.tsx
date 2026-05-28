@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { eventsClientService } from '../../services/events';
 import { UserProfile } from '../../types';
 import { cn } from '../../lib/utils';
+import { useDialogA11y } from '../../hooks/useDialogA11y';
 
 const PRESET_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#f97316'];
 
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function AddEventModal({ onClose, onSubmit, kids, parentId, defaultDate, defaultStartTime }: Props) {
+  const { dialogRef, onKeyDown } = useDialogA11y(true, onClose);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(defaultDate ? format(defaultDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
@@ -60,10 +62,10 @@ export function AddEventModal({ onClose, onSubmit, kids, parentId, defaultDate, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-y-auto max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ui-deep-80 p-4" onClick={onClose}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="add-event-title" tabIndex={-1} onKeyDown={onKeyDown} onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-y-auto max-h-[90vh]">
         <div className="flex items-center justify-between p-5 border-b">
-          <h2 className="text-lg font-bold">Add Event</h2>
+          <h2 id="add-event-title" className="text-lg font-bold">Add Event</h2>
           <button type="button" onClick={onClose} className="p-2 hover:bg-ui-soft-2 rounded-full">
             <X size={18} />
           </button>

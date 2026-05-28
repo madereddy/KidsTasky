@@ -9,11 +9,20 @@ import { getJwtSecret } from '../../config.js';
 describe('Events API', () => {
   const parentId = 'parent_api_1';
   const token = jwt.sign({ uid: parentId, role: 'parent', parentId }, getJwtSecret());
+  const otherParentId = 'parent_api_other';
+  const otherParentToken = jwt.sign({ uid: otherParentId, role: 'parent', parentId: otherParentId }, getJwtSecret());
+  const kidId = 'kid_api_1';
+  const kidToken = jwt.sign({ uid: kidId, role: 'kid', parentId }, getJwtSecret());
 
   beforeEach(() => {
     db.prepare('DELETE FROM events').run();
+    db.prepare('DELETE FROM event_attendees').run();
     db.prepare('DELETE FROM users WHERE uid = ?').run(parentId);
+    db.prepare('DELETE FROM users WHERE uid = ?').run(otherParentId);
+    db.prepare('DELETE FROM users WHERE uid = ?').run(kidId);
     db.prepare("INSERT OR IGNORE INTO users (uid, role, name, email, parentId) VALUES (?, ?, ?, ?, ?)").run(parentId, 'parent', 'Test Parent', 'events@test.com', parentId);
+    db.prepare("INSERT OR IGNORE INTO users (uid, role, name, email, parentId) VALUES (?, ?, ?, ?, ?)").run(otherParentId, 'parent', 'Other Parent', 'other@test.com', otherParentId);
+    db.prepare("INSERT OR IGNORE INTO users (uid, role, name, email, parentId) VALUES (?, ?, ?, ?, ?)").run(kidId, 'kid', 'Kid', 'kid@test.com', parentId);
   });
 
   afterAll(() => {
@@ -130,5 +139,229 @@ describe('Events API', () => {
       events = await request(app).get(`/api/parents/${parentId}/events`).set('Authorization', `Bearer ${token}`);
       expect(events.body.length).toBe(2); // June 1 + 8 remain
     }
+  });
+
+  it('adds attendees to an event and lists them', async () => {
+    const create = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'Trip',
+        startTime: Date.now(),
+        endTime: Date.now() + 3600000,
+        color: '#6366f1'
+      });
+    expect(create.status).toBe(200);
+    const eventId = create.body.ids[0];
+
+    const add = await request(app)
+      .post(`/api/events/${eventId}/attendees`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ userId: parentId });
+    expect(add.status).toBe(200);
+
+    const list = await request(app)
+      .get(`/api/parents/${parentId}/events`)
+      .set('Authorization', `Bearer ${token}`);
+    const found = list.body.find((event: any) => event.id === eventId);
+    expect(found.attendees).toHaveLength(1);
+    expect(found.attendees[0].userId).toBe(parentId);
+  });
+
+  it('updates attendee RSVP', async () => {
+    const create = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'Party',
+        startTime: Date.now(),
+        endTime: Date.now() + 3600000,
+        color: '#6366f1'
+      });
+    const eventId = create.body.ids[0];
+    await request(app)
+      .post(`/api/events/${eventId}/attendees`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ userId: parentId });
+
+    const patch = await request(app)
+      .patch(`/api/events/${eventId}/attendees/${parentId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ rsvp: 'yes' });
+    expect(patch.status).toBe(200);
+  });
+
+  it('forbids a kid from RSVP update for another user', async () => {
+    const create = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'Party',
+        startTime: Date.now(),
+        endTime: Date.now() + 3600000,
+        color: '#6366f1'
+      });
+    const eventId = create.body.ids[0];
+    await request(app).post(`/api/events/${eventId}/attendees`).set('Authorization', `Bearer ${token}`).send({ userId: parentId });
+
+    const patch = await request(app)
+      .patch(`/api/events/${eventId}/attendees/${parentId}`)
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ rsvp: 'no' });
+    expect(patch.status).toBe(403);
+  });
+
+  it('allows parent to remove an attendee', async () => {
+    const create = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'Trip',
+        startTime: Date.now(),
+        endTime: Date.now() + 3600000,
+        color: '#6366f1'
+      });
+    const eventId = create.body.ids[0];
+    await request(app)
+      .post(`/api/events/${eventId}/attendees`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ userId: kidId });
+
+    const del = await request(app)
+      .delete(`/api/events/${eventId}/attendees/${kidId}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(del.status).toBe(200);
+
+    const list = await request(app)
+      .get(`/api/parents/${parentId}/events`)
+      .set('Authorization', `Bearer ${token}`);
+    const found = list.body.find((event: any) => event.id === eventId);
+    expect(found.attendees).toHaveLength(0);
+  });
+
+  it('forbids kid attendee removal', async () => {
+    const create = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'Trip',
+        startTime: Date.now(),
+        endTime: Date.now() + 3600000,
+        color: '#6366f1'
+      });
+    const eventId = create.body.ids[0];
+    await request(app)
+      .post(`/api/events/${eventId}/attendees`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ userId: kidId });
+
+    const del = await request(app)
+      .delete(`/api/events/${eventId}/attendees/${kidId}`)
+      .set('Authorization', `Bearer ${kidToken}`);
+    expect(del.status).toBe(403);
+  });
+
+  it('forbids kid from adding attendees', async () => {
+    const create = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'Trip',
+        startTime: Date.now(),
+        endTime: Date.now() + 3600000,
+        color: '#6366f1'
+      });
+    const eventId = create.body.ids[0];
+    const add = await request(app)
+      .post(`/api/events/${eventId}/attendees`)
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ userId: kidId });
+    expect(add.status).toBe(403);
+  });
+
+  it('rejects adding non-family attendee', async () => {
+    const create = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'Trip',
+        startTime: Date.now(),
+        endTime: Date.now() + 3600000,
+        color: '#6366f1'
+      });
+    const eventId = create.body.ids[0];
+    const add = await request(app)
+      .post(`/api/events/${eventId}/attendees`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ userId: otherParentId });
+    expect(add.status).toBe(400);
+  });
+
+  it('rejects attendee add with missing userId', async () => {
+    const create = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'Trip',
+        startTime: Date.now(),
+        endTime: Date.now() + 3600000,
+        color: '#6366f1'
+      });
+    const eventId = create.body.ids[0];
+    const add = await request(app)
+      .post(`/api/events/${eventId}/attendees`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+    expect(add.status).toBe(400);
+  });
+
+  it('forbids non-family parent from RSVP updates', async () => {
+    const create = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'Trip',
+        startTime: Date.now(),
+        endTime: Date.now() + 3600000,
+        color: '#6366f1'
+      });
+    const eventId = create.body.ids[0];
+    await request(app)
+      .post(`/api/events/${eventId}/attendees`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ userId: kidId });
+
+    const patch = await request(app)
+      .patch(`/api/events/${eventId}/attendees/${kidId}`)
+      .set('Authorization', `Bearer ${otherParentToken}`)
+      .send({ rsvp: 'yes' });
+    expect(patch.status).toBe(403);
+  });
+
+  it('forbids cross-family reads of parent events', async () => {
+    await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'Private Event',
+        startTime: Date.now(),
+        endTime: Date.now() + 3600000,
+        color: '#6366f1'
+      });
+
+    const get = await request(app)
+      .get(`/api/parents/${parentId}/events`)
+      .set('Authorization', `Bearer ${otherParentToken}`);
+    expect(get.status).toBe(403);
   });
 });

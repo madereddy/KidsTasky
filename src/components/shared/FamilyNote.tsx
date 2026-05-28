@@ -46,14 +46,14 @@ export function FamilyNote({ parentId, readOnly = false }: Props) {
   }
 
   return (
-    <div className="relative bg-yellow-50 border border-yellow-200 rounded-xl p-3 shadow-sm">
-      <div className="text-xs font-semibold text-yellow-700 mb-1 flex items-center justify-between">
+    <div className="relative bg-amber-50 border border-amber-200 rounded-xl p-3 shadow-sm">
+      <div className="text-xs font-semibold text-amber-800 mb-1 flex items-center justify-between">
         <span>Family Note</span>
-        {saving && <span className="text-gray-400 font-normal">Saving...</span>}
+        {saving && <span className="text-ui-muted-2 font-normal">Saving...</span>}
       </div>
       {readOnly ? (
-        <p className="text-sm whitespace-pre-wrap text-gray-700 min-h-[40px]">
-          {content || <span className="text-gray-400 italic">No note yet</span>}
+        <p className="text-sm whitespace-pre-wrap text-ui-secondary min-h-[40px]">
+          {content || <span className="text-ui-muted-2 italic">No note yet</span>}
         </p>
       ) : (
         <textarea
@@ -61,11 +61,11 @@ export function FamilyNote({ parentId, readOnly = false }: Props) {
           onChange={handleChange}
           placeholder="Write a family note..."
           rows={3}
-          className="w-full text-sm bg-transparent resize-none outline-none text-gray-700 placeholder-gray-400"
+          className="w-full text-sm bg-transparent resize-none outline-none text-ui-secondary placeholder:text-ui-muted-2"
         />
       )}
       {updatedByName && updatedAt > 0 && (
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-xs text-ui-muted-2 mt-1">
           Last updated by {updatedByName}, {formatRelativeTime(updatedAt)}
         </p>
       )}

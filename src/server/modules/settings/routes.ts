@@ -1,8 +1,33 @@
 import { Router } from 'express';
 import { requireAuth, getParentId } from '../../middleware/auth.js';
 import { settingsService } from './service.js';
+import { syncService } from '../sync/service.js';
 
 export const settingsRouter = Router();
+
+settingsRouter.get('/settings/:parentId/bootstrap', requireAuth, (req, res) => {
+  try {
+    const userParentId = getParentId(req);
+    if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
+
+    const userId = (req as any).user.uid as string;
+    const parentId = String(req.params.parentId);
+    const settings = settingsService.getSettings(parentId);
+    const calendars = syncService.getSyncCalendarsByParent(parentId);
+    const calendarVisibility = settingsService.getCalendarVisibility(userId);
+    const connections = syncService.getConnections(parentId);
+
+    res.json({
+      settings,
+      calendars,
+      calendarVisibility,
+      connections,
+    });
+  } catch (error: any) {
+    console.error('[settings:bootstrap]', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 settingsRouter.get('/settings/visibility', requireAuth, (req, res) => {
   try {

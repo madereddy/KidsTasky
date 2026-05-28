@@ -25,6 +25,9 @@ export type SyncNowResponse = SyncNowResult & {
 };
 
 export const syncClientService = {
+  getConnections: (parentId: string): Promise<Array<{ id: string; lastSyncAt?: number; lastSyncStatus?: string }>> =>
+    fetchAPI(`/settings/${parentId}/connections`),
+
   getCalendars: (parentId: string): Promise<SyncCalendar[]> =>
     fetchAPI(`/settings/${parentId}/calendars`),
 

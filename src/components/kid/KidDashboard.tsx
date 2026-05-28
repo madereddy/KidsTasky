@@ -14,19 +14,25 @@ import { ThemeSelectorModal } from './ThemeSelectorModal';
 import { useSocketStaleData } from '../../hooks/useSocket';
 import { AvatarDisplay, AvatarPicker } from '../shared/AvatarPicker';
 import { FamilyNote } from '../shared/FamilyNote';
+import { CalendarView } from '../calendar/CalendarView';
+import { HomeworkView } from '../homework/HomeworkView';
 
 export function KidDashboard({ 
   profile, 
   onProgressChange, 
   categories,
   selectedCategoryId,
-  onProfileUpdate
+  onProfileUpdate,
+  kids,
+  memberColorMap
 }: { 
   profile: UserProfile, 
   onProgressChange: (p: number) => void,
   categories: Category[],
   selectedCategoryId: string | null,
-  onProfileUpdate: () => void
+  onProfileUpdate: () => void,
+  kids: UserProfile[],
+  memberColorMap: Record<string, string>
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [completions, setCompletions] = useState<TaskCompletion[]>([]);
@@ -35,6 +41,7 @@ export function KidDashboard({
   const today = format(startOfToday(), 'yyyy-MM-dd');
   const [unlockedBadge, setUnlockedBadge] = useState<BadgeDef | null>(null);
   const [sortBy, setSortBy] = useState<'time' | 'created'>('time');
+  const [kidView, setKidView] = useState<'tasks' | 'calendar' | 'homework'>('tasks');
   const [taskView, setTaskView] = useState<'all' | 'upforgrabs' | 'assigned'>('all');
   const [showHistory, setShowHistory] = useState(false);
   const [showThemeSelector, setShowThemeSelector] = useState(false);
@@ -355,6 +362,7 @@ export function KidDashboard({
             </button>
             <button 
               onClick={() => setShowThemeSelector(true)}
+              aria-label="Open theme settings"
               className={cn("w-12 h-12 rounded-full flex items-center justify-center transition-colors border", currentTheme.vocab?.darkMode ? "bg-ui-dark-2 border-ui-dark-2 text-ui-muted-2 hover:text-white" : "bg-ui-soft border-ui-soft text-ui-muted-2 hover:text-ui-primary hover:bg-ui-soft-2")}
             >
               <Settings className="w-6 h-6" />
@@ -426,7 +434,7 @@ export function KidDashboard({
             const isClaimed = claimedRewards.some((cr: ClaimedReward) => cr.rewardId === r.id);
             const canAfford = (profile.xp || 0) >= r.xpCost;
             return (
-              <div key={r.id} className={cn("p-5 rounded-2xl flex justify-between items-center", currentTheme.vocab?.darkMode ? "bg-black/20" : "bg-white shadow-sm")}>
+              <div key={r.id} className={cn("p-5 rounded-2xl flex justify-between items-center", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-white shadow-sm")}>
                  <div>
                    <p className={cn("font-bold text-lg", currentTheme.vocab?.textPrimary || "text-ui-primary")}>{r.title}</p>
                    <p className={cn("text-sm mt-1", toneSecondary)}>
@@ -452,7 +460,36 @@ export function KidDashboard({
 
       <div className={cn("flex justify-between items-center shadow-sm p-3 rounded-[2rem] border", currentTheme.vocab?.panelBg || "bg-white", currentTheme.vocab?.panelBorder || "border-ui-soft")}>
         <div className="flex gap-2 items-center">
-          <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-black/20" : "bg-ui-soft")}>
+          <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-ui-soft")}>
+            <button
+              onClick={() => setKidView('tasks')}
+              className={cn(
+                "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
+                kidView === 'tasks' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
+              )}
+            >
+              {currentTheme.vocab?.hub || 'My Chores'}
+            </button>
+            <button
+              onClick={() => setKidView('calendar')}
+              className={cn(
+                "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5",
+                kidView === 'calendar' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
+              )}
+            >
+              <CalendarDays className="w-4 h-4" /> Calendar
+            </button>
+            <button
+              onClick={() => setKidView('homework')}
+              className={cn(
+                "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
+                kidView === 'homework' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
+              )}
+            >
+              Homework
+            </button>
+          </div>
+          <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-ui-soft")}>
             <button 
               onClick={() => setSortBy('time')}
               className={cn(
@@ -472,7 +509,7 @@ export function KidDashboard({
               <CalendarDays className="w-4 h-4" /> New
             </button>
           </div>
-          <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-black/20" : "bg-ui-soft")}>
+          <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-ui-soft")}>
             <button
               onClick={() => setTaskView('all')}
               className={cn(
@@ -530,7 +567,7 @@ export function KidDashboard({
           />
         )}
         {editingAvatar && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-ui-deep-80 flex items-center justify-center z-50">
             <div className="bg-white rounded-2xl p-6 w-80">
               <h3 className="font-semibold mb-3 text-ui-primary">My Avatar</h3>
               <AvatarPicker
@@ -541,29 +578,48 @@ export function KidDashboard({
                   setEditingAvatar(false);
                 }}
               />
-              <button onClick={() => setEditingAvatar(false)} className="mt-3 text-sm text-gray-500">Cancel</button>
+              <button onClick={() => setEditingAvatar(false)} className="mt-3 text-sm text-ui-muted">Cancel</button>
             </div>
           </div>
         )}
       </AnimatePresence>
 
-      <KidTaskBoard
-        sections={taskSections}
-        taskView={taskView}
-        filteredTasksLength={filteredTasks.length}
-        isDarkMode={isDarkMode}
-        panelBgClass={currentTheme.vocab?.panelBg}
-        panelBorderClass={currentTheme.vocab?.panelBorder}
-        noTasksText={currentTheme.vocab?.noTasks || "No chores right now. You're all caught up!"}
-        categories={categories}
-        themeVocab={currentTheme.vocab}
-        getUrgency={getUrgency}
-        isTaskLocked={isTaskLocked}
-        isCompleted={isCompleted}
-        getCompletion={getCompletion}
-        onToggleTask={toggleTask}
-        onSkipTask={skipTask}
-      />
+      {kidView === 'tasks' && (
+        <KidTaskBoard
+          sections={taskSections}
+          taskView={taskView}
+          filteredTasksLength={filteredTasks.length}
+          isDarkMode={isDarkMode}
+          panelBgClass={currentTheme.vocab?.panelBg}
+          panelBorderClass={currentTheme.vocab?.panelBorder}
+          noTasksText={currentTheme.vocab?.noTasks || "No chores right now. You're all caught up!"}
+          categories={categories}
+          themeVocab={currentTheme.vocab}
+          getUrgency={getUrgency}
+          isTaskLocked={isTaskLocked}
+          isCompleted={isCompleted}
+          getCompletion={getCompletion}
+          onToggleTask={toggleTask}
+          onSkipTask={skipTask}
+        />
+      )}
+      {kidView === 'calendar' && (
+        <CalendarView
+          parentId={profile.parentId || profile.uid}
+          kids={kids}
+          memberColorMap={memberColorMap}
+          isLocked={true}
+          userRole="kid"
+        />
+      )}
+      {kidView === 'homework' && (
+        <HomeworkView
+          parentId={profile.parentId || profile.uid}
+          kids={kids}
+          userRole="kid"
+          currentUserId={profile.uid}
+        />
+      )}
 
       {progressPercent === 100 && totalSlots > 0 && (
         <motion.div 
@@ -688,7 +744,7 @@ export function KidDashboard({
                >
                  <Star className="w-20 h-20 fill-yellow-400" />
                </motion.div>
-               <span className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-amber-500 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)] uppercase tracking-tighter italic">
+               <span className="text-6xl font-black text-amber-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)] uppercase tracking-tighter italic">
                  +{xpAnimation.amount} XP
                </span>
             </div>
@@ -715,7 +771,7 @@ export function KidDashboard({
             className="fixed bottom-10 left-6 right-6 md:left-auto md:right-10 md:w-80 z-[100] bg-white border border-ui rounded-[3rem] p-8 shadow-xl"
           >
             <div className="flex flex-col items-center text-center">
-              <div className="text-6xl mb-6 animate-bounce">
+              <div className="text-6xl mb-6">
                 {unlockedBadge.icon}
               </div>
               <h4 className="text-2xl font-bold text-sky-500 mb-2">New Badge!</h4>

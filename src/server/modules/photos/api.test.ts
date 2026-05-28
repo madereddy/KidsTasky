@@ -20,6 +20,19 @@ async function createParentAuth() {
   };
 }
 
+function seedGoogleConnection(parentId: string) {
+  db.prepare(`
+    INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken, createdAt)
+    VALUES (?, ?, 'google', ?, ?, ?)
+  `).run(
+    `sync_test_${Date.now()}_${randomBytes(3).toString('hex')}`,
+    parentId,
+    'test_access_token',
+    'test_refresh_token',
+    Date.now()
+  );
+}
+
 describe('Photos API', () => {
   it('uploads photo, updates caption, lists, and deletes', async () => {
     const { token, parentId, email } = await createParentAuth();
@@ -60,6 +73,66 @@ describe('Photos API', () => {
 
     const row = db.prepare('SELECT id FROM family_photos WHERE id = ?').get(photoId) as { id: string } | undefined;
     expect(row).toBeUndefined();
+
+    db.prepare('DELETE FROM users WHERE email = ?').run(email);
+  });
+
+  it('imports picker-selected photo items into family photos', async () => {
+    const { token, parentId, email } = await createParentAuth();
+    seedGoogleConnection(parentId);
+
+    const importRes = await request(app)
+      .post(`/api/parents/${parentId}/google-photos/picker/import`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        sessionId: 'session-test-1',
+        items: [
+          { id: 'm1', baseUrl: 'https://lh3.googleusercontent.com/test-photo-1' },
+          { id: 'm2', baseUrl: 'https://lh3.googleusercontent.com/test-photo-2=w800-h600' },
+        ],
+      });
+
+    expect(importRes.status).toBe(200);
+    expect(importRes.body.success).toBe(true);
+    expect(importRes.body.imported).toBe(2);
+
+    const listRes = await request(app)
+      .get(`/api/parents/${parentId}/photos`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.length).toBeGreaterThanOrEqual(2);
+    expect(listRes.body.some((p: any) => String(p.url).includes('test-photo-1'))).toBe(true);
+
+    db.prepare('DELETE FROM users WHERE email = ?').run(email);
+  });
+
+  it('dedupes picker imports and reports skipped count', async () => {
+    const { token, parentId, email } = await createParentAuth();
+    seedGoogleConnection(parentId);
+
+    const payload = {
+      sessionId: 'session-test-2',
+      items: [
+        { id: 'm1', baseUrl: 'https://lh3.googleusercontent.com/test-photo-dedupe' },
+      ],
+    };
+
+    const first = await request(app)
+      .post(`/api/parents/${parentId}/google-photos/picker/import`)
+      .set('Authorization', `Bearer ${token}`)
+      .send(payload);
+    expect(first.status).toBe(200);
+    expect(first.body.imported).toBe(1);
+    expect(first.body.skipped).toBe(0);
+
+    const second = await request(app)
+      .post(`/api/parents/${parentId}/google-photos/picker/import`)
+      .set('Authorization', `Bearer ${token}`)
+      .send(payload);
+    expect(second.status).toBe(200);
+    expect(second.body.imported).toBe(0);
+    expect(second.body.skipped).toBe(1);
 
     db.prepare('DELETE FROM users WHERE email = ?').run(email);
   });

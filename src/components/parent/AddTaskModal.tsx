@@ -48,7 +48,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
         
         <div className="space-y-6">
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Mission Objective</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-2 block">Mission Objective</label>
             <input 
               value={title}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
@@ -58,12 +58,12 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
           </div>
 
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Mission Category</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-2 block">Mission Category</label>
             <div className="grid grid-cols-4 gap-2">
               <button
                 onClick={() => setCategoryId('')}
                 className={cn(
-                  "py-2 rounded-xl font-bold text-[10px] uppercase border transition-all",
+                  "py-2 rounded-xl font-bold text-xs uppercase border transition-all min-h-[44px]",
                   categoryId === '' ? "bg-ui-dark-2 text-ui-primary border-ui-dark-2" : "bg-white shadow-sm border-ui text-ui-muted"
                 )}
               >
@@ -74,7 +74,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
                   key={cat.id}
                   onClick={() => setCategoryId(cat.id)}
                   className={cn(
-                    "py-2 rounded-xl font-bold text-[10px] uppercase border transition-all flex flex-col items-center justify-center gap-1",
+                    "py-2 rounded-xl font-bold text-xs uppercase border transition-all flex flex-col items-center justify-center gap-1 min-h-[44px]",
                     categoryId === cat.id ? cn(cat.color, "text-white border-white/20 glow-blue") : "bg-ui-dark border-ui-dark text-ui-muted"
                   )}
                 >
@@ -86,14 +86,14 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
           </div>
 
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Cycle Frequency</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-2 block">Cycle Frequency</label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {(['daily', 'twice-daily', 'weekly', 'bi-weekly', 'custom'] as TaskFrequency[]).map(f => (
                 <button
                   key={f}
                   onClick={() => setFrequency(f)}
                   className={cn(
-                    "py-2 rounded-xl font-bold text-[8px] md:text-[10px] uppercase border transition-all",
+                    "py-2 rounded-xl font-bold text-xs uppercase border transition-all min-h-[44px]",
                     frequency === f ? "bg-blue-600 text-white border-blue-500 glow-blue shadow-lg" : "bg-ui-dark border-ui-dark text-ui-muted"
                   )}
                 >
@@ -105,7 +105,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
 
           {frequency === 'custom' && (
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-              <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Interval Days</label>
+              <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-2 block">Interval Days</label>
               <div className="flex items-center gap-4">
                 <input 
                   type="range"
@@ -117,19 +117,19 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
                 />
                 <span className="text-xl font-black text-blue-400 font-mono w-8">{customInterval}</span>
               </div>
-              <p className="text-[8px] text-ui-muted italic mt-1 uppercase tracking-tight">Mission resets every {customInterval} days</p>
+              <p className="text-xs text-ui-muted italic mt-1 uppercase tracking-tight">Mission resets every {customInterval} days</p>
             </motion.div>
           )}
 
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Mission Difficulty</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-2 block">Mission Difficulty</label>
             <div className="grid grid-cols-3 gap-2">
               {(['easy', 'medium', 'hard'] as TaskDifficulty[]).map(d => (
                 <button
                   key={d}
                   onClick={() => setDifficulty(d)}
                   className={cn(
-                    "py-2 rounded-xl font-bold text-[10px] uppercase border transition-all",
+                    "py-2 rounded-xl font-bold text-xs uppercase border transition-all min-h-[44px]",
                     difficulty === d ? cn(
                       d === 'easy' ? "bg-emerald-600 border-emerald-500" : 
                       d === 'medium' ? "bg-amber-600 border-amber-500" : 
@@ -145,7 +145,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
           </div>
 
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Assign to Cadet</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-2 block">Assign to Cadet</label>
             <select
               value={assignedKidId}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setAssignedKidId(e.target.value)}
@@ -160,7 +160,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
 
           {eligiblePrereqs.length > 0 && (
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block flex items-center gap-1">
+              <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-2 block flex items-center gap-1">
                 <Lock className="w-3 h-3" /> Prerequisites 
               </label>
               <div className="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
@@ -184,7 +184,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
           )}
 
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">⭐ Star Value</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-2 block">⭐ Star Value</label>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map(n => (
                 <button
@@ -193,18 +193,18 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
                   onClick={() => setStarValue(n)}
                   className={cn(
                     'w-10 h-10 rounded-full font-bold text-sm border-2 transition-all',
-                    starValue === n ? 'bg-amber-400 border-amber-500 text-white shadow-md' : 'bg-white border-gray-200 text-gray-500 hover:border-amber-300'
+                    starValue === n ? 'bg-amber-500 border-amber-600 text-white shadow-md' : 'bg-white border-ui text-ui-muted hover:border-amber-300'
                   )}
                 >
                   {n}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-400 mt-1">Stars kids earn for completing this task</p>
+            <p className="text-xs text-ui-muted mt-1">Stars kids earn for completing this task</p>
           </div>
 
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-ui-muted mb-2 block">Launch Time</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-2 block">Launch Time</label>
             <input
               type="time"
               value={reminderTime}

@@ -10,12 +10,56 @@ import { startBackgroundWorker } from "./src/server/worker.js";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { socketWrapper } from "./src/server/socket.js";
+import { getPhotosUploadsDir } from "./src/server/modules/photos/storage.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export { db };
 export const app = express();
+
+type PerfBucket = '<100ms' | '<250ms' | '<500ms' | '<1000ms' | '>=1000ms';
+type PerfStats = {
+  count: number;
+  totalMs: number;
+  maxMs: number;
+  buckets: Record<PerfBucket, number>;
+};
+type PerfStore = Record<string, PerfStats>;
+
+function createEmptyStats(): PerfStats {
+  return {
+    count: 0,
+    totalMs: 0,
+    maxMs: 0,
+    buckets: {
+      '<100ms': 0,
+      '<250ms': 0,
+      '<500ms': 0,
+      '<1000ms': 0,
+      '>=1000ms': 0,
+    },
+  };
+}
+
+function resolvePerfRouteKey(method: string, path: string): string | null {
+  if (method !== 'GET') return null;
+  if (path.startsWith('/api/settings/')) return 'GET /api/settings/*';
+  if (path.startsWith('/api/parents/') && path.endsWith('/events')) return 'GET /api/parents/:parentId/events';
+  return null;
+}
+
+function incrementPerfStats(store: PerfStore, routeKey: string, durationMs: number) {
+  const stats = store[routeKey] || (store[routeKey] = createEmptyStats());
+  stats.count += 1;
+  stats.totalMs += durationMs;
+  if (durationMs > stats.maxMs) stats.maxMs = durationMs;
+  if (durationMs < 100) stats.buckets['<100ms'] += 1;
+  else if (durationMs < 250) stats.buckets['<250ms'] += 1;
+  else if (durationMs < 500) stats.buckets['<500ms'] += 1;
+  else if (durationMs < 1000) stats.buckets['<1000ms'] += 1;
+  else stats.buckets['>=1000ms'] += 1;
+}
 
 function parseCsvEnv(name: string): string[] {
   const raw = process.env[name];
@@ -98,11 +142,42 @@ const limiter = rateLimit({
   limit: 100, 
   standardHeaders: 'draft-8', 
   legacyHeaders: false,
+  skip: (req) => {
+    const host = String(req.hostname || "").toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1") return true;
+    const forwardedFor = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+    const ip = (forwardedFor || req.ip || "").replace(/^::ffff:/, "");
+    return ip === "127.0.0.1" || isRfc1918Ipv4(ip);
+  },
 });
 app.use(limiter);
 
 app.use(express.json());
-app.use('/uploads', express.static(path.resolve('uploads')));
+const uploadsRootDir = path.dirname(getPhotosUploadsDir());
+app.use('/uploads', express.static(uploadsRootDir));
+
+const slowRequestThresholdMs = Number(process.env.SLOW_REQUEST_MS || 400);
+const perfStore: PerfStore = {};
+app.locals.perfStore = perfStore;
+app.use((req, res, next) => {
+  const start = Date.now();
+  const routeKey = resolvePerfRouteKey(req.method, req.path);
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (routeKey) {
+      incrementPerfStats(perfStore, routeKey, duration);
+    }
+    if (duration >= slowRequestThresholdMs) {
+      console.warn('[perf:slow_request]', {
+        method: req.method,
+        path: req.originalUrl,
+        status: res.statusCode,
+        durationMs: duration,
+      });
+    }
+  });
+  next();
+});
 
 // Background Worker
 if (!process.env.VITEST && process.env.NODE_ENV !== 'test') {

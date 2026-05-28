@@ -143,6 +143,30 @@ export interface CalendarEvent {
   recurrenceEnd?: string;   // YYYY-MM-DD
   isCountdown?: number;     // 0 or 1
   reminderMinutes?: number | null;
+  attendees?: EventAttendee[];
+}
+
+export type RsvpStatus = 'pending' | 'yes' | 'no' | 'maybe';
+
+export interface EventAttendee {
+  id: string;
+  eventId: string;
+  userId: string;
+  rsvp: RsvpStatus;
+  name?: string;
+}
+
+export interface Homework {
+  id: string;
+  parentId: string;
+  title: string;
+  subject: string;
+  notes?: string;
+  dueDate: string;
+  assignedToId?: string;
+  status: 'pending' | 'done';
+  color: string;
+  createdAt: number;
 }
 
 export interface RoutineTemplate {

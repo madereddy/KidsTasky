@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { mealsClientService } from '../../services/meals';
+import { useDialogA11y } from '../../hooks/useDialogA11y';
 
 interface Props {
   parentId: string;
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function RecipeFormModal({ parentId, onClose, onCreated }: Props) {
+  const { dialogRef, onKeyDown } = useDialogA11y(true, onClose);
   const [name, setName] = useState('');
   const [ingredients, setIngredients] = useState<string[]>(['']);
   const [saving, setSaving] = useState(false);
@@ -32,10 +34,10 @@ export function RecipeFormModal({ parentId, onClose, onCreated }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ui-deep-80" onClick={onClose}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="new-recipe-title" tabIndex={-1} onKeyDown={onKeyDown} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold text-ui-primary">New Recipe</h2>
+          <h2 id="new-recipe-title" className="text-lg font-bold text-ui-primary">New Recipe</h2>
           <button onClick={onClose} className="p-1 hover:bg-ui-soft-2 rounded-full"><X size={18} /></button>
         </div>
 

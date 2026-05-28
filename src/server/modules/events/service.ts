@@ -1,7 +1,7 @@
 // src/server/modules/events/service.ts
 import { addDays, addWeeks, addMonths, addYears, parseISO, format } from 'date-fns';
 import { db } from '../../db.js';
-import { CalendarEvent } from '../../../types.js';
+import { CalendarEvent, EventAttendee, RsvpStatus } from '../../../types.js';
 
 import { randomUUID } from 'crypto';
 
@@ -101,7 +101,19 @@ export const eventsService = {
   },
 
   getEventsByParent: (parentId: string): CalendarEvent[] => {
-    return db.prepare('SELECT * FROM events WHERE parentId = ? ORDER BY startTime ASC').all(parentId) as CalendarEvent[];
+    const events = db.prepare('SELECT * FROM events WHERE parentId = ? ORDER BY startTime ASC').all(parentId) as CalendarEvent[];
+    const attendeeMap = new Map<string, EventAttendee[]>();
+    const attendees = db.prepare(`
+      SELECT ea.id, ea.eventId, ea.userId, ea.rsvp, u.name
+      FROM event_attendees ea
+      LEFT JOIN users u ON u.uid = ea.userId
+      WHERE ea.eventId IN (SELECT id FROM events WHERE parentId = ?)
+    `).all(parentId) as EventAttendee[];
+    for (const attendee of attendees) {
+      if (!attendeeMap.has(attendee.eventId)) attendeeMap.set(attendee.eventId, []);
+      attendeeMap.get(attendee.eventId)!.push(attendee);
+    }
+    return events.map((event) => ({ ...event, attendees: attendeeMap.get(event.id) ?? [] }));
   },
 
   getEventById: (id: string): CalendarEvent | undefined => {
@@ -185,5 +197,19 @@ export const eventsService = {
 
   setExternalId: (id: string, externalId: string, source: string) => {
     db.prepare('UPDATE events SET externalId = ?, source = ? WHERE id = ?').run(externalId, source, id);
+  },
+
+  addAttendee: (eventId: string, userId: string) => {
+    const id = 'att_' + randomUUID();
+    db.prepare('INSERT OR IGNORE INTO event_attendees (id, eventId, userId) VALUES (?, ?, ?)').run(id, eventId, userId);
+  },
+
+  updateRsvp: (eventId: string, userId: string, rsvp: RsvpStatus): boolean => {
+    const result = db.prepare('UPDATE event_attendees SET rsvp = ? WHERE eventId = ? AND userId = ?').run(rsvp, eventId, userId);
+    return result.changes > 0;
+  },
+
+  removeAttendee: (eventId: string, userId: string) => {
+    db.prepare('DELETE FROM event_attendees WHERE eventId = ? AND userId = ?').run(eventId, userId);
   },
 };

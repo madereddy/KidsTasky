@@ -3,8 +3,9 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { app } from '../../../server.js';
 import { db } from '../db.js';
+import { getJwtSecret } from '../config.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
+const JWT_SECRET = getJwtSecret();
 
 describe('authenticateUser revokedAt', () => {
   const uid = 'user_revoke_test';

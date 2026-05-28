@@ -3,7 +3,7 @@ import { userService } from './services/users';
 import { categoryService } from './services/categories';
 import { settingsClientService } from './services/settings';
 import { subscribeToPush, unsubscribeFromPush } from './services/push';
-import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { LogOut, Rocket, User as UserIcon, Activity, CalendarDays, List, UtensilsCrossed, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, Category } from './types';
@@ -12,15 +12,16 @@ import { THEMES, MEMBER_COLORS } from './constants';
 import { initSocket, useSocketStaleData } from './hooks/useSocket';
 
 import { ParentalLockOverlay } from './components/shared/ParentalLockOverlay';
-
-const LoginView = lazy(() => import('./components/auth/LoginView').then((m) => ({ default: m.LoginView })));
-const OnboardingView = lazy(() => import('./components/onboarding/OnboardingView').then((m) => ({ default: m.OnboardingView })));
-const ParentDashboard = lazy(() => import('./components/parent/ParentDashboard').then((m) => ({ default: m.ParentDashboard })));
-const KidDashboard = lazy(() => import('./components/kid/KidDashboard').then((m) => ({ default: m.KidDashboard })));
-const CalendarView = lazy(() => import('./components/calendar/CalendarView').then((m) => ({ default: m.CalendarView })));
-const ListsView = lazy(() => import('./components/lists/ListsView').then((m) => ({ default: m.ListsView })));
-const MealPlanView = lazy(() => import('./components/parent/MealPlanView').then((m) => ({ default: m.MealPlanView })));
-const SettingsView = lazy(() => import('./components/parent/SettingsView').then((m) => ({ default: m.SettingsView })));
+import { PhotoScreensaver } from './components/shared/PhotoScreensaver';
+import { LoginView } from './components/auth/LoginView';
+import { OnboardingView } from './components/onboarding/OnboardingView';
+import { ParentDashboard } from './components/parent/ParentDashboard';
+import { KidDashboard } from './components/kid/KidDashboard';
+import { CalendarView } from './components/calendar/CalendarView';
+import { ListsView } from './components/lists/ListsView';
+import { MealPlanView } from './components/parent/MealPlanView';
+import { SettingsView } from './components/parent/SettingsView';
+import { HomeworkView } from './components/homework/HomeworkView';
 
 interface AppUser {
   uid: string;
@@ -29,11 +30,11 @@ interface AppUser {
   displayName?: string;
 }
 
-const prefetchParentTasks = () => { void import('./components/parent/ParentDashboard'); };
-const prefetchCalendar = () => { void import('./components/calendar/CalendarView'); };
-const prefetchLists = () => { void import('./components/lists/ListsView'); };
-const prefetchMeals = () => { void import('./components/parent/MealPlanView'); };
-const prefetchSettings = () => { void import('./components/parent/SettingsView'); };
+const prefetchParentTasks = () => {};
+const prefetchCalendar = () => {};
+const prefetchLists = () => {};
+const prefetchMeals = () => {};
+const prefetchSettings = () => {};
 
 export default function App() {
   const [user, setUser] = useState<AppUser | null>(null);
@@ -42,21 +43,12 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<'tasks' | 'calendar' | 'lists' | 'meals'>('tasks');
+  const [activeSection, setActiveSection] = useState<'tasks' | 'calendar' | 'lists' | 'meals' | 'homework'>('calendar');
   const [kids, setKids] = useState<UserProfile[]>([]);
   const [isLocked, setIsLocked] = useState(false);
   const [initError, setInitError] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-
-  const pageLoader = (
-    <div className="min-h-[40vh] flex items-center justify-center">
-      <motion.div
-        animate={{ scale: [1, 1.2, 1], rotate: 360 }}
-        transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-        className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full"
-      />
-    </div>
-  );
+  const [screensaverPreview, setScreensaverPreview] = useState(false);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -113,11 +105,24 @@ export default function App() {
     }
   }, [profile]);
 
+  const refreshKids = useCallback(async () => {
+    if (!profile || profile.role !== 'parent') return;
+    const parentId = profile.parentId || profile.uid;
+    if (!parentId) return;
+    const nextKids = await userService.getKidsForParent(parentId);
+    setKids(nextKids || []);
+  }, [profile]);
+
   useSocketStaleData(useCallback((data: { entity?: string; type?: string }) => {
-    if (data.entity === 'categories') {
+    const signal = data.type || data.entity;
+    if (signal === 'categories') {
       refreshCategories();
+      return;
     }
-  }, [refreshCategories]));
+    if (signal === 'users' || signal === 'kids') {
+      refreshKids();
+    }
+  }, [refreshCategories, refreshKids]));
 
   const handleProfileUpdate = async () => {
     if (user) {
@@ -186,38 +191,36 @@ export default function App() {
   if (!user) {
     return (
       <div className="min-h-screen bg-ui-soft text-ui-primary selection:bg-sky-500/30 overflow-x-hidden">
-        <Suspense fallback={pageLoader}>
-          <LoginView 
-            onLogin={async (email: string, passwordString: string, isRegister: boolean, name?: string) => {
-              const res = isRegister ? await authService.register(email, passwordString, name || '') : await authService.signIn(email, passwordString);
-              if (res) {
-                const { user: u, token } = res;
-                setUser({ uid: u.uid, name: u.name, email: u.email });
-                localStorage.setItem('kidtasker_token', token);
-                if (u.role) setProfile(u);
-                const parentId = u.parentId || u.uid;
-                if (parentId) initSocket(parentId);
-                subscribeToPush().catch(console.warn);
-              } else {
-                alert('Invalid credentials or registration error');
-              }
-            }} 
-            onKidLogin={async (uid: string, pin: string) => {
-              const res = await authService.signInKid(uid, pin);
-              if (res) {
-                const { user: u, token } = res;
-                setUser({ uid: u.uid, name: u.name, email: u.email });
-                localStorage.setItem('kidtasker_token', token);
-                if (u.role) setProfile(u);
-                const parentId = u.parentId || u.uid;
-                if (parentId) initSocket(parentId);
-                subscribeToPush().catch(console.warn);
-              } else {
-                alert('Invalid Access Key');
-              }
-            }}
-          />
-        </Suspense>
+        <LoginView 
+          onLogin={async (email: string, passwordString: string, isRegister: boolean, name?: string) => {
+            const res = isRegister ? await authService.register(email, passwordString, name || '') : await authService.signIn(email, passwordString);
+            if (res) {
+              const { user: u, token } = res;
+              setUser({ uid: u.uid, name: u.name, email: u.email });
+              localStorage.setItem('kidtasker_token', token);
+              if (u.role) setProfile(u);
+              const parentId = u.parentId || u.uid;
+              if (parentId) initSocket(parentId);
+              subscribeToPush().catch(console.warn);
+            } else {
+              alert('Invalid credentials or registration error');
+            }
+          }} 
+          onKidLogin={async (uid: string, pin: string) => {
+            const res = await authService.signInKid(uid, pin);
+            if (res) {
+              const { user: u, token } = res;
+              setUser({ uid: u.uid, name: u.name, email: u.email });
+              localStorage.setItem('kidtasker_token', token);
+              if (u.role) setProfile(u);
+              const parentId = u.parentId || u.uid;
+              if (parentId) initSocket(parentId);
+              subscribeToPush().catch(console.warn);
+            } else {
+              alert('Invalid Access Key');
+            }
+          }}
+        />
       </div>
     );
   }
@@ -225,21 +228,19 @@ export default function App() {
   if (!profile) {
     return (
       <div className="min-h-screen bg-ui-soft text-ui-primary selection:bg-sky-500/30">
-        <Suspense fallback={pageLoader}>
-          <OnboardingView 
-            user={{ uid: user.uid, email: user.email, name: user.name }} 
-            onComplete={async (p: UserProfile) => {
-              setProfile(p);
-              const parentId = p.parentId || p.uid;
-              if (parentId) {
-                initSocket(parentId);
-                const cats = await categoryService.getCategories(parentId);
-                setCategories(cats || []);
-              }
-              subscribeToPush().catch(console.warn);
-            }} 
-          />
-        </Suspense>
+        <OnboardingView 
+          user={{ uid: user.uid, email: user.email, name: user.name }} 
+          onComplete={async (p: UserProfile) => {
+            setProfile(p);
+            const parentId = p.parentId || p.uid;
+            if (parentId) {
+              initSocket(parentId);
+              const cats = await categoryService.getCategories(parentId);
+              setCategories(cats || []);
+            }
+            subscribeToPush().catch(console.warn);
+          }} 
+        />
       </div>
     );
   }
@@ -264,15 +265,21 @@ export default function App() {
               <nav className={cn("hidden md:flex gap-1 p-1 rounded-2xl", isDarkTheme ? "bg-ui-dark-50" : "bg-ui-soft-2")}>
                 <button
                   onClick={() => setActiveSection('tasks')}
-                  onMouseEnter={prefetchParentTasks}
-                  onFocus={prefetchParentTasks}
-                  onTouchStart={prefetchParentTasks}
                   className={cn(
                     "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
                     activeSection === 'tasks' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary")
                   )}
                 >
                   Tasks
+                </button>
+                <button
+                  onClick={() => setActiveSection('homework')}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
+                    activeSection === 'homework' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary")
+                  )}
+                >
+                  Homework
                 </button>
                 <button
                   onClick={() => setActiveSection('calendar')}
@@ -388,8 +395,7 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6">
-        <Suspense fallback={pageLoader}>
-          <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait">
           {profile.role === 'parent' && activeSection === 'tasks' && (
             <motion.div
               key="parent-dash"
@@ -428,6 +434,17 @@ export default function App() {
               />
             </motion.div>
           )}
+          {profile.role === 'parent' && activeSection === 'homework' && (
+            <motion.div
+              key="homework-view"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.3 }}
+            >
+              <HomeworkView parentId={profile.uid} kids={kids} userRole="parent" />
+            </motion.div>
+          )}
           {profile.role === 'parent' && activeSection === 'lists' && (
             <motion.div
               key="lists-view"
@@ -458,11 +475,12 @@ export default function App() {
                 categories={categories}
                 selectedCategoryId={selectedCategoryId}
                 onProfileUpdate={handleProfileUpdate}
+                kids={kids}
+                memberColorMap={memberColorMap}
               />
             </motion.div>
           )}
           </AnimatePresence>
-        </Suspense>
       </main>
       {profile.role === "parent" && isLocked && (
         <ParentalLockOverlay
@@ -471,17 +489,24 @@ export default function App() {
         />
       )}
       {profile.role === "parent" && showSettings && (
-        <Suspense fallback={null}>
-          <SettingsView
-            parentId={profile.uid}
-            onClose={() => setShowSettings(false)}
-            onLockNow={async () => {
-              await settingsClientService.lockDisplay(profile.uid);
-              setIsLocked(true);
-              setShowSettings(false);
-            }}
-          />
-        </Suspense>
+        <SettingsView
+          parentId={profile.uid}
+          onClose={() => setShowSettings(false)}
+          onLockNow={async () => {
+            await settingsClientService.lockDisplay(profile.uid);
+            setIsLocked(true);
+            setShowSettings(false);
+          }}
+          onPreviewScreensaver={() => setScreensaverPreview(true)}
+        />
+      )}
+      {profile.role === "parent" && (
+        <PhotoScreensaver
+          parentId={profile.uid}
+          idleMinutes={5}
+          forceIdle={screensaverPreview}
+          onDismiss={screensaverPreview ? () => setScreensaverPreview(false) : undefined}
+        />
       )}
 
       <footer className="mt-20 pt-10 border-t border-ui mx-6">
@@ -497,5 +522,3 @@ export default function App() {
     </div>
   );
 }
-
-

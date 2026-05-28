@@ -42,6 +42,24 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_SECRET || 'mock_client_secret',
   process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/sync/callback/google'
 );
+const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+const GOOGLE_PHOTOS_SCOPE = 'https://www.googleapis.com/auth/photoslibrary.readonly';
+const GOOGLE_PHOTOS_PICKER_SCOPE = 'https://www.googleapis.com/auth/photospicker.mediaitems.readonly';
+
+function hasScope(scopeText: string | undefined, required: string): boolean {
+  if (!scopeText) return false;
+  const scopes = new Set(scopeText.split(/\s+/).map((s) => s.trim()).filter(Boolean));
+  return scopes.has(required);
+}
+
+function formatScopes(scopeText: string | undefined): string {
+  if (!scopeText) return '(none returned by Google)';
+  return scopeText
+    .split(/\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(', ');
+}
 
 syncRouter.get('/sync/connect/google', (req, res) => {
   const token = req.query.token as string;
@@ -57,11 +75,13 @@ syncRouter.get('/sync/connect/google', (req, res) => {
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: [
-      'https://www.googleapis.com/auth/calendar.readonly',
-      'https://www.googleapis.com/auth/photoslibrary.readonly',
+      GOOGLE_CALENDAR_SCOPE,
+      GOOGLE_PHOTOS_SCOPE,
+      GOOGLE_PHOTOS_PICKER_SCOPE,
     ],
     state: parentId, // pass parentId in state securely
-    prompt: 'consent'
+    prompt: 'consent select_account',
+    include_granted_scopes: false,
   });
   res.redirect(url);
 });
@@ -73,10 +93,28 @@ syncRouter.get('/sync/callback/google', async (req, res) => {
   try {
     let tokens;
     if (process.env.NODE_ENV === 'test' || code === 'test_mock_code') {
-      tokens = { access_token: 'mock_access', refresh_token: 'mock_refresh' };
+      tokens = {
+        access_token: 'mock_access',
+        refresh_token: 'mock_refresh',
+        scope: `${GOOGLE_CALENDAR_SCOPE} ${GOOGLE_PHOTOS_SCOPE} ${GOOGLE_PHOTOS_PICKER_SCOPE}`,
+      };
     } else {
       const { tokens: t } = await oauth2Client.getToken(code);
       tokens = t;
+    }
+
+    const missingPhotosScope = !hasScope(tokens.scope, GOOGLE_PHOTOS_SCOPE);
+    const missingPickerScope = !hasScope(tokens.scope, GOOGLE_PHOTOS_PICKER_SCOPE);
+    if (missingPhotosScope || missingPickerScope) {
+      const grantedScopes = formatScopes(tokens.scope);
+      console.error('[sync:google_scope_missing]', {
+        parentId: parentId as string,
+        requiredScope: [GOOGLE_PHOTOS_SCOPE, GOOGLE_PHOTOS_PICKER_SCOPE].join(', '),
+        grantedScopes,
+      });
+      return res.status(400).send(
+        `Required Google Photos scopes were not granted. Required: ${GOOGLE_PHOTOS_SCOPE}, ${GOOGLE_PHOTOS_PICKER_SCOPE}. Granted: ${grantedScopes}. Remove this app in Google Account permissions, then reconnect and grant Calendar + Photos access.`
+      );
     }
     
     // Store in DB

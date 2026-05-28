@@ -18,11 +18,27 @@ import { settingsRouter } from './modules/settings/routes.js';
 import { routinesRouter } from './modules/routines/routes.js';
 import { flagsRouter } from './modules/flags/routes.js';
 import { notesRouter } from './modules/notes/routes.js';
+import { homeworkRouter } from './modules/homework/routes.js';
 
 const router = Router();
 
 router.get("/health", (req, res) => {
   res.json({ status: "ok" });
+});
+
+router.get('/health/perf', (req, res) => {
+  const store = (req.app.locals.perfStore || {}) as Record<string, { count: number; totalMs: number; maxMs: number; buckets: Record<string, number> }>;
+  const summary = Object.entries(store).reduce((acc, [route, stats]) => {
+    acc[route] = {
+      count: stats.count,
+      avgMs: stats.count > 0 ? Math.round((stats.totalMs / stats.count) * 100) / 100 : 0,
+      maxMs: stats.maxMs,
+      buckets: stats.buckets,
+    };
+    return acc;
+  }, {} as Record<string, { count: number; avgMs: number; maxMs: number; buckets: Record<string, number> }>);
+
+  res.json({ routes: summary });
 });
 
 // Generic stale-data broadcaster for all authenticated mutation routes
@@ -66,6 +82,7 @@ router.use(settingsRouter);
 router.use(routinesRouter);
 router.use(flagsRouter);
 router.use(notesRouter);
+router.use(homeworkRouter);
 
 export const apiRouter = router;
 

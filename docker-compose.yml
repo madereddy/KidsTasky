@@ -17,6 +17,7 @@ services:
       - HOST=0.0.0.0
       - PORT=3000
       - DB_PATH=/data/database.db
+      - PHOTOS_UPLOADS_DIR=/data/uploads/photos
       - JWT_SECRET=${JWT_SECRET}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
@@ -25,11 +26,8 @@ services:
       - MAILGUN_SIGNING_KEY=${MAILGUN_SIGNING_KEY:-}
     volumes:
       - kidtasky_data:/data
-      - kidtasky_uploads:/app/uploads
     restart: unless-stopped
 
 volumes:
   kidtasky_data:
     name: kidtasky_sqlite_data
-  kidtasky_uploads:
-    name: kidtasky_uploads_data

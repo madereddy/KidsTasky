@@ -5,3 +5,16 @@ database.db-wal
 database.db-shm
 .env
 .DS_Store
+.git
+.github
+.agents
+.impeccable
+.playwright-mcp
+.pnpm-store
+docs
+tests
+uploads
+*.png
+*.log
+coverage
+vitest-report

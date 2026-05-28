@@ -20,23 +20,26 @@ COPY . .
 # Build the Vite frontend application
 RUN pnpm run build
 
+# Prune devDependencies for runtime
+RUN pnpm prune --prod
+
 # Stage 2: Production Environment
 FROM cgr.dev/chainguard/node:latest
 
 WORKDIR /app
 
 # Copy package configurations
-COPY --from=builder /app/package.json ./
+COPY --from=builder --chown=65532:65532 /app/package.json ./
 
-# Copy built node_modules (including native modules compiled in step 1)
-COPY --from=builder /app/node_modules ./node_modules
+# Copy production-only node_modules
+COPY --from=builder --chown=65532:65532 /app/node_modules ./node_modules
 
 # Copy the built assets (includes frontend dist/ and backend dist/server.js + migrations)
-COPY --from=builder /app/dist ./dist
+COPY --from=builder --chown=65532:65532 /app/dist ./dist
 
 # Create data directory for SQLite and set permissions
 USER root
-RUN mkdir -p /data && chown -R 65532:65532 /data /app
+RUN mkdir -p /data/uploads/photos && chown -R 65532:65532 /data
 USER 65532:65532
 
 # Expose the designated application port

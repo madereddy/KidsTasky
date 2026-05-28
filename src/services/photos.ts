@@ -32,4 +32,19 @@ export const photosClientService = {
     fetchAPI(`/parents/${parentId}/google-photos/albums`),
   getGoogleAlbumMedia: (parentId: string, albumId: string, limit = 30): Promise<Array<{ id: string; baseUrl: string; filename?: string }>> =>
     fetchAPI(`/parents/${parentId}/google-photos/albums/${albumId}/media?limit=${limit}`),
+  createGooglePickerSession: (parentId: string): Promise<{ sessionId: string; pickerUri: string }> =>
+    fetchAPI(`/parents/${parentId}/google-photos/picker/session`, { method: 'POST', body: JSON.stringify({}) }),
+  getGooglePickerMediaItems: (
+    parentId: string,
+    sessionId: string,
+    pageSize = 50,
+    pageToken?: string
+  ): Promise<{ items: Array<{ id: string; baseUrl: string; filename?: string }>; nextPageToken?: string | null }> =>
+    fetchAPI(`/parents/${parentId}/google-photos/picker/sessions/${encodeURIComponent(sessionId)}/media-items?pageSize=${pageSize}${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`),
+  importGooglePickerItems: (
+    parentId: string,
+    sessionId: string,
+    items: Array<{ id: string; baseUrl: string; filename?: string }>
+  ): Promise<{ success: boolean; imported: number; skipped?: number; unresolved?: number }> =>
+    fetchAPI(`/parents/${parentId}/google-photos/picker/import`, { method: 'POST', body: JSON.stringify({ sessionId, items }) }),
 };

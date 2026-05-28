@@ -13,6 +13,7 @@ interface Props {
   onClose: () => void;
   onSaved?: (settings: FamilySettings) => void;
   onLockNow?: () => void;
+  onPreviewScreensaver?: () => void;
 }
 
 const TIMEZONES = typeof Intl !== 'undefined' && (Intl as any).supportedValuesOf
@@ -40,7 +41,7 @@ function findPresetLocation(lat?: number, lon?: number) {
   return LOCATION_OPTIONS.find((option) => Math.abs(option.lat - lat) < 0.01 && Math.abs(option.lon - lon) < 0.01) || null;
 }
 
-export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
+export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewScreensaver }: Props) {
   const [locationLat, setLocationLat] = useState<number>(DEFAULT_LOCATION.lat);
   const [locationLon, setLocationLon] = useState<number>(DEFAULT_LOCATION.lon);
   const [locationPreset, setLocationPreset] = useState<string>(DEFAULT_LOCATION.id);
@@ -69,21 +70,26 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
   const [photoCleanupEnabled, setPhotoCleanupEnabled] = useState(true);
   const [photoCleanupIntervalHours, setPhotoCleanupIntervalHours] = useState(24);
   const [googlePhotosEnabled, setGooglePhotosEnabled] = useState(false);
-  const [googlePhotosAlbumId, setGooglePhotosAlbumId] = useState<string>('');
-  const [googleAlbums, setGoogleAlbums] = useState<Array<{ id: string; title: string; mediaItemsCount: number; coverPhotoBaseUrl: string | null }>>([]);
-  const [loadingGoogleAlbums, setLoadingGoogleAlbums] = useState(false);
   const [googleAlbumsError, setGoogleAlbumsError] = useState('');
+  const [pickerSessionId, setPickerSessionId] = useState('');
+  const [pickerUri, setPickerUri] = useState('');
+  const [creatingPickerSession, setCreatingPickerSession] = useState(false);
+  const [importingPickerSelection, setImportingPickerSelection] = useState(false);
+  const [pickerPolling, setPickerPolling] = useState(false);
+  const [photoRefreshToken, setPhotoRefreshToken] = useState(0);
+  const [previewMessage, setPreviewMessage] = useState('');
 
   useEffect(() => {
     Promise.all([
       userService.getCoParents(parentId).catch(() => []),
       inviteService.getActiveCoParentInvite(parentId).catch(() => null),
-    ]).then(([cp, cpi]) => {
+      settingsClientService.getBootstrap(parentId).catch(() => null),
+    ]).then(([cp, cpi, bootstrap]) => {
       setCoParents(cp || []);
       setCoParentInvite(cpi || null);
-    });
+      if (!bootstrap) return;
 
-    settingsClientService.getSettings(parentId).then(s => {
+      const s = bootstrap.settings;
       const matched = findPresetLocation(s.locationLat, s.locationLon);
       if (matched) {
         setLocationPreset(matched.id);
@@ -103,22 +109,121 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
       setPhotoCleanupEnabled(s.photoCleanupEnabled ?? true);
       setPhotoCleanupIntervalHours(s.photoCleanupIntervalHours ?? 24);
       setGooglePhotosEnabled(Boolean(s.googlePhotosEnabled));
-      setGooglePhotosAlbumId(s.googlePhotosAlbumId || '');
-    }).catch(() => {});
+
+      setCalendars((bootstrap.calendars || []) as SyncCalendar[]);
+      const visMap: Record<string, boolean> = {};
+      (bootstrap.calendarVisibility || []).forEach((v) => {
+        visMap[v.calendarId] = Number(v.isVisible) === 1;
+      });
+      setCalendarVisibility(visMap);
+
+      const conns = bootstrap.connections || [];
+      if (conns.length > 0) setConnectionId(conns[0].id);
+      const withSync = conns.filter(c => c.lastSyncAt);
+      if (withSync.length > 0) {
+        const latest = withSync.reduce((a, b) => (a.lastSyncAt! > b.lastSyncAt! ? a : b));
+        setLastSyncAt(latest.lastSyncAt ?? null);
+        setLastSyncStatus(latest.lastSyncStatus ?? null);
+      }
+    });
   }, [parentId]);
 
   useEffect(() => {
-    setGoogleAlbumsError('');
-    if (!googlePhotosEnabled) return;
-    setLoadingGoogleAlbums(true);
-    photosClientService.getGoogleAlbums(parentId)
-      .then((albums) => setGoogleAlbums(albums || []))
-      .catch((e: any) => {
-        setGoogleAlbums([]);
-        setGoogleAlbumsError(e?.message || 'Could not load albums');
-      })
-      .finally(() => setLoadingGoogleAlbums(false));
+    if (!googlePhotosEnabled) setGoogleAlbumsError('');
   }, [parentId, googlePhotosEnabled]);
+
+  const handleStartGooglePicker = async () => {
+    setCreatingPickerSession(true);
+    setGoogleAlbumsError('');
+    try {
+      const session = await photosClientService.createGooglePickerSession(parentId);
+      setPickerSessionId(session.sessionId);
+      setPickerUri(session.pickerUri);
+      setPickerPolling(true);
+      window.open(session.pickerUri, '_blank', 'noopener,noreferrer');
+    } catch (e: any) {
+      setGoogleAlbumsError(String(e?.message || 'Failed to start Google Photos Picker. Reconnect Google and try again.'));
+    } finally {
+      setCreatingPickerSession(false);
+    }
+  };
+
+  const handleImportPickerSelection = async () => {
+    if (!pickerSessionId) {
+      setGoogleAlbumsError('Start Google Photos Picker first, select photos, then import.');
+      return;
+    }
+    setImportingPickerSelection(true);
+    setGoogleAlbumsError('');
+    try {
+      let pageToken: string | undefined;
+      const selectedItems: Array<{ id: string; baseUrl: string; filename?: string }> = [];
+      for (let i = 0; i < 10; i++) {
+        const res = await photosClientService.getGooglePickerMediaItems(parentId, pickerSessionId, 50, pageToken);
+        selectedItems.push(...(res.items || []));
+        if (!res.nextPageToken) break;
+        pageToken = res.nextPageToken || undefined;
+      }
+      if (selectedItems.length === 0) {
+        setGoogleAlbumsError('No selected Google Photos found in this picker session yet. Select photos in the opened picker tab, then import again.');
+        return;
+      }
+      const result = await photosClientService.importGooglePickerItems(parentId, pickerSessionId, selectedItems);
+      if (result.imported === 0 && !result.skipped) {
+        setGoogleAlbumsError('No finalized photo selections were found yet. In Google Photos Picker, complete your selection and confirm, then import again.');
+      } else {
+        setGoogleAlbumsError(`Imported ${result.imported} Google photo${result.imported === 1 ? '' : 's'}${result.skipped ? `, ${result.skipped} already imported` : ''}${result.unresolved ? `, ${result.unresolved} unresolved` : ''}.`);
+        setPhotoRefreshToken((n) => n + 1);
+      }
+    } catch (e: any) {
+      setGoogleAlbumsError(String(e?.message || 'Failed to import selected Google Photos.'));
+    } finally {
+      setImportingPickerSelection(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!pickerPolling || !pickerSessionId || !googlePhotosEnabled) return;
+    let attempts = 0;
+    let cancelled = false;
+
+    const tick = async () => {
+      if (cancelled) return;
+      attempts += 1;
+      if (attempts > 24) {
+        setPickerPolling(false);
+        setGoogleAlbumsError('Picker session timed out waiting for selected photos. Re-open picker and try again.');
+        return;
+      }
+      try {
+        let pageToken: string | undefined;
+        const selectedItems: Array<{ id: string; baseUrl: string; filename?: string }> = [];
+        for (let i = 0; i < 5; i++) {
+          const res = await photosClientService.getGooglePickerMediaItems(parentId, pickerSessionId, 50, pageToken);
+          selectedItems.push(...(res.items || []));
+          if (!res.nextPageToken) break;
+          pageToken = res.nextPageToken || undefined;
+        }
+        if (selectedItems.length === 0) return;
+        const result = await photosClientService.importGooglePickerItems(parentId, pickerSessionId, selectedItems);
+        if (result.imported === 0 && !result.skipped) {
+          return;
+        }
+        setGoogleAlbumsError(`Auto-import complete: ${result.imported} new photo${result.imported === 1 ? '' : 's'}${result.skipped ? `, ${result.skipped} already imported` : ''}.`);
+        setPhotoRefreshToken((n) => n + 1);
+        setPickerPolling(false);
+      } catch {
+        // keep polling for transient picker propagation delays
+      }
+    };
+
+    const interval = setInterval(() => { void tick(); }, 5000);
+    void tick();
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [pickerPolling, pickerSessionId, googlePhotosEnabled, parentId]);
 
   useEffect(() => {
     try {
@@ -128,38 +233,6 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
       }
     } catch {}
   }, []);
-
-  useEffect(() => {
-    Promise.all([
-      settingsClientService.getCalendars(parentId).catch(() => []),
-      settingsClientService.getCalendarVisibility().catch(() => [])
-    ]).then(([calRes, visRes]) => {
-      setCalendars(calRes as SyncCalendar[]);
-      const visMap: Record<string, boolean> = {};
-      (visRes as Array<{ calendarId: string; isVisible: number | boolean }>).forEach(v => {
-        visMap[v.calendarId] = Number(v.isVisible) === 1;
-      });
-      setCalendarVisibility(visMap);
-    });
-
-    // Load connections to surface lastSyncAt/lastSyncStatus
-    fetch(`/api/settings/${parentId}/connections`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('kidtasker_token')}` },
-    })
-      .then(r => r.json())
-      .then((conns: Array<{ id: string; lastSyncAt?: number; lastSyncStatus?: string }>) => {
-        if (conns.length > 0) {
-          setConnectionId(conns[0].id);
-        }
-        const withSync = conns.filter(c => c.lastSyncAt);
-        if (withSync.length > 0) {
-          const latest = withSync.reduce((a, b) => (a.lastSyncAt! > b.lastSyncAt! ? a : b));
-          setLastSyncAt(latest.lastSyncAt ?? null);
-          setLastSyncStatus(latest.lastSyncStatus ?? null);
-        }
-      })
-      .catch(() => {});
-  }, [parentId]);
 
   const detectLocation = () => {
     if (!navigator.geolocation) return;
@@ -202,7 +275,7 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
         photoCleanupEnabled,
         photoCleanupIntervalHours: Math.max(1, photoCleanupIntervalHours),
         googlePhotosEnabled,
-        googlePhotosAlbumId: googlePhotosEnabled ? (googlePhotosAlbumId || null) : null,
+        googlePhotosAlbumId: null,
       };
       await settingsClientService.saveSettings(parentId, data);
       onSaved?.({ parentId, ...data } as FamilySettings);
@@ -248,9 +321,23 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
     }
   };
 
+  const handlePreviewScreensaver = async () => {
+    try {
+      const photos = await photosClientService.getPhotos(parentId);
+      if (!photos || photos.length === 0) {
+        setPreviewMessage('No imported photos yet. Import or upload photos first, then preview.');
+        return;
+      }
+      setPreviewMessage('');
+      onPreviewScreensaver?.();
+    } catch {
+      setPreviewMessage('Could not load photos for preview. Try again.');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="flex-1 bg-black/30" onClick={onClose} />
+      <div className="flex-1 bg-ui-deep-50" onClick={onClose} />
       <div className="w-full max-w-md bg-white shadow-2xl flex flex-col overflow-hidden border-l border-ui rounded-l-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b bg-ui-soft shrink-0">
           <h2 className="text-lg font-bold text-ui-primary">Family Settings</h2>
@@ -416,8 +503,8 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
             {coParents.length > 0 && (
               <ul className="mb-3 space-y-1">
                 {coParents.map(cp => (
-                  <li key={cp.uid} className="flex items-center justify-between text-sm bg-gray-50 rounded px-3 py-1.5">
-                    <span>{cp.name} <span className="text-gray-400">({cp.email})</span></span>
+                  <li key={cp.uid} className="flex items-center justify-between text-sm bg-ui-soft rounded px-3 py-1.5">
+                    <span>{cp.name} <span className="text-ui-muted-2">({cp.email})</span></span>
                     <button
                       onClick={async () => {
                         if (!confirm(`Remove ${cp.name} as co-parent?`)) return;
@@ -434,7 +521,7 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
             )}
             {coParentInvite ? (
               <div className="flex items-center gap-2">
-                <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">{coParentInvite.id}</span>
+                <span className="font-mono bg-ui-soft-2 px-2 py-1 rounded text-sm">{coParentInvite.id}</span>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(coParentInvite.id);
@@ -537,10 +624,11 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
                           <span className="text-xs text-ui-muted">{isVisible ? 'Visible' : 'Hidden'}</span>
                           <button
                             onClick={() => handleToggleVisibility(cal.calendarId)}
-                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isVisible ? 'bg-blue-500' : 'bg-gray-300'}`}
+                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isVisible ? 'bg-blue-500' : 'bg-ui-soft-3'}`}
                             aria-label={`Toggle visibility for ${cal.name}`}
+                            aria-pressed={isVisible}
                           >
-                            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isVisible ? 'translate-x-4' : 'translate-x-0'}`} />
+                            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isVisible ? 'translate-x-5' : 'translate-x-0'}`} />
                           </button>
                         </div>
                       </div>
@@ -561,10 +649,11 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
                 </div>
                 <button
                   onClick={() => setPhotoCleanupEnabled(v => !v)}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${photoCleanupEnabled ? 'bg-blue-500' : 'bg-gray-300'}`}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${photoCleanupEnabled ? 'bg-blue-500' : 'bg-ui-soft-3'}`}
                   aria-label="Toggle photo cleanup"
+                  aria-pressed={photoCleanupEnabled}
                 >
-                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${photoCleanupEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                  <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${photoCleanupEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
                 </button>
               </div>
               <div>
@@ -583,15 +672,16 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
             <div className="mb-4 p-3 rounded-lg border border-ui bg-ui-soft space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h4 className="text-sm font-semibold text-ui-secondary">Google Photos Albums</h4>
-                  <p className="text-xs text-ui-muted">Display a selected Google Photos album in this app.</p>
+                  <h4 className="text-sm font-semibold text-ui-secondary">Google Photos Import</h4>
+                  <p className="text-xs text-ui-muted">Import selected Google Photos into Family Photos.</p>
                 </div>
                 <button
                   onClick={() => setGooglePhotosEnabled(v => !v)}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${googlePhotosEnabled ? 'bg-blue-500' : 'bg-gray-300'}`}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${googlePhotosEnabled ? 'bg-blue-500' : 'bg-ui-soft-3'}`}
                   aria-label="Toggle Google Photos"
+                  aria-pressed={googlePhotosEnabled}
                 >
-                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${googlePhotosEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                  <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${googlePhotosEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
                 </button>
               </div>
               {googlePhotosEnabled && (
@@ -602,29 +692,46 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow }: Props) {
                   >
                     Reconnect Google (Calendar + Photos scopes)
                   </button>
-                  <label className="block text-xs text-ui-muted mb-1">Album</label>
-                  <select
-                    value={googlePhotosAlbumId}
-                    onChange={(e) => setGooglePhotosAlbumId(e.target.value)}
-                    className="w-full border border-ui rounded-lg px-3 py-2 text-sm bg-white text-ui-primary focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  >
-                    <option value="">Select album</option>
-                    {googleAlbums.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.title} ({a.mediaItemsCount})
-                      </option>
-                    ))}
-                  </select>
-                  {loadingGoogleAlbums && <p className="text-xs text-ui-muted">Loading albums...</p>}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={handleStartGooglePicker}
+                      disabled={creatingPickerSession}
+                      className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-500 disabled:opacity-60"
+                    >
+                      {creatingPickerSession ? 'Opening Picker...' : 'Open Google Photos Picker'}
+                    </button>
+                    <button
+                      onClick={handleImportPickerSelection}
+                      disabled={importingPickerSelection || !pickerSessionId}
+                      className="px-3 py-1.5 bg-sky-600 text-white rounded-lg text-xs font-semibold hover:bg-sky-500 disabled:opacity-60"
+                    >
+                      {importingPickerSelection ? 'Importing...' : 'Import Selected Photos'}
+                    </button>
+                  </div>
+                  {pickerSessionId && (
+                    <p className="text-xs text-ui-muted">
+                      Picker session ready: <span className="font-mono">{pickerSessionId}</span>{' '}
+                      {pickerUri && <a href={pickerUri} target="_blank" rel="noreferrer" className="text-blue-600 underline">open picker</a>}
+                      {pickerPolling ? ' (auto-import polling active)' : ''}
+                    </p>
+                  )}
                   {googleAlbumsError && <p className="text-xs text-rose-600">{googleAlbumsError}</p>}
                 </div>
               )}
             </div>
             <PhotoManager
               parentId={parentId}
-              googlePhotosEnabled={googlePhotosEnabled}
-              googlePhotosAlbumId={googlePhotosAlbumId || null}
+              refreshToken={photoRefreshToken}
             />
+            <div className="mt-3">
+              <button
+                onClick={handlePreviewScreensaver}
+                className="px-3 py-2 bg-ui-soft border border-ui rounded-lg text-sm font-semibold hover:bg-ui-soft-2 transition-colors"
+              >
+                Preview Screensaver
+              </button>
+              {previewMessage && <p className="text-xs text-rose-600 mt-2">{previewMessage}</p>}
+            </div>
           </section>
         </div>
 

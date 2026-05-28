@@ -61,7 +61,7 @@ export function AddKidForm({ parentId, onAdded }: { parentId: string, onAdded: (
           required
         />
         <div className="mt-2">
-          <label className="text-xs text-gray-500">Avatar (optional)</label>
+          <label className="text-xs text-ui-muted">Avatar (optional)</label>
           <AvatarPicker
             uid="__new__"
             current={{ avatarPreset: kidAvatar.preset ?? undefined, avatarUrl: kidAvatar.url ?? undefined, name: name || '?' }}

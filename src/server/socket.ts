@@ -4,6 +4,8 @@ import { getJwtSecret } from './config.js';
 
 let io: Server;
 const userSocketMap = new Map<string, Set<string>>();
+const staleEmitTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const STALE_EMIT_COALESCE_MS = 200;
 
 export const socketWrapper = {
   init: (serverIo: Server) => {
@@ -45,9 +47,14 @@ export const socketWrapper = {
   },
 
   emitStaleData: (parentId: string, entityType: string) => {
-    if (io) {
+    if (!io) return;
+    const key = `${parentId}:${entityType || 'general'}`;
+    if (staleEmitTimers.has(key)) return;
+    const timer = setTimeout(() => {
+      staleEmitTimers.delete(key);
       io.to(parentId).emit('stale-data', { entity: entityType, timestamp: Date.now() });
-    }
+    }, STALE_EMIT_COALESCE_MS);
+    staleEmitTimers.set(key, timer);
   },
 
   emitToUser: (uid: string, event: string, data?: any) => {

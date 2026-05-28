@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import path from "path";
-import { ensurePhotosUploadsDir } from "./storage.js";
+import { ensurePhotosUploadsDir, getPhotosUploadsDir } from "./storage.js";
 
 describe("photos storage directory init", () => {
   it("creates uploads/photos recursively and returns the resolved path", () => {
@@ -18,5 +18,16 @@ describe("photos storage directory init", () => {
     });
 
     expect(() => ensurePhotosUploadsDir({ mkdirSync })).toThrow(/permission denied/i);
+  });
+
+  it("uses PHOTOS_UPLOADS_DIR when configured", () => {
+    const prev = process.env.PHOTOS_UPLOADS_DIR;
+    process.env.PHOTOS_UPLOADS_DIR = "data/custom/photos";
+    try {
+      expect(getPhotosUploadsDir()).toBe(path.resolve("data/custom/photos"));
+    } finally {
+      if (prev === undefined) delete process.env.PHOTOS_UPLOADS_DIR;
+      else process.env.PHOTOS_UPLOADS_DIR = prev;
+    }
   });
 });

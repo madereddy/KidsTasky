@@ -10,7 +10,7 @@ export function WeeklyWeather({ forecast = [], temperatureUnit = 'celsius' }: { 
     <div className="flex gap-2 p-2 bg-white rounded-lg shadow-sm overflow-x-auto">
       {forecast.map((day) => (
         <div key={day.date} className="flex flex-col items-center min-w-[60px] p-2 border-r last:border-r-0">
-          <span className="text-xs font-medium text-gray-500">
+          <span className="text-xs font-medium text-ui-muted">
             {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}
           </span>
           <span className="text-[10px] text-ui-muted mt-1">{getWeatherInfo(day.weatherCode).icon}</span>

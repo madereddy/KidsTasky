@@ -5,8 +5,9 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { app } from '../../../../server.js';
 import { listsService } from './service.js';
+import { getJwtSecret } from '../../config.js';
 
-const SECRET = process.env.JWT_SECRET || 'test-secret';
+const SECRET = getJwtSecret();
 
 vi.mock('./service.js', () => ({
   listsService: {

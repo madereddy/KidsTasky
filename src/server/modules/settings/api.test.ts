@@ -21,6 +21,35 @@ async function createParentAuth() {
 }
 
 describe('Settings lock API', () => {
+  it('returns settings bootstrap payload in one call', async () => {
+    const { token, parentId, email } = await createParentAuth();
+
+    db.prepare(`
+      INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken, createdAt, lastSyncAt, lastSyncStatus)
+      VALUES (?, ?, 'google', 'a', 'r', ?, ?, ?)
+    `).run('sync_bootstrap_1', parentId, Date.now(), Date.now(), 'ok');
+    db.prepare(`
+      INSERT INTO sync_calendars (id, connectionId, parentId, calendarId, name, enabled)
+      VALUES (?, ?, ?, ?, ?, 1)
+    `).run('cal_bootstrap_1', 'sync_bootstrap_1', parentId, 'family@example.com', 'Family');
+
+    const res = await request(app)
+      .get(`/api/settings/${parentId}/bootstrap`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.settings.parentId).toBe(parentId);
+    expect(Array.isArray(res.body.calendars)).toBe(true);
+    expect(Array.isArray(res.body.calendarVisibility)).toBe(true);
+    expect(Array.isArray(res.body.connections)).toBe(true);
+    expect(res.body.calendars.some((c: any) => c.calendarId === 'family@example.com')).toBe(true);
+    expect(res.body.connections.some((c: any) => c.id === 'sync_bootstrap_1')).toBe(true);
+
+    db.prepare('DELETE FROM sync_calendars WHERE parentId = ?').run(parentId);
+    db.prepare('DELETE FROM sync_connections WHERE parentId = ?').run(parentId);
+    db.prepare('DELETE FROM users WHERE email = ?').run(email);
+  });
+
   it('locks and unlocks display with PIN validation', async () => {
     const { token, parentId, email } = await createParentAuth();
 

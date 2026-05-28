@@ -42,7 +42,10 @@ export default defineConfig(({mode}) => {
       setupFiles: './src/setupTests.ts',
       env: {
         JWT_SECRET: 'test-secret'
-      }
+      },
+      environment: 'jsdom',
+      environmentMatchGlobs: [['tests/server/**/*.test.ts', 'node']],
+      exclude: ['**/node_modules/**', '**/dist/**']
     }
   };
 });

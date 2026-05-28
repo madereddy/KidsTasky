@@ -49,7 +49,7 @@ export function CalendarWeekView({
           {days.map((day, di) => {
             const dayAllDay = allDayEvents.filter((ev) => isSameDay(new Date(ev.startTime), day));
             return (
-              <div key={di} className="flex-1 border-l border-ui-soft p-1 min-h-[32px]">
+              <div key={di} className="flex-1 border-l border-ui-soft p-1 min-h-[44px]">
                 {dayAllDay.map((ev) => (
                   <button
                     key={ev.id}

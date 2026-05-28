@@ -21,21 +21,22 @@ interface PickerProps {
 }
 
 export function AvatarDisplay({ avatarPreset, avatarUrl, name, size = 40 }: AvatarState & { size?: number }) {
-  const style: React.CSSProperties = { width: size, height: size };
+  const style: React.CSSProperties = { width: size, height: size, borderRadius: '50%' };
 
   if (avatarUrl) {
     return (
       <img
         src={avatarUrl}
         alt={name}
-        style={{ ...style, borderRadius: '50%', objectFit: 'cover' }}
+        style={{ ...style, objectFit: 'cover' }}
       />
     );
   }
   if (avatarPreset) {
     return (
       <div
-        style={{ ...style, fontSize: size * 0.6, borderRadius: '50%', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        className="bg-ui-soft-2 text-ui-primary"
+        style={{ ...style, fontSize: size * 0.6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
         {avatarPreset}
       </div>
@@ -43,7 +44,8 @@ export function AvatarDisplay({ avatarPreset, avatarUrl, name, size = 40 }: Avat
   }
   return (
     <div
-      style={{ ...style, fontSize: size * 0.4, borderRadius: '50%', background: '#3b82f6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
+      className="bg-blue-500 text-white"
+      style={{ ...style, fontSize: size * 0.4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
     >
       {name.charAt(0).toUpperCase()}
     </div>
@@ -110,7 +112,7 @@ export function AvatarPicker({ uid, current, onUpdated }: PickerProps) {
             key={`${emoji}-${idx}`}
             type="button"
             onClick={() => selectPreset(emoji)}
-            className={`text-2xl rounded-lg p-1 hover:bg-gray-100 ${
+            className={`text-2xl rounded-lg p-1 hover:bg-ui-soft ${
               current.avatarPreset === emoji ? 'ring-2 ring-blue-500 bg-blue-50' : ''
             }`}
           >

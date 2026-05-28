@@ -18,6 +18,41 @@ describe('Sync Service', () => {
     expect(list[0].provider).toBe('google');
   });
 
+  it('reconnecting same google account updates existing connection instead of creating duplicates', () => {
+    syncService.saveGoogleTokens('test_parent', 'access_first', 'refresh_first');
+    const [first] = syncService.getConnections('test_parent') as any[];
+
+    syncService.saveGoogleTokens('test_parent', 'access_second', null);
+    const list = syncService.getConnections('test_parent') as any[];
+
+    expect(list.length).toBe(1);
+    expect(list[0].id).toBe(first.id);
+
+    const full = db.prepare('SELECT accessToken, refreshToken FROM sync_connections WHERE id = ?').get(first.id) as any;
+    expect(full.accessToken).toBe('access_second');
+    expect(full.refreshToken).toBe('refresh_first');
+  });
+
+  it('reconnecting removes stale google connections and their sync calendars', () => {
+    syncService.saveGoogleTokens('test_parent', 'access_1', 'refresh_1');
+    const [conn1] = syncService.getConnections('test_parent') as any[];
+    syncService.upsertSyncCalendar(conn1.id, 'test_parent', 'one@example.com', 'One');
+
+    db.prepare(`
+      INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken, createdAt)
+      VALUES (?, ?, 'google', ?, ?, ?)
+    `).run('sync_stale_1', 'test_parent', 'access_stale', 'refresh_stale', Date.now() - 1000);
+    syncService.upsertSyncCalendar('sync_stale_1', 'test_parent', 'stale@example.com', 'Stale');
+
+    syncService.saveGoogleTokens('test_parent', 'access_new', 'refresh_new');
+
+    const list = syncService.getConnections('test_parent') as any[];
+    expect(list.length).toBe(1);
+    expect(list[0].id).toBe(conn1.id);
+    const staleCal = db.prepare('SELECT id FROM sync_calendars WHERE connectionId = ?').get('sync_stale_1');
+    expect(staleCal).toBeUndefined();
+  });
+
   it('deletes connections and associated events', () => {
     syncService.saveGoogleTokens('test_parent', 'access_123');
     const list = syncService.getConnections('test_parent') as any[];

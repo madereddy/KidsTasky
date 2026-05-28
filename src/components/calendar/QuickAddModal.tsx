@@ -6,6 +6,7 @@ import { tasksClientService } from '../../services/tasks';
 import { listsClientService } from '../../services/lists';
 import { UserProfile, AppList } from '../../types';
 import { cn } from '../../lib/utils';
+import { useDialogA11y } from '../../hooks/useDialogA11y';
 
 const PRESET_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#f97316'];
 
@@ -21,6 +22,7 @@ interface Props {
 type TabType = 'event' | 'task' | 'list';
 
 export function QuickAddModal({ onClose, onSubmit, kids, parentId, defaultDate, defaultStartTime }: Props) {
+  const { dialogRef, onKeyDown } = useDialogA11y(true, onClose);
   const [activeTab, setActiveTab] = useState<TabType>('event');
   const [saving, setSaving] = useState(false);
 
@@ -115,10 +117,10 @@ export function QuickAddModal({ onClose, onSubmit, kids, parentId, defaultDate, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ui-deep-80 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="quick-add-title" tabIndex={-1} onKeyDown={onKeyDown} onClick={(e) => e.stopPropagation()} className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between p-6 border-b shrink-0 bg-ui-soft">
-          <h2 className="text-xl font-bold text-ui-primary">Quick Add</h2>
+          <h2 id="quick-add-title" className="text-xl font-bold text-ui-primary">Quick Add</h2>
           <button type="button" onClick={onClose} className="p-2 hover:bg-ui-soft-3 rounded-full transition-colors text-ui-muted">
             <X size={24} />
           </button>

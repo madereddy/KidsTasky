@@ -13,7 +13,6 @@ export const initSocket = (parentId: string) => {
     });
 
     socket.on('stale-data', (data) => {
-      console.log('Received stale-data event:', data);
       listeners.forEach(ref => ref.current(data));
     });
   }

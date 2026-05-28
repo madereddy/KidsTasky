@@ -21,6 +21,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 export function startBackgroundWorker() {
   const lastPhotoCleanupRun = new Map<string, number>();
+  let photoSweepUploadsDirUnavailable = false;
   const REMINDER_WINDOW_MS = 60_000;
   const MAX_NOTIFICATION_CONCURRENCY = 4;
 
@@ -53,6 +54,9 @@ export function startBackgroundWorker() {
   }, REMINDER_WINDOW_MS);
 
   async function sendEventReminders() {
+    const getReminderSentStmt = db.prepare('SELECT 1 FROM sent_reminders WHERE eventId = ? AND reminderMinutes = ?');
+    const insertReminderSentStmt = db.prepare('INSERT OR IGNORE INTO sent_reminders (eventId, reminderMinutes, sentAt) VALUES (?, ?, ?)');
+    const getFamilyMembersStmt = db.prepare('SELECT uid, email FROM users WHERE parentId = ? OR uid = ?');
     const now = Date.now();
     const events = db.prepare(`
       SELECT e.id, e.title, e.startTime, e.reminderMinutes, e.parentId,
@@ -62,18 +66,17 @@ export function startBackgroundWorker() {
       WHERE e.reminderMinutes IS NOT NULL
         AND e.startTime > ?
     `).all(now - REMINDER_WINDOW_MS) as any[];
+    const familyMembersCache = new Map<string, Array<{ uid: string; email?: string }>>();
 
     for (const event of events) {
       const reminderMs = Number(event.reminderMinutes) * 60 * 1000;
       const fireAt = Number(event.startTime) - reminderMs;
       if (Math.abs(now - fireAt) > REMINDER_WINDOW_MS) continue;
 
-      const already = db.prepare('SELECT 1 FROM sent_reminders WHERE eventId = ? AND reminderMinutes = ?')
-        .get(event.id, event.reminderMinutes);
+      const already = getReminderSentStmt.get(event.id, event.reminderMinutes);
       if (already) continue;
 
-      db.prepare('INSERT OR IGNORE INTO sent_reminders (eventId, reminderMinutes, sentAt) VALUES (?, ?, ?)')
-        .run(event.id, event.reminderMinutes, now);
+      insertReminderSentStmt.run(event.id, event.reminderMinutes, now);
 
       const title = `Reminder: ${event.title}`;
       const body = Number(event.reminderMinutes) === 0
@@ -81,8 +84,11 @@ export function startBackgroundWorker() {
         : `Starting in ${event.reminderMinutes} minute${Number(event.reminderMinutes) !== 1 ? 's' : ''}`;
       const payload = { title, body, tag: `event-${event.id}` };
 
-      const members = db.prepare('SELECT uid, email FROM users WHERE parentId = ? OR uid = ?')
-        .all(event.parentId, event.parentId) as Array<{ uid: string; email?: string }>;
+      let members = familyMembersCache.get(event.parentId);
+      if (!members) {
+        members = getFamilyMembersStmt.all(event.parentId, event.parentId) as Array<{ uid: string; email?: string }>;
+        familyMembersCache.set(event.parentId, members);
+      }
       await runWithConcurrency(members, async (member) => {
         const pushed = await sendPushToUser(member.uid, payload);
         if (!pushed && member.email) {
@@ -215,7 +221,15 @@ export function startBackgroundWorker() {
       }
 
       if (shouldRunGlobalOrphanSweep) {
-        const uploadsDir = ensurePhotosUploadsDir();
+        if (photoSweepUploadsDirUnavailable) return;
+        let uploadsDir: string;
+        try {
+          uploadsDir = ensurePhotosUploadsDir();
+        } catch (err) {
+          photoSweepUploadsDirUnavailable = true;
+          console.error('[worker] uploads dir unavailable for photo sweep; disabling orphan file sweep:', err);
+          return;
+        }
         const trackedFiles = new Set(
           (db.prepare("SELECT url FROM family_photos WHERE url LIKE '/uploads/photos/%'")
             .all() as Array<{ url: string }>)

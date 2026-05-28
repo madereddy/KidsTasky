@@ -114,12 +114,32 @@ export const syncService = {
   },
 
   saveGoogleTokens: (parentId: string, accessToken: string, refreshToken?: string | null) => {
-    const connId = 'sync_' + Date.now();
+    const existing = db.prepare(
+      "SELECT id, refreshToken FROM sync_connections WHERE parentId = ? AND provider = 'google' ORDER BY COALESCE(createdAt, 0) DESC, rowid DESC LIMIT 1"
+    ).get(parentId) as { id: string; refreshToken?: string | null } | undefined;
+
+    const now = Date.now();
+    const nextRefreshToken = refreshToken || existing?.refreshToken || null;
+
+    if (existing?.id) {
+      db.prepare(`
+        UPDATE sync_connections
+        SET accessToken = ?, refreshToken = ?, createdAt = ?
+        WHERE id = ?
+      `).run(accessToken, nextRefreshToken, now, existing.id);
+
+      // Keep only one active Google connection per parent to prevent duplicate calendar ingestion.
+      db.prepare(
+        "DELETE FROM sync_connections WHERE parentId = ? AND provider = 'google' AND id != ?"
+      ).run(parentId, existing.id);
+      return;
+    }
+
+    const connId = 'sync_' + now;
     db.prepare(`
       INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken, createdAt)
       VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET accessToken=excluded.accessToken, refreshToken=excluded.refreshToken
-    `).run(connId, parentId, 'google', accessToken, refreshToken, Date.now());
+    `).run(connId, parentId, 'google', accessToken, nextRefreshToken, now);
   },
 
   saveManualConnection: (parentId: string, email: string, appPassword: string) => {
@@ -227,6 +247,13 @@ export const syncService = {
     try {
       await withTokenRefresh(connection, async (conn) => {
         const calendar = getCalendarClient(conn);
+        const upsertCalendarStmt = db.prepare(`
+          INSERT INTO sync_calendars (id, connectionId, parentId, calendarId, name, enabled, color, isSharedCalendar)
+          VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+          ON CONFLICT(connectionId, calendarId) DO UPDATE SET id = excluded.id, name = excluded.name, color = excluded.color, isSharedCalendar = excluded.isSharedCalendar
+        `);
+        const insertEventStmt = db.prepare('INSERT INTO events (id, parentId, title, description, startTime, endTime, assignedToId, color, externalId, source, sourceCalendarId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        const updateEventStmt = db.prepare('UPDATE events SET title = ?, description = ?, startTime = ?, endTime = ?, color = ?, sourceCalendarId = ? WHERE id = ?');
 
         const colorMapResponse = await calendar.colors.get();
         const apiEventColors = colorMapResponse.data.event || {};
@@ -245,11 +272,7 @@ export const syncService = {
           const id = buildSyncCalendarId(conn.id, cal.id!);
           const calColor = cal.backgroundColor || cal.foregroundColor || '#6366f1';
           const isShared = cal.accessRole !== 'owner' ? 1 : 0;
-          db.prepare(`
-            INSERT INTO sync_calendars (id, connectionId, parentId, calendarId, name, enabled, color, isSharedCalendar)
-            VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-            ON CONFLICT(connectionId, calendarId) DO UPDATE SET id = excluded.id, name = excluded.name, color = excluded.color, isSharedCalendar = excluded.isSharedCalendar
-          `).run(id, conn.id, conn.parentId, cal.id!, cal.summary || cal.id!, calColor, isShared);
+          upsertCalendarStmt.run(id, conn.id, conn.parentId, cal.id!, cal.summary || cal.id!, calColor, isShared);
         }
 
         const calendarRows = db.prepare('SELECT calendarId, enabled FROM sync_calendars WHERE connectionId = ?').all(conn.id) as { calendarId: string; enabled: number }[];
@@ -310,7 +333,7 @@ export const syncService = {
               const description = ev.description || '';
               const existing = existingEventByExternalId.get(eId);
               if (!existing) {
-                db.prepare('INSERT INTO events (id, parentId, title, description, startTime, endTime, assignedToId, color, externalId, source, sourceCalendarId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+                insertEventStmt.run(
                   eId, conn.parentId, ev.summary, ev.description || '',
                   startTime, endTime,
                   null, derivedColor, eId, 'google', calId
@@ -334,7 +357,7 @@ export const syncService = {
                   (existing.color || '') !== (derivedColor || '') ||
                   (existing.sourceCalendarId || '') !== (calId || '');
                 if (hasChanges) {
-                  db.prepare('UPDATE events SET title = ?, description = ?, startTime = ?, endTime = ?, color = ?, sourceCalendarId = ? WHERE id = ?').run(
+                  updateEventStmt.run(
                     ev.summary, description, startTime, endTime, derivedColor, calId, existing.id
                   );
                   existingEventByExternalId.set(eId, {

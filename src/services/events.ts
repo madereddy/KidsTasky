@@ -16,5 +16,17 @@ export const eventsClientService = {
 
   deleteEvent: async (id: string, scope: 'one' | 'future' = 'one'): Promise<{ success: boolean }> => {
     return fetchAPI(`/events/${id}?scope=${scope}`, { method: 'DELETE' });
-  }
+  },
+
+  addAttendee: async (eventId: string, userId: string): Promise<{ success: boolean }> => {
+    return fetchAPI(`/events/${eventId}/attendees`, { method: 'POST', body: JSON.stringify({ userId }) });
+  },
+
+  updateRsvp: async (eventId: string, userId: string, rsvp: string): Promise<{ success: boolean }> => {
+    return fetchAPI(`/events/${eventId}/attendees/${userId}`, { method: 'PATCH', body: JSON.stringify({ rsvp }) });
+  },
+
+  removeAttendee: async (eventId: string, userId: string): Promise<{ success: boolean }> => {
+    return fetchAPI(`/events/${eventId}/attendees/${userId}`, { method: 'DELETE' });
+  },
 };

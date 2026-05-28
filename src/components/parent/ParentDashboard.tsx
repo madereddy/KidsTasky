@@ -6,7 +6,7 @@ import { notificationService } from '../../services/notifications';
 import { rewardService } from '../../services/rewards';
 import { syncClientService } from '../../services/sync';
 import React, { useState, useEffect, useCallback } from 'react';
-import { Trash2, Calendar, Clock, CalendarDays, Tag, Plus, ShieldCheck, Bell, Send, CheckCircle2, Copy } from 'lucide-react';
+import { Trash2, Calendar, Clock, CalendarDays, Tag, Plus, ShieldCheck, Bell, Send, CheckCircle2, Copy, List, Grid3x3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { Task, UserProfile, Category, Invite, Notification, Reward, TaskFrequency, TaskDifficulty, SyncCalendar } from '../../types';
@@ -21,6 +21,7 @@ import { StaleDataEvent, useSocketStaleData } from '../../hooks/useSocket';
 import { FamilyNote } from '../shared/FamilyNote';
 import { AvatarDisplay, AvatarPicker } from '../shared/AvatarPicker';
 import { ParentTaskBoard } from './ParentTaskBoard';
+import { ChoreChart } from './ChoreChart';
 
 export function ParentDashboard({ 
   profile, 
@@ -53,6 +54,7 @@ export function ParentDashboard({
   const [connections, setConnections] = useState<any[]>([]);
   const [syncCalendars, setSyncCalendars] = useState<SyncCalendar[]>([]);
   const [sortBy, setSortBy] = useState<'time' | 'created'>('created');
+  const [taskDisplayMode, setTaskDisplayMode] = useState<'list' | 'chart'>('list');
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
   const [savingColor, setSavingColor] = useState<string | null>(null);
@@ -219,7 +221,7 @@ export function ParentDashboard({
       <RewardManager parentId={familyId} rewards={rewards} onUpdate={refreshRewards} />
       <AllowanceLedger parentId={familyId} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 bg-white shadow-sm border border-ui-soft p-6 rounded-3xl border-l-4 border-l-blue-500 flex justify-between items-center relative overflow-hidden">
+        <div className="md:col-span-2 bg-white shadow-sm border border-ui-soft p-6 rounded-3xl flex justify-between items-center relative overflow-hidden">
           <div className="relative z-10">
             <h3 className="text-lg font-bold mb-2">Ground Control Command</h3>
             <div className="flex items-center gap-4">
@@ -236,7 +238,7 @@ export function ParentDashboard({
                 </button>
               </div>
               <div>
-                <p className="text-[10px] text-ui-muted font-black uppercase tracking-widest leading-none mb-1">Sector Commander</p>
+                <p className="text-xs text-ui-muted font-black uppercase tracking-widest leading-none mb-1">Sector Commander</p>
                 <p className="font-bold text-ui-primary leading-none">{profile.name}</p>
               </div>
             </div>
@@ -250,25 +252,25 @@ export function ParentDashboard({
                   className="absolute top-full left-0 mt-4 w-64 bg-white border border-ui rounded-2xl shadow-2xl z-[100] max-h-[300px] overflow-y-auto"
                 >
                   <div className="p-3 border-b border-ui flex justify-between items-center bg-white/90 backdrop-blur-md sticky top-0 z-10">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-ui-muted">Tactical Alerts</span>
-                    <span className="text-[8px] font-bold text-amber-500">{notifications.length} NEW</span>
+                    <span className="text-xs font-black uppercase tracking-widest text-ui-muted">Tactical Alerts</span>
+                    <span className="text-xs font-bold text-amber-500">{notifications.length} NEW</span>
                   </div>
                   <div className="p-1 space-y-1">
                     {notifications.length === 0 ? (
                        <div className="p-4 text-center">
-                         <p className="text-[8px] text-ui-muted uppercase font-bold">No breaches detected</p>
+                         <p className="text-xs text-ui-muted uppercase font-bold">No breaches detected</p>
                        </div>
                     ) : (
                       notifications.map((n: Notification) => (
                         <div key={n.id} className="p-3 bg-white hover:bg-ui-soft rounded-xl border border-ui-soft flex flex-col gap-2 group">
                           <div>
                             <p className="text-[7px] font-black text-amber-600 uppercase mb-0.5">Overdue Objective</p>
-                            <p className="text-ui-primary font-bold text-[9px] leading-tight truncate">{n.taskTitle}</p>
-                            <p className="text-ui-muted text-[8px] uppercase font-bold tracking-tight">Cadet: {n.kidName}</p>
+                            <p className="text-ui-primary font-bold text-xs leading-tight truncate">{n.taskTitle}</p>
+                            <p className="text-ui-muted text-xs uppercase font-bold tracking-tight">Cadet: {n.kidName}</p>
                           </div>
                           <button 
                             onClick={() => markRead(n.id)}
-                            className="text-[8px] font-bold text-sky-500 hover:text-sky-600 uppercase tracking-widest text-left"
+                            className="text-xs font-bold text-sky-500 hover:text-sky-600 uppercase tracking-widest text-left"
                           >
                             Mark Handled
                           </button>
@@ -286,13 +288,13 @@ export function ParentDashboard({
               <button 
                 onClick={generateInvite}
                 disabled={generatingInvite}
-                className="bg-sky-500 hover:bg-sky-600 text-white shadow-md border-b-4 border-sky-600 active:border-b-0 active:mt-1 rounded-2xl transition-all px-6 py-3 font-bold text-xs uppercase tracking-wider"
+                className="bg-sky-500 hover:bg-sky-600 text-white shadow-md border border-sky-600 rounded-2xl transition-all px-6 py-3 font-bold text-xs uppercase tracking-wider"
               >
                 {generatingInvite ? "GENERATING..." : "GENERATE MISSION CODE"}
               </button>
             ) : (
               <div className="text-right">
-                <p className="text-[10px] text-ui-muted font-black uppercase tracking-widest mb-2 flex items-center justify-end gap-1">
+                <p className="text-xs text-ui-muted font-black uppercase tracking-widest mb-2 flex items-center justify-end gap-1">
                   <Send className="w-3 h-3" /> Mission Access Code
                 </p>
                 <div className="flex items-center gap-2">
@@ -313,7 +315,7 @@ export function ParentDashboard({
                 <motion.p 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="text-[9px] text-blue-400 font-bold mt-2 uppercase tracking-wide bg-blue-500/10 px-2 py-1 rounded-lg inline-block"
+                  className="text-xs text-blue-400 font-bold mt-2 uppercase tracking-wide bg-blue-500/10 px-2 py-1 rounded-lg inline-block"
                 >
                   {copied ? "COORDINATES COPIED!" : "SHARE CODE WITH SPACE CADET"}
                 </motion.p>
@@ -324,8 +326,8 @@ export function ParentDashboard({
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl rounded-full translate-x-10 -translate-y-10" />
         </div>
 
-        <div className="glass-panel p-6 rounded-3xl border-l-4 border-l-purple-500 flex flex-col justify-center relative overflow-hidden">
-          <p className={cn("text-[10px] uppercase tracking-widest font-black mb-3", toneSecondary)}>Linked Cadets</p>
+        <div className="glass-panel p-6 rounded-3xl flex flex-col justify-center relative overflow-hidden">
+          <p className={cn("text-xs uppercase tracking-widest font-black mb-3", toneSecondary)}>Linked Cadets</p>
           <div className="flex -space-x-2 mb-4 flex-wrap">
             {kids.length > 0 ? kids.map((k: UserProfile) => (
               <div key={k.uid} className="relative group/kid mb-2">
@@ -370,7 +372,7 @@ export function ParentDashboard({
         </div>
       </div>
       {editingAvatarFor && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-ui-deep-80 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-80">
             <h3 className="font-semibold mb-3">{editingAvatarFor.name}'s Avatar</h3>
             <AvatarPicker
@@ -385,7 +387,7 @@ export function ParentDashboard({
                 setEditingAvatarFor(null);
               }}
             />
-            <button onClick={() => setEditingAvatarFor(null)} className="mt-3 text-sm text-gray-500">Cancel</button>
+            <button onClick={() => setEditingAvatarFor(null)} className="mt-3 text-sm text-ui-muted">Cancel</button>
           </div>
         </div>
       )}
@@ -419,13 +421,13 @@ export function ParentDashboard({
           <div className="flex items-center gap-2 mb-2">
             <ShieldCheck className="w-5 h-5 text-amber-500" />
             <h3 className="text-sm font-black uppercase tracking-widest text-amber-700">Awaiting Approval</h3>
-            <span className="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{pendingCompletions.length}</span>
+            <span className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{pendingCompletions.length}</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {pendingCompletions.map((comp: any) => (
               <div key={comp.id} className="bg-white p-4 rounded-2xl shadow-sm border border-amber-100 flex justify-between items-center group">
                 <div>
-                  <p className="text-[10px] font-black text-amber-600 uppercase mb-1">{comp.kidName}</p>
+                  <p className="text-xs font-black text-amber-600 uppercase mb-1">{comp.kidName}</p>
                   <p className="font-bold text-ui-primary text-sm">{comp.taskTitle}</p>
                 </div>
                 <div className="flex gap-2">
@@ -449,19 +451,51 @@ export function ParentDashboard({
         </div>
       )}
 
-      <ParentTaskBoard
-        tasks={tasks}
-        categories={categories}
-        selectedCategoryId={selectedCategoryId}
-        isDarkMode={isDarkMode}
-        isLocked={isLocked}
-        sortBy={sortBy}
-        onSortByChange={setSortBy}
-        onArchiveTask={archiveTask}
-        onOpenCategories={() => setIsManagingCategories(true)}
-        onOpenAddTask={() => setIsAddingTask(true)}
-        onCategoriesChange={onCategoriesChange}
-      />
+      <div className="flex justify-end mb-3">
+        <div className={cn('flex gap-1 p-1 rounded-xl', isDarkMode ? 'bg-ui-dark-50' : 'bg-ui-soft-2')}>
+          <button
+            onClick={() => setTaskDisplayMode('list')}
+            className={cn(
+              'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1',
+              taskDisplayMode === 'list' ? 'bg-sky-500 text-white shadow-sm' : (isDarkMode ? 'text-ui-secondary' : 'text-ui-muted')
+            )}
+          >
+            <List className="w-3.5 h-3.5" /> List
+          </button>
+          <button
+            onClick={() => setTaskDisplayMode('chart')}
+            className={cn(
+              'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1',
+              taskDisplayMode === 'chart' ? 'bg-sky-500 text-white shadow-sm' : (isDarkMode ? 'text-ui-secondary' : 'text-ui-muted')
+            )}
+          >
+            <Grid3x3 className="w-3.5 h-3.5" /> Chart
+          </button>
+        </div>
+      </div>
+
+      {taskDisplayMode === 'list' ? (
+        <ParentTaskBoard
+          tasks={tasks}
+          categories={categories}
+          selectedCategoryId={selectedCategoryId}
+          isDarkMode={isDarkMode}
+          isLocked={isLocked}
+          sortBy={sortBy}
+          onSortByChange={setSortBy}
+          onArchiveTask={archiveTask}
+          onOpenCategories={() => setIsManagingCategories(true)}
+          onOpenAddTask={() => setIsAddingTask(true)}
+          onCategoriesChange={onCategoriesChange}
+        />
+      ) : (
+        <ChoreChart
+          tasks={tasks}
+          kids={kids}
+          categories={categories}
+          memberColorMap={Object.fromEntries(kids.map((kid) => [kid.uid, kid.color || MEMBER_COLORS[0]]))}
+        />
+      )}
 
       <AnimatePresence>
         {isAddingTask && (

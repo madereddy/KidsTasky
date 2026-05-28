@@ -28,7 +28,7 @@ export function RewardManager({ parentId, rewards, onUpdate }: { parentId: strin
   };
 
   return (
-    <div className="bg-white shadow-sm border border-ui-soft p-6 rounded-3xl mb-6 border-l-4 border-l-yellow-500">
+    <div className="bg-white shadow-sm border border-ui-soft p-6 rounded-3xl mb-6">
       <h3 className="text-2xl font-black italic tracking-tighter uppercase mb-6 text-yellow-500">Mission Rewards</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         {rewards.map(r => (

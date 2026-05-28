@@ -30,7 +30,7 @@ export function AllowanceLedger({ parentId }: Props) {
   const totalCents = entries.reduce((sum, e) => sum + e.amountCents, 0);
 
   return (
-    <div className="bg-white shadow-sm border border-ui-soft p-6 rounded-3xl border-l-4 border-l-emerald-500">
+    <div className="bg-white shadow-sm border border-ui-soft p-6 rounded-3xl">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-xl font-black italic tracking-tighter uppercase text-emerald-600 flex items-center gap-2">
           <DollarSign className="w-5 h-5" /> Allowances Owed

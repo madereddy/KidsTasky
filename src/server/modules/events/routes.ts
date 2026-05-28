@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { eventsService } from './service.js';
 import { syncService } from '../sync/service.js';
 import { authenticateUser, enforceEditUnlocked, getParentId } from '../../middleware/auth.js';
+import { db } from '../../db.js';
 
 export const eventsRouter = Router();
 
@@ -106,6 +107,54 @@ eventsRouter.delete('/events/:id', authenticateUser, enforceEditUnlocked, async 
     if (event.externalId) {
       await syncService.deleteEventFromGoogle(event.parentId, event.externalId).catch(() => {});
     }
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+eventsRouter.post('/events/:id/attendees', authenticateUser, (req, res) => {
+  try {
+    const user = (req as any).user as { uid: string; role: string; parentId?: string };
+    if (user.role !== 'parent') return res.status(403).json({ error: 'Forbidden' });
+    const parentId = getParentId(req);
+    const event = eventsService.getEventById(req.params.id as string);
+    if (!event || event.parentId !== parentId) return res.status(403).json({ error: 'Forbidden' });
+    const targetUserId = req.body.userId as string;
+    const familyUser = db.prepare('SELECT uid FROM users WHERE uid = ? AND (uid = ? OR parentId = ?)').get(targetUserId, parentId, parentId) as { uid: string } | undefined;
+    if (!familyUser) return res.status(400).json({ error: 'Invalid attendee' });
+    eventsService.addAttendee(req.params.id as string, targetUserId);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+eventsRouter.patch('/events/:id/attendees/:userId', authenticateUser, (req, res) => {
+  try {
+    const user = (req as any).user as { uid: string; role: string; parentId?: string };
+    const parentId = getParentId(req);
+    const event = eventsService.getEventById(req.params.id as string);
+    if (!event || event.parentId !== parentId) return res.status(403).json({ error: 'Forbidden' });
+    if (user.role !== 'parent' && user.uid !== req.params.userId) return res.status(403).json({ error: 'Forbidden' });
+    const { rsvp } = req.body;
+    if (!['pending', 'yes', 'no', 'maybe'].includes(rsvp)) return res.status(400).json({ error: 'Invalid rsvp' });
+    const ok = eventsService.updateRsvp(req.params.id as string, req.params.userId as string, rsvp);
+    if (!ok) return res.status(404).json({ error: 'Attendee not found' });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+eventsRouter.delete('/events/:id/attendees/:userId', authenticateUser, (req, res) => {
+  try {
+    const user = (req as any).user as { role: string };
+    if (user.role !== 'parent') return res.status(403).json({ error: 'Forbidden' });
+    const parentId = getParentId(req);
+    const event = eventsService.getEventById(req.params.id as string);
+    if (!event || event.parentId !== parentId) return res.status(403).json({ error: 'Forbidden' });
+    eventsService.removeAttendee(req.params.id as string, req.params.userId as string);
+    res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
