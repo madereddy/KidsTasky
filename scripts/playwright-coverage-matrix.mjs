@@ -168,9 +168,13 @@ async function main() {
     await page.getByRole('button', { name: /^Tasks$/i }).first().click().catch(() => {});
     const completionResp = await page.evaluate(async ({ title }) => {
       const token = localStorage.getItem('kidtasker_token') || '';
-      const tokenPayload = token.split('.')[1] || '';
-      const parsed = JSON.parse(atob(tokenPayload.replace(/-/g, '+').replace(/_/g, '/')));
-      const kidId = parsed.uid;
+      const meRes = await fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!meRes.ok) return { ok: false, reason: `auth me failed ${meRes.status}` };
+      const me = await meRes.json();
+      const kidId = me?.user?.uid;
+      if (!kidId) return { ok: false, reason: 'missing uid from auth/me' };
       const tasksRes = await fetch(`/api/kids/${kidId}/tasks`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -204,9 +208,13 @@ async function main() {
     await page.goto(BASE_URL, { waitUntil: 'networkidle' });
     await loginParent(page, parentEmail, parentPassword);
     const pendingResp = await page.evaluate(async ({ token }) => {
-      const tokenPayload = token.split('.')[1] || '';
-      const parsed = JSON.parse(atob(tokenPayload.replace(/-/g, '+').replace(/_/g, '/')));
-      const parentId = parsed.parentId || parsed.uid;
+      const meRes = await fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!meRes.ok) return { ok: false, status: meRes.status, body: [], reason: 'auth me failed' };
+      const me = await meRes.json();
+      const parentId = me?.user?.parentId || me?.user?.uid;
+      if (!parentId) return { ok: false, status: 0, body: [], reason: 'missing parentId from auth/me' };
       const res = await fetch(`/api/parents/${parentId}/pending-completions`, {
         headers: { Authorization: `Bearer ${token}` },
       });
