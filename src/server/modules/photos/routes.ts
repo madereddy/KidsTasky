@@ -287,9 +287,11 @@ photosRouter.get('/parents/:parentId/google-photos/picker/sessions/:sessionId/me
   const pageToken = String(req.query.pageToken || '');
   const qs = new URLSearchParams({ pageSize: String(pageSize), sessionId: String(req.params.sessionId) });
   if (pageToken) qs.set('pageToken', pageToken);
+  const pickerMediaItemsUrl = new URL('https://photospicker.googleapis.com/v1/mediaItems');
+  pickerMediaItemsUrl.search = qs.toString();
 
   try {
-    const data = await fetchGooglePhotosJson<any>(`https://photospicker.googleapis.com/v1/mediaItems?${qs.toString()}`, {
+    const data = await fetchGooglePhotosJson<any>(pickerMediaItemsUrl.toString(), {
       headers: { Authorization: `Bearer ${token}` },
     });
     const rawItems = (data?.mediaItems || []);

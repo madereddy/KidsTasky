@@ -34,9 +34,9 @@ async function kidLoginFromEmail(page, parentEmail, kidName, pin) {
   await page.getByPlaceholder('Parent Email or Username').fill(parentEmail);
   await page.getByPlaceholder('Parent Password (Optional for Kids)').fill('');
   await page.getByRole('button', { name: /find my account/i }).click();
-  await page.getByRole('button', { name: new RegExp(kidName, 'i') }).first().click();
+  await page.getByRole('button', { name: kidName, exact: true }).first().click();
   for (const digit of pin.split('')) {
-    await page.getByRole('button', { name: new RegExp(`^${digit}$`) }).click();
+    await page.getByRole('button', { name: digit, exact: true }).click();
   }
   await page.getByRole('button', { name: /let's go/i }).click();
 }
@@ -82,7 +82,7 @@ async function main() {
       await page.getByPlaceholder('New Cadet Name').fill(kidName);
       await page.getByPlaceholder(/4-Digit Identity Key/i).fill(kidPin);
       await page.getByRole('button', { name: /commission cadet/i }).click();
-      await page.getByText(new RegExp(kidName, 'i')).first().waitFor({ timeout: 15000 });
+      await page.getByText(kidName, { exact: false }).first().waitFor({ timeout: 15000 });
     });
 
     await runStep(results, 'Create Task Assigned To Kid', async () => {
@@ -116,7 +116,7 @@ async function main() {
 
     await runStep(results, 'Login As Kid', async () => {
       await kidLoginFromEmail(page, parentEmail, kidName, kidPin);
-      await page.getByText(new RegExp(kidName, 'i')).first().waitFor({ timeout: 15000 });
+      await page.getByText(kidName, { exact: false }).first().waitFor({ timeout: 15000 });
     });
 
     await runStep(results, 'Kid Completes Assigned Task', async () => {

@@ -36,9 +36,9 @@ async function kidLogin(page, parentEmail, kidName, pin) {
   await page.goto(BASE_URL, { waitUntil: 'networkidle' });
   await page.getByPlaceholder('Parent Email or Username').fill(parentEmail);
   await page.getByRole('button', { name: /find my account/i }).click();
-  await page.getByRole('button', { name: new RegExp(kidName, 'i') }).first().click();
+  await page.getByRole('button', { name: kidName, exact: true }).first().click();
   for (const d of pin.split('')) {
-    await page.getByRole('button', { name: new RegExp(`^${d}$`) }).click();
+    await page.getByRole('button', { name: d, exact: true }).click();
   }
   await page.getByRole('button', { name: /let's go/i }).click();
 }
@@ -56,7 +56,7 @@ async function setPinAndLock(page, pin) {
 
 async function enterOverlayPin(page, pin) {
   for (const d of pin.split('')) {
-    await page.getByRole('button', { name: new RegExp(`^${d}$`) }).click();
+    await page.getByRole('button', { name: d, exact: true }).click();
   }
 }
 
@@ -154,9 +154,9 @@ async function main() {
     await dismiss(page);
     await page.getByRole('button', { name: /^all$/i }).first().click().catch(() => {});
     await page.getByRole('button', { name: /^Tasks$/i }).first().click().catch(() => {});
-    await page.getByText(new RegExp(taskA)).first().waitFor({ timeout: 15000 });
-    await page.getByText(new RegExp(taskAll)).first().waitFor({ timeout: 15000 });
-    const seesTaskB = await page.getByText(new RegExp(taskB)).first().isVisible().catch(() => false);
+    await page.getByText(taskA, { exact: false }).first().waitFor({ timeout: 15000 });
+    await page.getByText(taskAll, { exact: false }).first().waitFor({ timeout: 15000 });
+    const seesTaskB = await page.getByText(taskB, { exact: false }).first().isVisible().catch(() => false);
     if (seesTaskB) throw new Error('Kid A can see Kid B task');
     await page.getByRole('button', { name: /settings/i }).first().click().catch(() => {});
     const parentSettingsVisible = await page.getByText(/Family Settings/i).first().isVisible().catch(() => false);
