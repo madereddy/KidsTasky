@@ -58,7 +58,15 @@ export function ParentTasksWorkspace({
   });
 
   const addTask = async (task: Omit<Task, 'id' | 'createdAt' | 'status'>) => {
-    await tasksClientService.createTask(task);
+    const payload = task as any;
+    const selectedKidIds: string[] = Array.isArray(payload.assignedKidIds)
+      ? payload.assignedKidIds.filter(Boolean)
+      : [];
+    if (selectedKidIds.length > 1) {
+      await Promise.all(selectedKidIds.map((kidId) => tasksClientService.createTask({ ...payload, assignedKidId: kidId })));
+    } else {
+      await tasksClientService.createTask({ ...payload, assignedKidId: selectedKidIds[0] || payload.assignedKidId });
+    }
     await loadTasks();
     setIsAddingTask(false);
   };

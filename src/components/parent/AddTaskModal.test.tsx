@@ -74,10 +74,37 @@ describe('AddTaskModal', () => {
     const payload = onSubmit.mock.calls[0][0];
     expect(payload.title).toBe('Clean Room');
     expect(payload.parentId).toBe('p1');
+    expect(payload.assignedKidIds).toEqual(['k1']);
     expect(payload.completionQuestions).toEqual([
       'Are all clothes in the hamper?',
       'Is the floor clean?',
       'Did you make the bed?',
     ]);
+  });
+
+  it('allows assigning task to multiple kids', async () => {
+    const onSubmit = vi.fn();
+    render(
+      <AddTaskModal
+        onClose={() => {}}
+        onSubmit={onSubmit}
+        kids={[
+          { uid: 'k1', name: 'Kid One', role: 'kid', email: 'k1@test.com' } as any,
+          { uid: 'k2', name: 'Kid Two', role: 'kid', email: 'k2@test.com' } as any,
+        ]}
+        parentId="p1"
+        categories={[]}
+        existingTasks={[]}
+      />
+    );
+
+    await screen.findByText('New Mission');
+    fireEvent.change(screen.getByPlaceholderText(/Navigation Check/i), { target: { value: 'Clean Room' } });
+    fireEvent.click(screen.getByLabelText('Kid Two'));
+    fireEvent.click(screen.getByRole('button', { name: /Launch/i }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const payload = onSubmit.mock.calls[0][0];
+    expect(payload.assignedKidIds).toEqual(['k1', 'k2']);
   });
 });

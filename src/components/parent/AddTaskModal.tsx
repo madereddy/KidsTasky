@@ -32,7 +32,8 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
   const [frequency, setFrequency] = useState<TaskFrequency>('daily');
   const [customInterval, setCustomInterval] = useState(3);
   const [difficulty, setDifficulty] = useState<TaskDifficulty>('easy');
-  const [assignedKidId, setAssignedKidId] = useState(kids[0]?.uid || 'all');
+  const [assignmentMode, setAssignmentMode] = useState<'specific' | 'all'>('specific');
+  const [assignedKidIds, setAssignedKidIds] = useState<string[]>(kids[0]?.uid ? [kids[0].uid] : []);
   const [reminderTime, setReminderTime] = useState('08:00');
   const [categoryId, setCategoryId] = useState<string>('');
   const [prerequisiteTaskIds, setPrerequisiteTaskIds] = useState<string[]>([]);
@@ -53,7 +54,8 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
     }
   };
 
-  const eligiblePrereqs = existingTasks.filter(t => t.assignedKidId === assignedKidId || (assignedKidId === 'all' && t.assignedKidId === 'all'));
+  const primaryAssignedKidId = assignmentMode === 'all' ? 'all' : (assignedKidIds[0] || '');
+  const eligiblePrereqs = existingTasks.filter((t) => t.assignedKidId === primaryAssignedKidId || (primaryAssignedKidId === 'all' && t.assignedKidId === 'all'));
   const sortedCustomTemplates = useMemo(
     () => [...customTemplates].sort((a, b) => Number(b.pinned) - Number(a.pinned) || a.name.localeCompare(b.name)),
     [customTemplates]
@@ -116,6 +118,11 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
     if (!Array.isArray(parsed)) return;
     await proofTemplatesClientService.import('task', parsed);
     await loadTemplates();
+  };
+  const toggleKidSelection = (kidId: string) => {
+    setAssignedKidIds((prev) => (
+      prev.includes(kidId) ? prev.filter((id) => id !== kidId) : [...prev, kidId]
+    ));
   };
 
   return (
@@ -233,16 +240,44 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
 
           <div>
             <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-2 block">Assign to Cadet</label>
-            <select
-              value={assignedKidId}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setAssignedKidId(e.target.value)}
-              className="input-immersive"
-            >
-              <option value="all">Up for Grabs (All Kids)</option>
-              {kids.map((kid) => (
-                <option key={kid.uid} value={kid.uid}>{kid.name}</option>
-              ))}
-            </select>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setAssignmentMode('specific')}
+                className={cn(
+                  "py-2 rounded-xl font-bold text-xs uppercase border transition-all min-h-[44px]",
+                  assignmentMode === 'specific' ? "bg-blue-600 text-white border-blue-500" : "bg-ui-dark border-ui-dark text-ui-muted"
+                )}
+              >
+                Specific Kids
+              </button>
+              <button
+                type="button"
+                onClick={() => setAssignmentMode('all')}
+                className={cn(
+                  "py-2 rounded-xl font-bold text-xs uppercase border transition-all min-h-[44px]",
+                  assignmentMode === 'all' ? "bg-fuchsia-600 text-white border-fuchsia-500" : "bg-ui-dark border-ui-dark text-ui-muted"
+                )}
+              >
+                Up for Grabs
+              </button>
+            </div>
+            {assignmentMode === 'specific' ? (
+              <div className="space-y-2">
+                {kids.map((kid) => (
+                  <label key={kid.uid} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-ui cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={assignedKidIds.includes(kid.uid)}
+                      onChange={() => toggleKidSelection(kid.uid)}
+                    />
+                    <span className="text-sm font-medium text-ui-primary">{kid.name}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-ui-muted">Any kid can claim and complete this task.</p>
+            )}
           </div>
 
           {eligiblePrereqs.length > 0 && (
@@ -424,7 +459,8 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
                 title,
                 frequency,
                 difficulty,
-                assignedKidId,
+                assignedKidId: assignmentMode === 'all' ? 'all' : (assignedKidIds[0] || ''),
+                assignedKidIds: assignmentMode === 'specific' ? assignedKidIds : undefined,
                 reminderTime,
                 parentId,
                 categoryId,
@@ -438,6 +474,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
                   .filter(Boolean),
                 completionQuestionsKidId: completionQuestionsKidId || null,
               })}
+              disabled={assignmentMode === 'specific' && assignedKidIds.length === 0}
               className="flex-1 btn-immersive-primary bg-blue-600"
             >
               Launch
