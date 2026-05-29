@@ -91,6 +91,8 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
               {slotLabel || (
                 task.frequency === 'custom' 
                   ? `Every ${task.customInterval} Days` 
+                  : task.frequency === 'weekdays'
+                    ? 'Weekdays'
                   : task.frequency.replace('-', ' ')
               )}
             </motion.span>

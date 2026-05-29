@@ -4,6 +4,21 @@ import { homeworkService } from './service.js';
 
 export const homeworkRouter = Router();
 
+const nextHomeworkDueDate = (fromDate: string, recurrence: 'none' | 'daily' | 'weekdays'): string => {
+  const parts = String(fromDate).split('-').map((v) => Number(v));
+  const base = parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(fromDate);
+  if (Number.isNaN(base.getTime())) return fromDate;
+  const d = new Date(base);
+  d.setHours(0, 0, 0, 0);
+  const addDays = (n: number) => d.setDate(d.getDate() + n);
+  if (recurrence === 'daily') addDays(1);
+  if (recurrence === 'weekdays') {
+    addDays(1);
+    while (d.getDay() === 0 || d.getDay() === 6) addDays(1);
+  }
+  return d.toISOString().slice(0, 10);
+};
+
 homeworkRouter.get('/parents/:parentId/homework', authenticateUser, (req, res) => {
   try {
     const parentId = getParentId(req);
@@ -33,6 +48,9 @@ homeworkRouter.post('/homework', authenticateUser, enforceEditUnlocked, (req, re
       assignedToId: req.body.assignedToId,
       status: req.body.status || 'pending',
       color: req.body.color || '#6366f1',
+      recurrence: ['none', 'daily', 'weekdays'].includes(String(req.body.recurrence || 'none'))
+        ? req.body.recurrence
+        : 'none',
       completionQuestions: Array.isArray(req.body.completionQuestions) ? req.body.completionQuestions : undefined,
       completionQuestionsKidId: req.body.completionQuestionsKidId || null,
       completionResponse: null,
@@ -64,6 +82,17 @@ homeworkRouter.patch('/homework/:id', authenticateUser, enforceEditUnlocked, (re
     } else if (patch.status !== undefined && !['pending', 'done'].includes(patch.status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
+    const recurrence = (existing as any).recurrence || 'none';
+    if (patch?.status === 'done' && recurrence !== 'none') {
+      const today = new Date().toISOString().slice(0, 10);
+      const baseDate = String(existing.dueDate || today) < today ? today : String(existing.dueDate || today);
+      patch = {
+        ...patch,
+        status: 'pending',
+        dueDate: nextHomeworkDueDate(baseDate, recurrence),
+      };
+    }
+
     const ok = homeworkService.update(req.params.id, parentId, patch);
     if (!ok) return res.status(404).json({ error: 'Homework not found' });
     res.json({ success: true });

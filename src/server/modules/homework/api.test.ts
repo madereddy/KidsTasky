@@ -16,6 +16,7 @@ describe('Homework API', () => {
 
   beforeEach(() => {
     db.prepare('DELETE FROM homework').run();
+    db.prepare('DELETE FROM family_settings WHERE parentId = ?').run(parentId);
     db.prepare('DELETE FROM users WHERE uid = ?').run(parentId);
     db.prepare('DELETE FROM users WHERE uid = ?').run(otherParentId);
     db.prepare('DELETE FROM users WHERE uid = ?').run(kidA);
@@ -186,5 +187,29 @@ describe('Homework API', () => {
       .set('Authorization', `Bearer ${kidAToken}`)
       .send({ status: 'done' });
     expect(kidPatch.status).toBe(200);
+  });
+
+  it('auto-advances recurring homework when marked done', async () => {
+    const create = await request(app)
+      .post('/api/homework')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Workbook', subject: 'Math', dueDate: '2026-05-29', color: '#6366f1', recurrence: 'weekdays', assignedToId: kidA });
+    expect(create.status).toBe(200);
+    expect(create.body.recurrence).toBe('weekdays');
+    const id = create.body.id as string;
+
+    const done = await request(app)
+      .patch(`/api/homework/${id}`)
+      .set('Authorization', `Bearer ${kidAToken}`)
+      .send({ status: 'done', completionResponse: 'Finished pages 10-20' });
+    expect(done.status).toBe(200);
+
+    const list = await request(app)
+      .get(`/api/parents/${parentId}/homework`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(list.status).toBe(200);
+    expect(list.body[0].status).toBe('pending');
+    expect(list.body[0].dueDate).toBe('2026-06-01');
+    expect(list.body[0].recurrence).toBe('weekdays');
   });
 });

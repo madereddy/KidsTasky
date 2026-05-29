@@ -70,7 +70,10 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
             <div key={item.id} className="border border-ui rounded-xl p-3 flex items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-ui-primary">{item.title}</p>
-                <p className="text-xs text-ui-muted">{item.subject} • Due {format(new Date(item.dueDate), 'MMM d, yyyy')} • {assignee}</p>
+                <p className="text-xs text-ui-muted">
+                  {item.subject} • Due {format(new Date(item.dueDate), 'MMM d, yyyy')} • {assignee}
+                  {item.recurrence && item.recurrence !== 'none' ? ` • Repeats: ${item.recurrence === 'weekdays' ? 'weekdays' : 'daily'}` : ''}
+                </p>
                 {isOverdue && <p className="text-xs text-rose-600 font-semibold">Overdue</p>}
                 {item.completionResponse && (
                   <p className="text-xs text-ui-secondary mt-1 whitespace-pre-line">{item.completionResponse}</p>

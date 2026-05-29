@@ -31,6 +31,7 @@ interface Props {
     color: string;
     completionQuestions?: string[];
     completionQuestionsKidId?: string | null;
+    recurrence?: 'none' | 'daily' | 'weekdays';
   }) => Promise<void>;
 }
 
@@ -41,6 +42,7 @@ export function AddHomeworkModal({ kids, onClose, onSubmit }: Props) {
   const [notes, setNotes] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [assignedToId, setAssignedToId] = useState('');
+  const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekdays'>('none');
   const [color, setColor] = useState('#6366f1');
   const [completionQuestionsText, setCompletionQuestionsText] = useState('');
   const [completionQuestionsKidId, setCompletionQuestionsKidId] = useState('');
@@ -123,6 +125,18 @@ export function AddHomeworkModal({ kids, onClose, onSubmit }: Props) {
           <option value="">All kids</option>
           {kids.map((kid) => <option key={kid.uid} value={kid.uid}>{kid.name}</option>)}
         </select>
+        <div>
+          <label className="block text-xs font-semibold text-ui-secondary mb-1">Repeats</label>
+          <select className="w-full border border-ui rounded-lg px-3 py-2 text-sm" value={recurrence} onChange={(e) => setRecurrence(e.target.value as any)}>
+            <option value="none">Does not repeat</option>
+            <option value="daily">Every day</option>
+            <option value="weekdays">Every weekday (Mon-Fri)</option>
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold text-ui-secondary">Verification (Optional)</label>
+          <p className="text-[11px] text-ui-muted">Kid answers these when marking homework done.</p>
+        </div>
         <textarea
           className="w-full border border-ui rounded-lg px-3 py-2 text-sm"
           rows={3}
@@ -242,6 +256,7 @@ export function AddHomeworkModal({ kids, onClose, onSubmit }: Props) {
                 dueDate,
                 assignedToId: assignedToId || undefined,
                 color,
+                recurrence,
                 completionQuestions: completionQuestionsText.split('\n').map((line) => line.trim()).filter(Boolean),
                 completionQuestionsKidId: completionQuestionsKidId || null,
               });

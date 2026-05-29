@@ -282,6 +282,10 @@ export function KidDashboard({
 
     const shouldShowToday = (task: Task) => {
     if (task.frequency === 'daily' || task.frequency === 'twice-daily') return true;
+    if (task.frequency === 'weekdays') {
+      const day = new Date().getDay();
+      return day >= 1 && day <= 5;
+    }
     
     // For weekly, bi-weekly, custom
     const createdDate = parseTimestamp(task.createdAt);

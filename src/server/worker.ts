@@ -136,6 +136,9 @@ export function startBackgroundWorker() {
         let scheduledForToday = false;
         if (task.frequency === 'daily' || task.frequency === 'twice-daily') {
           scheduledForToday = true;
+        } else if (task.frequency === 'weekdays') {
+          const day = now.getDay();
+          scheduledForToday = day >= 1 && day <= 5;
         } else {
           const createdDate = new Date(task.createdAt);
           const daysSinceCreated = differenceInDays(startOfDay(now), startOfDay(createdDate));

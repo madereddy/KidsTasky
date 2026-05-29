@@ -33,7 +33,7 @@ export interface BadgeDef {
   color: string;
 }
 
-export type TaskFrequency = 'daily' | 'twice-daily' | 'weekly' | 'bi-weekly' | 'custom';
+export type TaskFrequency = 'daily' | 'weekdays' | 'twice-daily' | 'weekly' | 'bi-weekly' | 'custom';
 export type TaskDifficulty = 'easy' | 'medium' | 'hard';
 
 export interface Category {
@@ -173,6 +173,7 @@ export interface Homework {
   completionQuestions?: string[];
   completionQuestionsKidId?: string | null;
   completionResponse?: string | null;
+  recurrence?: 'none' | 'daily' | 'weekdays';
 }
 
 export interface RoutineTemplate {

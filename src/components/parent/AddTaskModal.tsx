@@ -172,9 +172,10 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
           </div>
 
           <div>
-            <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-2 block">Cycle Frequency</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-1 block">Repeats</label>
+            <p className="text-[11px] text-ui-muted mb-2">Choose when this task should automatically show up.</p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {(['daily', 'twice-daily', 'weekly', 'bi-weekly', 'custom'] as TaskFrequency[]).map(f => (
+              {(['daily', 'weekdays', 'twice-daily', 'weekly', 'bi-weekly', 'custom'] as TaskFrequency[]).map(f => (
                 <button
                   key={f}
                   onClick={() => setFrequency(f)}
@@ -183,7 +184,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
                     frequency === f ? "bg-blue-600 text-white border-blue-500 glow-blue shadow-lg" : "bg-ui-dark border-ui-dark text-ui-muted"
                   )}
                 >
-                  {f.replace('-', ' ')}
+                  {f === 'weekdays' ? 'weekdays' : f.replace('-', ' ')}
                 </button>
               ))}
             </div>
@@ -290,7 +291,8 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
           </div>
 
           <div>
-            <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-2 block">Optional Proof Questions</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-1 block">Verification (Optional)</label>
+            <p className="text-[11px] text-ui-muted mb-2">Kids answer these when marking complete.</p>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-[11px] text-ui-muted">Template mode:</span>
               <button
