@@ -1,80 +1,54 @@
 import { fetchAPI } from '../../services/http';
 import { userService } from '../../services/users';
-import { tasksClientService } from '../../services/tasks';
 import { inviteService } from '../../services/invites';
 import { notificationService } from '../../services/notifications';
 import { rewardService } from '../../services/rewards';
 import { syncClientService } from '../../services/sync';
 import React, { useState, useEffect, useCallback } from 'react';
-import { Trash2, Calendar, Clock, CalendarDays, Tag, Plus, ShieldCheck, Bell, Send, CheckCircle2, Copy, List, Grid3x3 } from 'lucide-react';
+import { ShieldCheck, Bell, Send, CheckCircle2, Copy, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
-import { Task, UserProfile, Category, Invite, Notification, Reward, TaskFrequency, TaskDifficulty, SyncCalendar } from '../../types';
+import { UserProfile, Invite, Notification, Reward, SyncCalendar } from '../../types';
 import { MEMBER_COLORS } from '../../constants';
-import { AddTaskModal } from './AddTaskModal';
 import { AddKidForm } from './AddKidForm';
-import { CategoryManager } from './CategoryManager';
 import { RewardManager } from './RewardManager';
 import { AllowanceLedger } from './AllowanceLedger';
 import { ConnectedAccountsView } from './ConnectedAccountsView';
 import { StaleDataEvent, useSocketStaleData } from '../../hooks/useSocket';
 import { FamilyNote } from '../shared/FamilyNote';
 import { AvatarDisplay, AvatarPicker } from '../shared/AvatarPicker';
-import { ParentTaskBoard } from './ParentTaskBoard';
-import { ChoreChart } from './ChoreChart';
 
-export function ParentDashboard({ 
-  profile, 
-  categories, 
-  onCategoriesChange,
-  selectedCategoryId,
-  isLocked = false,
-  onLockNow
-}: { 
-  profile: UserProfile, 
-  categories: Category[],
-  onCategoriesChange: (cats: Category[]) => void,
-  selectedCategoryId: string | null,
-  isLocked?: boolean,
-  onLockNow?: () => void
+export function ParentDashboard({
+  profile,
+}: {
+  profile: UserProfile
 }) {
   const isDarkMode = !!profile.themeId && profile.themeId !== 'light_blue' && profile.themeId !== 'light_green' && profile.themeId !== 'light_rose';
-  const toneSecondary = isDarkMode ? "text-ui-muted-2" : "text-ui-muted";
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [pendingCompletions, setPendingCompletions] = useState<any[]>([]);
+  const toneSecondary = isDarkMode ? 'text-ui-muted-2' : 'text-ui-muted';
   const [kids, setKids] = useState<UserProfile[]>([]);
   const [invite, setInvite] = useState<Invite | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isAddingTask, setIsAddingTask] = useState(false);
-  const [isManagingCategories, setIsManagingCategories] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [loading, setLoading] = useState(true);
   const [generatingInvite, setGeneratingInvite] = useState(false);
   const [copied, setCopied] = useState(false);
   const [connections, setConnections] = useState<any[]>([]);
   const [syncCalendars, setSyncCalendars] = useState<SyncCalendar[]>([]);
-  const [sortBy, setSortBy] = useState<'time' | 'created'>('created');
-  const [taskDisplayMode, setTaskDisplayMode] = useState<'list' | 'chart'>('list');
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
-  const [savingColor, setSavingColor] = useState<string | null>(null);
   const [editingAvatarFor, setEditingAvatarFor] = useState<UserProfile | null>(null);
   const familyId = profile.parentId || profile.uid;
 
   const fetchData = useCallback(async () => {
     try {
-      const [t, pc, k, i, n, r, c, sc] = await Promise.all([
-        tasksClientService.getTasksForParent(familyId),
-        tasksClientService.getPendingCompletions(familyId),
+      const [k, i, n, r, c, sc] = await Promise.all([
         userService.getKidsForParent(familyId),
         inviteService.getActiveInvite(familyId),
         notificationService.getUnreadNotifications(familyId),
         rewardService.getRewards(familyId),
         fetchAPI('/settings/' + familyId + '/connections').catch(() => []),
-        syncClientService.getCalendars(familyId).catch(() => [])
+        syncClientService.getCalendars(familyId).catch(() => []),
       ]);
-      setTasks(t || []);
-      setPendingCompletions(pc || []);
       setKids(k || []);
       setInvite(i || null);
       setNotifications(n || []);
@@ -82,19 +56,10 @@ export function ParentDashboard({
       setConnections(c || []);
       setSyncCalendars(sc || []);
     } catch (e) {
-      console.error("Failed to fetch dashboard data:", e);
+      console.error('Failed to fetch dashboard data:', e);
     } finally {
       setLoading(false);
     }
-  }, [familyId]);
-
-  const refreshTasksAndPending = useCallback(async () => {
-    const [t, pc] = await Promise.all([
-      tasksClientService.getTasksForParent(familyId),
-      tasksClientService.getPendingCompletions(familyId),
-    ]);
-    setTasks(t || []);
-    setPendingCompletions(pc || []);
   }, [familyId]);
 
   const refreshNotifications = useCallback(async () => {
@@ -118,10 +83,6 @@ export function ParentDashboard({
 
   useSocketStaleData((data: StaleDataEvent) => {
     const signal = data.type || data.entity;
-    if (signal === 'tasks' || signal === 'completions' || signal === 'events') {
-      refreshTasksAndPending().catch((e) => console.error('Failed to refresh tasks/pending:', e));
-      return;
-    }
     if (signal === 'notifications') {
       refreshNotifications().catch((e) => console.error('Failed to refresh notifications:', e));
       return;
@@ -162,31 +123,9 @@ export function ParentDashboard({
     }
   };
 
-  const addTask = async (task: Omit<Task, 'id' | 'createdAt' | 'status'>) => {
-    await tasksClientService.createTask(task);
-    const updated = await tasksClientService.getTasksForParent(familyId);
-    setTasks(updated);
-    setIsAddingTask(false);
-  };
-
   const refreshRewards = async () => {
     const r = await rewardService.getRewards(familyId);
     setRewards(r || []);
-  };
-
-  const approveCompletion = async (id: string) => {
-    await tasksClientService.approveCompletion(id);
-    setPendingCompletions(prev => prev.filter(c => c.id !== id));
-  };
-
-  const rejectCompletion = async (id: string) => {
-    await tasksClientService.rejectCompletion(id);
-    setPendingCompletions(prev => prev.filter(c => c.id !== id));
-  };
-
-  const archiveTask = async (id: string) => {
-    await tasksClientService.archiveTask(id);
-    setTasks(tasks.filter((t: Task) => t.id !== id));
   };
 
   const handleDisconnect = async (connId: string) => {
@@ -227,11 +166,11 @@ export function ParentDashboard({
             <div className="flex items-center gap-4">
               <div className="p-3 bg-white shadow-sm border border-ui rounded-2xl relative">
                 <ShieldCheck className="w-6 h-6 text-blue-500" />
-                <button 
+                <button
                   onClick={() => setShowNotifications(!showNotifications)}
                   className="absolute -top-2 -right-2 w-6 h-6 bg-ui-soft-2 rounded-full flex items-center justify-center border border-ui hover:border-amber-500 transition-colors"
                 >
-                  <Bell className={cn("w-3 h-3", notifications.length > 0 ? "text-amber-500 animate-pulse" : "text-ui-muted")} />
+                  <Bell className={cn('w-3 h-3', notifications.length > 0 ? 'text-amber-500 animate-pulse' : 'text-ui-muted')} />
                   {notifications.length > 0 && (
                     <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border border-white" />
                   )}
@@ -245,7 +184,7 @@ export function ParentDashboard({
 
             <AnimatePresence>
               {showNotifications && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -257,9 +196,9 @@ export function ParentDashboard({
                   </div>
                   <div className="p-1 space-y-1">
                     {notifications.length === 0 ? (
-                       <div className="p-4 text-center">
-                         <p className="text-xs text-ui-muted uppercase font-bold">No breaches detected</p>
-                       </div>
+                      <div className="p-4 text-center">
+                        <p className="text-xs text-ui-muted uppercase font-bold">No breaches detected</p>
+                      </div>
                     ) : (
                       notifications.map((n: Notification) => (
                         <div key={n.id} className="p-3 bg-white hover:bg-ui-soft rounded-xl border border-ui-soft flex flex-col gap-2 group">
@@ -268,7 +207,7 @@ export function ParentDashboard({
                             <p className="text-ui-primary font-bold text-xs leading-tight truncate">{n.taskTitle}</p>
                             <p className="text-ui-muted text-xs uppercase font-bold tracking-tight">Cadet: {n.kidName}</p>
                           </div>
-                          <button 
+                          <button
                             onClick={() => markRead(n.id)}
                             className="text-xs font-bold text-sky-500 hover:text-sky-600 uppercase tracking-widest text-left"
                           >
@@ -285,12 +224,12 @@ export function ParentDashboard({
 
           <div className="relative z-10 flex flex-col items-end">
             {!invite ? (
-              <button 
+              <button
                 onClick={generateInvite}
                 disabled={generatingInvite}
                 className="bg-sky-500 hover:bg-sky-600 text-white shadow-md border border-sky-600 rounded-2xl transition-all px-6 py-3 font-bold text-xs uppercase tracking-wider"
               >
-                {generatingInvite ? "GENERATING..." : "GENERATE MISSION CODE"}
+                {generatingInvite ? 'GENERATING...' : 'GENERATE MISSION CODE'}
               </button>
             ) : (
               <div className="text-right">
@@ -301,33 +240,33 @@ export function ParentDashboard({
                   <div className="bg-sky-50 border border-sky-100 font-mono px-4 py-2 rounded-2xl text-sky-600 text-2xl font-black tracking-widest shadow-inner">
                     {invite.id}
                   </div>
-                  <button 
+                  <button
                     onClick={handleCopy}
                     className={cn(
-                      "p-3 rounded-2xl transition-all flex items-center justify-center border",
-                      copied ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-white text-ui-secondary hover:bg-ui-soft border border-ui"
+                      'p-3 rounded-2xl transition-all flex items-center justify-center border',
+                      copied ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-white text-ui-secondary hover:bg-ui-soft border border-ui'
                     )}
                     title="Copy Code"
                   >
                     {copied ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
                   </button>
                 </div>
-                <motion.p 
+                <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="text-xs text-blue-400 font-bold mt-2 uppercase tracking-wide bg-blue-500/10 px-2 py-1 rounded-lg inline-block"
                 >
-                  {copied ? "COORDINATES COPIED!" : "SHARE CODE WITH SPACE CADET"}
+                  {copied ? 'COORDINATES COPIED!' : 'SHARE CODE WITH SPACE CADET'}
                 </motion.p>
               </div>
             )}
           </div>
-          
+
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl rounded-full translate-x-10 -translate-y-10" />
         </div>
 
         <div className="glass-panel p-6 rounded-3xl flex flex-col justify-center relative overflow-hidden">
-          <p className={cn("text-xs uppercase tracking-widest font-black mb-3", toneSecondary)}>Linked Cadets</p>
+          <p className={cn('text-xs uppercase tracking-widest font-black mb-3', toneSecondary)}>Linked Cadets</p>
           <div className="flex -space-x-2 mb-4 flex-wrap">
             {kids.length > 0 ? kids.map((k: UserProfile) => (
               <div key={k.uid} className="relative group/kid mb-2">
@@ -339,7 +278,6 @@ export function ParentDashboard({
                     size={40}
                   />
                 </button>
-                {/* color dot */}
                 <button
                   onClick={(e) => { e.stopPropagation(); setColorPickerFor(colorPickerFor === k.uid ? null : k.uid); }}
                   className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm"
@@ -362,12 +300,12 @@ export function ParentDashboard({
               </div>
             )}
           </div>
-          
+
           <AddKidForm parentId={familyId} onAdded={fetchData} />
           <div className="mt-4">
             <FamilyNote parentId={familyId} readOnly={false} />
           </div>
-          
+
           <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-purple-500/5 blur-xl rounded-full" />
         </div>
       </div>
@@ -392,8 +330,8 @@ export function ParentDashboard({
         </div>
       )}
 
-      <ConnectedAccountsView 
-        connections={connections} 
+      <ConnectedAccountsView
+        connections={connections}
         calendars={syncCalendars}
         onToggleCalendar={handleToggleCalendar}
         onConnect={async (provider, data) => {
@@ -402,139 +340,19 @@ export function ParentDashboard({
             window.location.href = `/api/sync/connect/google?token=${tk}`;
           } else if (provider === 'manual') {
             try {
-              const res = await fetchAPI('/sync/connect/manual', {
+              await fetchAPI('/sync/connect/manual', {
                 method: 'POST',
                 body: JSON.stringify(data)
               });
               alert('Manual sync connection established!');
               fetchData();
-            } catch (err) {
+            } catch {
               alert('Failed to connect');
             }
           }
-        }} 
-        onDisconnect={handleDisconnect} 
+        }}
+        onDisconnect={handleDisconnect}
       />
-
-      {pendingCompletions.length > 0 && (
-        <div className="bg-amber-50 border border-amber-100 p-6 rounded-[2.5rem] space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <ShieldCheck className="w-5 h-5 text-amber-500" />
-            <h3 className="text-sm font-black uppercase tracking-widest text-amber-700">Awaiting Approval</h3>
-            <span className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{pendingCompletions.length}</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {pendingCompletions.map((comp: any) => (
-              <div key={comp.id} className="bg-white p-4 rounded-2xl shadow-sm border border-amber-100 flex justify-between items-center group">
-                <div>
-                  <p className="text-xs font-black text-amber-600 uppercase mb-1">{comp.kidName}</p>
-                  <p className="font-bold text-ui-primary text-sm">{comp.taskTitle}</p>
-                  {(() => {
-                    let proofAnswers: Array<{ question: string; answer: string }> = [];
-                    try {
-                      proofAnswers = typeof comp.proofAnswers === 'string' ? JSON.parse(comp.proofAnswers) : (comp.proofAnswers || []);
-                    } catch {}
-                    if (!proofAnswers.length) return null;
-                    return (
-                      <div className="mt-2 space-y-1">
-                        {proofAnswers.map((entry, idx) => (
-                          <p key={`${comp.id}-proof-${idx}`} className="text-xs text-ui-muted">
-                            <span className="font-semibold">{entry.question}</span> {entry.answer}
-                          </p>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => rejectCompletion(comp.id)}
-                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
-                    title="Reject"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={() => approveCompletion(comp.id)}
-                    className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-emerald-600 transition-colors shadow-sm"
-                  >
-                    Approve
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="flex justify-end mb-3">
-        <div className={cn('flex gap-1 p-1 rounded-xl', isDarkMode ? 'bg-ui-dark-50' : 'bg-ui-soft-2')}>
-          <button
-            onClick={() => setTaskDisplayMode('list')}
-            className={cn(
-              'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1',
-              taskDisplayMode === 'list' ? 'bg-sky-500 text-white shadow-sm' : (isDarkMode ? 'text-ui-secondary' : 'text-ui-muted')
-            )}
-          >
-            <List className="w-3.5 h-3.5" /> List
-          </button>
-          <button
-            onClick={() => setTaskDisplayMode('chart')}
-            className={cn(
-              'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1',
-              taskDisplayMode === 'chart' ? 'bg-sky-500 text-white shadow-sm' : (isDarkMode ? 'text-ui-secondary' : 'text-ui-muted')
-            )}
-          >
-            <Grid3x3 className="w-3.5 h-3.5" /> Chart
-          </button>
-        </div>
-      </div>
-
-      {taskDisplayMode === 'list' ? (
-        <ParentTaskBoard
-          tasks={tasks}
-          categories={categories}
-          selectedCategoryId={selectedCategoryId}
-          isDarkMode={isDarkMode}
-          isLocked={isLocked}
-          sortBy={sortBy}
-          onSortByChange={setSortBy}
-          onArchiveTask={archiveTask}
-          onOpenCategories={() => setIsManagingCategories(true)}
-          onOpenAddTask={() => setIsAddingTask(true)}
-          onCategoriesChange={onCategoriesChange}
-        />
-      ) : (
-        <ChoreChart
-          tasks={tasks}
-          kids={kids}
-          categories={categories}
-          memberColorMap={Object.fromEntries(kids.map((kid) => [kid.uid, kid.color || MEMBER_COLORS[0]]))}
-        />
-      )}
-
-      <AnimatePresence>
-        {isAddingTask && (
-          <AddTaskModal
-            onClose={() => setIsAddingTask(false)}
-            onSubmit={addTask}
-            kids={kids}
-            parentId={familyId}
-            categories={categories}
-            existingTasks={tasks}
-          />
-        )}
-        {isManagingCategories && (
-          <CategoryManager
-            parentId={familyId}
-            categories={categories}
-            onClose={() => setIsManagingCategories(false)}
-            onUpdate={onCategoriesChange}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }
-
-

@@ -16,12 +16,12 @@ import { PhotoScreensaver } from './components/shared/PhotoScreensaver';
 import { LoginView } from './components/auth/LoginView';
 import { OnboardingView } from './components/onboarding/OnboardingView';
 import { ParentDashboard } from './components/parent/ParentDashboard';
+import { ParentTasksWorkspace } from './components/parent/ParentTasksWorkspace';
 import { KidDashboard } from './components/kid/KidDashboard';
 import { CalendarView } from './components/calendar/CalendarView';
 import { ListsView } from './components/lists/ListsView';
 import { MealPlanView } from './components/parent/MealPlanView';
 import { SettingsView } from './components/parent/SettingsView';
-import { HomeworkView } from './components/homework/HomeworkView';
 
 interface AppUser {
   uid: string;
@@ -43,7 +43,7 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<'tasks' | 'calendar' | 'lists' | 'meals' | 'homework'>('calendar');
+  const [activeSection, setActiveSection] = useState<'home' | 'tasks' | 'calendar' | 'lists' | 'meals'>('calendar');
   const [kids, setKids] = useState<UserProfile[]>([]);
   const [isLocked, setIsLocked] = useState(false);
   const [showUnlockPrompt, setShowUnlockPrompt] = useState(false);
@@ -265,22 +265,25 @@ export default function App() {
             {profile?.role === 'parent' && (
               <nav className={cn("hidden md:flex gap-1 p-1 rounded-2xl", isDarkTheme ? "bg-ui-dark-50" : "bg-ui-soft-2")}>
                 <button
+                  onClick={() => setActiveSection('home')}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
+                    activeSection === 'home' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary")
+                  )}
+                >
+                  Home
+                </button>
+                <button
                   onClick={() => setActiveSection('tasks')}
+                  onMouseEnter={prefetchParentTasks}
+                  onFocus={prefetchParentTasks}
+                  onTouchStart={prefetchParentTasks}
                   className={cn(
                     "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
                     activeSection === 'tasks' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary")
                   )}
                 >
                   Tasks
-                </button>
-                <button
-                  onClick={() => setActiveSection('homework')}
-                  className={cn(
-                    "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
-                    activeSection === 'homework' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary")
-                  )}
-                >
-                  Homework
                 </button>
                 <button
                   onClick={() => setActiveSection('calendar')}
@@ -417,9 +420,9 @@ export default function App() {
           </div>
         )}
         <AnimatePresence mode="wait">
-          {profile.role === 'parent' && activeSection === 'tasks' && (
+          {profile.role === 'parent' && activeSection === 'home' && (
             <motion.div
-              key="parent-dash"
+              key="parent-home"
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
@@ -427,14 +430,6 @@ export default function App() {
             >
               <ParentDashboard
                 profile={profile}
-                categories={categories}
-                onCategoriesChange={setCategories}
-                selectedCategoryId={selectedCategoryId}
-                isLocked={isLocked}
-                onLockNow={async () => {
-                  await settingsClientService.lockDisplay(profile.uid);
-                  setIsLocked(true);
-                }}
               />
             </motion.div>
           )}
@@ -455,15 +450,23 @@ export default function App() {
               />
             </motion.div>
           )}
-          {profile.role === 'parent' && activeSection === 'homework' && (
+          {profile.role === 'parent' && activeSection === 'tasks' && (
             <motion.div
-              key="homework-view"
+              key="tasks-workspace"
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.3 }}
             >
-              <HomeworkView parentId={profile.uid} kids={kids} userRole="parent" />
+              <ParentTasksWorkspace
+                parentId={profile.uid}
+                kids={kids}
+                categories={categories}
+                selectedCategoryId={selectedCategoryId}
+                isLocked={isLocked}
+                isDarkMode={isDarkTheme}
+                onCategoriesChange={setCategories}
+              />
             </motion.div>
           )}
           {profile.role === 'parent' && activeSection === 'lists' && (
