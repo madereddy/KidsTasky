@@ -36,11 +36,15 @@ function seedGoogleConnection(parentId: string) {
 describe('Photos API', () => {
   it('uploads photo, updates caption, lists, and deletes', async () => {
     const { token, parentId, email } = await createParentAuth();
+    const tinyPng = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9VE3rroAAAAASUVORK5CYII=',
+      'base64'
+    );
 
     const uploadRes = await request(app)
       .post('/api/photos/upload')
       .set('Authorization', `Bearer ${token}`)
-      .attach('photo', Buffer.from('fake-image-data'), 'photo.jpg');
+      .attach('photo', tinyPng, 'photo.png');
 
     expect(uploadRes.status).toBe(201);
     expect(uploadRes.body).toHaveProperty('id');

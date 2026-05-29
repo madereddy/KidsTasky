@@ -7,6 +7,7 @@ Local-first family planner and kid tasking app with parent controls, approvals, 
 - Recent delivery includes: `Up for Grabs` tasks, task skip without stars, routine drag-reorder with persistence, and server-enforced parent edit-lock checks on mutation routes.
 - Multi-device convergence is improved through socket `stale-data` refetch behavior.
 - Reliability hardening includes a stabilized coverage E2E approval flow and refreshed dependency security updates (`nodemailer` patched line).
+- Security hardening includes auth attempt backoff/temporary lockout, structured security event logs, and image upload magic-byte validation with extension normalization.
 
 ## Tech Stack
 - Frontend: React 19, TypeScript, Vite, Tailwind CSS 4
@@ -76,6 +77,12 @@ docker compose logs --tail=200 webapp
 
 ## Environment
 Copy `.env.example` to `.env` and set values as needed for optional integrations.
+
+For internet exposure behind Caddy/TLS, set:
+- `ALLOWED_ORIGINS=https://your-domain.example`
+- `TRUST_PROXY_HOPS=1`
+- `ENFORCE_HTTPS=true`
+- strong `JWT_SECRET` value
 
 Optional integrations include:
 - Google Calendar sync

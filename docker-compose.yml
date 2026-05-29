@@ -1,9 +1,7 @@
 services:
   webapp:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: kidstasky:chainguard-local
+    image: ghcr.io/madereddy/kidstasky:latest
+    pull_policy: always
     container_name: kidtasker
     read_only: true
     security_opt:

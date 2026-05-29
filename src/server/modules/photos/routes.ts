@@ -10,6 +10,7 @@ import { ensurePhotosUploadsDir, getPhotosUploadsDir } from './storage.js';
 import { syncService } from '../sync/service.js';
 import { db } from '../../db.js';
 import { TTLCache } from '../../lib/ttlCache.js';
+import { logSecurityEvent } from '../../lib/securityLog.js';
 
 import { randomUUID } from 'crypto';
 
@@ -189,13 +190,59 @@ const upload = multer({
   }
 });
 
-photosRouter.post('/photos/upload', requireAuth, upload.single("photo"), (req, res) => {
+function detectImageType(buffer: Buffer): 'jpg' | 'png' | 'webp' | null {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'jpg';
+  if (buffer.length >= 8 &&
+    buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47 &&
+    buffer[4] === 0x0d && buffer[5] === 0x0a && buffer[6] === 0x1a && buffer[7] === 0x0a
+  ) return 'png';
+  if (buffer.length >= 12 &&
+    buffer.toString('ascii', 0, 4) === 'RIFF' &&
+    buffer.toString('ascii', 8, 12) === 'WEBP'
+  ) return 'webp';
+  return null;
+}
+
+photosRouter.post('/photos/upload', requireAuth, upload.single("photo"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
   const parentId = (req as any).user?.role === "parent" ? (req as any).user.uid : (req as any).user?.parentId;
   if (!parentId) return res.status(403).json({ error: "Missing parent context" });
+  const filePath = req.file.path;
+  let finalFilename = req.file.filename;
+  try {
+    const fd = await fs.promises.open(filePath, 'r');
+    const header = Buffer.alloc(16);
+    await fd.read(header, 0, header.length, 0);
+    await fd.close();
+    const detected = detectImageType(header);
+    if (!detected) {
+      await fs.promises.unlink(filePath).catch(() => {});
+      logSecurityEvent('photos.upload.rejected_invalid_magic', {
+        parentId,
+        mimetype: req.file.mimetype,
+        filename: req.file.filename,
+      });
+      return res.status(400).json({ error: 'Unsupported or invalid image file.' });
+    }
+    const expectedExt = `.${detected}`;
+    if (!finalFilename.toLowerCase().endsWith(expectedExt)) {
+      const base = finalFilename.replace(/\.[^.]+$/, '');
+      const renamed = `${base}${expectedExt}`;
+      await fs.promises.rename(filePath, path.join(path.dirname(filePath), renamed));
+      finalFilename = renamed;
+    }
+  } catch (error: any) {
+    logSecurityEvent('photos.upload.validation_failed', {
+      parentId,
+      filename: req.file.filename,
+      error: String(error?.message || error),
+    }, 'error');
+    return res.status(500).json({ error: 'Failed to validate uploaded image.' });
+  }
 
-  const url = `/uploads/photos/${req.file.filename}`;
+  const url = `/uploads/photos/${finalFilename}`;
   const result = photosService.addPhoto(parentId, url);
+  logSecurityEvent('photos.upload.accepted', { parentId, filename: finalFilename }, 'info');
   googleMediaCache.clearPrefix(`${parentId}:`);
   return res.status(201).json(result);
 });

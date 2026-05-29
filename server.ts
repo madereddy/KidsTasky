@@ -105,6 +105,10 @@ function isOriginAllowed(origin: string | undefined, allowedOrigins: string[], h
 }
 
 export const httpServer = createServer(app);
+const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS ?? (process.env.NODE_ENV === "production" ? 1 : 0));
+if (Number.isFinite(trustProxyHops) && trustProxyHops >= 0) {
+  app.set('trust proxy', trustProxyHops);
+}
 const allowedOrigins = resolveAllowedOrigins();
 const hasConfiguredOrigins = allowedOrigins.length > 0;
 const io = new Server(httpServer, {
@@ -137,6 +141,14 @@ app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
+const enforceHttps = process.env.ENFORCE_HTTPS === 'true';
+if (enforceHttps) {
+  app.use((req, res, next) => {
+    const forwardedProto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
+    if (req.secure || forwardedProto.includes('https')) return next();
+    return res.status(426).json({ error: 'HTTPS required' });
+  });
+}
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 100, 
@@ -152,7 +164,9 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-app.use(express.json());
+const jsonBodyLimit = process.env.JSON_BODY_LIMIT || '1mb';
+app.use(express.json({ limit: jsonBodyLimit }));
+app.use(express.urlencoded({ extended: false, limit: jsonBodyLimit }));
 const uploadsRootDir = path.dirname(getPhotosUploadsDir());
 app.use('/uploads', express.static(uploadsRootDir));
 

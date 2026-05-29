@@ -59,3 +59,16 @@ test('Kid PIN login and profile discovery', async () => {
   // 5. Cleanup
   db.prepare("DELETE FROM users WHERE parentId = ? OR uid = ?").run(parentId, parentId);
 });
+
+test('Login backoff temporarily blocks repeated failed attempts', async () => {
+  const email = 'backoff@example.com';
+  await request(app).post('/api/auth/register').send({ email, password: 'password123', name: 'Backoff User' });
+
+  const firstFail = await request(app).post('/api/auth/login').send({ email, password: 'wrong-password' });
+  expect(firstFail.status).toBe(401);
+
+  const immediateRetry = await request(app).post('/api/auth/login').send({ email, password: 'wrong-password' });
+  expect(immediateRetry.status).toBe(429);
+
+  db.prepare("DELETE FROM users WHERE email = ?").run(email);
+});
