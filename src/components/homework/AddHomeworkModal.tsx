@@ -114,8 +114,8 @@ export function AddHomeworkModal({ kids, onClose, onSubmit }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 bg-ui-deep-80 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="add-homework-title" tabIndex={-1} onKeyDown={onKeyDown} onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-white rounded-2xl border border-ui p-5 space-y-3">
+    <div className="fixed inset-0 bg-ui-deep-80 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="add-homework-title" tabIndex={-1} onKeyDown={onKeyDown} onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-white rounded-2xl border border-ui p-5 space-y-3 my-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
         <h3 id="add-homework-title" className="text-lg font-bold text-ui-primary">Add Homework</h3>
         <input className="w-full border border-ui rounded-lg px-3 py-2 text-sm" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
         <input className="w-full border border-ui rounded-lg px-3 py-2 text-sm" placeholder="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} />

@@ -55,6 +55,38 @@ describe('HomeworkView permissions UX', () => {
     render(<HomeworkView parentId="p1" kids={kids} userRole="kid" currentUserId="k1" />);
     await screen.findByText('Math');
     fireEvent.click(screen.getByRole('button', { name: /Mark done/i }));
-    await waitFor(() => expect(updateHomework).toHaveBeenCalledWith('h1', { status: 'done' }));
+    await waitFor(() => expect(updateHomework).toHaveBeenCalledWith('h1', { status: 'done', completionResponse: null }));
+  });
+
+  it('prompts for follow-up answers when homework has verification questions', async () => {
+    getHomework.mockResolvedValueOnce([
+      {
+        id: 'h3',
+        parentId: 'p1',
+        title: 'Workbook',
+        subject: 'Math',
+        dueDate: '2026-06-20',
+        assignedToId: 'k1',
+        status: 'pending',
+        color: '#6366f1',
+        completionQuestions: ['Which workbook?', 'What pages?'],
+        completionQuestionsKidId: 'k1',
+        createdAt: Date.now(),
+      },
+    ]);
+    render(<HomeworkView parentId="p1" kids={kids} userRole="kid" currentUserId="k1" />);
+    await screen.findByText('Workbook');
+    fireEvent.click(screen.getByRole('button', { name: /Mark done/i }));
+    expect(await screen.findByText('Homework Follow-up')).toBeInTheDocument();
+    const answers = screen.getAllByPlaceholderText(/Your answer/i);
+    fireEvent.change(answers[0], { target: { value: 'Math Workbook A' } });
+    fireEvent.change(answers[1], { target: { value: '12-21' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+    await waitFor(() =>
+      expect(updateHomework).toHaveBeenCalledWith('h3', {
+        status: 'done',
+        completionResponse: 'Which workbook? Math Workbook A\nWhat pages? 12-21',
+      })
+    );
   });
 });

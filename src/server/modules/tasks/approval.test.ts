@@ -202,4 +202,60 @@ describe('Task Completion Approval', () => {
     const row = db.prepare('SELECT approvalStatus FROM completions WHERE id = ?').get(result.id) as any;
     expect(row.approvalStatus).toBe('rejected');
   });
+
+  it('persists task verification questions and question kid scope', () => {
+    const taskId = taskServiceServer.createTask({
+      title: 'Room Cleanup',
+      frequency: 'daily',
+      assignedKidId: kidId,
+      parentId,
+      starValue: 1,
+      completionQuestions: ['Are clothes in hamper?', 'Is floor clean?'],
+      completionQuestionsKidId: kidId,
+    });
+
+    const row = db.prepare('SELECT completionQuestions, completionQuestionsKidId FROM tasks WHERE id = ?').get(taskId) as any;
+    expect(row.completionQuestionsKidId).toBe(kidId);
+    expect(JSON.parse(row.completionQuestions)).toEqual(['Are clothes in hamper?', 'Is floor clean?']);
+  });
+
+  it('stores proof answers on completion and exposes them in kid completions API', async () => {
+    db.prepare("INSERT INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, requiresApproval, starValue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      'approval_task_8', 'Daily Tidy', 'daily', kidId, parentId, 'active', Date.now(), 1, 1
+    );
+
+    const dateString = '2026-01-09';
+    const completeRes = await request(app)
+      .post('/api/completions')
+      .set('Authorization', `Bearer ${parentToken}`)
+      .send({
+        taskId: 'approval_task_8',
+        kidId,
+        dateString,
+        proofAnswers: [
+          { question: 'Are clothes in hamper?', answer: 'Yes' },
+          { question: 'Is floor clean?', answer: 'Yes' },
+        ],
+      });
+
+    expect(completeRes.status).toBe(200);
+    const row = db.prepare('SELECT proofAnswers FROM completions WHERE id = ?').get(completeRes.body.id) as any;
+    expect(JSON.parse(row.proofAnswers)).toEqual([
+      { question: 'Are clothes in hamper?', answer: 'Yes' },
+      { question: 'Is floor clean?', answer: 'Yes' },
+    ]);
+
+    const listRes = await request(app)
+      .get(`/api/kids/${kidId}/completions?dateString=${dateString}`)
+      .set('Authorization', `Bearer ${parentToken}`);
+
+    expect(listRes.status).toBe(200);
+    expect(Array.isArray(listRes.body)).toBe(true);
+    const completion = listRes.body.find((c: any) => c.id === completeRes.body.id);
+    expect(completion).toBeTruthy();
+    expect(completion.proofAnswers).toEqual([
+      { question: 'Are clothes in hamper?', answer: 'Yes' },
+      { question: 'Is floor clean?', answer: 'Yes' },
+    ]);
+  });
 });

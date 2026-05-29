@@ -11,7 +11,8 @@
     "build:server": "esbuild server.ts --bundle --platform=node --target=node24 --outfile=dist/server.js --format=esm --packages=external --loader:.sql=text && node --input-type=commonjs -e \"require('fs').cpSync('src/server/migrations','dist/migrations',{recursive:true})\"",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:e2e:verification": "node scripts/playwright-verification-workflow.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.6.0",
