@@ -228,7 +228,9 @@ photosRouter.post('/photos/upload', requireAuth, upload.single("photo"), async (
     if (!finalFilename.toLowerCase().endsWith(expectedExt)) {
       const base = finalFilename.replace(/\.[^.]+$/, '');
       const renamed = `${base}${expectedExt}`;
-      await fs.promises.rename(filePath, path.join(path.dirname(filePath), renamed));
+      const dir = path.dirname(filePath);
+      const renamedPath = `${dir}${path.sep}${renamed}`;
+      await fs.promises.rename(filePath, renamedPath);
       finalFilename = renamed;
     }
   } catch (error: any) {
