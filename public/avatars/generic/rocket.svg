@@ -1,0 +1,7 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Rocket">
+  <rect width="128" height="128" rx="64" fill="#e0f2fe"/>
+  <path d="M64 20c18 10 24 30 20 50l-20 20-20-20c-4-20 2-40 20-50z" fill="#ef4444"/>
+  <circle cx="64" cy="52" r="8" fill="#dbeafe"/>
+  <path d="M44 72l-12 10 2-18zM84 72l12 10-2-18z" fill="#f97316"/>
+  <path d="M56 92h16l-8 18z" fill="#f59e0b"/>
+</svg>

@@ -17,6 +17,8 @@ tasksRouter.post("/tasks", authenticateUser, enforceEditUnlocked, [
   body('assignedKidId').isString().notEmpty(),
   body('frequency').isString().notEmpty(),
   body('requiresApproval').optional().isBoolean(),
+  body('completionQuestions').optional().isArray(),
+  body('completionQuestionsKidId').optional({ nullable: true }).isString(),
   validate
 ], (req: Request, res: Response) => {
   try {
@@ -45,8 +47,15 @@ tasksRouter.get("/kids/:kidId/tasks", authenticateUser, [
     const tasks = taskServiceServer.getKidsTasks(targetKidId);
     res.json(tasks.map((t: any) => {
       let parsedPrereqs = [];
+      let completionQuestions: string[] = [];
       try { parsedPrereqs = JSON.parse(t.prerequisiteTaskIds || "[]"); } catch (e) {}
-      return { ...t, createdAt: { seconds: t.createdAt / 1000 }, prerequisiteTaskIds: parsedPrereqs };
+      try { completionQuestions = JSON.parse(t.completionQuestions || "[]"); } catch (e) {}
+      return {
+        ...t,
+        createdAt: { seconds: t.createdAt / 1000 },
+        prerequisiteTaskIds: parsedPrereqs,
+        completionQuestions
+      };
     }));
   } catch (error: any) {
     console.error('[tasks:get_kids_tasks]', error);
@@ -65,8 +74,15 @@ tasksRouter.get("/parents/:parentId/tasks", authenticateUser, [
     const tasks = taskServiceServer.getParentsTasks(req.params.parentId as string);
     res.json(tasks.map((t: any) => {
       let parsedPrereqs = [];
+      let completionQuestions: string[] = [];
       try { parsedPrereqs = JSON.parse(t.prerequisiteTaskIds || "[]"); } catch (e) {}
-      return { ...t, createdAt: { seconds: t.createdAt / 1000 }, prerequisiteTaskIds: parsedPrereqs };
+      try { completionQuestions = JSON.parse(t.completionQuestions || "[]"); } catch (e) {}
+      return {
+        ...t,
+        createdAt: { seconds: t.createdAt / 1000 },
+        prerequisiteTaskIds: parsedPrereqs,
+        completionQuestions
+      };
     }));
   } catch (error: any) {
     console.error('[tasks:get_parents_tasks]', error);
@@ -97,6 +113,7 @@ tasksRouter.post("/completions", authenticateUser, enforceEditUnlocked, [
   body('kidId').isString().notEmpty(),
   body('dateString').isString().notEmpty(),
   body('count').isInt().optional(),
+  body('proofAnswers').optional().isArray(),
   validate
 ], (req: Request, res: Response) => {
   try {
@@ -104,7 +121,10 @@ tasksRouter.post("/completions", authenticateUser, enforceEditUnlocked, [
     if (!task) return res.status(404).json({ error: 'Task not found' });
     const userParentId = getParentId(req);
     if (task.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
-    const result = taskServiceServer.createCompletion(req.body);
+    const result = taskServiceServer.createCompletion({
+      ...req.body,
+      proofAnswers: Array.isArray(req.body?.proofAnswers) ? req.body.proofAnswers : undefined,
+    });
     res.json({ id: result.id, approvalStatus: result.approvalStatus });
   } catch (error: any) {
     console.error('[tasks:complete]', error);
@@ -184,7 +204,11 @@ tasksRouter.get("/kids/:kidId/completions", authenticateUser, [
       res.status(400).json({ error: "Missing date query params" });
       return;
     }
-    res.json(completions.map((c: any) => ({ ...c, completedAt: { seconds: c.completedAt / 1000 } })));
+    res.json(completions.map((c: any) => {
+      let proofAnswers: Array<{ question: string; answer: string }> = [];
+      try { proofAnswers = JSON.parse(c.proofAnswers || '[]'); } catch {}
+      return { ...c, proofAnswers, completedAt: { seconds: c.completedAt / 1000 } };
+    }));
   } catch (error: any) {
     console.error('[tasks:get_completions]', error);
     res.status(500).json({ error: error.message });
@@ -207,7 +231,11 @@ tasksRouter.get("/kids/:kidId/history", authenticateUser, [
 
     const limit = parseInt(req.query.limit as string) || 50;
     const history = taskServiceServer.getCompletionHistory(kidId, limit);
-    res.json(history.map((c: any) => ({ ...c, completedAt: { seconds: c.completedAt / 1000 } })));
+    res.json(history.map((c: any) => {
+      let proofAnswers: Array<{ question: string; answer: string }> = [];
+      try { proofAnswers = JSON.parse(c.proofAnswers || '[]'); } catch {}
+      return { ...c, proofAnswers, completedAt: { seconds: c.completedAt / 1000 } };
+    }));
   } catch (error: any) {
     console.error('[tasks:get_history]', error);
     res.status(500).json({ error: error.message });

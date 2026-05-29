@@ -6,9 +6,10 @@ import { settingsClientService } from '../../services/settings';
 interface Props {
   parentId: string;
   onUnlock: () => void;
+  onCancel?: () => void;
 }
 
-export function ParentalLockOverlay({ parentId, onUnlock }: Props) {
+export function ParentalLockOverlay({ parentId, onUnlock, onCancel }: Props) {
   const [error, setError] = useState('');
 
   const onComplete = async (pin: string) => {
@@ -30,6 +31,14 @@ export function ParentalLockOverlay({ parentId, onUnlock }: Props) {
       </div>
       <PinPad onComplete={onComplete} />
       {error && <p className="text-rose-400 text-sm">{error}</p>}
+      {onCancel && (
+        <button
+          onClick={onCancel}
+          className="text-sm text-ui-muted-2 hover:text-white underline underline-offset-2"
+        >
+          Continue in read-only mode
+        </button>
+      )}
     </div>
   );
 }

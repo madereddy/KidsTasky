@@ -8,7 +8,12 @@ homeworkRouter.get('/parents/:parentId/homework', authenticateUser, (req, res) =
   try {
     const parentId = getParentId(req);
     if (parentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
-    res.json(homeworkService.getByParent(req.params.parentId));
+    const rows = homeworkService.getByParent(req.params.parentId).map((row: any) => {
+      let completionQuestions: string[] = [];
+      try { completionQuestions = JSON.parse(row.completionQuestions || '[]'); } catch {}
+      return { ...row, completionQuestions };
+    });
+    res.json(rows);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -28,6 +33,9 @@ homeworkRouter.post('/homework', authenticateUser, enforceEditUnlocked, (req, re
       assignedToId: req.body.assignedToId,
       status: req.body.status || 'pending',
       color: req.body.color || '#6366f1',
+      completionQuestions: Array.isArray(req.body.completionQuestions) ? req.body.completionQuestions : undefined,
+      completionQuestionsKidId: req.body.completionQuestionsKidId || null,
+      completionResponse: null,
     });
     const created = homeworkService.getById(id);
     res.json(created);
@@ -49,7 +57,10 @@ homeworkRouter.patch('/homework/:id', authenticateUser, enforceEditUnlocked, (re
       if (!canEdit) return res.status(403).json({ error: 'Forbidden' });
       const status = patch.status;
       if (!['pending', 'done'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
-      patch = { status };
+      patch = {
+        status,
+        completionResponse: status === 'done' ? String(req.body?.completionResponse || '').trim() || null : null,
+      };
     } else if (patch.status !== undefined && !['pending', 'done'].includes(patch.status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }

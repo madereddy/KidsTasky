@@ -14,13 +14,17 @@ services:
       - NODE_ENV=production
       - HOST=0.0.0.0
       - PORT=3000
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://kids.madereddy.com}
+      - TRUST_PROXY_HOPS=${TRUST_PROXY_HOPS:-1}
+      - ENFORCE_HTTPS=${ENFORCE_HTTPS:-true}
+      - JSON_BODY_LIMIT=${JSON_BODY_LIMIT:-1mb}
       - DB_PATH=/data/database.db
       - PHOTOS_UPLOADS_DIR=/data/uploads/photos
       - JWT_SECRET=${JWT_SECRET}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
-      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-https://kids.madereddy.com/api/sync/callback/google}
       - MAILGUN_SIGNING_KEY=${MAILGUN_SIGNING_KEY:-}
     volumes:
       - kidtasky_data:/data

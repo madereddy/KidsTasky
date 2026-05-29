@@ -50,6 +50,16 @@ export function LoginView({ onLogin, onKidLogin }: {
     }
   };
 
+  const handleLoginKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const hasEmail = email.trim().length > 0;
+    const canRegister = isRegister ? Boolean(password.trim() && name.trim()) : true;
+    if (hasEmail && canRegister) {
+      void handleNext();
+    }
+  };
+
   if (view === 'coparent') {
     return (
       <div className="min-h-screen w-full bg-ui-soft">
@@ -100,6 +110,7 @@ export function LoginView({ onLogin, onKidLogin }: {
                   type="text" 
                   value={name}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+                  onKeyDown={handleLoginKeyDown}
                   placeholder="Parent Name" 
                   className="w-full px-4 py-3 rounded-xl border border-ui bg-white text-ui-primary placeholder-slate-400 text-center font-medium focus:ring-2 focus:ring-sky-500 outline-none transition-all"
                 />
@@ -108,6 +119,7 @@ export function LoginView({ onLogin, onKidLogin }: {
                 type="text" 
                 value={email}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                onKeyDown={handleLoginKeyDown}
                 placeholder="Parent Email or Username" 
                 className="w-full px-4 py-3 rounded-xl border border-ui bg-white text-ui-primary placeholder-slate-400 text-center font-medium focus:ring-2 focus:ring-sky-500 outline-none transition-all"
               />
@@ -118,6 +130,7 @@ export function LoginView({ onLogin, onKidLogin }: {
                 type="password" 
                 value={password}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                onKeyDown={handleLoginKeyDown}
                 placeholder="Parent Password (Optional for Kids)" 
                 className="w-full px-4 py-3 rounded-xl border border-ui bg-white text-ui-primary placeholder-slate-400 text-center font-medium focus:ring-2 focus:ring-sky-500 outline-none transition-all"
               />

@@ -429,6 +429,22 @@ export function ParentDashboard({
                 <div>
                   <p className="text-xs font-black text-amber-600 uppercase mb-1">{comp.kidName}</p>
                   <p className="font-bold text-ui-primary text-sm">{comp.taskTitle}</p>
+                  {(() => {
+                    let proofAnswers: Array<{ question: string; answer: string }> = [];
+                    try {
+                      proofAnswers = typeof comp.proofAnswers === 'string' ? JSON.parse(comp.proofAnswers) : (comp.proofAnswers || []);
+                    } catch {}
+                    if (!proofAnswers.length) return null;
+                    return (
+                      <div className="mt-2 space-y-1">
+                        {proofAnswers.map((entry, idx) => (
+                          <p key={`${comp.id}-proof-${idx}`} className="text-xs text-ui-muted">
+                            <span className="font-semibold">{entry.question}</span> {entry.answer}
+                          </p>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="flex gap-2">
                   <button 

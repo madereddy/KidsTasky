@@ -2,10 +2,17 @@ import React, { useRef } from 'react';
 import { userService } from '../../services/users';
 
 const PRESET_AVATARS = [
-  '??', '??', '??', '??', '??', '??',
-  '??', '??', '??', '??', '??', '??',
-  '??', '??', '??', '??', '??', '??',
-  '??', '??', '??', '??', '??', '??',
+  ':)', ':D', ':P', ';)', 'B)', ':3',
+  '^_^', 'o_o', '*_*', '<3', ':]', '8)',
+];
+
+const GENERIC_AVATAR_IMAGES = [
+  '/avatars/generic/sun.svg',
+  '/avatars/generic/rocket.svg',
+  '/avatars/generic/dino.svg',
+  '/avatars/generic/paw.svg',
+  '/avatars/generic/castle.svg',
+  '/avatars/generic/rainbow.svg',
 ];
 
 export interface AvatarState {
@@ -56,11 +63,18 @@ export function AvatarPicker({ uid, current, onUpdated }: PickerProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const isNew = uid === '__new__';
 
-  async function selectPreset(emoji: string) {
+  async function selectPreset(preset: string) {
     if (!isNew) {
-      await userService.updateAvatar(uid, emoji, null);
+      await userService.updateAvatar(uid, preset, null);
     }
-    onUpdated(emoji, null);
+    onUpdated(preset, null);
+  }
+
+  async function selectGenericAvatar(url: string) {
+    if (!isNew) {
+      await userService.updateAvatar(uid, null, url);
+    }
+    onUpdated(null, url);
   }
 
   async function uploadPhoto(file: File) {
@@ -107,18 +121,36 @@ export function AvatarPicker({ uid, current, onUpdated }: PickerProps) {
         />
       </div>
       <div className="grid grid-cols-6 gap-2">
-        {PRESET_AVATARS.map((emoji, idx) => (
+        {PRESET_AVATARS.map((preset, idx) => (
           <button
-            key={`${emoji}-${idx}`}
+            key={`${preset}-${idx}`}
             type="button"
-            onClick={() => selectPreset(emoji)}
-            className={`text-2xl rounded-lg p-1 hover:bg-ui-soft ${
-              current.avatarPreset === emoji ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+            onClick={() => selectPreset(preset)}
+            className={`text-sm rounded-lg p-1 hover:bg-ui-soft ${
+              current.avatarPreset === preset ? 'ring-2 ring-blue-500 bg-blue-50' : ''
             }`}
           >
-            {emoji}
+            {preset}
           </button>
         ))}
+      </div>
+      <div className="mt-3">
+        <div className="text-xs text-ui-muted mb-2">Generic Pictures</div>
+        <div className="grid grid-cols-6 gap-2">
+          {GENERIC_AVATAR_IMAGES.map((url) => (
+            <button
+              key={url}
+              type="button"
+              onClick={() => selectGenericAvatar(url)}
+              className={`rounded-lg p-1 hover:bg-ui-soft ${
+                current.avatarUrl === url ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+              }`}
+              aria-label={`Select avatar ${url.split('/').pop()?.replace('.svg', '') ?? 'image'}`}
+            >
+              <img src={url} alt="" className="w-9 h-9 rounded-full object-cover" />
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

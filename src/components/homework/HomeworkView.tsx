@@ -17,6 +17,8 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [proofPrompt, setProofPrompt] = useState<{ item: Homework; questions: string[] } | null>(null);
+  const [proofAnswers, setProofAnswers] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -34,6 +36,20 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
     if (userRole === 'parent') return homework;
     return homework.filter((item) => !item.assignedToId || item.assignedToId === currentUserId);
   }, [homework, userRole, currentUserId]);
+
+  const getActiveQuestions = (item: Homework): string[] => {
+    const questions = Array.isArray(item.completionQuestions) ? item.completionQuestions.filter(Boolean) : [];
+    if (questions.length === 0) return [];
+    if (!item.completionQuestionsKidId) return questions;
+    return item.completionQuestionsKidId === currentUserId ? questions : [];
+  };
+
+  const buildHomeworkResponse = (questions: string[]) =>
+    questions
+      .map((q, i) => ({ question: q, answer: String(proofAnswers[`q_${i}`] || '').trim() }))
+      .filter((pair) => pair.answer.length > 0)
+      .map((pair) => `${pair.question} ${pair.answer}`)
+      .join('\n');
 
   return (
     <div className="rounded-2xl border border-ui bg-white p-4 space-y-3">
@@ -56,13 +72,26 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
                 <p className="font-semibold text-ui-primary">{item.title}</p>
                 <p className="text-xs text-ui-muted">{item.subject} • Due {format(new Date(item.dueDate), 'MMM d, yyyy')} • {assignee}</p>
                 {isOverdue && <p className="text-xs text-rose-600 font-semibold">Overdue</p>}
+                {item.completionResponse && (
+                  <p className="text-xs text-ui-secondary mt-1 whitespace-pre-line">{item.completionResponse}</p>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={async () => {
                     try {
+                      const nextStatus = item.status === 'done' ? 'pending' : 'done';
+                      const questions = nextStatus === 'done' && userRole === 'kid' ? getActiveQuestions(item) : [];
+                      if (questions.length > 0 && nextStatus === 'done') {
+                        setProofAnswers({});
+                        setProofPrompt({ item, questions });
+                        return;
+                      }
                       setActionId(item.id);
-                      await homeworkClientService.updateHomework(item.id, { status: item.status === 'done' ? 'pending' : 'done' });
+                      await homeworkClientService.updateHomework(item.id, {
+                        status: nextStatus,
+                        completionResponse: nextStatus === 'pending' ? null : item.completionResponse ?? null
+                      });
                       await load();
                     } finally {
                       setActionId(null);
@@ -105,6 +134,45 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
             await load();
           }}
         />
+      )}
+      {proofPrompt && (
+        <div className="fixed inset-0 bg-ui-deep-80 z-50 flex items-center justify-center p-4" onClick={() => setProofPrompt(null)}>
+          <div className="w-full max-w-md bg-white rounded-2xl border border-ui p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-ui-primary">Homework Follow-up</h3>
+            {proofPrompt.questions.map((q, i) => (
+              <div key={`proof-q-${i}`}>
+                <label className="block text-xs text-ui-muted mb-1">{q}</label>
+                <input
+                  className="w-full border border-ui rounded-lg px-3 py-2 text-sm"
+                  value={proofAnswers[`q_${i}`] || ''}
+                  onChange={(e) => setProofAnswers((prev) => ({ ...prev, [`q_${i}`]: e.target.value }))}
+                  placeholder="Your answer"
+                />
+              </div>
+            ))}
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => setProofPrompt(null)} className="flex-1 py-2 rounded-xl bg-ui-soft-2 text-ui-secondary font-semibold">Cancel</button>
+              <button
+                onClick={async () => {
+                  const response = buildHomeworkResponse(proofPrompt.questions);
+                  if (!response.trim()) return;
+                  setActionId(proofPrompt.item.id);
+                  try {
+                    await homeworkClientService.updateHomework(proofPrompt.item.id, { status: 'done', completionResponse: response });
+                    setProofPrompt(null);
+                    setProofAnswers({});
+                    await load();
+                  } finally {
+                    setActionId(null);
+                  }
+                }}
+                className="flex-1 py-2 rounded-xl bg-blue-500 text-white font-semibold"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

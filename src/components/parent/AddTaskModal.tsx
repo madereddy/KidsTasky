@@ -1,8 +1,24 @@
-import React, { useState } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { CheckCircle2, Clock, Plus, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Task, UserProfile, Category, TaskFrequency, TaskDifficulty } from '../../types';
 import { cn } from '../../lib/utils';
+import { proofTemplatesClientService, ProofTemplate } from '../../services/proofTemplates';
+
+const TASK_PROOF_TEMPLATES: Array<{ name: string; questions: string[] }> = [
+  {
+    name: 'Room Cleanup',
+    questions: ['Are all clothes in the hamper?', 'Is the floor clean?', 'Did you make the bed?'],
+  },
+  {
+    name: 'Kitchen Help',
+    questions: ['Did you clear your plate?', 'Did you wipe the table?', 'Did you put dishes away?'],
+  },
+  {
+    name: 'Morning Routine',
+    questions: ['Did you brush teeth?', 'Did you get dressed?', 'Did you pack your bag?'],
+  },
+];
 
 export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, existingTasks }: { 
   onClose: () => void, 
@@ -21,6 +37,13 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
   const [categoryId, setCategoryId] = useState<string>('');
   const [prerequisiteTaskIds, setPrerequisiteTaskIds] = useState<string[]>([]);
   const [starValue, setStarValue] = useState(1);
+  const [completionQuestionsText, setCompletionQuestionsText] = useState('');
+  const [completionQuestionsKidId, setCompletionQuestionsKidId] = useState('');
+  const [templateName, setTemplateName] = useState('');
+  const [customTemplates, setCustomTemplates] = useState<ProofTemplate[]>([]);
+  const [templateApplyMode, setTemplateApplyMode] = useState<'append' | 'replace'>('append');
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
 
   const togglePrereq = (id: string) => {
     if (prerequisiteTaskIds.includes(id)) {
@@ -31,6 +54,69 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
   };
 
   const eligiblePrereqs = existingTasks.filter(t => t.assignedKidId === assignedKidId || (assignedKidId === 'all' && t.assignedKidId === 'all'));
+  const sortedCustomTemplates = useMemo(
+    () => [...customTemplates].sort((a, b) => Number(b.pinned) - Number(a.pinned) || a.name.localeCompare(b.name)),
+    [customTemplates]
+  );
+
+  const loadTemplates = async () => {
+    setLoadingTemplates(true);
+    try {
+      const rows = await proofTemplatesClientService.list('task');
+      setCustomTemplates(rows || []);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+  useEffect(() => { void loadTemplates(); }, []);
+
+  const applyTemplate = (questions: string[]) => {
+    const next = questions.join('\n');
+    if (templateApplyMode === 'replace') {
+      setCompletionQuestionsText(next);
+      return;
+    }
+    setCompletionQuestionsText((prev) => (prev.trim() ? `${prev.trim()}\n${next}` : next));
+  };
+  const saveCustomTemplate = () => {
+    void (async () => {
+    const name = templateName.trim();
+    const questions = completionQuestionsText.split('\n').map((line) => line.trim()).filter(Boolean);
+    if (!name || questions.length === 0) return;
+    await proofTemplatesClientService.upsert('task', { name, questions, pinned: false });
+    await loadTemplates();
+    setTemplateName('');
+    })();
+  };
+  const deleteCustomTemplate = (id: string) => {
+    void (async () => {
+      await proofTemplatesClientService.remove('task', id);
+      await loadTemplates();
+    })();
+  };
+  const togglePinnedTemplate = (id: string, pinned: boolean) => {
+    void (async () => {
+      await proofTemplatesClientService.setPinned('task', id, !pinned);
+      await loadTemplates();
+    })();
+  };
+  const exportTemplates = () => {
+    const payload = sortedCustomTemplates.map((t) => ({ name: t.name, questions: t.questions, pinned: t.pinned }));
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'kidtasky-task-proof-templates.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  const importTemplates = async (file: File) => {
+    const raw = await file.text();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    await proofTemplatesClientService.import('task', parsed);
+    await loadTemplates();
+  };
 
   return (
     <motion.div 
@@ -204,6 +290,122 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
           </div>
 
           <div>
+            <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-2 block">Optional Proof Questions</label>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[11px] text-ui-muted">Template mode:</span>
+              <button
+                type="button"
+                onClick={() => setTemplateApplyMode('append')}
+                className={cn("px-2 py-1 rounded text-xs border", templateApplyMode === 'append' ? "bg-blue-500 text-white border-blue-500" : "border-ui text-ui-secondary")}
+              >
+                Append
+              </button>
+              <button
+                type="button"
+                onClick={() => setTemplateApplyMode('replace')}
+                className={cn("px-2 py-1 rounded text-xs border", templateApplyMode === 'replace' ? "bg-blue-500 text-white border-blue-500" : "border-ui text-ui-secondary")}
+              >
+                Replace
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {TASK_PROOF_TEMPLATES.map((tpl) => (
+                <button
+                  key={tpl.name}
+                  type="button"
+                  onClick={() => applyTemplate(tpl.questions)}
+                  className="px-2 py-1 rounded-lg border border-ui text-xs text-ui-secondary hover:bg-ui-soft"
+                >
+                  + {tpl.name}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 mb-2">
+              <button type="button" onClick={exportTemplates} className="px-2 py-1 rounded-lg border border-ui text-xs text-ui-secondary hover:bg-ui-soft">
+                Export JSON
+              </button>
+              <button type="button" onClick={() => importRef.current?.click()} className="px-2 py-1 rounded-lg border border-ui text-xs text-ui-secondary hover:bg-ui-soft">
+                Import JSON
+              </button>
+              {loadingTemplates && <span className="text-xs text-ui-muted">Loading...</span>}
+              <input
+                ref={importRef}
+                type="file"
+                accept="application/json"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void importTemplates(file);
+                  e.currentTarget.value = '';
+                }}
+              />
+            </div>
+            {sortedCustomTemplates.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {sortedCustomTemplates.map((tpl) => (
+                  <div key={tpl.id} className="inline-flex items-center rounded-lg border border-ui overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => applyTemplate(tpl.questions)}
+                      className="px-2 py-1 text-xs text-ui-secondary hover:bg-ui-soft"
+                    >
+                      + {tpl.pinned ? '★ ' : ''}{tpl.name}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => togglePinnedTemplate(tpl.id, tpl.pinned)}
+                      className="px-2 py-1 text-xs text-amber-600 hover:bg-amber-50 border-l border-ui"
+                      title={tpl.pinned ? 'Unpin' : 'Pin'}
+                    >
+                      ★
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteCustomTemplate(tpl.id)}
+                      className="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50 border-l border-ui"
+                      title={`Delete ${tpl.name}`}
+                    >
+                      x
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <textarea
+              value={completionQuestionsText}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCompletionQuestionsText(e.target.value)}
+              className="input-immersive min-h-[90px]"
+              placeholder={"One question per line.\nExample:\nAre clothes in the hamper?\nIs the floor clean?"}
+            />
+            <div className="flex gap-2 mt-2">
+              <input
+                value={templateName}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTemplateName(e.target.value)}
+                className="input-immersive"
+                placeholder="Save as template name"
+              />
+              <button
+                type="button"
+                onClick={saveCustomTemplate}
+                className="px-3 py-2 rounded-lg border border-ui text-xs font-semibold text-ui-secondary hover:bg-ui-soft"
+              >
+                Save
+              </button>
+            </div>
+            <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-2 block mt-3">Ask Only This Kid (Optional)</label>
+            <select
+              value={completionQuestionsKidId}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCompletionQuestionsKidId(e.target.value)}
+              className="input-immersive"
+            >
+              <option value="">Whoever completes the task</option>
+              {kids.map((kid) => (
+                <option key={kid.uid} value={kid.uid}>{kid.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-2 block">Launch Time</label>
             <input
               type="time"
@@ -228,6 +430,11 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
                 prerequisiteTaskIds: prerequisiteTaskIds.length > 0 ? prerequisiteTaskIds : undefined,
                 starValue,
                 requiresApproval: true,
+                completionQuestions: completionQuestionsText
+                  .split('\n')
+                  .map((line) => line.trim())
+                  .filter(Boolean),
+                completionQuestionsKidId: completionQuestionsKidId || null,
               })}
               className="flex-1 btn-immersive-primary bg-blue-600"
             >

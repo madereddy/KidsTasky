@@ -160,4 +160,31 @@ describe('Homework API', () => {
       .send({ status: 'invalid' });
     expect(patch.status).toBe(400);
   });
+
+  it('keeps parent edits locked while allowing kid completion updates', async () => {
+    db.prepare("INSERT OR REPLACE INTO family_settings (parentId, isLocked) VALUES (?, 1)").run(parentId);
+
+    const parentCreate = await request(app)
+      .post('/api/homework')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Locked parent create', subject: 'Math', dueDate: '2026-06-01', color: '#6366f1' });
+    expect(parentCreate.status).toBe(423);
+
+    const ownCreate = await request(app)
+      .post('/api/homework')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Assigned to A', subject: 'Math', dueDate: '2026-06-01', color: '#6366f1', assignedToId: kidA });
+    // create is locked, seed record directly instead
+    if (ownCreate.status === 423) {
+      db.prepare("INSERT INTO homework (id, parentId, title, subject, dueDate, assignedToId, status, color) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .run('hw_locked_kid', parentId, 'Assigned to A', 'Math', '2026-06-01', kidA, 'pending', '#6366f1');
+    }
+    const targetId = ownCreate.body?.id || 'hw_locked_kid';
+
+    const kidPatch = await request(app)
+      .patch(`/api/homework/${targetId}`)
+      .set('Authorization', `Bearer ${kidAToken}`)
+      .send({ status: 'done' });
+    expect(kidPatch.status).toBe(200);
+  });
 });

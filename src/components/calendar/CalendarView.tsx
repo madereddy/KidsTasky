@@ -40,6 +40,7 @@ const VIEW_LABELS: { mode: ViewMode; label: string }[] = [
 ];
 
 export function CalendarView({ parentId, kids, memberColorMap, isLocked = false, userRole = 'parent' }: Props) {
+  const calendarSelectionStorageKey = `kidtasker:calendar:selected:${parentId}`;
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -58,6 +59,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
   const [syncCalendars, setSyncCalendars] = useState<SyncCalendar[]>([]);
   const [calendarVisibility, setCalendarVisibility] = useState<Record<string, boolean>>({});
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<Set<string>>(new Set());
+  const calendarSelectionHydratedRef = useRef(false);
   const [listsSummary, setListsSummary] = useState<Array<{ list: AppList; total: number; done: number }>>([]);
   const [routineTemplates, setRoutineTemplates] = useState<RoutineTemplate[]>([]);
   const [showRoutinesModal, setShowRoutinesModal] = useState(false);
@@ -215,15 +217,53 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
   }, [parentId]);
 
   useEffect(() => {
-    const enabled = syncCalendars.filter((cal) => Boolean(cal.enabled) && (calendarVisibility[cal.calendarId] ?? true));
-    const preferredFamily = enabled.filter((cal) => /family|shared|home|household/i.test(cal.name));
-    if (preferredFamily.length > 0) {
-      setSelectedCalendarIds(new Set(preferredFamily.map((cal) => cal.calendarId)));
-    } else if (enabled.length > 0) {
-      setSelectedCalendarIds(new Set(enabled.map((cal) => cal.calendarId)));
-    } else {
-      setSelectedCalendarIds(new Set());
+    try {
+      const raw = localStorage.getItem(calendarSelectionStorageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { mode?: 'all' | 'custom'; ids?: string[] };
+        if (parsed.mode === 'custom' && Array.isArray(parsed.ids)) {
+          setSelectedCalendarIds(new Set(parsed.ids));
+        } else {
+          setSelectedCalendarIds(new Set());
+        }
+      }
+    } catch {
+      // ignore invalid local state
+    } finally {
+      calendarSelectionHydratedRef.current = true;
     }
+  }, [calendarSelectionStorageKey]);
+
+  useEffect(() => {
+    if (!calendarSelectionHydratedRef.current) return;
+    const payload =
+      selectedCalendarIds.size === 0
+        ? { mode: 'all' as const, ids: [] as string[] }
+        : { mode: 'custom' as const, ids: Array.from(selectedCalendarIds) };
+    try {
+      localStorage.setItem(calendarSelectionStorageKey, JSON.stringify(payload));
+    } catch {
+      // ignore storage failures
+    }
+  }, [selectedCalendarIds, calendarSelectionStorageKey]);
+
+  useEffect(() => {
+    const enabled = syncCalendars.filter((cal) => Boolean(cal.enabled) && (calendarVisibility[cal.calendarId] ?? true));
+    const enabledIds = new Set(enabled.map((cal) => cal.calendarId));
+
+    setSelectedCalendarIds((prev) => {
+      const filteredPrev = new Set(Array.from(prev).filter((id) => enabledIds.has(id)));
+      if (prev.size > 0) {
+        return filteredPrev;
+      }
+      if (calendarSelectionHydratedRef.current) {
+        return prev;
+      }
+      const preferredFamily = enabled.filter((cal) => /family|shared|home|household/i.test(cal.name));
+      if (preferredFamily.length > 0) return new Set(preferredFamily.map((cal) => cal.calendarId));
+      if (enabled.length > 0) return new Set(enabled.map((cal) => cal.calendarId));
+      return new Set();
+    });
   }, [syncCalendars, calendarVisibility]);
 
   const navigatePrev = () => {

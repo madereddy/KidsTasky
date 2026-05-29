@@ -22,10 +22,16 @@ export const tasksClientService = {
     await fetchAPI('/tasks/' + taskId + '/archive', { method: "PUT" });
   },
 
-  async completeTask(taskId: string, kidId: string, dateString: string, count?: number): Promise<void> {
+  async completeTask(
+    taskId: string,
+    kidId: string,
+    dateString: string,
+    count?: number,
+    proofAnswers?: Array<{ question: string; answer: string }>
+  ): Promise<void> {
     await fetchAPI('/completions', {
       method: "POST",
-      body: JSON.stringify({ taskId, kidId, dateString, count })
+      body: JSON.stringify({ taskId, kidId, dateString, count, proofAnswers })
     });
   },
 

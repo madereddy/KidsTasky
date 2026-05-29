@@ -2,15 +2,24 @@ import { randomUUID } from 'crypto';
 import { db } from '../../db.js';
 import { Homework } from '../../../types.js';
 
-type HomeworkUpdate = Partial<Pick<Homework, 'title' | 'subject' | 'notes' | 'dueDate' | 'assignedToId' | 'status' | 'color'>>;
+type HomeworkUpdate = Partial<Pick<Homework, 'title' | 'subject' | 'notes' | 'dueDate' | 'assignedToId' | 'status' | 'color' | 'completionResponse'>>;
 
 export const homeworkService = {
   create(data: Omit<Homework, 'id' | 'createdAt'>): string {
     const id = 'hw_' + randomUUID();
+    const completionQuestions = Array.isArray(data.completionQuestions) && data.completionQuestions.length > 0
+      ? JSON.stringify(data.completionQuestions)
+      : null;
     db.prepare(`
-      INSERT INTO homework (id, parentId, title, subject, notes, dueDate, assignedToId, status, color)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, data.parentId, data.title, data.subject, data.notes ?? null, data.dueDate, data.assignedToId ?? null, data.status ?? 'pending', data.color);
+      INSERT INTO homework (
+        id, parentId, title, subject, notes, dueDate, assignedToId, status, color,
+        completionQuestions, completionQuestionsKidId, completionResponse
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id, data.parentId, data.title, data.subject, data.notes ?? null, data.dueDate, data.assignedToId ?? null, data.status ?? 'pending', data.color,
+      completionQuestions, data.completionQuestionsKidId ?? null, data.completionResponse ?? null
+    );
     return id;
   },
 
@@ -23,7 +32,7 @@ export const homeworkService = {
   },
 
   update(id: string, parentId: string, fields: HomeworkUpdate): boolean {
-    const allowed: Array<keyof HomeworkUpdate> = ['title', 'subject', 'notes', 'dueDate', 'assignedToId', 'status', 'color'];
+    const allowed: Array<keyof HomeworkUpdate> = ['title', 'subject', 'notes', 'dueDate', 'assignedToId', 'status', 'color', 'completionResponse'];
     const sets: string[] = [];
     const values: unknown[] = [];
     for (const key of allowed) {

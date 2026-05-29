@@ -6,10 +6,21 @@ export const taskServiceServer = {
     const id = "task_" + randomUUID();
     const prereqs = task.prerequisiteTaskIds ? JSON.stringify(task.prerequisiteTaskIds) : "[]";
     const requiresApproval = task.requiresApproval === undefined ? 1 : (task.requiresApproval ? 1 : 0);
+    const completionQuestions = Array.isArray(task.completionQuestions) && task.completionQuestions.length > 0
+      ? JSON.stringify(task.completionQuestions)
+      : null;
+    const completionQuestionsKidId = task.completionQuestionsKidId || null;
     db.prepare(`
-      INSERT INTO tasks (id, title, description, frequency, reminderTime, assignedKidId, parentId, categoryId, difficulty, status, createdAt, customInterval, prerequisiteTaskIds, starValue, requiresApproval)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, task.title, task.description || null, task.frequency, task.reminderTime || null, task.assignedKidId, task.parentId, task.categoryId || null, task.difficulty || 'easy', 'active', Date.now(), task.customInterval || null, prereqs, task.starValue ?? 1, requiresApproval);
+      INSERT INTO tasks (
+        id, title, description, frequency, reminderTime, assignedKidId, parentId, categoryId, difficulty, status,
+        createdAt, customInterval, prerequisiteTaskIds, starValue, requiresApproval, completionQuestions, completionQuestionsKidId
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id, task.title, task.description || null, task.frequency, task.reminderTime || null, task.assignedKidId, task.parentId,
+      task.categoryId || null, task.difficulty || 'easy', 'active', Date.now(), task.customInterval || null, prereqs,
+      task.starValue ?? 1, requiresApproval, completionQuestions, completionQuestionsKidId
+    );
     return id;
   },
   
@@ -38,11 +49,14 @@ export const taskServiceServer = {
     const task = db.prepare('SELECT starValue, requiresApproval FROM tasks WHERE id = ?').get(data.taskId) as { starValue: number; requiresApproval: number } | undefined;
     const needsApproval = Boolean(task?.requiresApproval);
     const approvalStatus = needsApproval ? 'pending' : 'approved';
+    const proofAnswers = Array.isArray(data.proofAnswers) && data.proofAnswers.length > 0
+      ? JSON.stringify(data.proofAnswers)
+      : null;
     const result = db.prepare(`
-      INSERT INTO completions (id, taskId, kidId, completedAt, dateString, count, approvalStatus)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO completions (id, taskId, kidId, completedAt, dateString, count, approvalStatus, proofAnswers)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO NOTHING
-    `).run(id, data.taskId, data.kidId, Date.now(), data.dateString, data.count || null, approvalStatus);
+    `).run(id, data.taskId, data.kidId, Date.now(), data.dateString, data.count || null, approvalStatus, proofAnswers);
     // Award stars immediately if approval not required
     if (result.changes > 0 && !needsApproval) {
       const stars = task?.starValue ?? 1;

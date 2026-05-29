@@ -19,6 +19,7 @@ import { routinesRouter } from './modules/routines/routes.js';
 import { flagsRouter } from './modules/flags/routes.js';
 import { notesRouter } from './modules/notes/routes.js';
 import { homeworkRouter } from './modules/homework/routes.js';
+import { proofTemplatesRouter } from './modules/proofTemplates/routes.js';
 
 const router = Router();
 
@@ -83,6 +84,7 @@ router.use(routinesRouter);
 router.use(flagsRouter);
 router.use(notesRouter);
 router.use(homeworkRouter);
+router.use(proofTemplatesRouter);
 
 export const apiRouter = router;
 

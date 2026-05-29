@@ -1,0 +1,8 @@
+ALTER TABLE tasks ADD COLUMN completionQuestions TEXT DEFAULT NULL;
+ALTER TABLE tasks ADD COLUMN completionQuestionsKidId TEXT DEFAULT NULL;
+
+ALTER TABLE completions ADD COLUMN proofAnswers TEXT DEFAULT NULL;
+
+ALTER TABLE homework ADD COLUMN completionQuestions TEXT DEFAULT NULL;
+ALTER TABLE homework ADD COLUMN completionQuestionsKidId TEXT DEFAULT NULL;
+ALTER TABLE homework ADD COLUMN completionResponse TEXT DEFAULT NULL;

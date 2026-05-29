@@ -54,7 +54,14 @@ export function KidDashboard({
   });
   
   // Task Confirmation & Animation
-  const [confirmTask, setConfirmTask] = useState<{taskId: string, count?: number, xpReward: number, taskTitle: string} | null>(null);
+  const [confirmTask, setConfirmTask] = useState<{
+    taskId: string;
+    count?: number;
+    xpReward: number;
+    taskTitle: string;
+    questions?: string[];
+  } | null>(null);
+  const [proofAnswers, setProofAnswers] = useState<Record<string, string>>({});
   const [xpAnimation, setXpAnimation] = useState<{amount: number, active: boolean}>({amount: 0, active: false});
   const [showStarBurst, setShowStarBurst] = useState(false);
   const [starsAwarded, setStarsAwarded] = useState(0);
@@ -204,7 +211,10 @@ export function KidDashboard({
       setCompletions(completions.filter((c: TaskCompletion) => !(c.taskId === taskId && c.count === count)));
       onProfileUpdate();
     } else {
-      setConfirmTask({ taskId, count, xpReward, taskTitle: task.title });
+      const questions = Array.isArray(task.completionQuestions) ? task.completionQuestions.filter(Boolean) : [];
+      const scopedQuestions = (!task.completionQuestionsKidId || task.completionQuestionsKidId === profile.uid) ? questions : [];
+      setProofAnswers({});
+      setConfirmTask({ taskId, count, xpReward, taskTitle: task.title, questions: scopedQuestions });
     }
   };
 
@@ -228,7 +238,7 @@ export function KidDashboard({
 
   const executeCompletion = async () => {
     if (!confirmTask) return;
-    const { taskId, count, xpReward } = confirmTask;
+    const { taskId, count, xpReward, questions = [] } = confirmTask;
     const task = tasks.find(t => t.id === taskId);
     const stars = task?.starValue ?? 1;
     setConfirmTask(null);
@@ -238,7 +248,10 @@ export function KidDashboard({
     setTimeout(() => setShowStarBurst(false), 1200);
 
     try {
-      await tasksClientService.completeTask(taskId, profile.uid, today, count);
+      const proofPayload = questions
+        .map((question, i) => ({ question, answer: String(proofAnswers[`q_${i}`] || '').trim() }))
+        .filter((entry) => entry.answer.length > 0);
+      await tasksClientService.completeTask(taskId, profile.uid, today, count, proofPayload.length > 0 ? proofPayload : undefined);
       await userService.updateUserXP(profile.uid, xpReward);
       setCompletions([...completions, {
         id: `${taskId}_${today}_${count || 1}`,
@@ -709,6 +722,23 @@ export function KidDashboard({
               <p className={cn("mb-8 relative z-10 text-sm font-medium", currentTheme.vocab?.textSecondary || "text-ui-muted")}>
                 {currentTheme.vocab?.verifyDesc || 'Did you complete'}<br/><span className={cn("text-lg font-bold", currentTheme.vocab?.textPrimary || "text-ui-primary")}>"{confirmTask.taskTitle}"</span>?
               </p>
+
+              {(confirmTask.questions || []).length > 0 && (
+                <div className="mb-6 text-left space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-ui-muted">Follow-up Questions</p>
+                  {confirmTask.questions!.map((q, i) => (
+                    <div key={`proof-${i}`}>
+                      <label className="block text-xs text-ui-muted mb-1">{q}</label>
+                      <input
+                        className="w-full border border-ui rounded-xl px-3 py-2 text-sm text-ui-primary"
+                        value={proofAnswers[`q_${i}`] || ''}
+                        onChange={(e) => setProofAnswers((prev) => ({ ...prev, [`q_${i}`]: e.target.value }))}
+                        placeholder="Your answer"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
               
               <div className="flex gap-4 relative z-10">
                 <button 
@@ -719,6 +749,7 @@ export function KidDashboard({
                 </button>
                 <button 
                   onClick={executeCompletion}
+                  disabled={(confirmTask.questions || []).length > 0 && (confirmTask.questions || []).some((_, i) => !String(proofAnswers[`q_${i}`] || '').trim())}
                   className={cn("flex-1 py-4 font-bold rounded-2xl transition-all shadow-md", `bg-${currentTheme.primary} text-white hover:bg-${currentTheme.accent}`)}
                 >
                   {currentTheme.vocab?.confirmYes || 'Yes!'} +{confirmTask.xpReward} {currentTheme.vocab?.points || 'XP'}

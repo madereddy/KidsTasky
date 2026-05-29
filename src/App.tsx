@@ -46,6 +46,7 @@ export default function App() {
   const [activeSection, setActiveSection] = useState<'tasks' | 'calendar' | 'lists' | 'meals' | 'homework'>('calendar');
   const [kids, setKids] = useState<UserProfile[]>([]);
   const [isLocked, setIsLocked] = useState(false);
+  const [showUnlockPrompt, setShowUnlockPrompt] = useState(false);
   const [initError, setInitError] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [screensaverPreview, setScreensaverPreview] = useState(false);
@@ -351,7 +352,13 @@ export default function App() {
           <div className="flex items-center gap-4">
             {profile?.role === 'parent' && (
               <button
-                onClick={() => setShowSettings(true)}
+                onClick={() => {
+                  if (isLocked) {
+                    setShowUnlockPrompt(true);
+                    return;
+                  }
+                  setShowSettings(true);
+                }}
                 onMouseEnter={prefetchSettings}
                 onFocus={prefetchSettings}
                 onTouchStart={prefetchSettings}
@@ -364,6 +371,15 @@ export default function App() {
                 title="Settings"
               >
                 <Settings className="w-5 h-5" />
+              </button>
+            )}
+            {profile?.role === 'parent' && isLocked && (
+              <button
+                onClick={() => setShowUnlockPrompt(true)}
+                className="px-3 py-1.5 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold border border-amber-300 hover:bg-amber-200 transition-colors"
+                title="Unlock parent controls"
+              >
+                Unlock
               </button>
             )}
             <div className="relative group">
@@ -395,6 +411,11 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6">
+        {profile.role === 'parent' && isLocked && (
+          <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+            Display is locked in read-only mode. Calendar and profiles stay visible, but parent edits are disabled until unlock.
+          </div>
+        )}
         <AnimatePresence mode="wait">
           {profile.role === 'parent' && activeSection === 'tasks' && (
             <motion.div
@@ -482,10 +503,14 @@ export default function App() {
           )}
           </AnimatePresence>
       </main>
-      {profile.role === "parent" && isLocked && (
+      {profile.role === "parent" && showUnlockPrompt && (
         <ParentalLockOverlay
           parentId={profile.uid}
-          onUnlock={() => setIsLocked(false)}
+          onUnlock={() => {
+            setIsLocked(false);
+            setShowUnlockPrompt(false);
+          }}
+          onCancel={() => setShowUnlockPrompt(false)}
         />
       )}
       {profile.role === "parent" && showSettings && (

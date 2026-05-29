@@ -60,6 +60,8 @@ export interface Task {
   prerequisiteTaskIds?: string[];
   starValue?: number;
   requiresApproval?: boolean;
+  completionQuestions?: string[];
+  completionQuestionsKidId?: string | null;
 }
 
 export interface TaskCompletion {
@@ -70,6 +72,7 @@ export interface TaskCompletion {
   dateString: string; // YYYY-MM-DD
   count?: number; // 1 or 2
   approvalStatus?: 'pending' | 'approved' | 'rejected' | 'skipped' | null;
+  proofAnswers?: Array<{ question: string; answer: string }>;
 }
 
 export interface Invite {
@@ -167,6 +170,9 @@ export interface Homework {
   status: 'pending' | 'done';
   color: string;
   createdAt: number;
+  completionQuestions?: string[];
+  completionQuestionsKidId?: string | null;
+  completionResponse?: string | null;
 }
 
 export interface RoutineTemplate {

@@ -32,6 +32,10 @@ export function getParentId(req: Request): string {
 }
 
 export function enforceEditUnlocked(req: Request, res: Response, next: NextFunction) {
+  const user = (req as any).user as { role?: string } | undefined;
+  if (user?.role === 'kid') {
+    return next();
+  }
   const parentId = getParentId(req);
   const row = db.prepare('SELECT isLocked FROM family_settings WHERE parentId = ?').get(parentId) as { isLocked?: number } | undefined;
   if (row?.isLocked) return res.status(423).json({ error: 'Display is locked for edits' });

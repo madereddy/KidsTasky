@@ -1,0 +1,8 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Dino">
+  <rect width="128" height="128" rx="64" fill="#ecfdf5"/>
+  <path d="M36 82c0-22 16-38 36-38h10c6 0 10 4 10 10v8h-8c-3 0-5 2-5 5v15H36z" fill="#22c55e"/>
+  <circle cx="84" cy="52" r="2.5" fill="#111827"/>
+  <rect x="46" y="80" width="8" height="16" rx="3" fill="#16a34a"/>
+  <rect x="60" y="80" width="8" height="16" rx="3" fill="#16a34a"/>
+  <path d="M30 72l10-6 8 8-10 8z" fill="#16a34a"/>
+</svg>
