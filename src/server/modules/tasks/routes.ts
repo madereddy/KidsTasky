@@ -107,6 +107,26 @@ tasksRouter.put("/tasks/:taskId/archive", authenticateUser, enforceEditUnlocked,
   }
 });
 
+tasksRouter.patch("/tasks/:taskId", authenticateUser, enforceEditUnlocked, [
+  param('taskId').isString().notEmpty(),
+  validate
+], (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as { role: string };
+    if (user.role !== 'parent') return res.status(403).json({ error: 'Forbidden' });
+    const task = taskServiceServer.getTaskById(req.params.taskId as string);
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    const userParentId = getParentId(req);
+    if (task.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
+    const ok = taskServiceServer.updateTask(req.params.taskId as string, userParentId, req.body || {});
+    if (!ok) return res.status(400).json({ error: 'No valid task fields to update' });
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('[tasks:update]', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Completions
 tasksRouter.post("/completions", authenticateUser, enforceEditUnlocked, [
   body('taskId').isString().notEmpty(),

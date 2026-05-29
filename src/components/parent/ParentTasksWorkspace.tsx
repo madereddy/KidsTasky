@@ -33,6 +33,7 @@ export function ParentTasksWorkspace({
   const [tasks, setTasks] = useState<Task[]>([]);
   const [pendingCompletions, setPendingCompletions] = useState<any[]>([]);
   const [isAddingTask, setIsAddingTask] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isManagingCategories, setIsManagingCategories] = useState(false);
   const [sortBy, setSortBy] = useState<'time' | 'created'>('created');
   const [taskDisplayMode, setTaskDisplayMode] = useState<'list' | 'chart'>('list');
@@ -74,6 +75,12 @@ export function ParentTasksWorkspace({
   const archiveTask = async (id: string) => {
     await tasksClientService.archiveTask(id);
     setTasks((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const editTask = async (taskId: string, patch: Partial<Task>) => {
+    await tasksClientService.updateTask(taskId, patch);
+    await loadTasks();
+    setEditingTask(null);
   };
 
   const approveCompletion = async (id: string) => {
@@ -156,6 +163,7 @@ export function ParentTasksWorkspace({
           sortBy={sortBy}
           onSortByChange={setSortBy}
           onArchiveTask={archiveTask}
+          onEditTask={setEditingTask}
           onOpenCategories={() => setIsManagingCategories(true)}
           onOpenAddTask={() => setIsAddingTask(true)}
           onCategoriesChange={onCategoriesChange}
@@ -179,6 +187,35 @@ export function ParentTasksWorkspace({
           parentId={parentId}
           categories={categories}
           existingTasks={tasks}
+        />
+      )}
+      {editingTask && (
+        <AddTaskModal
+          onClose={() => setEditingTask(null)}
+          onSubmit={async (payload) => {
+            await editTask(editingTask.id, {
+              title: payload.title,
+              frequency: payload.frequency,
+              difficulty: payload.difficulty,
+              assignedKidId: payload.assignedKidId === 'all' ? 'all' : (Array.isArray(payload.assignedKidIds) ? payload.assignedKidIds[0] : payload.assignedKidId),
+              reminderTime: payload.reminderTime,
+              categoryId: payload.categoryId || null,
+              customInterval: payload.frequency === 'custom' ? payload.customInterval : null,
+              prerequisiteTaskIds: payload.prerequisiteTaskIds || [],
+              starValue: payload.starValue,
+              requiresApproval: payload.requiresApproval,
+              completionQuestions: payload.completionQuestions || [],
+              completionQuestionsKidId: payload.completionQuestionsKidId || null,
+            } as any);
+          }}
+          kids={kids}
+          parentId={parentId}
+          categories={categories}
+          existingTasks={tasks.filter((t) => t.id !== editingTask.id)}
+          initialTask={editingTask}
+          modalTitle="Edit Mission"
+          submitLabel="Save"
+          allowMultiAssign={false}
         />
       )}
       {isManagingCategories && (

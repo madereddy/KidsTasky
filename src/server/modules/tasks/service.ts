@@ -43,6 +43,45 @@ export const taskServiceServer = {
   archiveTask: (taskId: string) => {
     db.prepare("UPDATE tasks SET status = 'archived' WHERE id = ?").run(taskId);
   },
+
+  updateTask: (taskId: string, parentId: string, fields: any) => {
+    const allowed = [
+      'title',
+      'description',
+      'frequency',
+      'reminderTime',
+      'assignedKidId',
+      'categoryId',
+      'difficulty',
+      'customInterval',
+      'prerequisiteTaskIds',
+      'starValue',
+      'requiresApproval',
+      'completionQuestions',
+      'completionQuestionsKidId',
+    ];
+    const sets: string[] = [];
+    const values: unknown[] = [];
+    for (const key of allowed) {
+      if (!(key in fields)) continue;
+      sets.push(`${key} = ?`);
+      if (key === 'prerequisiteTaskIds') {
+        const prereqs = Array.isArray(fields[key]) ? JSON.stringify(fields[key]) : '[]';
+        values.push(prereqs);
+      } else if (key === 'completionQuestions') {
+        const questions = Array.isArray(fields[key]) && fields[key].length > 0 ? JSON.stringify(fields[key]) : null;
+        values.push(questions);
+      } else if (key === 'requiresApproval') {
+        values.push(fields[key] ? 1 : 0);
+      } else {
+        values.push(fields[key] ?? null);
+      }
+    }
+    if (sets.length === 0) return false;
+    values.push(taskId, parentId);
+    const result = db.prepare(`UPDATE tasks SET ${sets.join(', ')} WHERE id = ? AND parentId = ?`).run(...values);
+    return result.changes > 0;
+  },
   
   createCompletion: (data: any) => {
     const id = `${data.taskId}_${data.dateString}_${data.count || 1}`;

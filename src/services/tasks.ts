@@ -22,6 +22,10 @@ export const tasksClientService = {
     await fetchAPI('/tasks/' + taskId + '/archive', { method: "PUT" });
   },
 
+  async updateTask(taskId: string, patch: Partial<Task>): Promise<void> {
+    await fetchAPI('/tasks/' + taskId, { method: 'PATCH', body: JSON.stringify(patch) });
+  },
+
   async completeTask(
     taskId: string,
     kidId: string,

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format, isBefore, startOfDay } from 'date-fns';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Pencil } from 'lucide-react';
 import { Homework, UserProfile } from '../../types';
 import { homeworkClientService } from '../../services/homework';
 import { AddHomeworkModal } from './AddHomeworkModal';
@@ -19,6 +19,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
   const [actionId, setActionId] = useState<string | null>(null);
   const [proofPrompt, setProofPrompt] = useState<{ item: Homework; questions: string[] } | null>(null);
   const [proofAnswers, setProofAnswers] = useState<Record<string, string>>({});
+  const [editingHomework, setEditingHomework] = useState<Homework | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,21 +107,31 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
                   {actionId === item.id ? 'Saving...' : (item.status === 'done' ? 'Done' : 'Mark done')}
                 </button>
                 {userRole === 'parent' && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        setActionId(item.id);
-                        await homeworkClientService.deleteHomework(item.id);
-                        await load();
-                      } finally {
-                        setActionId(null);
-                      }
-                    }}
-                    disabled={actionId === item.id}
-                    className="p-2 rounded-lg text-rose-600 hover:bg-rose-50"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setEditingHomework(item)}
+                      disabled={actionId === item.id}
+                      className="p-2 rounded-lg text-blue-600 hover:bg-blue-50"
+                      aria-label={`Edit homework ${item.title}`}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          setActionId(item.id);
+                          await homeworkClientService.deleteHomework(item.id);
+                          await load();
+                        } finally {
+                          setActionId(null);
+                        }
+                      }}
+                      disabled={actionId === item.id}
+                      className="p-2 rounded-lg text-rose-600 hover:bg-rose-50"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -135,6 +146,30 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
           onSubmit={async (payload) => {
             await homeworkClientService.createHomework({ ...payload, parentId, status: 'pending' });
             await load();
+          }}
+        />
+      )}
+      {editingHomework && userRole === 'parent' && (
+        <AddHomeworkModal
+          kids={kids}
+          titleLabel="Edit Homework"
+          submitLabel="Save"
+          initialValues={{
+            title: editingHomework.title,
+            subject: editingHomework.subject,
+            notes: editingHomework.notes,
+            dueDate: editingHomework.dueDate,
+            assignedToId: editingHomework.assignedToId,
+            color: editingHomework.color,
+            recurrence: editingHomework.recurrence || 'none',
+            completionQuestions: editingHomework.completionQuestions || [],
+            completionQuestionsKidId: editingHomework.completionQuestionsKidId || null,
+          }}
+          onClose={() => setEditingHomework(null)}
+          onSubmit={async (payload) => {
+            await homeworkClientService.updateHomework(editingHomework.id, payload);
+            await load();
+            setEditingHomework(null);
           }}
         />
       )}

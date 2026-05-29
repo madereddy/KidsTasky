@@ -20,13 +20,17 @@ const TASK_PROOF_TEMPLATES: Array<{ name: string; questions: string[] }> = [
   },
 ];
 
-export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, existingTasks }: { 
+export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, existingTasks, initialTask, modalTitle, submitLabel, allowMultiAssign = true }: { 
   onClose: () => void, 
   onSubmit: (t: any) => void, 
   kids: UserProfile[],
   parentId: string,
   categories: Category[],
-  existingTasks: Task[]
+  existingTasks: Task[],
+  initialTask?: Task,
+  modalTitle?: string,
+  submitLabel?: string,
+  allowMultiAssign?: boolean
 }) {
   const [title, setTitle] = useState('');
   const [frequency, setFrequency] = useState<TaskFrequency>('daily');
@@ -45,6 +49,22 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
   const [templateApplyMode, setTemplateApplyMode] = useState<'append' | 'replace'>('append');
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!initialTask) return;
+    setTitle(initialTask.title || '');
+    setFrequency(initialTask.frequency || 'daily');
+    setCustomInterval(initialTask.customInterval || 3);
+    setDifficulty(initialTask.difficulty || 'easy');
+    setAssignmentMode(initialTask.assignedKidId === 'all' ? 'all' : 'specific');
+    setAssignedKidIds(initialTask.assignedKidId === 'all' ? [] : [initialTask.assignedKidId]);
+    setReminderTime(initialTask.reminderTime || '08:00');
+    setCategoryId(initialTask.categoryId || '');
+    setPrerequisiteTaskIds(Array.isArray(initialTask.prerequisiteTaskIds) ? initialTask.prerequisiteTaskIds : []);
+    setStarValue(initialTask.starValue ?? 1);
+    setCompletionQuestionsText(Array.isArray(initialTask.completionQuestions) ? initialTask.completionQuestions.join('\n') : '');
+    setCompletionQuestionsKidId(initialTask.completionQuestionsKidId || '');
+  }, [initialTask]);
 
   const togglePrereq = (id: string) => {
     if (prerequisiteTaskIds.includes(id)) {
@@ -120,9 +140,10 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
     await loadTemplates();
   };
   const toggleKidSelection = (kidId: string) => {
-    setAssignedKidIds((prev) => (
-      prev.includes(kidId) ? prev.filter((id) => id !== kidId) : [...prev, kidId]
-    ));
+    setAssignedKidIds((prev) => {
+      if (allowMultiAssign === false) return [kidId];
+      return prev.includes(kidId) ? prev.filter((id) => id !== kidId) : [...prev, kidId];
+    });
   };
 
   return (
@@ -137,7 +158,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
         animate={{ scale: 1, opacity: 1 }}
         className="bg-white shadow-sm border border-ui-soft w-full max-w-sm rounded-[40px] p-10 shadow-2xl border-blue-500/20 max-h-[90vh] overflow-y-auto custom-scrollbar"
       >
-        <h3 className="text-2xl font-black italic tracking-tighter uppercase mb-8">New Mission</h3>
+        <h3 className="text-2xl font-black italic tracking-tighter uppercase mb-8">{modalTitle || 'New Mission'}</h3>
         
         <div className="space-y-6">
           <div>
@@ -477,7 +498,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
               disabled={assignmentMode === 'specific' && assignedKidIds.length === 0}
               className="flex-1 btn-immersive-primary bg-blue-600"
             >
-              Launch
+              {submitLabel || 'Launch'}
             </button>
           </div>
         </div>

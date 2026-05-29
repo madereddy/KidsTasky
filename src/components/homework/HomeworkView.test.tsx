@@ -51,6 +51,17 @@ describe('HomeworkView permissions UX', () => {
     expect(screen.getAllByRole('button', { name: /Mark done/i }).length).toBe(2);
   });
 
+  it('allows parent to edit homework details', async () => {
+    render(<HomeworkView parentId="p1" kids={kids} userRole="parent" />);
+    await screen.findByText('Math');
+    fireEvent.click(screen.getByRole('button', { name: /Edit homework Math/i }));
+    expect(await screen.findByText('Edit Homework')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('Title'), { target: { value: 'Math Updated' } });
+    const saveButtons = screen.getAllByRole('button', { name: /^Save$/i });
+    fireEvent.click(saveButtons[saveButtons.length - 1]);
+    await waitFor(() => expect(updateHomework).toHaveBeenCalledWith('h1', expect.objectContaining({ title: 'Math Updated' })));
+  });
+
   it('calls status update when marking done', async () => {
     render(<HomeworkView parentId="p1" kids={kids} userRole="kid" currentUserId="k1" />);
     await screen.findByText('Math');

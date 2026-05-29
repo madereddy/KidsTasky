@@ -22,6 +22,19 @@ const HOMEWORK_RESPONSE_TEMPLATES: Array<{ name: string; questions: string[] }> 
 interface Props {
   kids: UserProfile[];
   onClose: () => void;
+  initialValues?: {
+    title: string;
+    subject: string;
+    notes?: string;
+    dueDate: string;
+    assignedToId?: string;
+    color: string;
+    completionQuestions?: string[];
+    completionQuestionsKidId?: string | null;
+    recurrence?: 'none' | 'daily' | 'weekdays';
+  };
+  titleLabel?: string;
+  submitLabel?: string;
   onSubmit: (payload: {
     title: string;
     subject: string;
@@ -35,17 +48,17 @@ interface Props {
   }) => Promise<void>;
 }
 
-export function AddHomeworkModal({ kids, onClose, onSubmit }: Props) {
+export function AddHomeworkModal({ kids, onClose, onSubmit, initialValues, titleLabel, submitLabel }: Props) {
   const { dialogRef, onKeyDown } = useDialogA11y(true, onClose);
-  const [title, setTitle] = useState('');
-  const [subject, setSubject] = useState('');
-  const [notes, setNotes] = useState('');
-  const [dueDate, setDueDate] = useState('');
-  const [assignedToId, setAssignedToId] = useState('');
-  const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekdays'>('none');
-  const [color, setColor] = useState('#6366f1');
-  const [completionQuestionsText, setCompletionQuestionsText] = useState('');
-  const [completionQuestionsKidId, setCompletionQuestionsKidId] = useState('');
+  const [title, setTitle] = useState(initialValues?.title || '');
+  const [subject, setSubject] = useState(initialValues?.subject || '');
+  const [notes, setNotes] = useState(initialValues?.notes || '');
+  const [dueDate, setDueDate] = useState(initialValues?.dueDate || '');
+  const [assignedToId, setAssignedToId] = useState(initialValues?.assignedToId || '');
+  const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekdays'>(initialValues?.recurrence || 'none');
+  const [color, setColor] = useState(initialValues?.color || '#6366f1');
+  const [completionQuestionsText, setCompletionQuestionsText] = useState(Array.isArray(initialValues?.completionQuestions) ? initialValues!.completionQuestions!.join('\n') : '');
+  const [completionQuestionsKidId, setCompletionQuestionsKidId] = useState(initialValues?.completionQuestionsKidId || '');
   const [templateName, setTemplateName] = useState('');
   const [templateApplyMode, setTemplateApplyMode] = useState<'append' | 'replace'>('append');
   const [customTemplates, setCustomTemplates] = useState<ProofTemplate[]>([]);
@@ -116,7 +129,7 @@ export function AddHomeworkModal({ kids, onClose, onSubmit }: Props) {
   return (
     <div className="fixed inset-0 bg-ui-deep-80 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="add-homework-title" tabIndex={-1} onKeyDown={onKeyDown} onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-white rounded-2xl border border-ui p-5 space-y-3 my-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
-        <h3 id="add-homework-title" className="text-lg font-bold text-ui-primary">Add Homework</h3>
+        <h3 id="add-homework-title" className="text-lg font-bold text-ui-primary">{titleLabel || 'Add Homework'}</h3>
         <input className="w-full border border-ui rounded-lg px-3 py-2 text-sm" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
         <input className="w-full border border-ui rounded-lg px-3 py-2 text-sm" placeholder="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
         <textarea className="w-full border border-ui rounded-lg px-3 py-2 text-sm" rows={3} placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -236,7 +249,7 @@ export function AddHomeworkModal({ kids, onClose, onSubmit }: Props) {
             onClick={saveCustomTemplate}
             className="px-3 py-2 rounded-lg border border-ui text-xs font-semibold text-ui-secondary hover:bg-ui-soft"
           >
-            Save
+            {submitLabel || 'Save'}
           </button>
         </div>
         <select className="w-full border border-ui rounded-lg px-3 py-2 text-sm" value={completionQuestionsKidId} onChange={(e) => setCompletionQuestionsKidId(e.target.value)}>

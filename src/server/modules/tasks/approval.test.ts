@@ -258,4 +258,32 @@ describe('Task Completion Approval', () => {
       { question: 'Is floor clean?', answer: 'Yes' },
     ]);
   });
+
+  it('PATCH /tasks/:taskId updates editable task fields for parent', async () => {
+    const createdId = taskServiceServer.createTask({
+      title: 'Original',
+      frequency: 'daily',
+      assignedKidId: kidId,
+      parentId,
+      starValue: 1,
+    });
+
+    const res = await request(app)
+      .patch(`/api/tasks/${createdId}`)
+      .set('Authorization', `Bearer ${parentToken}`)
+      .send({
+        title: 'Updated Mission',
+        frequency: 'weekdays',
+        starValue: 3,
+        completionQuestions: ['Did you actually do it?'],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    const row = db.prepare('SELECT title, frequency, starValue, completionQuestions FROM tasks WHERE id = ?').get(createdId) as any;
+    expect(row.title).toBe('Updated Mission');
+    expect(row.frequency).toBe('weekdays');
+    expect(row.starValue).toBe(3);
+    expect(JSON.parse(row.completionQuestions)).toEqual(['Did you actually do it?']);
+  });
 });

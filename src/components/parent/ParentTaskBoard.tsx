@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Clock, Trash2, Tag, Plus } from 'lucide-react';
+import { Calendar, Clock, Trash2, Tag, Plus, Pencil } from 'lucide-react';
 import { Category, Task } from '../../types';
 import { cn, parseTimestamp } from '../../lib/utils';
 
@@ -12,6 +12,7 @@ interface Props {
   sortBy: 'time' | 'created';
   onSortByChange: (sort: 'time' | 'created') => void;
   onArchiveTask: (taskId: string) => void;
+  onEditTask: (task: Task) => void;
   onOpenCategories: () => void;
   onOpenAddTask: () => void;
   onCategoriesChange: (cats: Category[]) => void;
@@ -26,6 +27,7 @@ export function ParentTaskBoard({
   sortBy,
   onSortByChange,
   onArchiveTask,
+  onEditTask,
   onOpenCategories,
   onOpenAddTask,
   onCategoriesChange,
@@ -129,12 +131,22 @@ export function ParentTaskBoard({
                     <h4 className="text-xl font-bold">{task.title}</h4>
                   </div>
                   {!isLocked && (
-                    <button
-                      onClick={() => onArchiveTask(task.id)}
-                      className="p-2 text-ui-secondary hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => onEditTask(task)}
+                        className="p-2 text-ui-secondary hover:text-blue-500 transition-colors"
+                        aria-label={`Edit ${task.title}`}
+                      >
+                        <Pencil className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => onArchiveTask(task.id)}
+                        className="p-2 text-ui-secondary hover:text-red-400 transition-colors"
+                        aria-label={`Archive ${task.title}`}
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div className={cn("w-full py-2 border font-black rounded-xl text-center uppercase tracking-widest text-[10px]", isDarkMode ? "bg-ui-dark-70 border-ui-dark-2 text-ui-secondary" : "bg-ui-soft border-ui text-ui-muted")}>
