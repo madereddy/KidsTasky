@@ -7,6 +7,98 @@ import { getJwtSecret } from '../../config.js';
 
 const SECRET = getJwtSecret();
 
+describe('user mutation auth enforcement', () => {
+  const parentUid = 'auth_guard_parent';
+  const kidUid = 'auth_guard_kid';
+  let parentToken: string;
+  let kidToken: string;
+
+  beforeEach(() => {
+    db.prepare("DELETE FROM users WHERE uid LIKE 'auth_guard%'").run();
+    db.prepare("INSERT INTO users (uid, role, name, email, parentId, passwordHash, badges, xp) VALUES (?, 'parent', 'Parent', 'authp@test.com', ?, 'x', '[]', 0)")
+      .run(parentUid, parentUid);
+    db.prepare("INSERT INTO users (uid, role, name, email, parentId, passwordHash, badges, xp) VALUES (?, 'kid', 'Kid', null, ?, 'x', '[]', 0)")
+      .run(kidUid, parentUid);
+    parentToken = jwt.sign({ uid: parentUid, role: 'parent', parentId: parentUid }, SECRET);
+    kidToken = jwt.sign({ uid: kidUid, role: 'kid', parentId: parentUid }, SECRET);
+  });
+
+  it('rejects unauthenticated badge grant', async () => {
+    const res = await request(app).post(`/api/users/${kidUid}/badge`).send({ badgeId: 'star' });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects kid granting badge', async () => {
+    const res = await request(app).post(`/api/users/${kidUid}/badge`)
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ badgeId: 'star' });
+    expect(res.status).toBe(403);
+  });
+
+  it('allows parent to grant badge to own kid', async () => {
+    const res = await request(app).post(`/api/users/${kidUid}/badge`)
+      .set('Authorization', `Bearer ${parentToken}`)
+      .send({ badgeId: 'star' });
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects unauthenticated XP change', async () => {
+    const res = await request(app).post(`/api/users/${kidUid}/xp`).send({ xpChange: 100 });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects kid granting XP', async () => {
+    const res = await request(app).post(`/api/users/${kidUid}/xp`)
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ xpChange: 100 });
+    expect(res.status).toBe(403);
+  });
+
+  it('allows parent to grant XP to own kid', async () => {
+    const res = await request(app).post(`/api/users/${kidUid}/xp`)
+      .set('Authorization', `Bearer ${parentToken}`)
+      .send({ xpChange: 50 });
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects unauthenticated theme change', async () => {
+    const res = await request(app).post(`/api/users/${kidUid}/theme`).send({ themeId: 'space' });
+    expect(res.status).toBe(401);
+  });
+
+  it('allows kid to change own theme', async () => {
+    const res = await request(app).post(`/api/users/${kidUid}/theme`)
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ themeId: 'space' });
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects unauthenticated color change', async () => {
+    const res = await request(app).put(`/api/users/${kidUid}/color`).send({ color: '#ff0000' });
+    expect(res.status).toBe(401);
+  });
+
+  it('allows parent to change kid color', async () => {
+    const res = await request(app).put(`/api/users/${kidUid}/color`)
+      .set('Authorization', `Bearer ${parentToken}`)
+      .send({ color: '#ff0000' });
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects cross-family badge grant', async () => {
+    // Different family parent tries to grant badge to auth_guard_kid
+    const outsiderUid = 'auth_guard_outsider';
+    db.prepare("INSERT INTO users (uid, role, name, email, parentId, passwordHash) VALUES (?, 'parent', 'Outsider', 'out@test.com', ?, 'x')")
+      .run(outsiderUid, outsiderUid);
+    const outsiderToken = jwt.sign({ uid: outsiderUid, role: 'parent', parentId: outsiderUid }, SECRET);
+    const res = await request(app).post(`/api/users/${kidUid}/badge`)
+      .set('Authorization', `Bearer ${outsiderToken}`)
+      .send({ badgeId: 'star' });
+    expect(res.status).toBe(403);
+    db.prepare("DELETE FROM users WHERE uid = ?").run(outsiderUid);
+  });
+});
+
 describe('co-parent flow', () => {
   const ownerUid = 'owner_cp_test';
   let ownerToken: string;

@@ -285,6 +285,10 @@ photosRouter.get("/parents/:parentId/photos", requireAuth, assertParentScope, (r
 });
 
 photosRouter.put("/photos/:id/caption", requireAuth, (req, res) => {
+  const callerParentId = getParentId(req);
+  const photo = db.prepare('SELECT parentId FROM family_photos WHERE id = ?').get(String(req.params.id)) as { parentId: string } | undefined;
+  if (!photo) return res.status(404).json({ error: 'Not found' });
+  if (photo.parentId !== callerParentId) return res.status(403).json({ error: 'Forbidden' });
   photosService.updateCaption(String(req.params.id), String(req.body?.caption ?? ""));
   res.json({ success: true });
 });

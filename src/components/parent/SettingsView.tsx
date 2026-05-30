@@ -51,6 +51,7 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
   const [sleepStart, setSleepStart] = useState('21:00');
   const [sleepEnd, setSleepEnd] = useState('07:00');
   const [pin, setPin] = useState('');
+  const [hasPIN, setHasPIN] = useState(false);
   const [showPinInput, setShowPinInput] = useState(false);
   const [saving, setSaving] = useState(false);
   const [detectingLocation, setDetectingLocation] = useState(false);
@@ -105,7 +106,7 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
       setTimeFormat((s.timeFormat as '12h' | '24h') || '12h');
       setSleepStart(s.sleepStart || '21:00');
       setSleepEnd(s.sleepEnd || '07:00');
-      if (s.pin) setPin(s.pin);
+      setHasPIN(!!s.hasPIN);
       setPhotoCleanupEnabled(s.photoCleanupEnabled ?? true);
       setPhotoCleanupIntervalHours(s.photoCleanupIntervalHours ?? 24);
       setGooglePhotosEnabled(Boolean(s.googlePhotosEnabled));
@@ -271,13 +272,19 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
         timeFormat,
         sleepStart,
         sleepEnd,
-        pin: pin || null,
+        // Only include pin if user entered a new value; backend preserves existing if omitted
+        ...(pin.trim() ? { pin } : {}),
         photoCleanupEnabled,
         photoCleanupIntervalHours: Math.max(1, photoCleanupIntervalHours),
         googlePhotosEnabled,
         googlePhotosAlbumId: null,
       };
       await settingsClientService.saveSettings(parentId, data);
+      if (pin.trim()) {
+        setHasPIN(true);
+        setPin('');
+        setShowPinInput(false);
+      }
       onSaved?.({ parentId, ...data } as FamilySettings);
       onClose();
     } finally {
@@ -468,16 +475,20 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
             </div>
             {!showPinInput ? (
               <div className="flex items-center gap-3">
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="w-4 h-4 rounded-full bg-ui-soft-3" />
-                  ))}
-                </div>
+                {hasPIN ? (
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4].map(i => (
+                      <div key={i} className="w-4 h-4 rounded-full bg-amber-400" />
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-sm text-ui-muted-2">No PIN set</span>
+                )}
                 <button
                   onClick={() => setShowPinInput(true)}
                   className="px-3 py-1.5 bg-ui-soft border border-ui text-amber-700 rounded-lg text-sm font-medium hover:bg-ui-soft-2 transition-colors"
                 >
-                  Change PIN
+                  {hasPIN ? 'Change PIN' : 'Set PIN'}
                 </button>
               </div>
             ) : (
@@ -490,7 +501,7 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
                   placeholder="4-digit PIN"
                   className="w-32 border border-ui rounded-lg px-3 py-2 text-sm text-center tracking-widest font-mono bg-white text-ui-primary focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
-                <p className="text-xs text-ui-muted-2 mt-1">Enter a 4-digit PIN</p>
+                <p className="text-xs text-ui-muted-2 mt-1">Enter a new 4-digit PIN</p>
               </div>
             )}
           </section>

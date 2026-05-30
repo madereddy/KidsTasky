@@ -197,6 +197,7 @@ export interface FamilySettings {
   temperatureUnit?: 'celsius' | 'fahrenheit';
   timeFormat?: '12h' | '24h';
   pin?: string | null;
+  hasPIN?: boolean;
   sleepStart?: string;
   sleepEnd?: string;
   isLocked?: boolean;

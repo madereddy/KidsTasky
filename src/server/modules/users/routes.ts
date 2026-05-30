@@ -4,7 +4,7 @@ import { userService } from './service.js';
 import { inviteService } from '../invites/service.js';
 import { db } from '../../db.js';
 import { socketWrapper } from '../../socket.js';
-import { authenticateUser, assertParentScope, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, getParentId, requireRole } from '../../middleware/auth.js';
 
 import { randomBytes } from 'crypto';
 
@@ -109,29 +109,47 @@ usersRouter.delete("/users/:uid/coparent", authenticateUser, [
   }
 });
 
-usersRouter.post("/users/:uid/badge", [
+usersRouter.post("/users/:uid/badge", authenticateUser, requireRole('parent'), [
   param('uid').isString().notEmpty(),
   body('badgeId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
+  const callerParentId = getParentId(req);
+  const target = userService.getUser(req.params.uid as string) as any;
+  if (!target) return res.status(404).json({ error: 'User not found' });
+  const targetFamily = target.parentId ?? target.uid;
+  if (targetFamily !== callerParentId) return res.status(403).json({ error: 'Forbidden' });
   userService.addBadge(req.params.uid as string, req.body.badgeId);
   res.json({ success: true });
 });
 
-usersRouter.post("/users/:uid/xp", [
+usersRouter.post("/users/:uid/xp", authenticateUser, requireRole('parent'), [
   param('uid').isString().notEmpty(),
   body('xpChange').isInt(),
   validate
 ], (req: Request, res: Response) => {
+  const callerParentId = getParentId(req);
+  const target = userService.getUser(req.params.uid as string) as any;
+  if (!target) return res.status(404).json({ error: 'User not found' });
+  const targetFamily = target.parentId ?? target.uid;
+  if (targetFamily !== callerParentId) return res.status(403).json({ error: 'Forbidden' });
   userService.addXP(req.params.uid as string, req.body.xpChange);
   res.json({ success: true });
 });
 
-usersRouter.post("/users/:uid/theme", [
+usersRouter.post("/users/:uid/theme", authenticateUser, [
   param('uid').isString().notEmpty(),
   body('themeId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
+  const caller = (req as any).user;
+  const targetUid = req.params.uid as string;
+  const callerParentId = getParentId(req);
+  const target = userService.getUser(targetUid) as any;
+  if (!target) return res.status(404).json({ error: 'User not found' });
+  const isSelf = caller.uid === targetUid;
+  const targetFamily = target.parentId ?? target.uid;
+  if (!isSelf && callerParentId !== targetFamily) return res.status(403).json({ error: 'Forbidden' });
   userService.updateTheme(req.params.uid as string, req.body.themeId);
   res.json({ success: true });
 });
@@ -145,13 +163,18 @@ usersRouter.get("/parents/:parentId/kids", authenticateUser, assertParentScope, 
   res.json(kids);
 });
 
-usersRouter.put('/users/:uid/color', [
+usersRouter.put('/users/:uid/color', authenticateUser, [
   param('uid').isString().notEmpty(),
   body('color').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
   const { color } = req.body;
   if (!/^#[0-9a-fA-F]{6}$/.test(color)) return res.status(400).json({ error: 'Invalid color' });
+  const callerParentId = getParentId(req);
+  const target = userService.getUser(req.params.uid as string) as any;
+  if (!target) return res.status(404).json({ error: 'User not found' });
+  const targetFamily = target.parentId ?? target.uid;
+  if (callerParentId !== targetFamily) return res.status(403).json({ error: 'Forbidden' });
   userService.setMemberColor(req.params.uid as string, color);
   res.json({ success: true });
 });

@@ -52,9 +52,11 @@ notificationsRouter.post('/notifications/subscribe', authenticateUser, (req: Req
   return res.json({ success: true });
 });
 
-notificationsRouter.delete('/notifications/subscribe', (req: Request, res: Response) => {
+notificationsRouter.delete('/notifications/subscribe', authenticateUser, (req: Request, res: Response) => {
+  const userId = (req as any).user.uid as string;
   const { endpoint } = req.body || {};
   if (!endpoint) return res.status(400).json({ error: 'Missing endpoint' });
-  db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(endpoint);
+  // Scope deletion to the authenticated user's own subscriptions
+  db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ? AND userId = ?').run(endpoint, userId);
   return res.json({ success: true });
 });

@@ -1,8 +1,17 @@
 import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
+import { rateLimit } from 'express-rate-limit';
 import { inviteService } from './service.js';
 import { db } from '../../db.js';
 import { authenticateUser, assertParentScope, getParentId } from '../../middleware/auth.js';
+
+const inviteValidateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Too many invite validation attempts, please try again later' },
+});
 
 export const invitesRouter = Router();
 
@@ -34,7 +43,7 @@ invitesRouter.get("/parents/:parentId/invites/active", authenticateUser, assertP
   res.json(invite || null);
 });
 
-invitesRouter.get("/invites/:code/validate", [
+invitesRouter.get("/invites/:code/validate", inviteValidateLimiter, [
   param('code').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {

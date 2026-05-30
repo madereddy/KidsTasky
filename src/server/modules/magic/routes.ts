@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { magicService } from './service.js';
 import { eventsService } from '../events/service.js';
 import { socketWrapper } from '../../socket.js';
+import { db } from '../../db.js';
 import crypto from 'crypto';
 
 export const magicRouter = Router();
@@ -42,7 +43,12 @@ magicRouter.post('/magic/import', async (req, res) => {
 
     // Extract parent/family ID from recipient pseudo-email
     const familyIdMatch = recipient?.match(/([^@]+)@/);
-    const parentId = familyIdMatch ? familyIdMatch[1] : 'unknown';
+    const parentId = familyIdMatch ? familyIdMatch[1] : null;
+
+    // Validate parentId maps to a real family to prevent phantom event injection
+    if (!parentId) return res.status(400).json({ error: 'Could not determine family from recipient' });
+    const familyRow = db.prepare("SELECT uid FROM users WHERE uid = ? AND role = 'parent'").get(parentId);
+    if (!familyRow) return res.status(404).json({ error: 'Unknown family' });
 
     // Parse date and time if possible into unix timestamp, mock here
     const ts = new Date(`${extractedEvent.date}T${extractedEvent.startTime}:00Z`).getTime() || Date.now();

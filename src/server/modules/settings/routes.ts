@@ -1,7 +1,14 @@
 import { Router } from 'express';
+import bcrypt from 'bcrypt';
 import { requireAuth, assertParentScope, getParentId } from '../../middleware/auth.js';
 import { settingsService } from './service.js';
 import { syncService } from '../sync/service.js';
+
+/** Strip raw PIN hash from settings before sending to client. */
+function scrubSettings(settings: Record<string, any>) {
+  const { pin, ...rest } = settings;
+  return { ...rest, hasPIN: !!pin };
+}
 
 export const settingsRouter = Router();
 
@@ -15,7 +22,7 @@ settingsRouter.get('/settings/:parentId/bootstrap', requireAuth, assertParentSco
     const connections = syncService.getConnections(parentId);
 
     res.json({
-      settings,
+      settings: scrubSettings(settings as any),
       calendars,
       calendarVisibility,
       connections,
@@ -56,18 +63,26 @@ settingsRouter.get('/settings/:parentId', requireAuth, (req, res) => {
     const userParentId = getParentId(req);
     if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
     const settings = settingsService.getSettings(String(req.params.parentId));
-    res.json(settings);
+    res.json(scrubSettings(settings as any));
   } catch (error: any) {
     console.error('[settings:get]', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-settingsRouter.put('/settings/:parentId', requireAuth, (req, res) => {
+settingsRouter.put('/settings/:parentId', requireAuth, async (req, res) => {
   try {
     const userParentId = getParentId(req);
     if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
-    settingsService.saveSettings(String(req.params.parentId), req.body);
+    const data = { ...req.body };
+    if (data.pin && String(data.pin).trim() !== '') {
+      // Hash the plaintext PIN before storing
+      data.pin = await bcrypt.hash(String(data.pin).trim(), 10);
+    } else {
+      // Empty/null PIN — don't overwrite existing PIN; service will preserve via merge
+      delete data.pin;
+    }
+    settingsService.saveSettings(String(req.params.parentId), data);
     res.json({ success: true });
   } catch (error: any) {
     console.error('[settings:save]', error);
@@ -86,7 +101,7 @@ settingsRouter.post("/settings/:parentId/lock", requireAuth, (req, res) => {
   }
 });
 
-settingsRouter.post("/settings/:parentId/unlock", requireAuth, (req, res) => {
+settingsRouter.post("/settings/:parentId/unlock", requireAuth, async (req, res) => {
   try {
     const userParentId = getParentId(req);
     if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
@@ -96,10 +111,23 @@ settingsRouter.post("/settings/:parentId/unlock", requireAuth, (req, res) => {
       return res.json({ success: true });
     }
 
-    const pin = String(req.body?.pin ?? "");
-    if (pin !== settings.pin) {
-      return res.status(403).json({ error: "Incorrect PIN" });
+    const inputPin = String(req.body?.pin ?? "");
+    const stored = String(settings.pin);
+
+    let match: boolean;
+    if (stored.startsWith('$2')) {
+      // bcrypt hash — use secure compare
+      match = await bcrypt.compare(inputPin, stored);
+    } else {
+      // Legacy plaintext PIN — accept and upgrade to hash
+      match = inputPin === stored;
+      if (match) {
+        const hash = await bcrypt.hash(inputPin, 10);
+        settingsService.saveSettings(String(req.params.parentId), { pin: hash });
+      }
     }
+
+    if (!match) return res.status(403).json({ error: "Incorrect PIN" });
     settingsService.setLocked(String(req.params.parentId), false);
     return res.json({ success: true });
   } catch (error: any) {

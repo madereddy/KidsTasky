@@ -36,14 +36,37 @@ describe('push subscription endpoints', () => {
     expect(sub).toBeTruthy();
   });
 
-  it('unsubscribes without auth (called before logout clears token)', async () => {
+  it('unsubscribes with auth token (called before logout clears token)', async () => {
     db.prepare("INSERT INTO push_subscriptions (id, userId, parentId, endpoint, p256dh, auth, createdAt) VALUES ('s1', ?, ?, 'https://push.example.com/test', 'abc', 'def', ?)")
       .run(userId, parentId, Date.now());
     const res = await request(app)
       .delete('/api/notifications/subscribe')
+      .set('Authorization', `Bearer ${token}`)
       .send({ endpoint: 'https://push.example.com/test' });
     expect(res.status).toBe(200);
     const sub = db.prepare('SELECT * FROM push_subscriptions WHERE userId = ?').get(userId);
     expect(sub).toBeUndefined();
+  });
+
+  it('rejects unauthenticated unsubscribe', async () => {
+    const res = await request(app)
+      .delete('/api/notifications/subscribe')
+      .send({ endpoint: 'https://push.example.com/test' });
+    expect(res.status).toBe(401);
+  });
+
+  it('does not delete another user subscription with same endpoint', async () => {
+    db.prepare("INSERT INTO users (uid, role, name, email, parentId, passwordHash) VALUES ('other_push_user', 'parent', 'Other', 'other_push@test.com', 'other_push_user', 'x')").run();
+    db.prepare("INSERT INTO push_subscriptions (id, userId, parentId, endpoint, p256dh, auth, createdAt) VALUES ('s_other', 'other_push_user', 'other_push_user', 'https://push.example.com/other', 'abc', 'def', ?)").run(Date.now());
+    const res = await request(app)
+      .delete('/api/notifications/subscribe')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ endpoint: 'https://push.example.com/other' });
+    expect(res.status).toBe(200);
+    // other user's sub still exists
+    const sub = db.prepare('SELECT * FROM push_subscriptions WHERE id = ?').get('s_other');
+    expect(sub).toBeTruthy();
+    db.prepare("DELETE FROM users WHERE uid = 'other_push_user'").run();
+    db.prepare("DELETE FROM push_subscriptions WHERE id = 's_other'").run();
   });
 });
