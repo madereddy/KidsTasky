@@ -4,7 +4,7 @@ import { userService } from './service.js';
 import { inviteService } from '../invites/service.js';
 import { db } from '../../db.js';
 import { socketWrapper } from '../../socket.js';
-import { authenticateUser, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, getParentId } from '../../middleware/auth.js';
 
 import { randomBytes } from 'crypto';
 
@@ -84,12 +84,10 @@ usersRouter.post("/users", [
 });
 
 // List co-parents for a family
-usersRouter.get("/parents/:parentId/coparents", authenticateUser, [
+usersRouter.get("/parents/:parentId/coparents", authenticateUser, assertParentScope, [
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  const userParentId = getParentId(req);
-  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
   res.json(userService.getCoParents(req.params.parentId));
 });
 
@@ -138,12 +136,10 @@ usersRouter.post("/users/:uid/theme", [
   res.json({ success: true });
 });
 
-usersRouter.get("/parents/:parentId/kids", authenticateUser, [
+usersRouter.get("/parents/:parentId/kids", authenticateUser, assertParentScope, [
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  const userParentId = getParentId(req);
-  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
   const kids = userService.getKidsByParent(req.params.parentId as string);
   kids.forEach(k => k.badges = JSON.parse(k.badges || "[]"));
   res.json(kids);

@@ -4,7 +4,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { google } from 'googleapis';
-import { requireAuth } from '../../middleware/auth.js';
+import { requireAuth, assertParentScope, getParentId } from '../../middleware/auth.js';
 import { photosService } from './service.js';
 import { ensurePhotosUploadsDir, getPhotosUploadsDir } from './storage.js';
 import { syncService } from '../sync/service.js';
@@ -279,9 +279,7 @@ photosRouter.post('/photos/upload', requireAuth, upload.single("photo"), async (
   return res.status(201).json(result);
 });
 
-photosRouter.get("/parents/:parentId/photos", requireAuth, (req, res) => {
-  const userParentId = (req as any).user?.role === "parent" ? (req as any).user.uid : (req as any).user?.parentId;
-  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
+photosRouter.get("/parents/:parentId/photos", requireAuth, assertParentScope, (req, res) => {
   const photos = photosService.getPhotos(String(req.params.parentId));
   res.json(photos);
 });
@@ -292,7 +290,7 @@ photosRouter.put("/photos/:id/caption", requireAuth, (req, res) => {
 });
 
 photosRouter.delete("/photos/:id", requireAuth, (req, res) => {
-  const parentId = (req as any).user?.role === "parent" ? (req as any).user.uid : (req as any).user?.parentId;
+  const parentId = getParentId(req);
   const url = photosService.deletePhoto(String(req.params.id));
   if (url) {
     // Handle both URL formats: /api/photos/file/{name} and legacy /uploads/photos/{name}
@@ -314,27 +312,21 @@ photosRouter.delete("/photos/:id", requireAuth, (req, res) => {
   res.json({ success: true });
 });
 
-photosRouter.get('/parents/:parentId/google-photos/albums', requireAuth, async (req, res) => {
-  const userParentId = (req as any).user?.role === 'parent' ? (req as any).user?.uid : (req as any).user?.parentId;
-  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
+photosRouter.get('/parents/:parentId/google-photos/albums', requireAuth, assertParentScope, async (req, res) => {
   console.warn('[photos:legacy_library_api_disabled]', { parentId: req.params.parentId, endpoint: 'albums' });
   return res.status(410).json({
     error: 'Google Photos library album browsing is no longer supported by Google Photos Library API (March 31, 2025). Use local uploads for now; Picker API migration required.'
   });
 });
 
-photosRouter.get('/parents/:parentId/google-photos/albums/:albumId/media', requireAuth, async (req, res) => {
-  const userParentId = (req as any).user?.role === 'parent' ? (req as any).user?.uid : (req as any).user?.parentId;
-  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
+photosRouter.get('/parents/:parentId/google-photos/albums/:albumId/media', requireAuth, assertParentScope, async (req, res) => {
   console.warn('[photos:legacy_library_api_disabled]', { parentId: req.params.parentId, endpoint: 'media', albumId: req.params.albumId });
   return res.status(410).json({
     error: 'Google Photos library media browsing is no longer supported by Google Photos Library API (March 31, 2025). Use local uploads for now; Picker API migration required.'
   });
 });
 
-photosRouter.post('/parents/:parentId/google-photos/picker/session', requireAuth, async (req, res) => {
-  const userParentId = (req as any).user?.role === 'parent' ? (req as any).user?.uid : (req as any).user?.parentId;
-  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
+photosRouter.post('/parents/:parentId/google-photos/picker/session', requireAuth, assertParentScope, async (req, res) => {
 
   const token = await getGoogleAccessToken(String(req.params.parentId));
   if (!token) return res.status(401).json({ error: 'Google authentication expired or invalid. Reconnect Google and approve Calendar + Photos access again.' });
@@ -364,9 +356,7 @@ photosRouter.post('/parents/:parentId/google-photos/picker/session', requireAuth
   }
 });
 
-photosRouter.get('/parents/:parentId/google-photos/picker/sessions/:sessionId/media-items', requireAuth, async (req, res) => {
-  const userParentId = (req as any).user?.role === 'parent' ? (req as any).user?.uid : (req as any).user?.parentId;
-  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
+photosRouter.get('/parents/:parentId/google-photos/picker/sessions/:sessionId/media-items', requireAuth, assertParentScope, async (req, res) => {
 
   const token = await getGoogleAccessToken(String(req.params.parentId));
   if (!token) return res.status(401).json({ error: 'Google authentication expired or invalid. Reconnect Google and approve Calendar + Photos access again.' });
@@ -400,9 +390,7 @@ photosRouter.get('/parents/:parentId/google-photos/picker/sessions/:sessionId/me
   }
 });
 
-photosRouter.post('/parents/:parentId/google-photos/picker/import', requireAuth, async (req, res) => {
-  const userParentId = (req as any).user?.role === 'parent' ? (req as any).user?.uid : (req as any).user?.parentId;
-  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
+photosRouter.post('/parents/:parentId/google-photos/picker/import', requireAuth, assertParentScope, async (req, res) => {
   const parentId = String(req.params.parentId);
   const sessionId = String(req.body?.sessionId || '').trim();
   const token = await getGoogleAccessToken(parentId);

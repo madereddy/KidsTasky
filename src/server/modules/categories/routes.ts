@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { categoryService } from './service.js';
-import { authenticateUser, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, getParentId } from '../../middleware/auth.js';
 
 export const categoriesRouter = Router();
 
@@ -51,12 +51,10 @@ categoriesRouter.delete("/categories/:id", authenticateUser, [
   res.json({ success: true });
 });
 
-categoriesRouter.get("/parents/:parentId/categories", authenticateUser, [
+categoriesRouter.get("/parents/:parentId/categories", authenticateUser, assertParentScope, [
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  const userParentId = getParentId(req);
-  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
   const cats = categoryService.getCategories(req.params.parentId as string);
   res.json(cats);
 });

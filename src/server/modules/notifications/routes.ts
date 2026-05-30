@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { param, validationResult } from 'express-validator';
 import { notificationService } from './service.js';
-import { authenticateUser, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, getParentId } from '../../middleware/auth.js';
 import { db } from '../../db.js';
 
 export const notificationsRouter = Router();
@@ -12,14 +12,10 @@ const validate = (req: Request, res: Response, next: any) => {
   next();
 };
 
-notificationsRouter.get("/parents/:parentId/notifications", authenticateUser, [
+notificationsRouter.get("/parents/:parentId/notifications", authenticateUser, assertParentScope, [
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  const userParentId = getParentId(req);
-  if (userParentId !== req.params.parentId) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
   const notifs = notificationService.getNotifications(req.params.parentId as string);
   res.json(notifs.map((n: any) => ({ ...n, createdAt: { seconds: n.createdAt / 1000 } })));
 });

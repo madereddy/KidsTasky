@@ -1,13 +1,11 @@
 import { Router } from 'express';
 import { mealsService } from './service.js';
-import { authenticateUser, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, getParentId } from '../../middleware/auth.js';
 
 export const mealsRouter = Router();
 
-mealsRouter.get('/parents/:parentId/recipes', authenticateUser, (req, res) => {
+mealsRouter.get('/parents/:parentId/recipes', authenticateUser, assertParentScope, (req, res) => {
   try {
-    const userParentId = getParentId(req);
-    if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
     res.json(mealsService.getRecipes(req.params.parentId));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -25,19 +23,15 @@ mealsRouter.delete('/recipes/:id', authenticateUser, (req, res) => {
   try {
     const recipe = mealsService.getRecipeById(String(req.params.id));
     if (!recipe) return res.status(404).json({ error: 'Not found' });
-    const userParentId = getParentId(req);
-    if (recipe.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
+    if (recipe.parentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
 
     mealsService.deleteRecipe(String(req.params.id));
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-mealsRouter.get('/parents/:parentId/meal-plans', authenticateUser, (req, res) => {
+mealsRouter.get('/parents/:parentId/meal-plans', authenticateUser, assertParentScope, (req, res) => {
   try {
-    const userParentId = getParentId(req);
-    if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
-
     const { weekStart } = req.query;
     const plans = mealsService.getMealPlansForWeek(req.params.parentId, weekStart as string);
     res.json(plans);

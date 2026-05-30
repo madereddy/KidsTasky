@@ -1,15 +1,12 @@
 import { Router } from 'express';
-import { requireAuth, getParentId } from '../../middleware/auth.js';
+import { requireAuth, assertParentScope, getParentId } from '../../middleware/auth.js';
 import { settingsService } from './service.js';
 import { syncService } from '../sync/service.js';
 
 export const settingsRouter = Router();
 
-settingsRouter.get('/settings/:parentId/bootstrap', requireAuth, (req, res) => {
+settingsRouter.get('/settings/:parentId/bootstrap', requireAuth, assertParentScope, (req, res) => {
   try {
-    const userParentId = getParentId(req);
-    if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
-
     const userId = (req as any).user.uid as string;
     const parentId = String(req.params.parentId);
     const settings = settingsService.getSettings(parentId);

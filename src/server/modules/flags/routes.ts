@@ -1,14 +1,10 @@
 import { Router } from 'express';
-import { requireAuth } from '../../middleware/auth.js';
+import { requireAuth, assertParentScope } from '../../middleware/auth.js';
 import { flagsService, KNOWN_FLAGS, FlagName } from './service.js';
 
 export const flagsRouter = Router();
 
-flagsRouter.get('/settings/:parentId/flags', requireAuth, (req, res) => {
-  const userParentId = (req as any).user.role === 'parent' ? (req as any).user.uid : (req as any).user.parentId;
-  if (userParentId !== req.params.parentId) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+flagsRouter.get('/settings/:parentId/flags', requireAuth, assertParentScope, (req, res) => {
   try {
     res.json(flagsService.getFlags(String(req.params.parentId)));
   } catch (err: any) {
@@ -16,11 +12,7 @@ flagsRouter.get('/settings/:parentId/flags', requireAuth, (req, res) => {
   }
 });
 
-flagsRouter.patch('/settings/:parentId/flags/:flag', requireAuth, (req, res) => {
-  const userParentId = (req as any).user.role === 'parent' ? (req as any).user.uid : (req as any).user.parentId;
-  if (userParentId !== req.params.parentId) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+flagsRouter.patch('/settings/:parentId/flags/:flag', requireAuth, assertParentScope, (req, res) => {
   const flag = req.params.flag as FlagName;
   if (!(KNOWN_FLAGS as readonly string[]).includes(flag)) {
     return res.status(400).json({ error: `Unknown flag: ${flag}` });

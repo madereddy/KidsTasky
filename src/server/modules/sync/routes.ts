@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { google } from 'googleapis';
-import { authenticateUser, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, getParentId } from '../../middleware/auth.js';
 import jwt from 'jsonwebtoken';
 import { getJwtSecret } from '../../config.js';
 import { syncService } from './service.js';
@@ -8,11 +8,7 @@ import { socketWrapper } from '../../socket.js';
 
 export const syncRouter = Router();
 
-syncRouter.get('/settings/:parentId/connections', authenticateUser, (req, res) => {
-  const userParentId = (req as any).user.role === 'parent' ? (req as any).user.uid : (req as any).user.parentId;
-  if (userParentId !== (req.params.parentId as string)) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+syncRouter.get('/settings/:parentId/connections', authenticateUser, assertParentScope, (req, res) => {
   try {
     const list = syncService.getConnections(req.params.parentId as string);
     res.json(list);
@@ -26,8 +22,7 @@ syncRouter.delete('/settings/connections/:id', authenticateUser, (req, res) => {
   try {
     const conn = syncService.getConnectionById(id);
     if (!conn) return res.status(404).json({ error: 'Not found' });
-    const userParentId = (req as any).user.role === 'parent' ? (req as any).user.uid : (req as any).user.parentId;
-    if (conn.parentId !== userParentId) {
+    if (conn.parentId !== getParentId(req)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     syncService.deleteConnection(id);
@@ -127,11 +122,7 @@ syncRouter.get('/sync/callback/google', async (req, res) => {
 });
 
 // Calendar list: get all discovered calendars for this parent
-syncRouter.get('/settings/:parentId/calendars', authenticateUser, (req, res) => {
-  const userParentId = (req as any).user.role === 'parent' ? (req as any).user.uid : (req as any).user.parentId;
-  if (userParentId !== (req.params.parentId as string)) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+syncRouter.get('/settings/:parentId/calendars', authenticateUser, assertParentScope, (req, res) => {
   try {
     const calendars = syncService.getSyncCalendarsByParent(req.params.parentId as string);
     res.json(calendars);
@@ -148,8 +139,7 @@ syncRouter.patch('/settings/calendars/:id', authenticateUser, (req, res) => {
   try {
     const calendar = syncService.getSyncCalendarById(id);
     if (!calendar) return res.status(404).json({ error: 'Not found' });
-    const userParentId = (req as any).user.role === 'parent' ? (req as any).user.uid : (req as any).user.parentId;
-    if (calendar.parentId !== userParentId) {
+    if (calendar.parentId !== getParentId(req)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     syncService.toggleSyncCalendar(id, enabled);
@@ -186,12 +176,8 @@ syncRouter.post('/sync/:id/now', authenticateUser, async (req, res) => {
   }
 });
 
-syncRouter.post('/settings/:parentId/sync-now', authenticateUser, async (req, res) => {
+syncRouter.post('/settings/:parentId/sync-now', authenticateUser, assertParentScope, async (req, res) => {
   const parentId = req.params.parentId as string;
-  const userParentId = (req as any).user.role === 'parent' ? (req as any).user.uid : (req as any).user.parentId;
-  if (userParentId !== parentId) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
 
   try {
     const connections = syncService.getGoogleConnectionsByParent(parentId);

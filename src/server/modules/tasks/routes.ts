@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import { taskServiceServer } from './service.js';
 import { db } from '../../db.js';
-import { authenticateUser, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
 
 export const tasksRouter = Router();
 
@@ -63,14 +63,11 @@ tasksRouter.get("/kids/:kidId/tasks", authenticateUser, [
   }
 });
 
-tasksRouter.get("/parents/:parentId/tasks", authenticateUser, [
+tasksRouter.get("/parents/:parentId/tasks", authenticateUser, assertParentScope, [
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
   try {
-    const userParentId = getParentId(req);
-    if (userParentId !== req.params.parentId as string) return res.status(403).json({ error: 'Forbidden' });
-
     const tasks = taskServiceServer.getParentsTasks(req.params.parentId as string);
     res.json(tasks.map((t: any) => {
       let parsedPrereqs = [];
@@ -266,13 +263,11 @@ tasksRouter.get("/kids/:kidId/history", authenticateUser, [
   }
 });
 
-tasksRouter.get("/parents/:parentId/pending-completions", authenticateUser, [
+tasksRouter.get("/parents/:parentId/pending-completions", authenticateUser, assertParentScope, [
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
   try {
-    const userParentId = getParentId(req);
-    if (userParentId !== req.params.parentId as string) return res.status(403).json({ error: 'Forbidden' });
     const pending = taskServiceServer.getPendingCompletionsByParent(req.params.parentId as string);
     res.json(pending.map((c: any) => ({ ...c, completedAt: { seconds: c.completedAt / 1000 } })));
   } catch (error: any) {

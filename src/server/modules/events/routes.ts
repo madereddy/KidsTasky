@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { eventsService } from './service.js';
 import { syncService } from '../sync/service.js';
-import { authenticateUser, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
 import { db } from '../../db.js';
 
 export const eventsRouter = Router();
@@ -44,10 +44,8 @@ eventsRouter.post('/events', authenticateUser, requireRole('parent'), enforceEdi
   }
 });
 
-eventsRouter.get('/parents/:parentId/events', authenticateUser, (req, res) => {
+eventsRouter.get('/parents/:parentId/events', authenticateUser, assertParentScope, (req, res) => {
   try {
-    const userParentId = getParentId(req);
-    if (userParentId !== req.params.parentId as string) return res.status(403).json({ error: 'Forbidden' });
     res.json(eventsService.getEventsByParent(req.params.parentId as string));
   } catch (error: any) {
     res.status(500).json({ error: error.message });

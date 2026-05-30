@@ -1,23 +1,19 @@
 import { Router } from 'express';
-import { authenticateUser, enforceEditUnlocked, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId } from '../../middleware/auth.js';
 import { routinesService } from './service.js';
 
 export const routinesRouter = Router();
 
-routinesRouter.get('/parents/:parentId/routines', authenticateUser, (req, res) => {
-  const userParentId = getParentId(req);
-  if (userParentId !== (req.params.parentId as string)) return res.status(403).json({ error: 'Forbidden' });
+routinesRouter.get('/parents/:parentId/routines', authenticateUser, assertParentScope, (req, res) => {
   const templates = routinesService.getTemplates(req.params.parentId as string);
   res.json(templates);
 });
 
-routinesRouter.post('/parents/:parentId/routines', authenticateUser, enforceEditUnlocked, (req, res) => {
-  const userParentId = getParentId(req);
-  if (userParentId !== (req.params.parentId as string)) return res.status(403).json({ error: 'Forbidden' });
+routinesRouter.post('/parents/:parentId/routines', authenticateUser, assertParentScope, enforceEditUnlocked, (req, res) => {
   const { title, description, defaultStartTime, defaultDuration, assignedToId, color } = req.body;
   if (!title) return res.status(400).json({ error: 'title required' });
   const id = routinesService.createTemplate({
-    parentId: userParentId,
+    parentId: req.params.parentId as string,
     title,
     description,
     defaultStartTime,
@@ -31,16 +27,13 @@ routinesRouter.post('/parents/:parentId/routines', authenticateUser, enforceEdit
 routinesRouter.delete('/routines/:id', authenticateUser, enforceEditUnlocked, (req, res) => {
   const template = routinesService.getTemplateById(req.params.id as string);
   if (!template) return res.status(404).json({ error: 'Not found' });
-  const userParentId = getParentId(req);
-  if (template.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
+  if (template.parentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
   routinesService.deleteTemplate(req.params.id as string);
   res.json({ success: true });
 });
 
-routinesRouter.put('/parents/:parentId/routines/reorder', authenticateUser, enforceEditUnlocked, (req, res) => {
-  const userParentId = getParentId(req);
-  if (userParentId !== (req.params.parentId as string)) return res.status(403).json({ error: 'Forbidden' });
+routinesRouter.put('/parents/:parentId/routines/reorder', authenticateUser, assertParentScope, enforceEditUnlocked, (req, res) => {
   const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
-  routinesService.reorderTemplates(userParentId, ids);
+  routinesService.reorderTemplates(req.params.parentId as string, ids);
   res.json({ success: true });
 });

@@ -41,6 +41,14 @@ export function requireRole(role: string) {
   };
 }
 
+// Middleware: reject if caller's family != :parentId URL param
+export function assertParentScope(req: Request, res: Response, next: NextFunction) {
+  if (getParentId(req) !== req.params.parentId) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  next();
+}
+
 export function enforceEditUnlocked(req: Request, res: Response, next: NextFunction) {
   const user = (req as any).user as { role?: string } | undefined;
   if (user?.role === 'kid') {

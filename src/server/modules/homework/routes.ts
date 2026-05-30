@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateUser, enforceEditUnlocked, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId } from '../../middleware/auth.js';
 import { homeworkService } from './service.js';
 
 export const homeworkRouter = Router();
@@ -19,10 +19,8 @@ const nextHomeworkDueDate = (fromDate: string, recurrence: 'none' | 'daily' | 'w
   return d.toISOString().slice(0, 10);
 };
 
-homeworkRouter.get('/parents/:parentId/homework', authenticateUser, (req, res) => {
+homeworkRouter.get('/parents/:parentId/homework', authenticateUser, assertParentScope, (req, res) => {
   try {
-    const parentId = getParentId(req);
-    if (parentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
     const rows = homeworkService.getByParent(req.params.parentId).map((row: any) => {
       let completionQuestions: string[] = [];
       try { completionQuestions = JSON.parse(row.completionQuestions || '[]'); } catch {}

@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { inviteService } from './service.js';
 import { db } from '../../db.js';
-import { authenticateUser, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, getParentId } from '../../middleware/auth.js';
 
 export const invitesRouter = Router();
 
@@ -26,13 +26,10 @@ invitesRouter.post("/invites", authenticateUser, [
   res.json({ id });
 });
 
-invitesRouter.get("/parents/:parentId/invites/active", authenticateUser, [
+invitesRouter.get("/parents/:parentId/invites/active", authenticateUser, assertParentScope, [
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  const userParentId = getParentId(req);
-  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
-
   const invite = inviteService.getActiveInvite(req.params.parentId as string);
   res.json(invite || null);
 });
@@ -46,13 +43,10 @@ invitesRouter.get("/invites/:code/validate", [
 });
 
 // Add: get active co-parent invite for a parent
-invitesRouter.get("/parents/:parentId/invites/coparent/active", authenticateUser, [
+invitesRouter.get("/parents/:parentId/invites/coparent/active", authenticateUser, assertParentScope, [
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  const userParentId = getParentId(req);
-  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
-
   const invite = db.prepare("SELECT * FROM invites WHERE parentId = ? AND type = 'coparent' AND status = 'active'")
     .get(req.params.parentId);
   res.json(invite || null);

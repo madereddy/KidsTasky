@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { rewardService } from './service.js';
-import { authenticateUser, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
 import { db } from '../../db.js';
 
 export const rewardsRouter = Router();
@@ -12,12 +12,10 @@ const validate = (req: Request, res: Response, next: any) => {
   next();
 };
 
-rewardsRouter.get("/parents/:parentId/rewards", authenticateUser, [
+rewardsRouter.get("/parents/:parentId/rewards", authenticateUser, assertParentScope, [
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  const userParentId = getParentId(req);
-  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
   const rewards = rewardService.getRewards(req.params.parentId as string);
   res.json(rewards);
 });
@@ -87,12 +85,10 @@ rewardsRouter.post("/claimedRewards", authenticateUser, enforceEditUnlocked, [
   }
 });
 
-rewardsRouter.get("/parents/:parentId/allowances", authenticateUser, [
+rewardsRouter.get("/parents/:parentId/allowances", authenticateUser, assertParentScope, [
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  const userParentId = getParentId(req);
-  if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
   const entries = rewardService.getPendingAllowances(req.params.parentId as string);
   res.json(entries);
 });
