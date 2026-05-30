@@ -212,6 +212,8 @@ export interface SyncConnection {
   provider: string;
   accessToken: string;
   refreshToken: string;
+  email?: string | null;
+  appPassword?: string | null;
   createdAt?: number;
   lastSyncAt?: number | null;
   lastSyncStatus?: 'ok' | 'partial' | 'error' | null;

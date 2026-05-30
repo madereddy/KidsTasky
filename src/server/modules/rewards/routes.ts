@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { rewardService } from './service.js';
-import { authenticateUser, enforceEditUnlocked, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
 import { db } from '../../db.js';
 
 export const rewardsRouter = Router();
@@ -22,7 +22,7 @@ rewardsRouter.get("/parents/:parentId/rewards", authenticateUser, [
   res.json(rewards);
 });
 
-rewardsRouter.post("/rewards", authenticateUser, enforceEditUnlocked, [
+rewardsRouter.post("/rewards", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
   body('title').isString().notEmpty(),
   body('description').isString().optional(),
   body('xpCost').isInt({min: 0}),
@@ -34,7 +34,7 @@ rewardsRouter.post("/rewards", authenticateUser, enforceEditUnlocked, [
   res.json({ id });
 });
 
-rewardsRouter.delete("/rewards/:id", authenticateUser, enforceEditUnlocked, [
+rewardsRouter.delete("/rewards/:id", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
   param('id').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
@@ -70,6 +70,10 @@ rewardsRouter.post("/claimedRewards", authenticateUser, enforceEditUnlocked, [
 ], (req: Request, res: Response) => {
   const { kidId, rewardId, xpCost } = req.body;
   const userParentId = getParentId(req);
+  const callerReward = (req as any).user as { uid: string; role: string };
+  if (callerReward.role === 'kid' && kidId !== callerReward.uid) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
   // Verify kid belongs to this family
   const reward = rewardService.getRewardById(rewardId);
   if (reward && reward.parentId !== userParentId) {
@@ -93,7 +97,7 @@ rewardsRouter.get("/parents/:parentId/allowances", authenticateUser, [
   res.json(entries);
 });
 
-rewardsRouter.put("/allowances/:id/pay", authenticateUser, enforceEditUnlocked, [
+rewardsRouter.put("/allowances/:id/pay", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
   param('id').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {

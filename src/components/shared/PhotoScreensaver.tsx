@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FamilyPhoto } from '../../types';
 import { photosClientService } from '../../services/photos';
+import { AuthImage } from './AuthImage';
 
 interface ScreensaverProps {
   photos?: { id: string; url: string; caption?: string }[];
@@ -97,7 +98,7 @@ export function PhotoScreensaver({ photos = [], parentId, idleMinutes = 5, force
       className="fixed inset-0 z-[110] bg-ui-deep flex items-center justify-center"
       onClick={handleDismiss}
     >
-      <img src={current.url} alt={current.caption || 'Screensaver'} className="w-full h-full object-cover transition-opacity duration-1000" />
+      <AuthImage src={current.url} alt={current.caption || 'Screensaver'} className="w-full h-full object-cover transition-opacity duration-1000" />
       {forceIdle && onDismiss && (
         <div className="absolute top-4 right-4 text-xs text-white/90 bg-black/50 rounded-md px-2 py-1">
           Preview mode: click or press Esc to exit

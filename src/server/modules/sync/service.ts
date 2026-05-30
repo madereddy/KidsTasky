@@ -2,6 +2,8 @@
 import { db } from '../../db.js';
 import { google } from 'googleapis';
 import { CalendarEvent, SyncConnection } from '../../../types.js';
+import { encryptField, decryptField } from '../../lib/crypto.js';
+import { getSecretKey } from '../../config.js';
 
 export type SyncCalendarError = {
   calendarId: string;
@@ -17,6 +19,16 @@ export type SyncNowResult = {
   imported: number;
   updated: number;
 };
+
+function decryptConnection(conn: SyncConnection): SyncConnection {
+  const key = getSecretKey();
+  return {
+    ...conn,
+    accessToken: conn.accessToken ? decryptField(conn.accessToken, key) : conn.accessToken,
+    refreshToken: conn.refreshToken ? decryptField(conn.refreshToken, key) : conn.refreshToken,
+    appPassword: conn.appPassword ? decryptField(conn.appPassword, key) : conn.appPassword,
+  };
+}
 
 function getCalendarClient(connection: SyncConnection) {
   const oauth2 = new google.auth.OAuth2(
@@ -83,7 +95,7 @@ async function withTokenRefresh<T>(
       oauth2.setCredentials({ refresh_token: connection.refreshToken });
       const { credentials } = await oauth2.refreshAccessToken();
       const newAccessToken = credentials.access_token!;
-      db.prepare('UPDATE sync_connections SET accessToken = ? WHERE id = ?').run(newAccessToken, connection.id);
+      db.prepare('UPDATE sync_connections SET accessToken = ? WHERE id = ?').run(encryptField(newAccessToken, getSecretKey()), connection.id);
       const refreshed: SyncConnection = { ...connection, accessToken: newAccessToken };
       return await fn(refreshed);
     }
@@ -119,14 +131,19 @@ export const syncService = {
     ).get(parentId) as { id: string; refreshToken?: string | null } | undefined;
 
     const now = Date.now();
-    const nextRefreshToken = refreshToken || existing?.refreshToken || null;
+    const key = getSecretKey();
+    const encryptedAccessToken = encryptField(accessToken, key);
+    // Encrypt new refreshToken if provided; preserve existing (already-encrypted) value otherwise
+    const nextRefreshToken = refreshToken
+      ? encryptField(refreshToken, key)
+      : (existing?.refreshToken ?? null);
 
     if (existing?.id) {
       db.prepare(`
         UPDATE sync_connections
         SET accessToken = ?, refreshToken = ?, createdAt = ?
         WHERE id = ?
-      `).run(accessToken, nextRefreshToken, now, existing.id);
+      `).run(encryptedAccessToken, nextRefreshToken, now, existing.id);
 
       // Keep only one active Google connection per parent to prevent duplicate calendar ingestion.
       db.prepare(
@@ -139,7 +156,7 @@ export const syncService = {
     db.prepare(`
       INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken, createdAt)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(connId, parentId, 'google', accessToken, nextRefreshToken, now);
+    `).run(connId, parentId, 'google', encryptedAccessToken, nextRefreshToken, now);
   },
 
   saveManualConnection: (parentId: string, email: string, appPassword: string) => {
@@ -147,13 +164,14 @@ export const syncService = {
     db.prepare(`
       INSERT INTO sync_connections (id, parentId, provider, email, appPassword)
       VALUES (?, ?, 'google_manual', ?, ?)
-    `).run(connId, parentId, email, appPassword);
+    `).run(connId, parentId, email, encryptField(appPassword, getSecretKey()));
   },
 
   getActiveGoogleConnection: (parentId: string): SyncConnection | null => {
-    return db.prepare(
+    const row = db.prepare(
       "SELECT * FROM sync_connections WHERE parentId = ? AND provider = 'google' ORDER BY COALESCE(createdAt, 0) DESC, rowid DESC LIMIT 1"
     ).get(parentId) as SyncConnection | null;
+    return row ? decryptConnection(row) : null;
   },
 
   pushEventToGoogle: async (parentId: string, event: CalendarEvent): Promise<string | null> => {
@@ -191,10 +209,18 @@ export const syncService = {
     return db.prepare('SELECT sc.*, sconn.provider FROM sync_calendars sc JOIN sync_connections sconn ON sc.connectionId = sconn.id WHERE sc.parentId = ?').all(parentId);
   },
 
+  getManualConnections: (): Array<{ id: string; parentId: string; email: string; appPassword: string }> => {
+    const rows = db.prepare(
+      "SELECT * FROM sync_connections WHERE provider = 'google_manual' AND appPassword IS NOT NULL AND email IS NOT NULL"
+    ).all() as any[];
+    return rows.map(row => ({ ...row, appPassword: decryptField(row.appPassword, getSecretKey()) }));
+  },
+
   getGoogleConnectionsByParent: (parentId: string): SyncConnection[] => {
-    return db.prepare(
+    const rows = db.prepare(
       "SELECT * FROM sync_connections WHERE parentId = ? AND provider = 'google'"
     ).all(parentId) as SyncConnection[];
+    return rows.map(decryptConnection);
   },
 
   getSyncCalendarById: (id: string) => {

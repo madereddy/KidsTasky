@@ -15,6 +15,36 @@ import { logSecurityEvent } from '../../lib/securityLog.js';
 import { randomUUID } from 'crypto';
 
 export const photosRouter = Router();
+
+// Auth-protected file endpoint — replaces unauthenticated static /uploads serving
+photosRouter.get('/photos/file/:filename', requireAuth, (req, res) => {
+  const filename = req.params.filename as string;
+  const caller = (req as any).user as { uid: string; role: string; parentId: string };
+  const userParentId = caller.role === 'parent' ? caller.uid : caller.parentId;
+
+  // Find photo by filename to verify family ownership
+  const apiUrl = `/api/photos/file/${filename}`;
+  const legacyUrl = `/uploads/photos/${filename}`;
+  const photo = db.prepare(
+    'SELECT parentId FROM family_photos WHERE url = ? OR url = ?'
+  ).get(apiUrl, legacyUrl) as { parentId: string } | undefined;
+
+  if (!photo || photo.parentId !== userParentId) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const photosDir = getPhotosUploadsDir();
+  const safeName = path.basename(filename);
+  const filePath = path.join(photosDir, safeName);
+
+  if (!filePath.startsWith(photosDir + path.sep) && filePath !== photosDir) {
+    return res.status(400).json({ error: 'Invalid filename' });
+  }
+
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Not found' });
+  res.sendFile(filePath);
+});
+
 const googleAlbumsCache = new TTLCache<any[]>(5 * 60 * 1000, 500);
 const googleMediaCache = new TTLCache<any[]>(2 * 60 * 1000, 2000);
 const googleAccessTokenCache = new TTLCache<string>(45 * 60 * 1000, 500);
@@ -242,7 +272,7 @@ photosRouter.post('/photos/upload', requireAuth, upload.single("photo"), async (
     return res.status(500).json({ error: 'Failed to validate uploaded image.' });
   }
 
-  const url = `/uploads/photos/${finalFilename}`;
+  const url = `/api/photos/file/${finalFilename}`;
   const result = photosService.addPhoto(parentId, url);
   logSecurityEvent('photos.upload.accepted', { parentId, filename: finalFilename }, 'info');
   googleMediaCache.clearPrefix(`${parentId}:`);
@@ -265,10 +295,19 @@ photosRouter.delete("/photos/:id", requireAuth, (req, res) => {
   const parentId = (req as any).user?.role === "parent" ? (req as any).user.uid : (req as any).user?.parentId;
   const url = photosService.deletePhoto(String(req.params.id));
   if (url) {
-    const uploadsBase = path.resolve("uploads");
-    const filePath = path.resolve(url.replace(/^\//, ""));
-    if (filePath.startsWith(uploadsBase + path.sep) || filePath.startsWith(uploadsBase + "/")) {
-      fs.unlink(filePath, () => {});
+    // Handle both URL formats: /api/photos/file/{name} and legacy /uploads/photos/{name}
+    const photosDir = getPhotosUploadsDir();
+    let filename: string | null = null;
+    if (url.startsWith('/api/photos/file/')) {
+      filename = path.basename(url.replace('/api/photos/file/', ''));
+    } else if (url.startsWith('/uploads/photos/')) {
+      filename = path.basename(url.replace('/uploads/photos/', ''));
+    }
+    if (filename) {
+      const filePath = path.join(photosDir, filename);
+      if (filePath.startsWith(photosDir + path.sep) || filePath.startsWith(photosDir + '/')) {
+        fs.unlink(filePath, () => {});
+      }
     }
   }
   if (parentId) googleMediaCache.clearPrefix(`${parentId}:`);

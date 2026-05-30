@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import { taskServiceServer } from './service.js';
 import { db } from '../../db.js';
-import { authenticateUser, enforceEditUnlocked, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
 
 export const tasksRouter = Router();
 
@@ -12,7 +12,7 @@ const validate = (req: Request, res: Response, next: any) => {
   next();
 };
 
-tasksRouter.post("/tasks", authenticateUser, enforceEditUnlocked, [
+tasksRouter.post("/tasks", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
   body('title').isString().notEmpty(),
   body('assignedKidId').isString().notEmpty(),
   body('frequency').isString().notEmpty(),
@@ -141,6 +141,10 @@ tasksRouter.post("/completions", authenticateUser, enforceEditUnlocked, [
     if (!task) return res.status(404).json({ error: 'Task not found' });
     const userParentId = getParentId(req);
     if (task.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
+    const caller = (req as any).user as { uid: string; role: string };
+    if (caller.role === 'kid' && req.body.kidId !== caller.uid) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     const result = taskServiceServer.createCompletion({
       ...req.body,
       proofAnswers: Array.isArray(req.body?.proofAnswers) ? req.body.proofAnswers : undefined,
@@ -152,7 +156,7 @@ tasksRouter.post("/completions", authenticateUser, enforceEditUnlocked, [
   }
 });
 
-tasksRouter.delete("/completions/:completionId", authenticateUser, enforceEditUnlocked, [
+tasksRouter.delete("/completions/:completionId", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
   param('completionId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
@@ -277,7 +281,7 @@ tasksRouter.get("/parents/:parentId/pending-completions", authenticateUser, [
   }
 });
 
-tasksRouter.patch("/completions/:completionId/approve", authenticateUser, enforceEditUnlocked, [
+tasksRouter.patch("/completions/:completionId/approve", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
   param('completionId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
@@ -294,7 +298,7 @@ tasksRouter.patch("/completions/:completionId/approve", authenticateUser, enforc
   }
 });
 
-tasksRouter.patch("/completions/:completionId/reject", authenticateUser, enforceEditUnlocked, [
+tasksRouter.patch("/completions/:completionId/reject", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
   param('completionId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {

@@ -299,7 +299,7 @@ export function startBackgroundWorker() {
 
     if (GEMINI_API_KEY) {
       try {
-        const manualConns = db.prepare("SELECT * FROM sync_connections WHERE provider = 'google_manual' AND appPassword IS NOT NULL AND email IS NOT NULL").all() as any[];
+        const manualConns = syncService.getManualConnections();
         for (const conn of manualConns) {
           let connection;
           try {

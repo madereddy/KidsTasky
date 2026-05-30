@@ -3,7 +3,7 @@ import { userService } from './services/users';
 import { categoryService } from './services/categories';
 import { settingsClientService } from './services/settings';
 import { subscribeToPush, unsubscribeFromPush } from './services/push';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { LogOut, Rocket, User as UserIcon, Activity, CalendarDays, List, UtensilsCrossed, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, Category } from './types';
@@ -15,13 +15,14 @@ import { ParentalLockOverlay } from './components/shared/ParentalLockOverlay';
 import { PhotoScreensaver } from './components/shared/PhotoScreensaver';
 import { LoginView } from './components/auth/LoginView';
 import { OnboardingView } from './components/onboarding/OnboardingView';
-import { ParentDashboard } from './components/parent/ParentDashboard';
-import { ParentTasksWorkspace } from './components/parent/ParentTasksWorkspace';
-import { KidDashboard } from './components/kid/KidDashboard';
-import { CalendarView } from './components/calendar/CalendarView';
-import { ListsView } from './components/lists/ListsView';
-import { MealPlanView } from './components/parent/MealPlanView';
-import { SettingsView } from './components/parent/SettingsView';
+const ParentDashboard = lazy(() => import('./components/parent/ParentDashboard').then(m => ({ default: m.ParentDashboard })));
+const WallHome = lazy(() => import('./components/parent/WallHome').then(m => ({ default: m.WallHome })));
+const ParentTasksWorkspace = lazy(() => import('./components/parent/ParentTasksWorkspace').then(m => ({ default: m.ParentTasksWorkspace })));
+const KidDashboard = lazy(() => import('./components/kid/KidDashboard').then(m => ({ default: m.KidDashboard })));
+const CalendarView = lazy(() => import('./components/calendar/CalendarView').then(m => ({ default: m.CalendarView })));
+const ListsView = lazy(() => import('./components/lists/ListsView').then(m => ({ default: m.ListsView })));
+const MealPlanView = lazy(() => import('./components/parent/MealPlanView').then(m => ({ default: m.MealPlanView })));
+const SettingsView = lazy(() => import('./components/parent/SettingsView').then(m => ({ default: m.SettingsView })));
 
 interface AppUser {
   uid: string;
@@ -30,11 +31,11 @@ interface AppUser {
   displayName?: string;
 }
 
-const prefetchParentTasks = () => {};
-const prefetchCalendar = () => {};
-const prefetchLists = () => {};
-const prefetchMeals = () => {};
-const prefetchSettings = () => {};
+const prefetchParentTasks = () => { import('./components/parent/ParentTasksWorkspace'); };
+const prefetchCalendar = () => { import('./components/calendar/CalendarView'); };
+const prefetchLists = () => { import('./components/lists/ListsView'); };
+const prefetchMeals = () => { import('./components/parent/MealPlanView'); };
+const prefetchSettings = () => { import('./components/parent/SettingsView'); };
 
 export default function App() {
   const [user, setUser] = useState<AppUser | null>(null);
@@ -43,7 +44,7 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<'home' | 'tasks' | 'calendar' | 'lists' | 'meals'>('calendar');
+  const [activeSection, setActiveSection] = useState<'home' | 'tasks' | 'calendar' | 'lists' | 'meals' | 'manage'>('home');
   const [kids, setKids] = useState<UserProfile[]>([]);
   const [isLocked, setIsLocked] = useState(false);
   const [showUnlockPrompt, setShowUnlockPrompt] = useState(false);
@@ -419,6 +420,7 @@ export default function App() {
             Display is locked in read-only mode. Calendar and profiles stay visible, but parent edits are disabled until unlock.
           </div>
         )}
+        <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" /></div>}>
         <AnimatePresence mode="wait">
           {profile.role === 'parent' && activeSection === 'home' && (
             <motion.div
@@ -428,6 +430,32 @@ export default function App() {
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.3 }}
             >
+              <WallHome
+                parentId={profile.uid}
+                profile={profile}
+                kids={kids}
+                memberColorMap={memberColorMap}
+                isLocked={isLocked}
+                onManage={() => setActiveSection('manage')}
+              />
+            </motion.div>
+          )}
+          {profile.role === 'parent' && activeSection === 'manage' && (
+            <motion.div
+              key="parent-manage"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="mb-4">
+                <button
+                  onClick={() => setActiveSection('home')}
+                  className="text-sm text-ui-muted hover:text-ui-primary transition-colors"
+                >
+                  ← Back to Home
+                </button>
+              </div>
               <ParentDashboard
                 profile={profile}
               />
@@ -505,6 +533,7 @@ export default function App() {
             </motion.div>
           )}
           </AnimatePresence>
+        </Suspense>
       </main>
       {profile.role === "parent" && showUnlockPrompt && (
         <ParentalLockOverlay
@@ -528,14 +557,12 @@ export default function App() {
           onPreviewScreensaver={() => setScreensaverPreview(true)}
         />
       )}
-      {profile.role === "parent" && (
-        <PhotoScreensaver
-          parentId={profile.uid}
-          idleMinutes={5}
-          forceIdle={screensaverPreview}
-          onDismiss={screensaverPreview ? () => setScreensaverPreview(false) : undefined}
-        />
-      )}
+      <PhotoScreensaver
+        parentId={profile.parentId || profile.uid}
+        idleMinutes={5}
+        forceIdle={screensaverPreview}
+        onDismiss={screensaverPreview ? () => setScreensaverPreview(false) : undefined}
+      />
 
       <footer className="mt-20 pt-10 border-t border-ui mx-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 pb-6">

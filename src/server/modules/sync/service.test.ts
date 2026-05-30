@@ -28,9 +28,10 @@ describe('Sync Service', () => {
     expect(list.length).toBe(1);
     expect(list[0].id).toBe(first.id);
 
-    const full = db.prepare('SELECT accessToken, refreshToken FROM sync_connections WHERE id = ?').get(first.id) as any;
-    expect(full.accessToken).toBe('access_second');
-    expect(full.refreshToken).toBe('refresh_first');
+    // Use service layer to get decrypted tokens (raw DB values are now encrypted)
+    const full = syncService.getActiveGoogleConnection('test_parent');
+    expect(full?.accessToken).toBe('access_second');
+    expect(full?.refreshToken).toBe('refresh_first');
   });
 
   it('reconnecting removes stale google connections and their sync calendars', () => {

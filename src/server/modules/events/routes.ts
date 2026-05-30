@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { eventsService } from './service.js';
 import { syncService } from '../sync/service.js';
-import { authenticateUser, enforceEditUnlocked, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
 import { db } from '../../db.js';
 
 export const eventsRouter = Router();
 
-eventsRouter.post('/events', authenticateUser, enforceEditUnlocked, async (req, res) => {
+eventsRouter.post('/events', authenticateUser, requireRole('parent'), enforceEditUnlocked, async (req, res) => {
   try {
     const parentId = getParentId(req);
     const allowed: Record<string, any> = {};
@@ -54,7 +54,7 @@ eventsRouter.get('/parents/:parentId/events', authenticateUser, (req, res) => {
   }
 });
 
-eventsRouter.put('/events/:id', authenticateUser, enforceEditUnlocked, async (req, res) => {
+eventsRouter.put('/events/:id', authenticateUser, requireRole('parent'), enforceEditUnlocked, async (req, res) => {
   try {
     const event = eventsService.getEventById(req.params.id as string);
     if (!event) return res.status(404).json({ error: 'Event not found' });
@@ -94,7 +94,7 @@ eventsRouter.put('/events/:id', authenticateUser, enforceEditUnlocked, async (re
   }
 });
 
-eventsRouter.delete('/events/:id', authenticateUser, enforceEditUnlocked, async (req, res) => {
+eventsRouter.delete('/events/:id', authenticateUser, requireRole('parent'), enforceEditUnlocked, async (req, res) => {
   try {
     const event = eventsService.getEventById(req.params.id as string);
     if (!event) return res.status(404).json({ error: 'Event not found' });

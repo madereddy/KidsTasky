@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FamilyPhoto } from '../../types';
 import { photosClientService } from '../../services/photos';
+import { AuthImage } from '../shared/AuthImage';
 
 interface Props {
   parentId: string;
@@ -58,7 +59,7 @@ export function PhotoManager({ parentId, refreshToken = 0 }: Props) {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {photos.map((photo) => (
           <div key={photo.id} className="border border-ui rounded-xl overflow-hidden bg-white shadow-sm">
-            <img src={photo.url} alt={photo.caption || 'Family photo'} className="w-full h-28 object-cover" />
+            <AuthImage src={photo.url} alt={photo.caption || 'Family photo'} className="w-full h-28 object-cover" />
             <div className="p-2 space-y-2">
               {editingId === photo.id ? (
                 <input

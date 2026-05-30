@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { userService } from '../../services/users';
+import { AuthImage } from './AuthImage';
 
 const PRESET_AVATARS = [
   ':)', ':D', ':P', ';)', 'B)', ':3',
@@ -32,7 +33,7 @@ export function AvatarDisplay({ avatarPreset, avatarUrl, name, size = 40 }: Avat
 
   if (avatarUrl) {
     return (
-      <img
+      <AuthImage
         src={avatarUrl}
         alt={name}
         style={{ ...style, objectFit: 'cover' }}

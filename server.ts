@@ -10,7 +10,6 @@ import { startBackgroundWorker } from "./src/server/worker.js";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { socketWrapper } from "./src/server/socket.js";
-import { getPhotosUploadsDir } from "./src/server/modules/photos/storage.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -167,8 +166,7 @@ app.use(limiter);
 const jsonBodyLimit = process.env.JSON_BODY_LIMIT || '1mb';
 app.use(express.json({ limit: jsonBodyLimit }));
 app.use(express.urlencoded({ extended: false, limit: jsonBodyLimit }));
-const uploadsRootDir = path.dirname(getPhotosUploadsDir());
-app.use('/uploads', express.static(uploadsRootDir));
+// /uploads static mount removed — photos served via authenticated /api/photos/file/:filename endpoint
 
 const slowRequestThresholdMs = Number(process.env.SLOW_REQUEST_MS || 400);
 const perfStore: PerfStore = {};
