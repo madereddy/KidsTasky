@@ -60,6 +60,15 @@ export const authService = {
     }
   },
 
+  async refresh(): Promise<string | null> {
+    try {
+      const res = await fetchAPI('/auth/refresh', { method: 'POST' });
+      return res.token || null;
+    } catch {
+      return null;
+    }
+  },
+
   async getMe(token: string): Promise<UserProfile | null> {
     try {
       const res = await fetchAPI('/auth/me', {

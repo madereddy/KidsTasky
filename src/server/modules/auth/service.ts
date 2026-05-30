@@ -16,7 +16,7 @@ export const authService = {
     const match = await bcrypt.compare(passwordString, user.passwordHash);
     if (!match) return null;
     
-    const token = jwt.sign({ uid: user.uid, role: user.role, parentId: user.parentId }, getJwtSecret(), { expiresIn: '30d' });
+    const token = jwt.sign({ uid: user.uid, role: user.role, parentId: user.parentId }, getJwtSecret(), { expiresIn: '24h' });
     return { user, token };
   },
   register: async (email: string, passwordString: string, name: string) => {
@@ -29,7 +29,7 @@ export const authService = {
     db.prepare("INSERT INTO users (uid, role, name, email, parentId, passwordHash) VALUES (?, ?, ?, ?, ?, ?)")
       .run(uid, 'parent', name, email, uid, hash);
       
-    const token = jwt.sign({ uid, role: 'parent', parentId: uid }, getJwtSecret(), { expiresIn: '30d' });
+    const token = jwt.sign({ uid, role: 'parent', parentId: uid }, getJwtSecret(), { expiresIn: '24h' });
     const user = authService.getMe(uid);
     return { user, token };
   },
@@ -40,12 +40,16 @@ export const authService = {
     const match = await bcrypt.compare(pin, user.passwordHash);
     if (!match) return null;
 
-    const token = jwt.sign({ uid: user.uid, role: user.role, parentId: user.parentId }, getJwtSecret(), { expiresIn: '30d' });
+    const token = jwt.sign({ uid: user.uid, role: user.role, parentId: user.parentId }, getJwtSecret(), { expiresIn: '24h' });
     return { user, token };
   },
   setPin: async (uid: string, pin: string) => {
     const hash = await bcrypt.hash(pin, 10);
     db.prepare("UPDATE users SET passwordHash = ? WHERE uid = ?").run(hash, uid);
+  },
+  refresh: (uid: string, role: string, parentId: string) => {
+    const token = jwt.sign({ uid, role, parentId }, getJwtSecret(), { expiresIn: '24h' });
+    return { token };
   },
   getKidsByParentEmail: (email: string) => {
     const parent = db.prepare("SELECT uid FROM users WHERE email = ? AND role = 'parent'").get(email) as any;

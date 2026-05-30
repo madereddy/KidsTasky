@@ -126,6 +126,32 @@ export default function App() {
     }
   }, [refreshCategories, refreshKids]));
 
+  // Proactive token refresh — re-issue token 30 min before expiry so kiosk never goes stale
+  useEffect(() => {
+    if (!user) return;
+    function scheduleRefresh() {
+      const token = localStorage.getItem('kidtasker_token');
+      if (!token) return;
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const expiresMs = payload.exp * 1000;
+        const msUntilRefresh = expiresMs - Date.now() - 30 * 60 * 1000; // 30 min buffer
+        const delay = Math.max(msUntilRefresh, 0);
+        return setTimeout(async () => {
+          const newToken = await authService.refresh();
+          if (newToken) {
+            localStorage.setItem('kidtasker_token', newToken);
+            scheduleRefresh(); // schedule next refresh
+          }
+        }, delay);
+      } catch {
+        return undefined;
+      }
+    }
+    const timer = scheduleRefresh();
+    return () => { if (timer) clearTimeout(timer); };
+  }, [user]);
+
   const handleProfileUpdate = async () => {
     if (user) {
       const p = await userService.getUserProfile(user.uid);

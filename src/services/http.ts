@@ -16,6 +16,9 @@ export async function fetchAPI(endpoint: string, options?: RequestInit, retries 
     headers.set('Authorization', `Bearer ${token}`);
   }
 
+  let didRefresh = false;
+  const isAuthEndpoint = endpoint.includes('/auth/');
+
   for (let attempt = 0; attempt <= retries; attempt++) {
     let timeout: ReturnType<typeof setTimeout> | null = null;
     try {
@@ -45,6 +48,28 @@ export async function fetchAPI(endpoint: string, options?: RequestInit, retries 
             : 500 * Math.pow(2, attempt);
           await new Promise((r) => setTimeout(r, delay));
           continue;
+        }
+        if (res.status === 401 && !didRefresh && !isAuthEndpoint) {
+          didRefresh = true;
+          const currentToken = localStorage.getItem('kidtasker_token');
+          if (currentToken) {
+            try {
+              const r = await fetch(API_BASE + '/auth/refresh', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json' },
+              });
+              if (r.ok) {
+                const data = await r.json();
+                if (data.token) {
+                  localStorage.setItem('kidtasker_token', data.token);
+                  headers.set('Authorization', `Bearer ${data.token}`);
+                  attempt = -1; // increments to 0 on next loop tick
+                  continue;
+                }
+              }
+            } catch {}
+          }
+          throw new HttpError(401, 'Session expired');
         }
         if (res.status >= 400 && res.status < 500) {
           let msg = 'API Error: ' + res.status;

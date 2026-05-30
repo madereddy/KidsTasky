@@ -154,6 +154,13 @@ authRouter.post('/auth/set-pin', authenticateUser, [
   }
 });
 
+authRouter.post('/auth/refresh', authenticateUser, authLimiter, (req: Request, res: Response) => {
+  const user = (req as any).user as { uid: string; role: string; parentId: string };
+  const result = authService.refresh(user.uid, user.role, user.parentId);
+  logSecurityEvent('auth.token_refresh', { uid: user.uid }, 'info');
+  res.json(result);
+});
+
 authRouter.get('/auth/me', authenticateUser, (req: Request, res: Response) => {
   const uid = (req as any).user.uid;
   const user = authService.getMe(uid);
