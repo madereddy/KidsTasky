@@ -16,76 +16,86 @@
 
 ### Task 1: Entity-Scoped Socket Invalidation (Refetch Storm Fix)
 
-**Problem:** Every mutation broadcasts `staleData` → all clients refetch ALL datasets regardless of which entity changed. Google sync (every 5min) triggers fleet-wide full refetch. On a wall display with 5+ clients, this multiplies requests.
+**Problem:** `socket.ts` and `emitStaleData` already emit `{ entity, timestamp }` — this is done. The gap: child components that call `useSocketStaleData` receive `data.entity` but many don't filter before triggering a full refetch. Google sync emitting `'events'` causes ALL listeners — including task lists and meal plans — to refetch unnecessarily.
+
+**Current state:**
+- `src/server/socket.ts:49` — `emitStaleData(parentId, entityType)` ✓ already emits `{ entity: entityType }`
+- `src/hooks/useSocket.ts:27` — `useSocketStaleData(callback)` passes raw `data` to callback ✓
+- `src/App.tsx:118-127` — only handles `categories`, `users`, `kids`. All other entities → no refetch at App level ✓
+- **Gap:** child components (CalendarView, WallHome, KidDashboard, etc.) call `useSocketStaleData` and refetch everything on any entity signal
 
 **Files:**
-- Modify: `src/server/socket.ts` — add `entity` field to staleData payload
-- Modify: `src/hooks/useSocket.ts` — filter refetch by entity type
-- Modify: `src/App.tsx` — update staleData handler to only refresh relevant data
-- Modify: All `src/server/modules/*/routes.ts` that call `emitStaleData` — pass entity name
+- Modify: `src/hooks/useSocket.ts` — add `entities` filter param to `useSocketStaleData`
+- Modify: All child components that call `useSocketStaleData` — pass their entity filter list
 
-- [ ] **Step 1: Write failing test — socket emits entity**
+- [ ] **Step 1: Audit all useSocketStaleData call sites**
+```bash
+grep -rn "useSocketStaleData" src/
+```
+Note every component and what entity they care about.
+
+- [ ] **Step 2: Write failing test — hook filters by entity**
 
 ```typescript
-// src/server/socket.test.ts
+// src/hooks/useSocket.test.ts
 import { describe, it, expect, vi } from 'vitest';
-import { createSocketWrapper } from './socket.js';
 
-describe('socket staleData entity scoping', () => {
-  it('emitStaleData includes entity in payload', () => {
-    const emitSpy = vi.fn();
-    const mockIo = { to: () => ({ emit: emitSpy }) } as any;
-    const wrapper = createSocketWrapper(mockIo);
-    wrapper.emitStaleData('parent_123', 'tasks');
-    expect(emitSpy).toHaveBeenCalledWith('stale-data', { entity: 'tasks' });
+describe('useSocketStaleData entity filter', () => {
+  it('calls callback when entity matches filter', () => {
+    // simulate stale-data event with entity='tasks'
+    // hook registered with entities=['tasks']
+    // callback should fire
+  });
+
+  it('does not call callback when entity does not match filter', () => {
+    // simulate entity='events', hook filters ['tasks']
+    // callback should NOT fire
   });
 });
 ```
 
-- [ ] **Step 2: Run test — expect FAIL** `npx vitest run src/server/socket.test.ts`
+Note: these require test harness setup for the module-level socket singleton. Use `vi.mock('./useSocket.ts', ...)` or refactor to accept socket as parameter for testability.
 
-- [ ] **Step 3: Update `src/server/socket.ts` — add entity to emitStaleData signature**
-
-```typescript
-// Change emitStaleData signature from:
-emitStaleData(parentId: string, entity?: string): void
-
-// Emit payload:
-io.to(parentId).emit('stale-data', { entity: entity ?? 'all' });
-```
-
-- [ ] **Step 4: Update `src/hooks/useSocket.ts` — filter by entity**
+- [ ] **Step 3: Update `useSocketStaleData` signature**
 
 ```typescript
-// Add entity filter parameter to useSocketStaleData
-export function useSocketStaleData(
-  parentId: string | null,
-  entities: string[],  // only refetch for these entities (or 'all')
-  onStale: () => void
-) {
+// src/hooks/useSocket.ts
+export const useSocketStaleData = (
+  entities: string[],  // e.g. ['tasks', 'completions'] or ['all']
+  onStaleData: (data: StaleDataEvent) => void
+) => {
+  const callbackRef = useRef(onStaleData);
+  callbackRef.current = onStaleData;
+
   useEffect(() => {
-    if (!socket || !parentId) return;
-    const handler = (data: { entity?: string }) => {
-      if (!data.entity || data.entity === 'all' || entities.includes(data.entity)) {
-        onStale();
+    const wrappedRef = {
+      current: (data: StaleDataEvent) => {
+        const entity = data.entity ?? 'all';
+        if (entities.includes('all') || entity === 'all' || entities.includes(entity)) {
+          callbackRef.current(data);
+        }
       }
     };
-    socket.on('stale-data', handler);
-    return () => { socket.off('stale-data', handler); };
-  }, [parentId, entities, onStale]);
-}
+    listeners.push(wrappedRef);
+    return () => { listeners = listeners.filter(r => r !== wrappedRef); };
+  }, [entities.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+};
 ```
 
-- [ ] **Step 5: Update App.tsx staleData handlers** — pass specific entities to each `useSocketStaleData` call (e.g., tasks hook only fires on `['tasks', 'all']`)
+- [ ] **Step 4: Update App.tsx call** — `useSocketStaleData(['categories', 'users', 'kids'], callback)`
 
-- [ ] **Step 6: Update all emitStaleData call sites** — add entity string to every call in routes.ts files. Search: `grep -r "emitStaleData" src/server/modules`
+- [ ] **Step 5: Update each child component call site** — pass appropriate entity list. Map from audit in Step 1:
+  - CalendarView → `['events', 'all']`
+  - KidDashboard → `['tasks', 'completions', 'rewards', 'all']`
+  - WallHome → `['tasks', 'events', 'weather', 'all']`
+  - etc.
 
-- [ ] **Step 7: Run tests** `npx vitest run src/server/socket.test.ts src/server/modules/tasks/api.test.ts`
+- [ ] **Step 6: Run tests** `npx vitest run && npm run lint`
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 7: Commit**
 ```bash
-git add src/server/socket.ts src/hooks/useSocket.ts src/App.tsx src/server/modules/
-git commit -m "perf: entity-scoped socket invalidation to prevent refetch storms"
+git add src/hooks/useSocket.ts src/App.tsx src/components/
+git commit -m "perf: entity-scoped socket invalidation prevents unnecessary refetches on wall display"
 ```
 
 ---
@@ -111,19 +121,30 @@ useEffect(() => {
 
 - [ ] **Step 2: Fix worker.ts interval cleanup**
 
+Note: worker uses a mix of `setInterval` (for reminders/overdue checks) AND `cron.schedule` (node-cron for Google sync). These need different cleanup approaches:
+
 ```typescript
-// src/server/worker.ts — store all handles
-const handles: (ReturnType<typeof setInterval> | ReturnType<typeof NodeJS.Timeout>)[] = [];
+// src/server/worker.ts — store handles by type
+import type { ScheduledTask } from 'node-cron';
+
+const intervalHandles: ReturnType<typeof setInterval>[] = [];
+const cronHandles: ScheduledTask[] = [];
 
 // Replace bare setInterval with stored handles:
-handles.push(setInterval(checkReminders, 60_000));
-handles.push(setInterval(checkOverdueTasks, 5 * 60_000));
-handles.push(setInterval(cleanupOldPhotos, 15 * 60_000));
+intervalHandles.push(setInterval(checkReminders, 60_000));
+intervalHandles.push(setInterval(checkOverdueTasks, 5 * 60_000));
+intervalHandles.push(setInterval(cleanupOldPhotos, 15 * 60_000));
+
+// Store cron handles (returned by cron.schedule):
+const syncTask = cron.schedule('*/5 * * * *', runGoogleSync);
+cronHandles.push(syncTask);
 
 // Add shutdown export:
 export function stopWorker() {
-  handles.forEach(h => clearInterval(h));
-  handles.length = 0;
+  intervalHandles.forEach(h => clearInterval(h));
+  cronHandles.forEach(h => h.stop());
+  intervalHandles.length = 0;
+  cronHandles.length = 0;
 }
 ```
 
@@ -154,44 +175,55 @@ git commit -m "fix: clean up setInterval handles to prevent memory leaks on 24/7
 - Create: `src/server/migrations/020_composite_indexes.sql`
 - Modify: `src/server/worker.ts:107-119` — batch kid query
 
-- [ ] **Step 1: Create migration**
+- [ ] **Step 1: Audit existing indexes before creating new ones**
+```bash
+grep -r "CREATE INDEX" src/server/migrations/ | grep -E "completions|tasks|events"
+```
+Note: `035_add_performance_indexes.sql` and `038_add_runtime_hotpath_indexes.sql` may already cover some paths. Only create missing ones.
+
+- [ ] **Step 2: Create migration — use next sequence number (current highest: 042)**
+```bash
+ls src/server/migrations/*.sql | sort | tail -3  # confirm highest number
+```
 
 ```sql
--- src/server/migrations/020_composite_indexes.sql
--- Composite indexes for hot query paths
-CREATE INDEX IF NOT EXISTS idx_completions_kid_date ON task_completions (kidId, dateString);
-CREATE INDEX IF NOT EXISTS idx_tasks_parent_status ON tasks (parentId, status);
-CREATE INDEX IF NOT EXISTS idx_tasks_kid_status ON tasks (assignedKidId, status);
+-- src/server/migrations/043_composite_indexes.sql
+-- completions table (actual table name: 'completions', NOT 'task_completions')
+CREATE INDEX IF NOT EXISTS idx_completions_kid_date ON completions (kidId, dateString);
+-- events reminder index (if not in 039_add_worker_reminder_indexes.sql)
 CREATE INDEX IF NOT EXISTS idx_events_start_reminder ON events (startTime, reminderMinutes);
 ```
 
-- [ ] **Step 2: Fix N+1 in worker.ts overdue check**
+- [ ] **Step 3: Fix real N+1 — in `sendEventReminders` (worker.ts:56-98)**
+
+The overdue check already batches queries. The real per-family N+1 is in `sendEventReminders` which calls `getFamilyMembersStmt` per event inside a loop with only partial caching.
 
 ```typescript
-// BEFORE (N+1):
-const tasks = db.prepare('SELECT * FROM tasks WHERE status = ?').all('active');
-for (const task of tasks) {
-  const kids = db.prepare('SELECT uid, name FROM users WHERE uid IN (?)').all(task.kidIds);
+// BEFORE: per-event family lookup inside loop
+for (const event of upcomingEvents) {
+  const members = getFamilyMembersStmt.all(event.parentId); // called N times
   // ...
 }
 
-// AFTER (batch):
-const tasks = db.prepare(`
-  SELECT t.*, u.name as kidName 
-  FROM tasks t
-  LEFT JOIN users u ON u.uid = t.assignedKidId
-  WHERE t.status = 'active' AND t.parentId IS NOT NULL
-`).all();
+// AFTER: batch family lookups outside loop
+const parentIds = [...new Set(upcomingEvents.map(e => e.parentId))];
+const familyMap = new Map(
+  parentIds.map(pid => [pid, db.prepare('SELECT uid, name FROM users WHERE parentId = ? AND role = ?').all(pid, 'kid')])
+);
+for (const event of upcomingEvents) {
+  const members = familyMap.get(event.parentId) ?? [];
+  // ...
+}
 ```
 
-- [ ] **Step 3: Verify migration runs** `npm run dev` — check logs for migration applied
+- [ ] **Step 4: Verify migration runs** `npm run dev` — check server logs for migration applied
 
-- [ ] **Step 4: Run tests** `npx vitest run src/server/modules/tasks`
+- [ ] **Step 5: Run tests** `npx vitest run src/server/modules/tasks src/server/migrations.test.ts`
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 ```bash
-git add src/server/migrations/020_composite_indexes.sql src/server/worker.ts
-git commit -m "perf: add composite DB indexes and fix N+1 worker query"
+git add src/server/migrations/043_composite_indexes.sql src/server/worker.ts
+git commit -m "perf: add composite DB indexes and fix N+1 in sendEventReminders"
 ```
 
 ---
@@ -276,7 +308,23 @@ export const DisplayContext = createContext<DisplayContextValue>({ isWallMode: f
 export const useDisplayMode = () => useContext(DisplayContext);
 ```
 
-- [ ] **Step 2: Wrap App with DisplayContext.Provider** — pass wall/sleep state
+- [ ] **Step 2: Add wall/sleep state to App.tsx** — App.tsx does NOT currently have these states. Add them:
+
+```typescript
+// src/App.tsx — add near other state
+const [isWallMode, setIsWallMode] = useState(false);
+const [isSleepMode, setIsSleepMode] = useState(false);
+```
+
+Wire to the WallHome view toggle (the existing kiosk button that toggles the wall home view should set `isWallMode`) and to the sleep schedule (Task 10 adds the auto-sleep hook).
+
+- [ ] **Step 3: Wrap App with DisplayContext.Provider** — pass wall/sleep state
+
+```typescript
+<DisplayContext.Provider value={{ isWallMode, isSleepMode }}>
+  {/* existing app tree */}
+</DisplayContext.Provider>
+```
 
 - [ ] **Step 3: Gate pulse animation in TaskCard.tsx**
 
@@ -426,7 +474,25 @@ git commit -m "feat: family-visible weekly chore grid for wall display and kid d
 - Modify: `src/server/modules/rewards/routes.ts` — add `GET /parents/:parentId/rewards/history` endpoint
 - Modify: `src/components/kid/KidDashboard.tsx` — add Rewards tab
 
-- [ ] **Step 1: Add rewards history API endpoint**
+- [ ] **Step 1: Add `getRedemptionHistory` to rewards service**
+
+```typescript
+// src/server/modules/rewards/service.ts — add method:
+getRedemptionHistory: (parentId: string) => {
+  return db.prepare(`
+    SELECT rl.*, u.name as kidName
+    FROM reward_ledger rl
+    JOIN users u ON u.uid = rl.kidId
+    WHERE rl.parentId = ?
+    ORDER BY rl.createdAt DESC
+    LIMIT 100
+  `).all(parentId);
+},
+```
+
+Check actual ledger table name first: `grep -r "reward" src/server/migrations/ | grep "CREATE TABLE"`
+
+- [ ] **Step 2: Add rewards history API endpoint**
 
 ```typescript
 // src/server/modules/rewards/routes.ts
@@ -482,9 +548,9 @@ git commit -m "feat: kid-facing rewards shop with visual cards and allowance led
 
 - [ ] **Step 1: Add displayRotation to settings**
 
-Migration:
+Migration (note: current highest migration is 042; if 043 used for Task 3, use 044 here):
 ```sql
--- src/server/migrations/021_display_rotation.sql
+-- src/server/migrations/044_display_rotation.sql
 ALTER TABLE family_settings ADD COLUMN displayRotationEnabled INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE family_settings ADD COLUMN displayRotationInterval INTEGER NOT NULL DEFAULT 30;
 ALTER TABLE family_settings ADD COLUMN displayRotationOrder TEXT NOT NULL DEFAULT '["chores","calendar","weather","photos"]';
@@ -525,7 +591,7 @@ Uses `setInterval` with cleanup. Smooth fade transition between slides. Touch-sw
 
 - [ ] **Step 7: Commit**
 ```bash
-git add src/components/shared/DisplayCarousel.tsx src/components/parent/WallHome.tsx src/server/migrations/021_display_rotation.sql
+git add src/components/shared/DisplayCarousel.tsx src/components/parent/WallHome.tsx src/server/migrations/044_display_rotation.sql
 git commit -m "feat: auto-rotate display mode for always-on wall hub (chores/calendar/weather/photos)"
 ```
 
@@ -580,7 +646,20 @@ function isInSleepWindow(now: string, start: string, end: string): boolean {
 }
 ```
 
-- [ ] **Step 3: Wire hook in App.tsx** — replace manual sleep toggle with `useSleepMode` return value, keep manual override
+- [ ] **Step 3: Wire hook in App.tsx** — App.tsx does NOT currently fetch family_settings or manage sleep state. Need to:
+  1. Fetch `family_settings` in App.tsx (or pass from parent that already has them)
+  2. Use `useSleepMode({ sleepStart, sleepEnd })` to get `isSleepMode`
+  3. Update `DisplayContext.Provider` value with the auto-sleep state
+  4. Keep a manual override state for parent-triggered instant lock
+
+```typescript
+// src/App.tsx
+const { isSleeping } = useSleepMode({ 
+  sleepStart: familySettings?.sleepStart, 
+  sleepEnd: familySettings?.sleepEnd 
+});
+const isSleepMode = isSleeping || manualSleepOverride;
+```
 
 - [ ] **Step 4: Run tests** `npx vitest run src/hooks/useSleepMode.test.ts`
 
@@ -654,22 +733,40 @@ git commit -m "feat: photo screensaver Ken Burns zoom, captions, shuffle, and du
 - Modify: `src/components/calendar/CalendarView.tsx` — look up member color by attendee uid
 - Modify: `src/components/parent/SettingsView.tsx` — member color picker section
 
-- [ ] **Step 1: Update CalendarView to use member colors**
+- [ ] **Step 1: Write failing test**
+
+```typescript
+// src/components/calendar/CalendarView.test.tsx
+it('uses member color when event has assignedToId', () => {
+  const kids = [{ uid: 'kid1', color: '#ff0000', name: 'Alice', role: 'kid' }];
+  const events = [{ id: 'e1', title: 'Soccer', assignedToId: 'kid1', color: '#0000ff' }];
+  render(<CalendarView events={events} kids={kids} ... />);
+  const chip = screen.getByText('Soccer').closest('[data-testid="event-chip"]');
+  expect(chip).toHaveStyle('background-color: #ff0000'); // member color overrides event color
+});
+```
+
+- [ ] **Step 2: Run test — expect FAIL** `npx vitest run src/components/calendar/CalendarView.test.tsx`
+
+- [ ] **Step 3: Update CalendarView to use member colors**
 
 ```typescript
 // In CalendarView — when rendering event chip:
+const memberColorMap = useMemo(
+  () => kids.reduce((m, k) => ({ ...m, [k.uid]: k.color }), {} as Record<string, string>),
+  [kids]
+);
+
 const eventColor = event.assignedToId
   ? (memberColorMap[event.assignedToId] ?? event.color)
   : event.color;
 ```
 
-where `memberColorMap` is built from `kids.reduce((m, k) => ({ ...m, [k.uid]: k.color }), {})`.
+- [ ] **Step 4: Add member color picker to SettingsView** (already has per-kid color via `/users/:uid/color` — expose in a clear "Member Colors" section with color swatches)
 
-- [ ] **Step 2: Add member color picker to SettingsView** (already has per-kid color via `/users/:uid/color` — expose in a clear "Member Colors" section with color swatches)
+- [ ] **Step 5: Run tests** `npx vitest run src/components/calendar/CalendarView.test.tsx`
 
-- [ ] **Step 3: Run tests + visual check**
-
-- [ ] **Step 4: Commit**
+- [ ] **Step 6: Commit**
 ```bash
 git add src/components/calendar/CalendarView.tsx src/components/parent/SettingsView.tsx
 git commit -m "feat: per-member calendar colors enforced across all views"
