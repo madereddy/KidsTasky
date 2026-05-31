@@ -10,6 +10,7 @@ import { UserProfile, Category } from './types';
 import { cn } from './lib/utils';
 import { THEMES, MEMBER_COLORS } from './constants';
 import { initSocket, useSocketStaleData } from './hooks/useSocket';
+import { DisplayContext } from './contexts/DisplayContext';
 
 import { ParentalLockOverlay } from './components/shared/ParentalLockOverlay';
 import { PhotoScreensaver } from './components/shared/PhotoScreensaver';
@@ -47,6 +48,7 @@ export default function App() {
   const [activeSection, setActiveSection] = useState<'home' | 'tasks' | 'calendar' | 'lists' | 'meals' | 'manage'>('home');
   const [kids, setKids] = useState<UserProfile[]>([]);
   const [isLocked, setIsLocked] = useState(false);
+  const [isSleepMode, setIsSleepMode] = useState(false);
   const [showUnlockPrompt, setShowUnlockPrompt] = useState(false);
   const [initError, setInitError] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -274,6 +276,7 @@ export default function App() {
   }
 
   return (
+    <DisplayContext.Provider value={{ isWallMode: isLocked, isSleepMode }}>
     <div className={cn("min-h-screen selection:bg-sky-500/30 overflow-x-hidden pb-12 transition-colors duration-500", currentTheme.vocab?.darkMode ? "text-white theme-dark" : "text-ui-primary theme-light")} style={{ background: currentTheme.bg }}>
       <header className={cn("sticky top-0 z-40 backdrop-blur-xl border-b mx-4 mt-4 rounded-[2rem] px-6 py-3 mb-8 shadow-sm", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-ui")}>
         <div className="max-w-7xl mx-auto flex justify-between items-center">
@@ -601,5 +604,6 @@ export default function App() {
         </div>
       </footer>
     </div>
+    </DisplayContext.Provider>
   );
 }

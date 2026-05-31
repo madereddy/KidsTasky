@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Task, Category, TaskCompletion } from '../../types';
 import { cn } from '../../lib/utils';
 import { XP_REWARDS } from '../../constants';
+import { useDisplayMode } from '../../contexts/DisplayContext';
 
 export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel, category, themeVocab, darkMode = false, completion, onSkip }: { 
   task: Task, 
@@ -19,6 +20,7 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
   onSkip?: () => void | Promise<void>
   completion?: TaskCompletion
 }) {
+  const { isWallMode } = useDisplayMode();
   const accentColor = isDone ? 'border-emerald-500' : (isLocked ? (darkMode ? 'border-ui-dark' : 'border-ui') : (urgency === 'overdue' ? 'border-red-400' : (darkMode ? 'border-ui-dark' : 'border-ui')));
   
   const getStatusConfig = () => {
@@ -144,7 +146,7 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
             isDone 
               ? (darkMode ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/50" : "bg-emerald-100 text-emerald-500 border-emerald-200") 
               : (isLocked ? (darkMode ? "bg-ui-dark border-ui-dark text-ui-secondary" : "bg-ui-soft-2 border-ui text-ui-muted-2") : (urgency === 'overdue' 
-                  ? (darkMode ? "bg-rose-500/20 text-rose-500 border-rose-500/50 animate-pulse" : "bg-red-50 text-red-500 border-red-200") 
+                  ? (darkMode ? `bg-rose-500/20 text-rose-500 border-rose-500/50${isWallMode ? '' : ' animate-pulse'}` : "bg-red-50 text-red-500 border-red-200") 
                   : (urgency === 'soon' ? (darkMode ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "bg-sky-50 text-sky-500 border-sky-100") : (darkMode ? "bg-ui-dark text-ui-muted-2 border-ui-dark hover:border-ui-dark-2 hover:text-ui-secondary shadow-lg" : "bg-white text-ui-secondary border-ui shadow-sm hover:border-sky-300"))))
           )}
         >
