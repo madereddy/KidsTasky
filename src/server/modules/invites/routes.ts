@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { rateLimit } from 'express-rate-limit';
 import { inviteService } from './service.js';
-import { db } from '../../db.js';
 import { authenticateUser, assertParentScope, getParentId } from '../../middleware/auth.js';
 
 const inviteValidateLimiter = rateLimit({
@@ -56,7 +55,6 @@ invitesRouter.get("/parents/:parentId/invites/coparent/active", authenticateUser
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  const invite = db.prepare("SELECT * FROM invites WHERE parentId = ? AND type = 'coparent' AND status = 'active'")
-    .get(req.params.parentId);
+  const invite = inviteService.getActiveCoparentInvite(req.params.parentId as string);
   res.json(invite || null);
 });

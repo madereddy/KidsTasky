@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { rewardService } from './service.js';
 import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
-import { db } from '../../db.js';
+import { userService } from '../users/service.js';
 
 export const rewardsRouter = Router();
 
@@ -50,11 +50,11 @@ rewardsRouter.get("/kids/:kidId/claimedRewards", authenticateUser, [
 ], (req: Request, res: Response) => {
   const caller = (req as any).user;
   const kidId = req.params.kidId as string;
-  const user = (db.prepare("SELECT parentId FROM users WHERE uid = ?").get(kidId)) as { parentId: string } | undefined;
-  if (!user) return res.status(404).json({ error: 'Not found' });
+  const kidParentId = userService.getUserParentId(kidId);
+  if (!kidParentId) return res.status(404).json({ error: 'Not found' });
 
   const userParentId = getParentId(req);
-  if (user.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
+  if (kidParentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
 
   const claimed = rewardService.getClaimedRewards(kidId);
   res.json(claimed.map((c: any) => ({ ...c, createdAt: { seconds: c.createdAt / 1000 } })));

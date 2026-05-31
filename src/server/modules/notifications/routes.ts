@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { param, validationResult } from 'express-validator';
 import { notificationService } from './service.js';
 import { authenticateUser, assertParentScope, getParentId } from '../../middleware/auth.js';
-import { db } from '../../db.js';
 
 export const notificationsRouter = Router();
 
@@ -44,11 +43,7 @@ notificationsRouter.post('/notifications/subscribe', authenticateUser, (req: Req
   const { endpoint, p256dh, auth } = req.body || {};
   if (!endpoint || !p256dh || !auth) return res.status(400).json({ error: 'Missing subscription fields' });
   const id = 'sub_' + Date.now().toString(36) + Math.random().toString(36).slice(2);
-  db.prepare(`
-    INSERT INTO push_subscriptions (id, userId, parentId, endpoint, p256dh, auth, createdAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(endpoint) DO UPDATE SET userId = excluded.userId, parentId = excluded.parentId, p256dh = excluded.p256dh, auth = excluded.auth
-  `).run(id, userId, parentId, endpoint, p256dh, auth, Date.now());
+  notificationService.subscribePush(id, userId, parentId, endpoint, p256dh, auth);
   return res.json({ success: true });
 });
 
@@ -56,7 +51,6 @@ notificationsRouter.delete('/notifications/subscribe', authenticateUser, (req: R
   const userId = (req as any).user.uid as string;
   const { endpoint } = req.body || {};
   if (!endpoint) return res.status(400).json({ error: 'Missing endpoint' });
-  // Scope deletion to the authenticated user's own subscriptions
-  db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ? AND userId = ?').run(endpoint, userId);
+  notificationService.unsubscribePush(endpoint, userId);
   return res.json({ success: true });
 });

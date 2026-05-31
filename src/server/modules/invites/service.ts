@@ -23,5 +23,9 @@ export const inviteService = {
 
   markInviteUsed: (code: string) => {
     db.prepare("UPDATE invites SET status = 'used' WHERE id = ?").run(code);
-  }
+  },
+
+  getActiveCoparentInvite: (parentId: string) => {
+    return db.prepare("SELECT * FROM invites WHERE parentId = ? AND type = 'coparent' AND status = 'active'").get(parentId);
+  },
 };

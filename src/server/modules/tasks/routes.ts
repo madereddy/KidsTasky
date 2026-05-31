@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import { taskServiceServer } from './service.js';
-import { db } from '../../db.js';
+import { userService } from '../users/service.js';
 import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
 
 export const tasksRouter = Router();
@@ -38,11 +38,11 @@ tasksRouter.get("/kids/:kidId/tasks", authenticateUser, [
   try {
     const caller = (req as any).user;
     const targetKidId = req.params.kidId as string;
-    const user = (db.prepare("SELECT parentId FROM users WHERE uid = ?").get(targetKidId)) as { parentId: string } | undefined;
-    if (!user) return res.status(404).json({ error: 'Not found' });
+    const kidParentId = userService.getUserParentId(targetKidId);
+    if (!kidParentId) return res.status(404).json({ error: 'Not found' });
 
     const userParentId = getParentId(req);
-    if (user.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
+    if (kidParentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
 
     const tasks = taskServiceServer.getKidsTasks(targetKidId);
     res.json(tasks.map((t: any) => {
@@ -209,11 +209,11 @@ tasksRouter.get("/kids/:kidId/completions", authenticateUser, [
   try {
     const caller = (req as any).user;
     const kidId = req.params.kidId as string;
-    const user = (db.prepare("SELECT parentId FROM users WHERE uid = ?").get(kidId)) as { parentId: string } | undefined;
-    if (!user) return res.status(404).json({ error: 'Not found' });
+    const kidParentId = userService.getUserParentId(kidId);
+    if (!kidParentId) return res.status(404).json({ error: 'Not found' });
 
     const userParentId = getParentId(req);
-    if (user.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
+    if (kidParentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
 
     const { dateString, startDate, endDate } = req.query;
     let completions;
@@ -244,11 +244,11 @@ tasksRouter.get("/kids/:kidId/history", authenticateUser, [
   try {
     const caller = (req as any).user;
     const kidId = req.params.kidId as string;
-    const user = (db.prepare("SELECT parentId FROM users WHERE uid = ?").get(kidId)) as { parentId: string } | undefined;
-    if (!user) return res.status(404).json({ error: 'Not found' });
+    const kidParentId = userService.getUserParentId(kidId);
+    if (!kidParentId) return res.status(404).json({ error: 'Not found' });
 
     const userParentId = getParentId(req);
-    if (user.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
+    if (kidParentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
 
     const limit = parseInt(req.query.limit as string) || 50;
     const history = taskServiceServer.getCompletionHistory(kidId, limit);

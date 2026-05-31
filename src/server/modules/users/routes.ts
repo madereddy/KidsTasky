@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { userService } from './service.js';
 import { inviteService } from '../invites/service.js';
-import { db } from '../../db.js';
 import { socketWrapper } from '../../socket.js';
 import { authenticateUser, assertParentScope, getParentId, requireRole } from '../../middleware/auth.js';
 
@@ -53,8 +52,7 @@ usersRouter.post("/users", [
 ], async (req: Request, res: Response) => {
   // Co-parent join path: code present + invite type is 'coparent'
   if (req.body.code) {
-    const invite = db.prepare("SELECT * FROM invites WHERE id = ? AND status = 'active'")
-      .get(req.body.code) as any;
+    const invite = inviteService.validateInvite(req.body.code) as any;
     if (!invite) return res.status(400).json({ error: 'Invalid or expired invite code' });
 
     if (invite.type === 'coparent') {
