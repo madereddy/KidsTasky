@@ -9,6 +9,7 @@ import { settingsClientService } from '../../services/settings';
 import { FamilyNote } from '../shared/FamilyNote';
 import { WeeklyWeather } from '../calendar/WeeklyWeather';
 import { WeeklyChoreGrid } from '../shared/WeeklyChoreGrid';
+import { DisplayCarousel } from '../shared/DisplayCarousel';
 import { getWeatherInfo } from '../../constants';
 import { toDisplayTemp, TemperatureUnitPref } from '../../lib/dateTimePrefs';
 import { useSocketStaleData } from '../../hooks/useSocket';
@@ -55,6 +56,9 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
   const [homework, setHomework] = useState<Homework[]>([]);
   const [forecast, setForecast] = useState<DailyForecast[]>([]);
   const [tempUnit, setTempUnit] = useState<TemperatureUnitPref>('celsius');
+  const [rotationEnabled, setRotationEnabled] = useState(false);
+  const [rotationInterval, setRotationInterval] = useState(30);
+  const [rotationOrder, setRotationOrder] = useState<string[]>(['chores', 'calendar', 'weather']);
   const [loading, setLoading] = useState(true);
 
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -71,6 +75,11 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
       setEvents(evts);
       setHomework(hw);
       if (settings?.temperatureUnit) setTempUnit(settings.temperatureUnit);
+      if (settings?.displayRotationEnabled !== undefined) setRotationEnabled(Boolean(settings.displayRotationEnabled));
+      if (settings?.displayRotationInterval) setRotationInterval(settings.displayRotationInterval);
+      if (settings?.displayRotationOrder) {
+        try { setRotationOrder(JSON.parse(settings.displayRotationOrder)); } catch {}
+      }
 
       if (settings?.locationLat && settings?.locationLon) {
         weatherClientService.getForecast(settings.locationLat, settings.locationLon)
@@ -189,8 +198,88 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
         </div>
       </div>
 
-      {/* Family task progress */}
-      {kids.length > 0 && (
+      {/* Auto-rotating carousel when enabled */}
+      {rotationEnabled && isWallMode && (() => {
+        const validSlides = (rotationOrder as Array<'chores' | 'calendar' | 'weather' | 'photos'>).filter(s =>
+          (s === 'chores' && kids.length > 0) ||
+          (s === 'calendar' && (todayEvents.length > 0 || todayHomework.length > 0)) ||
+          (s === 'weather' && forecast.length > 0) ||
+          s === 'photos'
+        );
+        if (validSlides.length === 0) return null;
+        return (
+          <DisplayCarousel slides={validSlides} intervalSec={rotationInterval}>
+            {{
+              chores: kids.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="bg-white/80 dark:bg-white/5 rounded-2xl p-4 border border-ui">
+                    <h2 className="text-base font-semibold text-ui-muted uppercase tracking-wide mb-3">Chores Today</h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {kidProgress.map(({ kid, total, done }) => {
+                        const pct = total === 0 ? 100 : Math.round((done / total) * 100);
+                        const color = memberColorMap[kid.uid] || '#6366f1';
+                        const allDone = total > 0 && done >= total;
+                        return (
+                          <div key={kid.uid} className={cn("rounded-xl p-4 border", allDone ? "bg-emerald-50 border-emerald-200" : "border-ui bg-ui-soft")}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                              <span className="text-base font-semibold truncate">{kid.name}</span>
+                              {allDone && <span className="ml-auto text-emerald-500 text-sm font-bold">✓</span>}
+                            </div>
+                            <div className="w-full bg-ui-soft-3 rounded-full h-2.5 mb-1">
+                              <div className="h-2.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: allDone ? '#10b981' : color }} />
+                            </div>
+                            <p className="text-sm text-ui-muted">{done}/{total} done</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {allTasks.length > 0 && (
+                      <div className="mt-4">
+                        <WeeklyChoreGrid tasks={allTasks} kids={kids} completions={allCompletions} />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : undefined,
+              calendar: (
+                <div className="bg-white/80 dark:bg-white/5 rounded-2xl p-4 border border-ui">
+                  <h2 className="text-base font-semibold text-ui-muted uppercase tracking-wide mb-3">Today</h2>
+                  <div className="space-y-2">
+                    {todayEvents.map(event => (
+                      <div key={event.id} className="flex items-center gap-3">
+                        <div className="w-1.5 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: event.color || '#6366f1' }} />
+                        <div>
+                          <p className="text-base font-medium">{event.title}</p>
+                          <p className="text-sm text-ui-muted">{event.isAllDay ? 'All day' : format(new Date(event.startTime), 'h:mm a')}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {todayHomework.map(hw => (
+                      <div key={hw.id} className="flex items-center gap-3">
+                        <div className="w-1.5 h-10 rounded-full flex-shrink-0 bg-amber-400" />
+                        <div>
+                          <p className="text-base font-medium">📚 {hw.title}</p>
+                          <p className="text-sm text-ui-muted">{hw.subject}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ),
+              weather: forecast.length > 0 ? (
+                <div className="bg-white/80 dark:bg-white/5 rounded-2xl p-4 border border-ui">
+                  <h2 className="text-base font-semibold text-ui-muted uppercase tracking-wide mb-3">Forecast</h2>
+                  <WeeklyWeather forecast={forecast} temperatureUnit={tempUnit} />
+                </div>
+              ) : undefined,
+            }}
+          </DisplayCarousel>
+        );
+      })()}
+
+      {/* Family task progress — hidden when carousel is active */}
+      {(!rotationEnabled || !isWallMode) && kids.length > 0 && (
         <div className="bg-white/80 dark:bg-white/5 rounded-2xl p-4 shadow-sm border border-ui">
           <h2 className={cn("font-semibold text-ui-muted uppercase tracking-wide mb-3", isWallMode ? "text-base" : "text-sm")}>Chores Today</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -223,16 +312,16 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
         </div>
       )}
 
-      {/* Weekly chore grid */}
-      {kids.length > 0 && allTasks.length > 0 && (
+      {/* Weekly chore grid — hidden when carousel is active */}
+      {(!rotationEnabled || !isWallMode) && kids.length > 0 && allTasks.length > 0 && (
         <div className="bg-white/80 dark:bg-white/5 rounded-2xl p-4 shadow-sm border border-ui">
           <h2 className={cn("font-semibold text-ui-muted uppercase tracking-wide mb-3", isWallMode ? "text-base" : "text-sm")}>This Week</h2>
           <WeeklyChoreGrid tasks={allTasks} kids={kids} completions={allCompletions} compact={!isWallMode} />
         </div>
       )}
 
-      {/* Bottom strip: weather forecast + family note */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Bottom strip: weather forecast + family note — hidden when carousel is active */}
+      {(!rotationEnabled || !isWallMode) && <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {forecast.length > 0 && (
           <div className="bg-white/80 dark:bg-white/5 rounded-2xl p-4 shadow-sm border border-ui">
             <h2 className={cn("font-semibold text-ui-muted uppercase tracking-wide mb-3", isWallMode ? "text-base" : "text-sm")}>Forecast</h2>
@@ -243,7 +332,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
           <h2 className={cn("font-semibold text-ui-muted uppercase tracking-wide mb-3", isWallMode ? "text-base" : "text-sm")}>Family Note</h2>
           <FamilyNote parentId={parentId} readOnly={isLocked} />
         </div>
-      </div>
+      </div>}
 
       {/* Manage link */}
       <div className="flex justify-end">

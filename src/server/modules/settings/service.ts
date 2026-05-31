@@ -14,6 +14,9 @@ const DEFAULTS: Partial<FamilySettings> = {
   photoCleanupIntervalHours: 24,
   googlePhotosEnabled: false,
   googlePhotosAlbumId: null,
+  displayRotationEnabled: false,
+  displayRotationInterval: 30,
+  displayRotationOrder: '["chores","calendar","weather","photos"]',
 };
 
 export const settingsService = {
@@ -25,6 +28,7 @@ export const settingsService = {
       isLocked: Boolean((row as any).isLocked),
       photoCleanupEnabled: Boolean((row as any).photoCleanupEnabled),
       googlePhotosEnabled: Boolean((row as any).googlePhotosEnabled),
+      displayRotationEnabled: Boolean((row as any).displayRotationEnabled),
     };
   },
   saveSettings: (parentId: string, data: Partial<FamilySettings>) => {

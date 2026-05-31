@@ -205,6 +205,9 @@ export interface FamilySettings {
   photoCleanupIntervalHours?: number;
   googlePhotosEnabled?: boolean;
   googlePhotosAlbumId?: string | null;
+  displayRotationEnabled?: boolean;
+  displayRotationInterval?: number;
+  displayRotationOrder?: string;
 }
 
 export interface SyncConnection {

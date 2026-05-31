@@ -68,6 +68,8 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
   const [coParentInvite, setCoParentInvite] = useState<{id: string} | null>(null);
   const [generatingCoInvite, setGeneratingCoInvite] = useState(false);
   const [coInviteCopied, setCoInviteCopied] = useState(false);
+  const [displayRotationEnabled, setDisplayRotationEnabled] = useState(false);
+  const [displayRotationInterval, setDisplayRotationInterval] = useState(30);
   const [photoCleanupEnabled, setPhotoCleanupEnabled] = useState(true);
   const [photoCleanupIntervalHours, setPhotoCleanupIntervalHours] = useState(24);
   const [googlePhotosEnabled, setGooglePhotosEnabled] = useState(false);
@@ -107,6 +109,8 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
       setSleepStart(s.sleepStart || '21:00');
       setSleepEnd(s.sleepEnd || '07:00');
       setHasPIN(!!s.hasPIN);
+      setDisplayRotationEnabled(Boolean(s.displayRotationEnabled));
+      setDisplayRotationInterval(s.displayRotationInterval ?? 30);
       setPhotoCleanupEnabled(s.photoCleanupEnabled ?? true);
       setPhotoCleanupIntervalHours(s.photoCleanupIntervalHours ?? 24);
       setGooglePhotosEnabled(Boolean(s.googlePhotosEnabled));
@@ -274,6 +278,8 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
         sleepEnd,
         // Only include pin if user entered a new value; backend preserves existing if omitted
         ...(pin.trim() ? { pin } : {}),
+        displayRotationEnabled,
+        displayRotationInterval,
         photoCleanupEnabled,
         photoCleanupIntervalHours: Math.max(1, photoCleanupIntervalHours),
         googlePhotosEnabled,
@@ -465,6 +471,38 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
                   className="w-full border border-ui rounded-lg px-3 py-2 text-sm bg-white text-ui-primary focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
               </div>
+            </div>
+          </section>
+
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-base">🖥</span>
+              <h3 className="font-bold text-ui-secondary">Wall Display Rotation</h3>
+            </div>
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={displayRotationEnabled}
+                  onChange={e => setDisplayRotationEnabled(e.target.checked)}
+                  className="w-4 h-4 rounded border-ui"
+                />
+                <span className="text-sm text-ui-secondary">Auto-rotate wall display</span>
+              </label>
+              {displayRotationEnabled && (
+                <div>
+                  <label className="block text-xs text-ui-muted mb-1">Slide interval</label>
+                  <select
+                    value={displayRotationInterval}
+                    onChange={e => setDisplayRotationInterval(Number(e.target.value))}
+                    className="border border-ui rounded-lg px-3 py-2 text-sm bg-white text-ui-primary focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  >
+                    <option value={15}>15 seconds</option>
+                    <option value={30}>30 seconds</option>
+                    <option value={60}>60 seconds</option>
+                  </select>
+                </div>
+              )}
             </div>
           </section>
 
