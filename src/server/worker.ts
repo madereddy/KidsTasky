@@ -23,6 +23,30 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const intervalHandles: ReturnType<typeof setInterval>[] = [];
 const cronHandles: ScheduledTask[] = [];
 
+const syncBackoff = { failCount: 0, nextAllowedAt: 0 };
+
+function shouldSkipGoogleSync(): boolean {
+  return Date.now() < syncBackoff.nextAllowedAt;
+}
+
+function onGoogleSyncSuccess() {
+  syncBackoff.failCount = 0;
+  syncBackoff.nextAllowedAt = 0;
+}
+
+function onGoogleSyncFailure(err: any) {
+  const is429 = err?.status === 429 || err?.code === 429 ||
+    String(err?.message).toLowerCase().includes('quota') ||
+    String(err?.message).toLowerCase().includes('rate limit');
+  if (is429) {
+    syncBackoff.failCount++;
+    // Exponential backoff: 1min, 2min, 4min, 8min, 16min — max 30min
+    const delayMs = Math.min(Math.pow(2, syncBackoff.failCount) * 60_000, 30 * 60_000);
+    syncBackoff.nextAllowedAt = Date.now() + delayMs;
+    console.warn(`[worker] Google sync rate-limited (429). Backoff: ${delayMs / 60_000}min (fail #${syncBackoff.failCount})`);
+  }
+}
+
 export function startBackgroundWorker() {
   const lastPhotoCleanupRun = new Map<string, number>();
   let photoSweepUploadsDirUnavailable = false;
@@ -256,25 +280,36 @@ export function startBackgroundWorker() {
   cronHandles.push(cron.schedule("*/5 * * * *", async () => {
     console.log("[Worker] Start Multi-Source Sync...");
     
-    try {
-      const connections = db.prepare("SELECT * FROM sync_connections WHERE provider = 'google' AND refreshToken IS NOT NULL").all() as any[];
-      for (const conn of connections) {
-        try {
-          const result = await syncService.syncGoogleConnectionNow(conn);
-          if (result.errors.some(e => e.message.includes('invalid_grant'))) {
-            console.error('[worker:invalid_grant]', { connectionId: conn.id });
-            db.prepare('DELETE FROM sync_connections WHERE id = ?').run(conn.id);
-          } else if (result.imported > 0) {
-            getIo()?.to(conn.parentId).emit('stale-data', { type: 'events' });
+    if (shouldSkipGoogleSync()) {
+      console.log(`[worker] Google sync skipped — in backoff until ${new Date(syncBackoff.nextAllowedAt).toISOString()}`);
+    } else {
+      try {
+        const connections = db.prepare("SELECT * FROM sync_connections WHERE provider = 'google' AND refreshToken IS NOT NULL").all() as any[];
+        let anyRateLimit = false;
+        for (const conn of connections) {
+          try {
+            const result = await syncService.syncGoogleConnectionNow(conn);
+            if (result.errors.some(e => e.message.includes('invalid_grant'))) {
+              console.error('[worker:invalid_grant]', { connectionId: conn.id });
+              db.prepare('DELETE FROM sync_connections WHERE id = ?').run(conn.id);
+            } else if (result.imported > 0) {
+              getIo()?.to(conn.parentId).emit('stale-data', { type: 'events' });
+            }
+            if (result.failureCount > 0) {
+              console.error('[worker:sync_partial]', { connectionId: conn.id, errors: result.errors });
+            }
+          } catch (err: any) {
+            console.error('[worker:sync_connection_error]', { connectionId: conn.id, error: err?.message });
+            onGoogleSyncFailure(err);
+            anyRateLimit = true;
           }
-          if (result.failureCount > 0) {
-            console.error('[worker:sync_partial]', { connectionId: conn.id, errors: result.errors });
-          }
-        } catch (err: any) {
-          console.error('[worker:sync_connection_error]', { connectionId: conn.id, error: err?.message });
         }
+        if (!anyRateLimit) onGoogleSyncSuccess();
+      } catch (err: any) {
+        console.error('[worker:sync_global_error]', err);
+        onGoogleSyncFailure(err);
       }
-    } catch (err) { console.error('[worker:sync_global_error]', err); }
+    }
 
     try {
       const icalConns = db.prepare("SELECT * FROM sync_connections WHERE icalUrl IS NOT NULL").all() as any[];
