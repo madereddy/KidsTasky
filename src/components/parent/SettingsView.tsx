@@ -5,7 +5,7 @@ import { syncClientService, SyncNowResult } from '../../services/sync';
 import { userService } from '../../services/users';
 import { inviteService } from '../../services/invites';
 import { photosClientService } from '../../services/photos';
-import { FamilySettings, SyncCalendar } from '../../types';
+import { FamilySettings, SyncCalendar, UserProfile } from '../../types';
 import { PhotoManager } from './PhotoManager';
 
 interface Props {
@@ -14,6 +14,8 @@ interface Props {
   onSaved?: (settings: FamilySettings) => void;
   onLockNow?: () => void;
   onPreviewScreensaver?: () => void;
+  kids?: UserProfile[];
+  onKidsRefresh?: () => void;
 }
 
 const TIMEZONES = typeof Intl !== 'undefined' && (Intl as any).supportedValuesOf
@@ -41,7 +43,7 @@ function findPresetLocation(lat?: number, lon?: number) {
   return LOCATION_OPTIONS.find((option) => Math.abs(option.lat - lat) < 0.01 && Math.abs(option.lon - lon) < 0.01) || null;
 }
 
-export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewScreensaver }: Props) {
+export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewScreensaver, kids = [], onKidsRefresh }: Props) {
   const [locationLat, setLocationLat] = useState<number>(DEFAULT_LOCATION.lat);
   const [locationLon, setLocationLon] = useState<number>(DEFAULT_LOCATION.lon);
   const [locationPreset, setLocationPreset] = useState<string>(DEFAULT_LOCATION.id);
@@ -514,6 +516,32 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
               )}
             </div>
           </section>
+
+          {kids.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <Users size={16} className="text-purple-500" />
+                <h3 className="font-bold text-ui-secondary">Member Colors</h3>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {kids.map(kid => (
+                  <div key={kid.uid} className="flex items-center gap-2">
+                    <label className="text-sm text-ui-secondary">{kid.name}</label>
+                    <input
+                      type="color"
+                      defaultValue={kid.color || '#6366f1'}
+                      onChange={async (e) => {
+                        await userService.setMemberColor(kid.uid, e.target.value);
+                        onKidsRefresh?.();
+                      }}
+                      className="w-8 h-8 rounded cursor-pointer border border-ui"
+                      title={`${kid.name}'s color`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section>
             <div className="flex items-center gap-2 mb-3">

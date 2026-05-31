@@ -598,6 +598,8 @@ export default function App() {
             setShowSettings(false);
           }}
           onPreviewScreensaver={() => setScreensaverPreview(true)}
+          kids={kids}
+          onKidsRefresh={refreshKids}
         />
       )}
       <PhotoScreensaver

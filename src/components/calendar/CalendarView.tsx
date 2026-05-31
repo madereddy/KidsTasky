@@ -508,7 +508,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
                   <div
                     key={event.id}
                     className="flex-shrink-0 flex items-center gap-2 rounded-xl px-4 py-2 text-white"
-                    style={{ backgroundColor: event.color || '#6366f1' }}
+                    style={{ backgroundColor: (event.assignedToId && memberColorMap[event.assignedToId]) || event.color || '#6366f1' }}
                   >
                     <div className="text-center">
                       <span className="text-2xl font-bold">{days}</span>
@@ -583,7 +583,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
                       className="flex-shrink-0 rounded-xl border border-ui bg-white px-4 py-2 min-w-[140px] sm:min-w-[160px] cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: e.color || '#6366f1' }} />
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: (e.assignedToId && memberColorMap[e.assignedToId]) || e.color || '#6366f1' }} />
                         <p className="text-xs font-bold text-ui-secondary truncate">{e.title}</p>
                       </div>
                       <p className="text-xs text-ui-muted">{format(new Date(e.startTime), 'MMM d, h:mm a')}</p>
