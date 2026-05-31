@@ -1,0 +1,5 @@
+/* Wall display mode overrides — applied when .wall-mode is on #root */
+.wall-mode button { min-height: 56px; padding: 1rem 1.5rem; font-size: 1rem; }
+.wall-mode .text-sm { font-size: 1rem !important; }
+.wall-mode .text-xs { font-size: 0.875rem !important; }
+.wall-mode input, .wall-mode select { min-height: 52px; font-size: 1rem; }
