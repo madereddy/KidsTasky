@@ -12,6 +12,7 @@ import { THEMES, MEMBER_COLORS } from './constants';
 import { initSocket, useSocketStaleData } from './hooks/useSocket';
 import { useSleepMode } from './hooks/useSleepMode';
 import { DisplayContext } from './contexts/DisplayContext';
+import { FamilyDataContext } from './contexts/FamilyDataContext';
 
 import { ParentalLockOverlay } from './components/shared/ParentalLockOverlay';
 import { SleepModeOverlay } from './components/shared/SleepModeOverlay';
@@ -289,6 +290,7 @@ export default function App() {
   }
 
   return (
+    <FamilyDataContext.Provider value={{ kids, categories, memberColorMap, refreshKids, refreshCategories }}>
     <DisplayContext.Provider value={{ isWallMode: isLocked, isSleepMode }}>
     <SleepModeOverlay isActive={isSleepMode} />
     <div className={cn("min-h-screen selection:bg-sky-500/30 overflow-x-hidden pb-12 transition-colors duration-500", currentTheme.vocab?.darkMode ? "text-white theme-dark" : "text-ui-primary theme-light", isLocked && "wall-mode")} style={{ background: currentTheme.bg }}>
@@ -598,8 +600,6 @@ export default function App() {
             setShowSettings(false);
           }}
           onPreviewScreensaver={() => setScreensaverPreview(true)}
-          kids={kids}
-          onKidsRefresh={refreshKids}
         />
       )}
       <PhotoScreensaver
@@ -624,5 +624,6 @@ export default function App() {
       </footer>
     </div>
     </DisplayContext.Provider>
+    </FamilyDataContext.Provider>
   );
 }

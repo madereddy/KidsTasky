@@ -5,7 +5,8 @@ import { syncClientService, SyncNowResult } from '../../services/sync';
 import { userService } from '../../services/users';
 import { inviteService } from '../../services/invites';
 import { photosClientService } from '../../services/photos';
-import { FamilySettings, SyncCalendar, UserProfile } from '../../types';
+import { FamilySettings, SyncCalendar } from '../../types';
+import { useFamilyData } from '../../contexts/FamilyDataContext';
 import { PhotoManager } from './PhotoManager';
 
 interface Props {
@@ -14,8 +15,6 @@ interface Props {
   onSaved?: (settings: FamilySettings) => void;
   onLockNow?: () => void;
   onPreviewScreensaver?: () => void;
-  kids?: UserProfile[];
-  onKidsRefresh?: () => void;
 }
 
 const TIMEZONES = typeof Intl !== 'undefined' && (Intl as any).supportedValuesOf
@@ -43,7 +42,8 @@ function findPresetLocation(lat?: number, lon?: number) {
   return LOCATION_OPTIONS.find((option) => Math.abs(option.lat - lat) < 0.01 && Math.abs(option.lon - lon) < 0.01) || null;
 }
 
-export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewScreensaver, kids = [], onKidsRefresh }: Props) {
+export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewScreensaver }: Props) {
+  const { kids, refreshKids: onKidsRefresh } = useFamilyData();
   const [locationLat, setLocationLat] = useState<number>(DEFAULT_LOCATION.lat);
   const [locationLon, setLocationLon] = useState<number>(DEFAULT_LOCATION.lon);
   const [locationPreset, setLocationPreset] = useState<string>(DEFAULT_LOCATION.id);
