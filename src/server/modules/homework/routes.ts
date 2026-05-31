@@ -21,7 +21,7 @@ const nextHomeworkDueDate = (fromDate: string, recurrence: 'none' | 'daily' | 'w
 
 homeworkRouter.get('/parents/:parentId/homework', authenticateUser, assertParentScope, (req, res) => {
   try {
-    const rows = homeworkService.getByParent(req.params.parentId).map((row: any) => {
+    const rows = homeworkService.getByParent(req.params.parentId as string).map((row: any) => {
       let completionQuestions: string[] = [];
       try { completionQuestions = JSON.parse(row.completionQuestions || '[]'); } catch {}
       return { ...row, completionQuestions };
@@ -64,7 +64,7 @@ homeworkRouter.patch('/homework/:id', authenticateUser, enforceEditUnlocked, (re
   try {
     const user = (req as any).user as { uid: string; role: string };
     const parentId = getParentId(req);
-    const existing = homeworkService.getById(req.params.id);
+    const existing = homeworkService.getById(req.params.id as string);
     if (!existing || existing.parentId !== parentId) return res.status(404).json({ error: 'Homework not found' });
 
     let patch = req.body || {};
@@ -91,7 +91,7 @@ homeworkRouter.patch('/homework/:id', authenticateUser, enforceEditUnlocked, (re
       };
     }
 
-    const ok = homeworkService.update(req.params.id, parentId, patch);
+    const ok = homeworkService.update(req.params.id as string, parentId, patch);
     if (!ok) return res.status(404).json({ error: 'Homework not found' });
     res.json({ success: true });
   } catch (error: any) {
@@ -104,7 +104,7 @@ homeworkRouter.delete('/homework/:id', authenticateUser, enforceEditUnlocked, (r
     const user = (req as any).user as { role: string };
     if (user.role !== 'parent') return res.status(403).json({ error: 'Forbidden' });
     const parentId = getParentId(req);
-    const ok = homeworkService.remove(req.params.id, parentId);
+    const ok = homeworkService.remove(req.params.id as string, parentId);
     if (!ok) return res.status(404).json({ error: 'Homework not found' });
     res.json({ success: true });
   } catch (error: any) {

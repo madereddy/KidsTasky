@@ -86,7 +86,7 @@ usersRouter.get("/parents/:parentId/coparents", authenticateUser, assertParentSc
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  res.json(userService.getCoParents(req.params.parentId));
+  res.json(userService.getCoParents(req.params.parentId as string));
 });
 
 // Remove co-parent (owner only)

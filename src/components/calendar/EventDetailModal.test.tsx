@@ -4,9 +4,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { EventDetailModal } from './EventDetailModal';
 
-const updateRsvp = vi.fn(() => Promise.resolve({ success: true }));
-const addAttendee = vi.fn(() => Promise.resolve({ success: true }));
-const removeAttendee = vi.fn(() => Promise.resolve({ success: true }));
+const updateRsvp = vi.fn((..._args: any[]) => Promise.resolve({ success: true }));
+const addAttendee = vi.fn((..._args: any[]) => Promise.resolve({ success: true }));
+const removeAttendee = vi.fn((..._args: any[]) => Promise.resolve({ success: true }));
 
 vi.mock('../../services/events', () => ({
   eventsClientService: {

@@ -6,7 +6,7 @@ export const mealsRouter = Router();
 
 mealsRouter.get('/parents/:parentId/recipes', authenticateUser, assertParentScope, (req, res) => {
   try {
-    res.json(mealsService.getRecipes(req.params.parentId));
+    res.json(mealsService.getRecipes(req.params.parentId as string));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -33,7 +33,7 @@ mealsRouter.delete('/recipes/:id', authenticateUser, (req, res) => {
 mealsRouter.get('/parents/:parentId/meal-plans', authenticateUser, assertParentScope, (req, res) => {
   try {
     const { weekStart } = req.query;
-    const plans = mealsService.getMealPlansForWeek(req.params.parentId, weekStart as string);
+    const plans = mealsService.getMealPlansForWeek(req.params.parentId as string, weekStart as string);
     res.json(plans);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

@@ -16,7 +16,7 @@ notesRouter.get('/family-notes/:parentId', authenticateUser, assertParentScope, 
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  res.json(notesService.getNote(req.params.parentId));
+  res.json(notesService.getNote(req.params.parentId as string));
 });
 
 notesRouter.put('/family-notes/:parentId', authenticateUser, assertParentScope, [
@@ -27,6 +27,6 @@ notesRouter.put('/family-notes/:parentId', authenticateUser, assertParentScope, 
   const callerUid = (req as any).user.uid;
   const callerUser = db.prepare('SELECT name FROM users WHERE uid = ?').get(callerUid) as any;
   const updatedByName = callerUser?.name || 'Unknown';
-  notesService.upsertNote(req.params.parentId, req.body.content ?? '', updatedByName);
+  notesService.upsertNote(req.params.parentId as string, req.body.content ?? '', updatedByName);
   res.json({ success: true });
 });
