@@ -39,6 +39,15 @@ describe('taskServiceServer transaction safety', () => {
     expect(completions.cnt).toBe(1);
   });
 
+  it('deleteCompletion revokes stars for approved completion', () => {
+    const result = taskServiceServer.createCompletion({ taskId, kidId: kid1, dateString: '2026-06-03' });
+    const before = db.prepare('SELECT earnedStars FROM users WHERE uid = ?').get(kid1) as any;
+    expect(before.earnedStars).toBe(3);
+    taskServiceServer.deleteCompletion(result.id);
+    const after = db.prepare('SELECT earnedStars FROM users WHERE uid = ?').get(kid1) as any;
+    expect(after.earnedStars).toBe(0);
+  });
+
   it('approveCompletion awards stars atomically', () => {
     // Create task requiring approval
     const approvalTaskId = 'tx_approval_task';
