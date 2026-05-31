@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # Dependabot uses the "npm" ecosystem for Node.js projects,
+  # including repositories managed with pnpm lockfiles.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    target-branch: "main"
