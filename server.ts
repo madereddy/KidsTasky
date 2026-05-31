@@ -6,7 +6,7 @@ import cors from "cors";
 import { rateLimit } from "express-rate-limit";
 import { db } from "./src/server/db.js";
 import { apiRouter } from "./src/server/routes.js";
-import { startBackgroundWorker } from "./src/server/worker.js";
+import { startBackgroundWorker, stopWorker } from "./src/server/worker.js";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { socketWrapper } from "./src/server/socket.js";
@@ -206,6 +206,8 @@ app.use((req, res, next) => {
 // Background Worker
 if (!process.env.VITEST && process.env.NODE_ENV !== 'test') {
   startBackgroundWorker();
+  process.on('SIGTERM', () => { stopWorker(); process.exit(0); });
+  process.on('SIGINT',  () => { stopWorker(); process.exit(0); });
 }
 
 // API Routes

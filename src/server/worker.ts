@@ -1,6 +1,7 @@
 import { format, parse, isAfter, startOfDay, differenceInDays } from "date-fns";
 import { db } from "./db.js";
 import cron from "node-cron";
+import type { ScheduledTask } from "node-cron";
 import { app } from "../../server.js";
 import fs from 'fs';
 import path from 'path';
@@ -18,6 +19,9 @@ function getIo() {
 }
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+
+const intervalHandles: ReturnType<typeof setInterval>[] = [];
+const cronHandles: ScheduledTask[] = [];
 
 export function startBackgroundWorker() {
   const lastPhotoCleanupRun = new Map<string, number>();
@@ -45,13 +49,13 @@ export function startBackgroundWorker() {
     await Promise.all(runners);
   }
 
-  setInterval(async () => {
+  intervalHandles.push(setInterval(async () => {
     try {
       await sendEventReminders();
     } catch (e) {
       console.error('[worker] reminder error:', e);
     }
-  }, REMINDER_WINDOW_MS);
+  }, REMINDER_WINDOW_MS));
 
   async function sendEventReminders() {
     const getReminderSentStmt = db.prepare('SELECT 1 FROM sent_reminders WHERE eventId = ? AND reminderMinutes = ?');
@@ -98,7 +102,7 @@ export function startBackgroundWorker() {
     }
   }
 
-  setInterval(() => {
+  intervalHandles.push(setInterval(() => {
     console.log("[Worker] Checking for overdue tasks...");
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
@@ -185,9 +189,9 @@ export function startBackgroundWorker() {
         getIo()?.to(parentId).emit('stale-data', { type: 'notifications' });
       }
     } catch (error) { console.error("[Worker Error]", error); }
-  }, 5 * 60 * 1000); 
+  }, 5 * 60 * 1000));
 
-  setInterval(() => {
+  intervalHandles.push(setInterval(() => {
     try {
       const families = db.prepare(`
         SELECT parentId, photoCleanupEnabled, photoCleanupIntervalHours
@@ -247,9 +251,9 @@ export function startBackgroundWorker() {
     } catch (error) {
       console.error('[worker] photo cleanup error:', error);
     }
-  }, 15 * 60 * 1000);
+  }, 15 * 60 * 1000));
 
-  cron.schedule("*/5 * * * *", async () => {
+  cronHandles.push(cron.schedule("*/5 * * * *", async () => {
     console.log("[Worker] Start Multi-Source Sync...");
     
     try {
@@ -327,5 +331,12 @@ export function startBackgroundWorker() {
         }
       } catch (err) { console.error("[Worker] IMAP Sync Error", err); }
     }
-  });
+  }));
+}
+
+export function stopWorker() {
+  intervalHandles.forEach(h => clearInterval(h));
+  cronHandles.forEach(h => h.stop());
+  intervalHandles.length = 0;
+  cronHandles.length = 0;
 }
