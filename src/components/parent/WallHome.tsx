@@ -8,6 +8,7 @@ import { weatherClientService, DailyForecast } from '../../services/weather';
 import { settingsClientService } from '../../services/settings';
 import { FamilyNote } from '../shared/FamilyNote';
 import { WeeklyWeather } from '../calendar/WeeklyWeather';
+import { WeeklyChoreGrid } from '../shared/WeeklyChoreGrid';
 import { getWeatherInfo } from '../../constants';
 import { toDisplayTemp, TemperatureUnitPref } from '../../lib/dateTimePrefs';
 import { useSocketStaleData } from '../../hooks/useSocket';
@@ -126,6 +127,9 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
     };
   });
 
+  const allTasks = Object.values(tasksByKid).flat();
+  const allCompletions = Object.values(completionsByKid).flat();
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -216,6 +220,14 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Weekly chore grid */}
+      {kids.length > 0 && allTasks.length > 0 && (
+        <div className="bg-white/80 dark:bg-white/5 rounded-2xl p-4 shadow-sm border border-ui">
+          <h2 className={cn("font-semibold text-ui-muted uppercase tracking-wide mb-3", isWallMode ? "text-base" : "text-sm")}>This Week</h2>
+          <WeeklyChoreGrid tasks={allTasks} kids={kids} completions={allCompletions} compact={!isWallMode} />
         </div>
       )}
 

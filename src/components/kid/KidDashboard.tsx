@@ -14,6 +14,7 @@ import { ThemeSelectorModal } from './ThemeSelectorModal';
 import { useSocketStaleData } from '../../hooks/useSocket';
 import { AvatarDisplay, AvatarPicker } from '../shared/AvatarPicker';
 import { FamilyNote } from '../shared/FamilyNote';
+import { WeeklyChoreGrid } from '../shared/WeeklyChoreGrid';
 import { CalendarView } from '../calendar/CalendarView';
 import { HomeworkView } from '../homework/HomeworkView';
 
@@ -601,6 +602,12 @@ export function KidDashboard({
         )}
       </AnimatePresence>
 
+      {kidView === 'tasks' && tasks.length > 0 && (
+        <div className={cn("rounded-2xl p-4 border shadow-sm mb-4", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-ui")}>
+          <h3 className="text-sm font-semibold text-ui-muted uppercase tracking-wide mb-3">This Week</h3>
+          <WeeklyChoreGrid tasks={tasks} kids={[profile]} completions={completions} compact />
+        </div>
+      )}
       {kidView === 'tasks' && (
         <KidTaskBoard
           sections={taskSections}
