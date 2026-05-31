@@ -100,7 +100,7 @@ export function KidDashboard({
     }
   }, [profile.uid, profile.parentId, today]);
 
-  useSocketStaleData((data) => {
+  useSocketStaleData(['tasks', 'completions', 'rewards', 'users'], (data) => {
     fetchData();
   });
 

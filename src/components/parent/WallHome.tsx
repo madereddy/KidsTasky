@@ -93,7 +93,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  useSocketStaleData(useCallback((data: { entity?: string; type?: string }) => {
+  useSocketStaleData(['events', 'homework', 'tasks', 'completions', 'weather', 'settings'], useCallback((data: { entity?: string; type?: string }) => {
     fetchData();
   }, [fetchData]));
 

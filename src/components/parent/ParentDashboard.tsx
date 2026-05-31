@@ -81,7 +81,7 @@ export function ParentDashboard({
     setSyncCalendars(sc || []);
   }, [familyId]);
 
-  useSocketStaleData((data: StaleDataEvent) => {
+  useSocketStaleData(['all'], (data: StaleDataEvent) => {
     const signal = data.type || data.entity;
     if (signal === 'notifications') {
       refreshNotifications().catch((e) => console.error('Failed to refresh notifications:', e));

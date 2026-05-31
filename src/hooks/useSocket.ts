@@ -24,14 +24,29 @@ export type StaleDataEvent = {
   timestamp?: number;
 };
 
-export const useSocketStaleData = (onStaleData: (data: StaleDataEvent) => void) => {
+export function matchesEntityFilter(entities: string[], data: StaleDataEvent): boolean {
+  const entity = data.entity ?? data.type ?? 'all';
+  return entities.includes('all') || entity === 'all' || entities.includes(entity);
+}
+
+export const useSocketStaleData = (
+  entities: string[],
+  onStaleData: (data: StaleDataEvent) => void
+) => {
   const callbackRef = useRef(onStaleData);
   callbackRef.current = onStaleData;
 
   useEffect(() => {
-    listeners.push(callbackRef);
-    return () => {
-      listeners = listeners.filter(ref => ref !== callbackRef);
+    const wrappedRef = {
+      current: (data: StaleDataEvent) => {
+        if (matchesEntityFilter(entities, data)) {
+          callbackRef.current(data);
+        }
+      }
     };
-  }, []);
+    listeners.push(wrappedRef);
+    return () => {
+      listeners = listeners.filter(r => r !== wrappedRef);
+    };
+  }, [entities.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 };

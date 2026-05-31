@@ -88,7 +88,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
     return () => document.body.classList.remove('kiosk-mode');
   }, [isKioskMode]);
 
-  useSocketStaleData((data) => {
+  useSocketStaleData(['events', 'sync', 'calendar', 'calendars', 'lists', 'tasks'], (data) => {
     const type = data?.type || data?.entity || '';
     const shouldRefreshEvents =
       !type ||

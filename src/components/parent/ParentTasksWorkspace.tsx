@@ -51,7 +51,7 @@ export function ParentTasksWorkspace({
     loadTasks().catch((e) => console.error('Failed loading tasks workspace:', e));
   }, [loadTasks]);
 
-  useSocketStaleData((data: StaleDataEvent) => {
+  useSocketStaleData(['tasks', 'completions'], (data: StaleDataEvent) => {
     const signal = data.type || data.entity;
     if (signal === 'tasks' || signal === 'completions') {
       loadTasks().catch((e) => console.error('Failed refreshing tasks workspace:', e));

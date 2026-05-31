@@ -115,7 +115,7 @@ export default function App() {
     setKids(nextKids || []);
   }, [profile]);
 
-  useSocketStaleData(useCallback((data: { entity?: string; type?: string }) => {
+  useSocketStaleData(['categories', 'users', 'kids'], useCallback((data: { entity?: string; type?: string }) => {
     const signal = data.type || data.entity;
     if (signal === 'categories') {
       refreshCategories();
