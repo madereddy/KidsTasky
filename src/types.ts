@@ -208,6 +208,9 @@ export interface FamilySettings {
   displayRotationEnabled?: boolean;
   displayRotationInterval?: number;
   displayRotationOrder?: string;
+  screensaverShuffle?: boolean;
+  screensaverDurationSec?: number;
+  screensaverCaptions?: boolean;
 }
 
 export interface SyncConnection {

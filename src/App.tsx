@@ -52,6 +52,9 @@ export default function App() {
   const [isLocked, setIsLocked] = useState(false);
   const [sleepStart, setSleepStart] = useState<string | undefined>(undefined);
   const [sleepEnd, setSleepEnd] = useState<string | undefined>(undefined);
+  const [screensaverShuffle, setScreensaverShuffle] = useState(false);
+  const [screensaverDurationSec, setScreensaverDurationSec] = useState(10);
+  const [screensaverCaptions, setScreensaverCaptions] = useState(true);
   const { isSleeping: isSleepScheduled } = useSleepMode({ sleepStart, sleepEnd });
   const isSleepMode = isSleepScheduled;
   const [showUnlockPrompt, setShowUnlockPrompt] = useState(false);
@@ -82,6 +85,9 @@ export default function App() {
                 if (settings?.isLocked) setIsLocked(true);
                 if (settings?.sleepStart) setSleepStart(settings.sleepStart);
                 if (settings?.sleepEnd) setSleepEnd(settings.sleepEnd);
+                if (settings?.screensaverShuffle !== undefined) setScreensaverShuffle(Boolean(settings.screensaverShuffle));
+                if (settings?.screensaverDurationSec) setScreensaverDurationSec(settings.screensaverDurationSec);
+                if (settings?.screensaverCaptions !== undefined) setScreensaverCaptions(settings.screensaverCaptions !== false);
               } else {
                 const cats = await categoryService.getCategories(parentId).catch(() => []);
                 setCategories(cats || []);
@@ -599,6 +605,9 @@ export default function App() {
         idleMinutes={5}
         forceIdle={screensaverPreview}
         onDismiss={screensaverPreview ? () => setScreensaverPreview(false) : undefined}
+        shuffleEnabled={screensaverShuffle}
+        displayDurationSec={screensaverDurationSec}
+        showCaptions={screensaverCaptions}
       />
 
       <footer className="mt-20 pt-10 border-t border-ui mx-6">

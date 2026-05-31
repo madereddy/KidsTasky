@@ -39,4 +39,16 @@ describe('PhotoScreensaver', () => {
     render(<PhotoScreensaver parentId="p1" forceIdle={false} />);
     expect(photosClientService.getPhotos).not.toHaveBeenCalled();
   });
+
+  it('shows caption when photo has caption', () => {
+    const photos = [{ id: '1', url: 'https://example.com/a.jpg', caption: 'Summer 2025' }];
+    render(<PhotoScreensaver photos={photos} forceIdle={true} showCaptions={true} />);
+    expect(screen.getByText('Summer 2025')).toBeInTheDocument();
+  });
+
+  it('hides caption when showCaptions is false', () => {
+    const photos = [{ id: '1', url: 'https://example.com/a.jpg', caption: 'Summer 2025' }];
+    render(<PhotoScreensaver photos={photos} forceIdle={true} showCaptions={false} />);
+    expect(screen.queryByText('Summer 2025')).not.toBeInTheDocument();
+  });
 });

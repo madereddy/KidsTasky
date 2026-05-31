@@ -17,6 +17,9 @@ const DEFAULTS: Partial<FamilySettings> = {
   displayRotationEnabled: false,
   displayRotationInterval: 30,
   displayRotationOrder: '["chores","calendar","weather","photos"]',
+  screensaverShuffle: false,
+  screensaverDurationSec: 10,
+  screensaverCaptions: true,
 };
 
 export const settingsService = {
@@ -29,6 +32,8 @@ export const settingsService = {
       photoCleanupEnabled: Boolean((row as any).photoCleanupEnabled),
       googlePhotosEnabled: Boolean((row as any).googlePhotosEnabled),
       displayRotationEnabled: Boolean((row as any).displayRotationEnabled),
+      screensaverShuffle: Boolean((row as any).screensaverShuffle),
+      screensaverCaptions: (row as any).screensaverCaptions !== undefined ? Boolean((row as any).screensaverCaptions) : true,
     };
   },
   saveSettings: (parentId: string, data: Partial<FamilySettings>) => {

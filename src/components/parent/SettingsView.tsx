@@ -70,6 +70,9 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
   const [coInviteCopied, setCoInviteCopied] = useState(false);
   const [displayRotationEnabled, setDisplayRotationEnabled] = useState(false);
   const [displayRotationInterval, setDisplayRotationInterval] = useState(30);
+  const [screensaverShuffle, setScreensaverShuffle] = useState(false);
+  const [screensaverDurationSec, setScreensaverDurationSec] = useState(10);
+  const [screensaverCaptions, setScreensaverCaptions] = useState(true);
   const [photoCleanupEnabled, setPhotoCleanupEnabled] = useState(true);
   const [photoCleanupIntervalHours, setPhotoCleanupIntervalHours] = useState(24);
   const [googlePhotosEnabled, setGooglePhotosEnabled] = useState(false);
@@ -111,6 +114,9 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
       setHasPIN(!!s.hasPIN);
       setDisplayRotationEnabled(Boolean(s.displayRotationEnabled));
       setDisplayRotationInterval(s.displayRotationInterval ?? 30);
+      setScreensaverShuffle(Boolean(s.screensaverShuffle));
+      setScreensaverDurationSec(s.screensaverDurationSec ?? 10);
+      setScreensaverCaptions(s.screensaverCaptions !== false);
       setPhotoCleanupEnabled(s.photoCleanupEnabled ?? true);
       setPhotoCleanupIntervalHours(s.photoCleanupIntervalHours ?? 24);
       setGooglePhotosEnabled(Boolean(s.googlePhotosEnabled));
@@ -280,6 +286,9 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
         ...(pin.trim() ? { pin } : {}),
         displayRotationEnabled,
         displayRotationInterval,
+        screensaverShuffle,
+        screensaverDurationSec,
+        screensaverCaptions,
         photoCleanupEnabled,
         photoCleanupIntervalHours: Math.max(1, photoCleanupIntervalHours),
         googlePhotosEnabled,
@@ -772,7 +781,32 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
               parentId={parentId}
               refreshToken={photoRefreshToken}
             />
-            <div className="mt-3">
+            <div className="mt-3 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-ui-muted mb-1">Slide duration</label>
+                  <select
+                    value={screensaverDurationSec}
+                    onChange={e => setScreensaverDurationSec(Number(e.target.value))}
+                    className="w-full border border-ui rounded-lg px-2 py-1.5 text-sm bg-white text-ui-primary focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  >
+                    <option value={5}>5 seconds</option>
+                    <option value={10}>10 seconds</option>
+                    <option value={20}>20 seconds</option>
+                    <option value={30}>30 seconds</option>
+                  </select>
+                </div>
+                <div className="space-y-2 pt-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={screensaverShuffle} onChange={e => setScreensaverShuffle(e.target.checked)} className="w-4 h-4 rounded" />
+                    <span className="text-xs text-ui-secondary">Shuffle photos</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={screensaverCaptions} onChange={e => setScreensaverCaptions(e.target.checked)} className="w-4 h-4 rounded" />
+                    <span className="text-xs text-ui-secondary">Show captions</span>
+                  </label>
+                </div>
+              </div>
               <button
                 onClick={handlePreviewScreensaver}
                 className="px-3 py-2 bg-ui-soft border border-ui rounded-lg text-sm font-semibold hover:bg-ui-soft-2 transition-colors"

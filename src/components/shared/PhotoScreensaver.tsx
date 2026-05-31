@@ -9,17 +9,28 @@ interface ScreensaverProps {
   idleMinutes?: number;
   forceIdle?: boolean;
   onDismiss?: () => void;
+  shuffleEnabled?: boolean;
+  displayDurationSec?: number;
+  showCaptions?: boolean;
 }
 
-export function PhotoScreensaver({ photos = [], parentId, idleMinutes = 5, forceIdle = false, onDismiss }: ScreensaverProps) {
-  const normalizePhotos = (items: { id: string; url: string; caption?: string }[]): FamilyPhoto[] =>
-    items.map((p) => ({
+export function PhotoScreensaver({ photos = [], parentId, idleMinutes = 5, forceIdle = false, onDismiss, shuffleEnabled = false, displayDurationSec = 10, showCaptions = true }: ScreensaverProps) {
+  const normalizePhotos = (items: { id: string; url: string; caption?: string }[]): FamilyPhoto[] => {
+    const normalized = items.map((p) => ({
       id: p.id,
       parentId: parentId ?? "",
       url: p.url,
       uploadedAt: "",
       caption: p.caption
     }));
+    if (shuffleEnabled) {
+      for (let i = normalized.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [normalized[i], normalized[j]] = [normalized[j], normalized[i]];
+      }
+    }
+    return normalized;
+  };
 
   const [isIdle, setIsIdle] = useState(forceIdle);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -70,9 +81,9 @@ export function PhotoScreensaver({ photos = [], parentId, idleMinutes = 5, force
     if (!isIdle || loadedPhotos.length === 0) return;
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % loadedPhotos.length);
-    }, 10000);
+    }, displayDurationSec * 1000);
     return () => clearInterval(interval);
-  }, [isIdle, loadedPhotos.length]);
+  }, [isIdle, loadedPhotos.length, displayDurationSec]);
 
   useEffect(() => {
     if (!forceIdle || !onDismiss) return;
@@ -98,13 +109,13 @@ export function PhotoScreensaver({ photos = [], parentId, idleMinutes = 5, force
       className="fixed inset-0 z-[110] bg-ui-deep flex items-center justify-center"
       onClick={handleDismiss}
     >
-      <AuthImage src={current.url} alt={current.caption || 'Screensaver'} className="w-full h-full object-cover transition-opacity duration-1000" />
+      <AuthImage src={current.url} alt={current.caption || 'Screensaver'} className="w-full h-full object-cover transition-opacity duration-1000 ken-burns" />
       {forceIdle && onDismiss && (
         <div className="absolute top-4 right-4 text-xs text-white/90 bg-black/50 rounded-md px-2 py-1">
           Preview mode: click or press Esc to exit
         </div>
       )}
-      {current.caption && (
+      {showCaptions && current.caption && (
         <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent text-white text-center text-sm">
           {current.caption}
         </div>
