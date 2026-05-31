@@ -34,7 +34,9 @@ photosRouter.get('/photos/file/:filename', requireAuth, (req, res) => {
   }
 
   const photosDir = getPhotosUploadsDir();
+  // path.basename strips any directory components (incl. ../), so safeName cannot escape photosDir.
   const safeName = path.basename(filename);
+  // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal,javascript.express.security.audit.express-path-join-resolve-traversal.express-path-join-resolve-traversal
   const filePath = path.join(photosDir, safeName);
 
   if (!filePath.startsWith(photosDir + path.sep) && filePath !== photosDir) {
@@ -42,6 +44,7 @@ photosRouter.get('/photos/file/:filename', requireAuth, (req, res) => {
   }
 
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Not found' });
+  // nosemgrep: javascript.express.security.audit.express-res-sendfile.express-res-sendfile
   res.sendFile(filePath);
 });
 
