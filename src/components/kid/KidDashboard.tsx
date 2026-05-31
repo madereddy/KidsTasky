@@ -15,6 +15,7 @@ import { useSocketStaleData } from '../../hooks/useSocket';
 import { AvatarDisplay, AvatarPicker } from '../shared/AvatarPicker';
 import { FamilyNote } from '../shared/FamilyNote';
 import { WeeklyChoreGrid } from '../shared/WeeklyChoreGrid';
+import { RewardsShop } from './RewardsShop';
 import { CalendarView } from '../calendar/CalendarView';
 import { HomeworkView } from '../homework/HomeworkView';
 
@@ -42,7 +43,7 @@ export function KidDashboard({
   const today = format(startOfToday(), 'yyyy-MM-dd');
   const [unlockedBadge, setUnlockedBadge] = useState<BadgeDef | null>(null);
   const [sortBy, setSortBy] = useState<'time' | 'created'>('time');
-  const [kidView, setKidView] = useState<'tasks' | 'calendar' | 'homework'>('tasks');
+  const [kidView, setKidView] = useState<'tasks' | 'calendar' | 'homework' | 'shop'>('tasks');
   const [taskView, setTaskView] = useState<'all' | 'upforgrabs' | 'assigned'>('all');
   const [showHistory, setShowHistory] = useState(false);
   const [showThemeSelector, setShowThemeSelector] = useState(false);
@@ -445,37 +446,6 @@ export function KidDashboard({
       </div>
       <FamilyNote parentId={profile.parentId || profile.uid} readOnly={true} />
 
-      <div className={cn("p-6 rounded-[3rem] border", currentTheme.vocab?.panelBg || "bg-amber-50", currentTheme.vocab?.panelBorder || "border-amber-100")}>
-        <h3 className={cn("text-2xl font-bold mb-6", `text-${currentTheme.primary}`)}>{currentTheme.vocab?.rewards || 'Rewards'}</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {rewards.map((r: Reward) => {
-            const isClaimed = claimedRewards.some((cr: ClaimedReward) => cr.rewardId === r.id);
-            const canAfford = (profile.xp || 0) >= r.xpCost;
-            return (
-              <div key={r.id} className={cn("p-5 rounded-2xl flex justify-between items-center", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-white shadow-sm")}>
-                 <div>
-                   <p className={cn("font-bold text-lg", currentTheme.vocab?.textPrimary || "text-ui-primary")}>{r.title}</p>
-                   <p className={cn("text-sm mt-1", toneSecondary)}>
-                     {r.description} • <span className={cn("font-bold", `text-${currentTheme.primary}`)}>{r.xpCost} {currentTheme.vocab?.points || 'XP'}</span>
-                     {r.starCost ? <span className="text-amber-500 font-bold"> • ⭐ {r.starCost} stars</span> : null}
-                   </p>
-                 </div>
-                 <button
-                   disabled={isClaimed || !canAfford}
-                   onClick={() => claimReward(r.id, r.xpCost)}
-                   className={cn("px-6 py-3 rounded-xl text-sm font-bold transition-all",
-                     isClaimed ? "bg-ui-soft-2 text-ui-muted-2" : (canAfford ? `bg-${currentTheme.primary} text-white` : "bg-ui-soft-2 text-ui-muted-2"),
-                     !isClaimed && canAfford && `hover:bg-${currentTheme.accent}`
-                   )}
-                 >
-                   {isClaimed ? "Claimed" : (canAfford ? "Claim" : "Not Enough XP")}
-                 </button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       <div className={cn("flex justify-between items-center shadow-sm p-3 rounded-[2rem] border", currentTheme.vocab?.panelBg || "bg-white", currentTheme.vocab?.panelBorder || "border-ui-soft")}>
         <div className="flex gap-2 items-center">
           <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-ui-soft")}>
@@ -506,6 +476,17 @@ export function KidDashboard({
             >
               Homework
             </button>
+            {rewards.length > 0 && (
+              <button
+                onClick={() => setKidView('shop')}
+                className={cn(
+                  "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider flex items-center gap-1",
+                  kidView === 'shop' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
+                )}
+              >
+                🛍 Shop
+              </button>
+            )}
           </div>
           <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-ui-soft")}>
             <button 
@@ -643,6 +624,18 @@ export function KidDashboard({
           userRole="kid"
           currentUserId={profile.uid}
         />
+      )}
+      {kidView === 'shop' && (
+        <div className={cn("p-6 rounded-[3rem] border", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-ui")}>
+          <h3 className={cn("text-2xl font-bold mb-6", `text-${currentTheme.primary}`)}>{currentTheme.vocab?.rewards || 'Rewards Shop'}</h3>
+          <RewardsShop
+            rewards={rewards}
+            claimedRewards={claimedRewards}
+            kidXP={profile.xp ?? 0}
+            kidStars={Math.max(0, (profile.earnedStars ?? 0) - (profile.spentStars ?? 0))}
+            onClaim={(rewardId, xpCost) => claimReward(rewardId, xpCost)}
+          />
+        </div>
       )}
 
       {progressPercent === 100 && totalSlots > 0 && (
