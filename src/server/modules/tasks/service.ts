@@ -83,7 +83,7 @@ export const taskServiceServer = {
     return result.changes > 0;
   },
   
-  createCompletion: (data: any) => {
+  createCompletion: db.transaction((data: any) => {
     const id = `${data.taskId}_${data.dateString}_${data.count || 1}`;
     const task = db.prepare('SELECT starValue, requiresApproval FROM tasks WHERE id = ?').get(data.taskId) as { starValue: number; requiresApproval: number } | undefined;
     const needsApproval = Boolean(task?.requiresApproval);
@@ -102,7 +102,7 @@ export const taskServiceServer = {
       db.prepare('UPDATE users SET earnedStars = earnedStars + ? WHERE uid = ?').run(stars, data.kidId);
     }
     return { id, approvalStatus };
-  },
+  }),
 
   skipTask: (data: { taskId: string; kidId: string; dateString: string; count?: number }) => {
     const id = `${data.taskId}_${data.dateString}_${data.count || 1}`;
@@ -114,7 +114,7 @@ export const taskServiceServer = {
     return { id };
   },
 
-  deleteCompletion: (completionId: string) => {
+  deleteCompletion: db.transaction((completionId: string) => {
     const completion = db.prepare("SELECT * FROM completions WHERE id = ?").get(completionId) as any;
     if (completion) {
       // Only revoke stars that were actually awarded (approved completions)
@@ -125,16 +125,16 @@ export const taskServiceServer = {
       }
     }
     db.prepare("DELETE FROM completions WHERE id = ?").run(completionId);
-  },
+  }),
 
-  approveCompletion: (completionId: string) => {
+  approveCompletion: db.transaction((completionId: string) => {
     const completion = db.prepare("SELECT * FROM completions WHERE id = ? AND approvalStatus = 'pending'").get(completionId) as any;
     if (!completion) throw new Error('Completion not found or not pending');
     db.prepare("UPDATE completions SET approvalStatus = 'approved' WHERE id = ?").run(completionId);
     const task = db.prepare('SELECT starValue FROM tasks WHERE id = ?').get(completion.taskId) as { starValue: number } | undefined;
     const stars = task?.starValue ?? 1;
     db.prepare('UPDATE users SET earnedStars = earnedStars + ? WHERE uid = ?').run(stars, completion.kidId);
-  },
+  }),
 
   rejectCompletion: (completionId: string) => {
     db.prepare("UPDATE completions SET approvalStatus = 'rejected' WHERE id = ?").run(completionId);
