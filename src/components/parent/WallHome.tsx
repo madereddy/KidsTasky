@@ -137,7 +137,10 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
   const todayEvents = events
     .filter(e => {
       const start = new Date(e.startTime);
-      return format(start, 'yyyy-MM-dd') === today;
+      const isToday = format(start, 'yyyy-MM-dd') === today;
+      if (!isToday) return false;
+      const endMs = e.endTime || e.startTime;
+      return endMs > Date.now();
     })
     .sort((a, b) => a.startTime - b.startTime);
 

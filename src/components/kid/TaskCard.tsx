@@ -195,13 +195,25 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
           )}
         </div>
       ) : (
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={cn("w-full py-4 font-bold rounded-2xl text-center uppercase tracking-wider text-sm mt-4 flex items-center justify-center gap-2", darkMode ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border border-emerald-200")}
-        >
-          <CheckCircle2 className="w-4 h-4" /> {themeVocab?.completed || 'Completed!'} +{XP_REWARDS[task.difficulty || 'easy']} {themeVocab?.points || 'XP'}
-        </motion.div>
+        <div className="mt-4 flex gap-2">
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={cn("flex-1 py-4 font-bold rounded-2xl text-center uppercase tracking-wider text-sm flex items-center justify-center gap-2", darkMode ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border border-emerald-200")}
+          >
+            <CheckCircle2 className="w-4 h-4" /> {themeVocab?.completed || 'Completed!'} +{XP_REWARDS[task.difficulty || 'easy']} {themeVocab?.points || 'XP'}
+          </motion.div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); void onToggle(); }}
+            className={cn(
+              "px-4 py-4 rounded-2xl font-bold uppercase tracking-wider text-xs border",
+              darkMode ? "bg-ui-dark border-ui-dark text-ui-secondary hover:text-white" : "bg-white border-ui text-ui-muted hover:text-ui-primary"
+            )}
+          >
+            Undo
+          </button>
+        </div>
       )}
     </motion.div>
   );

@@ -23,18 +23,21 @@ export const homeworkClientService = {
   createHomework(data: Omit<Homework, 'id' | 'createdAt'>): Promise<Homework> {
     return fetchAPI('/homework', { method: 'POST', body: JSON.stringify(data) }).then((res) => {
       homeworkCache.delete(data.parentId);
+      homeworkInflight.clear();
       return res;
     });
   },
   updateHomework(id: string, data: Partial<Homework>): Promise<{ success: boolean }> {
     return fetchAPI(`/homework/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((res) => {
       homeworkCache.clear();
+      homeworkInflight.clear();
       return res;
     });
   },
   deleteHomework(id: string): Promise<{ success: boolean }> {
     return fetchAPI(`/homework/${id}`, { method: 'DELETE' }).then((res) => {
       homeworkCache.clear();
+      homeworkInflight.clear();
       return res;
     });
   },

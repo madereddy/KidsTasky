@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { Plus, Trash2, Pencil } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Homework, UserProfile } from '../../types';
 import { homeworkClientService } from '../../services/homework';
 import { AddHomeworkModal } from './AddHomeworkModal';
@@ -21,6 +22,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
   const [proofPrompt, setProofPrompt] = useState<{ item: Homework; questions: string[] } | null>(null);
   const [proofAnswers, setProofAnswers] = useState<Record<string, string>>({});
   const [editingHomework, setEditingHomework] = useState<Homework | null>(null);
+  const [celebrationTick, setCelebrationTick] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,7 +61,10 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
   return (
     <div className="rounded-2xl border border-ui bg-white p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-ui-primary">Homework</h2>
+        <div>
+          <h2 className="text-lg font-bold text-ui-primary">Homework</h2>
+          {userRole === 'kid' && <p className="text-xs text-ui-muted">Quick Update</p>}
+        </div>
         {userRole === 'parent' && (
           <button onClick={() => setShowAdd(true)} className="px-3 py-2 rounded-xl bg-blue-500 text-white text-sm font-semibold flex items-center gap-1.5">
             <Plus size={14} /> Add
@@ -78,7 +83,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
           const isOverdue = item.status !== 'done' && isBefore(new Date(item.dueDate), startOfDay(new Date()));
           const assignee = item.assignedToId ? kids.find((kid) => kid.uid === item.assignedToId)?.name || 'Assigned' : 'All kids';
           return (
-            <div key={item.id} className="border border-ui rounded-xl p-3 flex items-center justify-between gap-3">
+            <div key={item.id} className={`border rounded-xl p-3 flex items-center justify-between gap-3 ${userRole === 'kid' ? 'border-2 border-ui-soft shadow-sm bg-white' : 'border-ui'}`}>
               <div>
                 <p className="font-semibold text-ui-primary">{item.title}</p>
                 <p className="text-xs text-ui-muted">
@@ -106,6 +111,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
                         status: nextStatus,
                         completionResponse: nextStatus === 'pending' ? null : item.completionResponse ?? null
                       });
+                      if (nextStatus === 'done') setCelebrationTick((n) => n + 1);
                       await load();
                     } finally {
                       setActionId(null);
@@ -114,7 +120,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
                   disabled={actionId === item.id}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold ${item.status === 'done' ? 'bg-emerald-100 text-emerald-700' : 'bg-ui-soft-2 text-ui-secondary'}`}
                 >
-                  {actionId === item.id ? 'Saving...' : (item.status === 'done' ? 'Done' : 'Mark done')}
+                  {actionId === item.id ? 'Saving...' : (item.status === 'done' ? 'Undo' : 'Mark done')}
                 </button>
                 {userRole === 'parent' && (
                   <>
@@ -208,6 +214,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
                   setActionId(proofPrompt.item.id);
                   try {
                     await homeworkClientService.updateHomework(proofPrompt.item.id, { status: 'done', completionResponse: response });
+                    setCelebrationTick((n) => n + 1);
                     setProofPrompt(null);
                     setProofAnswers({});
                     await load();
@@ -223,6 +230,23 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
           </div>
         </div>
       )}
+      <AnimatePresence>
+        {celebrationTick > 0 && (
+          <div className="fixed inset-0 pointer-events-none z-[60] overflow-hidden" key={`hw-celebrate-${celebrationTick}`}>
+            {Array.from({ length: 14 }).map((_, i) => (
+              <motion.div
+                key={`hw-confetti-${celebrationTick}-${i}`}
+                initial={{ opacity: 1, y: 70, x: 0, scale: 0.8 }}
+                animate={{ opacity: 0, y: -220 - (i % 4) * 24, x: (i % 2 === 0 ? 1 : -1) * (30 + i * 7), rotate: (i % 2 === 0 ? 1 : -1) * (50 + i * 8), scale: 1.1 }}
+                transition={{ duration: 1, ease: 'easeOut', delay: (i % 5) * 0.03 }}
+                className="absolute left-1/2 bottom-20 text-2xl"
+              >
+                {i % 2 === 0 ? '🎉' : '✨'}
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

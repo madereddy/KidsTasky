@@ -67,6 +67,7 @@ export function KidDashboard({
   const [xpAnimation, setXpAnimation] = useState<{amount: number, active: boolean}>({amount: 0, active: false});
   const [showStarBurst, setShowStarBurst] = useState(false);
   const [starsAwarded, setStarsAwarded] = useState(0);
+  const [celebrationTick, setCelebrationTick] = useState(0);
 
   const currentTheme = THEMES.find(t => t.id === profile.themeId) || THEMES[0];
   const isDarkMode = !!currentTheme.vocab?.darkMode;
@@ -212,7 +213,11 @@ export function KidDashboard({
         .map((question, i) => ({ question, answer: String(answers[`q_${i}`] || '').trim() }))
         .filter((entry) => entry.answer.length > 0);
       await tasksClientService.completeTask(taskId, profile.uid, today, count, proofPayload.length > 0 ? proofPayload : undefined);
-      await userService.updateUserXP(profile.uid, xpReward);
+      try {
+        await userService.updateUserXP(profile.uid, xpReward);
+      } catch (xpError) {
+        console.warn("Task completed but XP update failed", xpError);
+      }
       setCompletions([...completions, {
         id: `${taskId}_${today}_${count || 1}`,
         taskId,
@@ -221,6 +226,7 @@ export function KidDashboard({
         dateString: today,
         count
       }]);
+      setCelebrationTick((n) => n + 1);
       onProfileUpdate();
     } catch (e) {
       console.error("Failed to complete task", e);
@@ -817,6 +823,21 @@ export function KidDashboard({
           </motion.div>
         )}
 
+        {celebrationTick > 0 && (
+          <div className="fixed inset-0 pointer-events-none z-[129] overflow-hidden" key={`celebrate-${celebrationTick}`}>
+            {Array.from({ length: 18 }).map((_, i) => (
+              <motion.div
+                key={`confetti-${celebrationTick}-${i}`}
+                initial={{ opacity: 1, y: 80, x: 0, scale: 0.8 }}
+                animate={{ opacity: 0, y: -260 - (i % 4) * 30, x: (i % 2 === 0 ? 1 : -1) * (40 + i * 8), rotate: (i % 2 === 0 ? 1 : -1) * (60 + i * 10), scale: 1.1 }}
+                transition={{ duration: 1.1, ease: "easeOut", delay: (i % 6) * 0.03 }}
+                className="absolute left-1/2 bottom-24 text-2xl"
+              >
+                {i % 3 === 0 ? '🎉' : (i % 3 === 1 ? '✨' : '⭐')}
+              </motion.div>
+            ))}
+          </div>
+        )}
         {unlockedBadge && (
           <motion.div 
             initial={{ opacity: 0, scale: 0.8, y: 50 }}
