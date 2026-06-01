@@ -272,7 +272,7 @@ export function KidDashboard({
       try {
         await tasksClientService.uncompleteTask(taskId, today, count);
         await userService.updateUserXP(profile.uid, -xpReward).catch(() => {});
-        setCompletions(completions.filter((c: TaskCompletion) => !(c.taskId === taskId && c.count === count)));
+        setCompletions(completions.filter((c: TaskCompletion) => !(c.taskId === taskId && ((c.count ?? 1) === (count ?? 1)))));
         setLocalXp((prev) => Math.max(0, prev - xpReward));
         onProfileUpdate();
       } finally {
@@ -319,13 +319,16 @@ export function KidDashboard({
     await completeTaskNow(taskId, count, xpReward, questions, proofAnswers);
   };
 
-    const getCompletion = (taskId: string, count?: number) => {
-    return completions.find((c: TaskCompletion) => c.taskId === taskId && c.count === count);
-    };
+  const sameSlot = (completionCount: number | null | undefined, slotCount: number | undefined) =>
+    (completionCount ?? 1) === (slotCount ?? 1);
 
-    const isCompleted = (taskId: string, count?: number) => {
-    return completions.some((c: TaskCompletion) => c.taskId === taskId && c.count === count);
-    };
+  const getCompletion = (taskId: string, count?: number) => {
+    return completions.find((c: TaskCompletion) => c.taskId === taskId && sameSlot(c.count as any, count));
+  };
+
+  const isCompleted = (taskId: string, count?: number) => {
+    return completions.some((c: TaskCompletion) => c.taskId === taskId && sameSlot(c.count as any, count));
+  };
 
     const shouldShowToday = (task: Task) => {
     if (task.frequency === 'daily' || task.frequency === 'twice-daily') return true;
