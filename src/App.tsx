@@ -204,6 +204,7 @@ export default function App() {
   const currentThemeId = profile?.themeId || 'space';
   const currentTheme = THEMES.find(t => t.id === currentThemeId) || THEMES[0];
   const isDarkTheme = !!currentTheme.vocab?.darkMode;
+  const familyParentId = profile.parentId || profile.uid;
 
   useEffect(() => {
     if (!profile || profile.role !== 'parent' || isLocked) return;
@@ -494,7 +495,7 @@ export default function App() {
               transition={{ duration: 0.3 }}
             >
               <WallHome
-                parentId={profile.uid}
+                parentId={familyParentId}
                 profile={profile}
                 kids={kids}
                 memberColorMap={memberColorMap}
@@ -533,7 +534,7 @@ export default function App() {
               transition={{ duration: 0.3 }}
             >
               <CalendarView 
-                parentId={profile.uid} 
+                parentId={familyParentId} 
                 kids={kids} 
                 memberColorMap={memberColorMap} 
                 isLocked={isLocked} 
@@ -550,7 +551,7 @@ export default function App() {
               transition={{ duration: 0.3 }}
             >
               <ParentTasksWorkspace
-                parentId={profile.uid}
+                parentId={familyParentId}
                 kids={kids}
                 categories={categories}
                 selectedCategoryId={selectedCategoryId}
@@ -568,12 +569,12 @@ export default function App() {
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.3 }}
             >
-              <ListsView parentId={profile.uid} />
+              <ListsView parentId={familyParentId} />
             </motion.div>
           )}
           {profile.role === 'parent' && activeSection === 'meals' && (
             <motion.div key="meals-view" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.3 }}>
-              <MealPlanView parentId={profile.uid} />
+              <MealPlanView parentId={familyParentId} />
             </motion.div>
           )}
           {profile.role !== 'parent' && (
@@ -600,7 +601,7 @@ export default function App() {
       </main>
       {profile.role === "parent" && showUnlockPrompt && (
         <ParentalLockOverlay
-          parentId={profile.uid}
+          parentId={familyParentId}
           onUnlock={() => {
             setIsLocked(false);
             setShowUnlockPrompt(false);
@@ -610,10 +611,10 @@ export default function App() {
       )}
       {profile.role === "parent" && showSettings && (
         <SettingsView
-          parentId={profile.uid}
+          parentId={familyParentId}
           onClose={() => setShowSettings(false)}
           onLockNow={async () => {
-            await settingsClientService.lockDisplay(profile.uid);
+            await settingsClientService.lockDisplay(familyParentId);
             setIsLocked(true);
             setShowSettings(false);
           }}
