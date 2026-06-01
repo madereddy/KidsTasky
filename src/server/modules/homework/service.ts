@@ -35,16 +35,14 @@ export const homeworkService = {
     const current = db.prepare('SELECT dueDate, recurrence FROM homework WHERE id = ? AND parentId = ?').get(id, parentId) as { dueDate: string; recurrence?: 'none' | 'daily' | 'weekdays' } | undefined;
     if (!current) return false;
     if (fields.status === 'done' && current.recurrence && current.recurrence !== 'none') {
-      const parts = String(current.dueDate).split('-').map((v) => Number(v));
-      const base = parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(current.dueDate);
+      const base = new Date(`${current.dueDate}T00:00:00.000Z`);
       if (!Number.isNaN(base.getTime())) {
         const d = new Date(base);
-        d.setHours(0, 0, 0, 0);
         if (current.recurrence === 'daily') {
-          d.setDate(d.getDate() + 1);
+          d.setUTCDate(d.getUTCDate() + 1);
         } else if (current.recurrence === 'weekdays') {
-          d.setDate(d.getDate() + 1);
-          while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+          d.setUTCDate(d.getUTCDate() + 1);
+          while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
         }
         fields.status = 'pending';
         fields.dueDate = d.toISOString().slice(0, 10);

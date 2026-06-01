@@ -1,9 +1,0 @@
-- generic [ref=e6]:
-  - img [ref=e8]
-  - heading "Family Hub" [level=1] [ref=e11]
-  - paragraph [ref=e12]: Chore Charts & Rewards
-  - textbox "Parent Name" [ref=e18]
-  - textbox "Parent Email or Username" [ref=e13]
-  - textbox "Parent Password (Optional for Kids)" [ref=e15]
-  - button "Register" [disabled] [ref=e19]
-  - button "Already have access?" [active] [ref=e20]

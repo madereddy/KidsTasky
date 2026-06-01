@@ -162,15 +162,15 @@ if (enforceHttps) {
 }
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 100, 
-  standardHeaders: 'draft-8', 
+  limit: 500,
+  standardHeaders: 'draft-8',
   legacyHeaders: false,
   skip: (req) => {
     const host = String(req.hostname || "").toLowerCase();
     if (host === "localhost" || host === "127.0.0.1") return true;
     const forwardedFor = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
     const ip = (forwardedFor || req.ip || "").replace(/^::ffff:/, "");
-    return ip === "127.0.0.1" || isRfc1918Ipv4(ip);
+    return ip === "127.0.0.1";
   },
 });
 app.use(limiter);
@@ -205,7 +205,7 @@ app.use((req, res, next) => {
 
 // Background Worker
 if (!process.env.VITEST && process.env.NODE_ENV !== 'test') {
-  startBackgroundWorker();
+  startBackgroundWorker(io);
   process.on('SIGTERM', () => { stopWorker(); process.exit(0); });
   process.on('SIGINT',  () => { stopWorker(); process.exit(0); });
 }

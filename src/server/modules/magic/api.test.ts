@@ -5,6 +5,8 @@ import request from 'supertest';
 import { app } from '../../../../server.js';
 import { magicService } from './service.js';
 import { db } from '../../db.js';
+import jwt from 'jsonwebtoken';
+import { getJwtSecret } from '../../config.js';
 
 vi.mock('./service.js', () => ({
   magicService: {
@@ -19,6 +21,10 @@ process.env.GEMINI_API_KEY = 'test-key';
 const MAGIC_PARENT_UID = 'family-123';
 
 describe('Magic Webhook API', () => {
+  function makeToken(uid: string, role: 'parent' | 'kid', parentId: string) {
+    return jwt.sign({ uid, role, parentId }, getJwtSecret(), { expiresIn: '1h' });
+  }
+
   beforeEach(() => {
     db.prepare("INSERT OR IGNORE INTO users (uid, role, name, email, parentId, passwordHash) VALUES (?, 'parent', 'Magic Family', 'magic@test.com', ?, 'x')")
       .run(MAGIC_PARENT_UID, MAGIC_PARENT_UID);
@@ -36,8 +42,10 @@ describe('Magic Webhook API', () => {
       recipient: `${MAGIC_PARENT_UID}@import.ourcalendar.app`
     };
 
+    const token = makeToken(MAGIC_PARENT_UID, 'parent', MAGIC_PARENT_UID);
     const res = await request(app)
       .post('/api/magic/import')
+      .set('Authorization', `Bearer ${token}`)
       .send(payload);
 
     expect(res.status).toBe(200);
@@ -51,16 +59,27 @@ describe('Magic Webhook API', () => {
   });
 
   it('rejects import for unknown family', async () => {
+    const token = makeToken(MAGIC_PARENT_UID, 'parent', MAGIC_PARENT_UID);
     const res = await request(app)
       .post('/api/magic/import')
+      .set('Authorization', `Bearer ${token}`)
       .send({ text: 'Some event', recipient: 'nonexistent-family@import.ourcalendar.app' });
     expect(res.status).toBe(404);
   });
 
   it('rejects import with missing recipient', async () => {
+    const token = makeToken(MAGIC_PARENT_UID, 'parent', MAGIC_PARENT_UID);
     const res = await request(app)
       .post('/api/magic/import')
+      .set('Authorization', `Bearer ${token}`)
       .send({ text: 'Some event' });
     expect(res.status).toBe(400);
+  });
+
+  it('rejects unauthenticated request with 401', async () => {
+    const res = await request(app)
+      .post('/api/magic/import')
+      .send({ text: 'Some event', recipient: `${MAGIC_PARENT_UID}@import.ourcalendar.app` });
+    expect(res.status).toBe(401);
   });
 });

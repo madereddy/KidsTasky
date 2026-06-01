@@ -5,15 +5,41 @@ import { eventsService } from '../events/service.js';
 import { socketWrapper } from '../../socket.js';
 import { db } from '../../db.js';
 import crypto from 'crypto';
+import { rateLimit } from 'express-rate-limit';
+
+const magicLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Too many magic import requests. Please wait.' },
+});
+
+const MAX_MAGIC_TEXT_LENGTH = 20_000;
 
 export const magicRouter = Router();
 
-magicRouter.post('/magic/import', async (req, res) => {
+magicRouter.post('/magic/import', magicLimiter, async (req, res) => {
   try {
     const { text, recipient, timestamp, token, signature } = req.body;
-    
-    // Webhook Signature verification (Mailgun example)
+
+    // When no webhook signing key is configured, require JWT auth instead
     const signingKey = process.env.MAILGUN_SIGNING_KEY;
+    if (!signingKey) {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader) {
+        return res.status(401).json({ error: 'Unauthorized: provide JWT token or configure MAILGUN_SIGNING_KEY' });
+      }
+      try {
+        const jwt = await import('jsonwebtoken');
+        const { getJwtSecret } = await import('../../config.js');
+        jwt.default.verify(authHeader.replace('Bearer ', ''), getJwtSecret(), { algorithms: ['HS256'] });
+      } catch {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    }
+
+    // Webhook Signature verification (Mailgun example)
     if (signingKey && timestamp && token && signature) {
       const encodedToken = crypto
           .createHmac('sha256', signingKey)
@@ -31,6 +57,9 @@ magicRouter.post('/magic/import', async (req, res) => {
 
     if (!text) {
       return res.status(400).json({ error: 'Missing text content' });
+    }
+    if (typeof text === 'string' && text.length > MAX_MAGIC_TEXT_LENGTH) {
+      return res.status(400).json({ error: 'Text too long' });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;

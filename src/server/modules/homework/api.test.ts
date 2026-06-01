@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { app, db } from '../../../../server.js';
@@ -190,6 +190,8 @@ describe('Homework API', () => {
   });
 
   it('auto-advances recurring homework when marked done', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-29T10:00:00.000Z'));
     const create = await request(app)
       .post('/api/homework')
       .set('Authorization', `Bearer ${token}`)
@@ -211,5 +213,6 @@ describe('Homework API', () => {
     expect(list.body[0].status).toBe('pending');
     expect(list.body[0].dueDate).toBe('2026-06-01');
     expect(list.body[0].recurrence).toBe('weekdays');
+    vi.useRealTimers();
   });
 });

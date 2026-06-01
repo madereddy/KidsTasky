@@ -12,8 +12,18 @@ export const initSocket = (parentId: string) => {
       socket?.emit('join-room', parentId, token);
     });
 
+    const pendingByEntity = new Map<string, ReturnType<typeof setTimeout>>();
+    const CLIENT_DEBOUNCE_MS = 150;
+
     socket.on('stale-data', (data) => {
-      listeners.forEach(ref => ref.current(data));
+      const key = data?.entity ?? data?.type ?? 'all';
+      const existing = pendingByEntity.get(key);
+      if (existing) clearTimeout(existing);
+      const timer = setTimeout(() => {
+        pendingByEntity.delete(key);
+        listeners.forEach(ref => ref.current(data));
+      }, CLIENT_DEBOUNCE_MS);
+      pendingByEntity.set(key, timer);
     });
   }
 };

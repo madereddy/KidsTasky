@@ -2,6 +2,8 @@ import { expect, test } from 'vitest';
 import request from 'supertest';
 import { app } from '../../server.js';
 import { db } from '../../src/server/db.js';
+import { decryptField } from '../../src/server/lib/crypto.js';
+import { getSecretKey } from '../../src/server/config.js';
 
 test('Manual sync connection', async () => {
   // 1. Setup Parent
@@ -24,7 +26,7 @@ test('Manual sync connection', async () => {
   const conn = db.prepare("SELECT * FROM sync_connections WHERE parentId = ? AND provider = 'google_manual'").get(parentId) as any;
   expect(conn).toBeDefined();
   expect(conn.email).toBe('test@gmail.com');
-  expect(conn.appPassword).toBe('abcd efgh ijkl mnop');
+  expect(decryptField(conn.appPassword, getSecretKey())).toBe('abcd efgh ijkl mnop');
 
   // 4. Cleanup
   db.prepare("DELETE FROM sync_connections WHERE parentId = ?").run(parentId);

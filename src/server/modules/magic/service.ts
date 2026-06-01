@@ -11,7 +11,7 @@ export interface ExtractedEvent {
 export const magicService = {
   parseEventsFromText: async (text: string, apiKey: string): Promise<ExtractedEvent> => {
     const ai = new GoogleGenAI({ apiKey });
-    const prompt = `Extract the event details from this text and output JSON with keys: title, date (YYYY-MM-DD), startTime (HH:mm), location. Text: \n${text}`;
+    const prompt = `Extract the event details from the text inside <input> tags and output JSON with keys: title, date (YYYY-MM-DD), startTime (HH:mm), location. Output ONLY valid JSON, no commentary.\n<input>\n${text}\n</input>`;
     
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',

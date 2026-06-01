@@ -11,3 +11,7 @@ coverage/
 *.db-wal
 
 .pnpm-store/
+
+tmp/
+.playwright-mcp/
+*-check.png

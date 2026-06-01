@@ -5,16 +5,14 @@ import { homeworkService } from './service.js';
 export const homeworkRouter = Router();
 
 const nextHomeworkDueDate = (fromDate: string, recurrence: 'none' | 'daily' | 'weekdays'): string => {
-  const parts = String(fromDate).split('-').map((v) => Number(v));
-  const base = parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(fromDate);
+  const base = new Date(`${fromDate}T00:00:00.000Z`);
   if (Number.isNaN(base.getTime())) return fromDate;
   const d = new Date(base);
-  d.setHours(0, 0, 0, 0);
-  const addDays = (n: number) => d.setDate(d.getDate() + n);
-  if (recurrence === 'daily') addDays(1);
-  if (recurrence === 'weekdays') {
-    addDays(1);
-    while (d.getDay() === 0 || d.getDay() === 6) addDays(1);
+  if (recurrence === 'daily') {
+    d.setUTCDate(d.getUTCDate() + 1);
+  } else if (recurrence === 'weekdays') {
+    d.setUTCDate(d.getUTCDate() + 1);
+    while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
   }
   return d.toISOString().slice(0, 10);
 };

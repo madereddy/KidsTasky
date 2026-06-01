@@ -2,7 +2,7 @@ import { format, parse, isAfter, startOfDay, differenceInDays } from "date-fns";
 import { db } from "./db.js";
 import cron from "node-cron";
 import type { ScheduledTask } from "node-cron";
-import { app } from "../../server.js";
+import type { Server as SocketServer } from 'socket.io';
 import fs from 'fs';
 import path from 'path';
 import imaps from 'imap-simple';
@@ -14,9 +14,6 @@ import { sendPushToUser } from './modules/notifications/pushService.js';
 import { sendEmail } from './modules/notifications/emailService.js';
 import { ensurePhotosUploadsDir } from './modules/photos/storage.js';
 
-function getIo() {
-  return app ? app.get("io") : null;
-}
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
@@ -47,7 +44,7 @@ function onGoogleSyncFailure(err: any) {
   }
 }
 
-export function startBackgroundWorker() {
+export function startBackgroundWorker(io?: SocketServer) {
   const lastPhotoCleanupRun = new Map<string, number>();
   let photoSweepUploadsDirUnavailable = false;
   const REMINDER_WINDOW_MS = 60_000;
@@ -210,7 +207,7 @@ export function startBackgroundWorker() {
         }
       }
       for (const parentId of parentIdsWithNewNotifications) {
-        getIo()?.to(parentId).emit('stale-data', { type: 'notifications' });
+        io?.to(parentId).emit('stale-data', { type: 'notifications' });
       }
     } catch (error) { console.error("[Worker Error]", error); }
   }, 5 * 60 * 1000));
@@ -236,15 +233,30 @@ export function startBackgroundWorker() {
 
         const parentExists = db.prepare('SELECT 1 FROM users WHERE uid = ?').get(family.parentId);
         for (const photo of photos) {
-          const shouldRemove = !parentExists;
-          const localPath = path.resolve(photo.url.replace(/^\//, ''));
-          if (shouldRemove) {
+          const url = photo.url;
+          // Extract filename for local photos only; skip remote URLs (Google Photos https*)
+          let localFilename: string | null = null;
+          if (url.startsWith('/api/photos/file/')) {
+            localFilename = path.basename(url.replace('/api/photos/file/', ''));
+          } else if (url.startsWith('/uploads/photos/')) {
+            localFilename = path.basename(url.replace('/uploads/photos/', ''));
+          }
+
+          if (!parentExists) {
             db.prepare('DELETE FROM family_photos WHERE id = ?').run(photo.id);
-            fs.unlink(localPath, () => {});
+            if (localFilename) {
+              const filePath = path.join(ensurePhotosUploadsDir(), localFilename);
+              fs.unlink(filePath, () => {});
+            }
             continue;
           }
-          if (!fs.existsSync(localPath)) {
-            db.prepare('DELETE FROM family_photos WHERE id = ?').run(photo.id);
+
+          // Only check file existence for local photos; remote URLs are always "present"
+          if (localFilename) {
+            const filePath = path.join(ensurePhotosUploadsDir(), localFilename);
+            if (!fs.existsSync(filePath)) {
+              db.prepare('DELETE FROM family_photos WHERE id = ?').run(photo.id);
+            }
           }
         }
         shouldRunGlobalOrphanSweep = true;
@@ -262,7 +274,7 @@ export function startBackgroundWorker() {
           return;
         }
         const trackedFiles = new Set(
-          (db.prepare("SELECT url FROM family_photos WHERE url LIKE '/uploads/photos/%'")
+          (db.prepare("SELECT url FROM family_photos WHERE url LIKE '/uploads/photos/%' OR url LIKE '/api/photos/file/%'")
             .all() as Array<{ url: string }>)
             .map((r) => path.basename(r.url))
         );
@@ -293,7 +305,7 @@ export function startBackgroundWorker() {
               console.error('[worker:invalid_grant]', { connectionId: conn.id });
               db.prepare('DELETE FROM sync_connections WHERE id = ?').run(conn.id);
             } else if (result.imported > 0) {
-              getIo()?.to(conn.parentId).emit('stale-data', { type: 'events' });
+              io?.to(conn.parentId).emit('stale-data', { type: 'events' });
             }
             if (result.failureCount > 0) {
               console.error('[worker:sync_partial]', { connectionId: conn.id, errors: result.errors });
@@ -332,7 +344,7 @@ export function startBackgroundWorker() {
             changes = true;
           }
         }
-        if (changes) getIo()?.to(conn.parentId).emit('stale-data', { type: 'events' });
+        if (changes) io?.to(conn.parentId).emit('stale-data', { type: 'events' });
       }
     } catch (err) { console.error("[Worker] iCal Sync Error", err); }
 
@@ -354,7 +366,7 @@ export function startBackgroundWorker() {
                 if (extracted && extracted.title && extracted.date) {
                   const startTs = new Date(`${extracted.date}T${extracted.startTime || '09:00'}:00`).getTime();
                   db.prepare(`INSERT INTO events (id, parentId, title, description, startTime, endTime, assignedToId, color, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run("magic_" + Date.now() + "_" + msg.attributes.uid, conn.parentId, extracted.title, `From email: ${extracted.location || ''}`, startTs, startTs + 3600000, null, 'amber', 'magic');
-                  getIo()?.to(conn.parentId).emit('stale-data', { type: 'events' });
+                  io?.to(conn.parentId).emit('stale-data', { type: 'events' });
                 }
               }
             }

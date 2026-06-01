@@ -1,9 +1,0 @@
-- generic [ref=e6]:
-  - img [ref=e8]
-  - heading "Family Hub" [level=1] [ref=e11]
-  - paragraph [ref=e12]: Chore Charts & Rewards
-  - textbox "Parent Email or Username" [ref=e13]
-  - paragraph [ref=e14]: Enter Parent Username/Email to view kid profiles, plus password for parent login.
-  - textbox "Parent Password (Optional for Kids)" [ref=e15]
-  - button "Find My Account" [disabled] [ref=e16]
-  - button "Need to register?" [ref=e17]
