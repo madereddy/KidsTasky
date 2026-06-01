@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { X } from 'lucide-react';
 import { eventsClientService } from '../../services/events';
@@ -18,6 +18,7 @@ interface Props {
 }
 
 export function AddEventModal({ onClose, onSubmit, kids, parentId, defaultDate, defaultStartTime }: Props) {
+  const storageKey = 'kidtasky:last-event-defaults';
   const { dialogRef, onKeyDown } = useDialogA11y(true, onClose);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -32,6 +33,17 @@ export function AddEventModal({ onClose, onSubmit, kids, parentId, defaultDate, 
   const [recurrence, setRecurrence] = useState<'none'|'daily'|'weekly'|'monthly'|'yearly'>('none');
   const [recurrenceEnd, setRecurrenceEnd] = useState('');
   const [reminderMinutes, setReminderMinutes] = useState<number | null>(null);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+      const last = JSON.parse(raw) as { startTime?: string; color?: string; assignedToId?: string; reminderMinutes?: number | null };
+      if (last.startTime && !defaultStartTime) setStartTime(last.startTime);
+      if (last.color) setColor(last.color);
+      if (last.assignedToId) setAssignedToId(last.assignedToId);
+      if (last.reminderMinutes !== undefined) setReminderMinutes(last.reminderMinutes);
+    } catch {}
+  }, [defaultStartTime]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +66,7 @@ export function AddEventModal({ onClose, onSubmit, kids, parentId, defaultDate, 
         recurrenceEnd: recurrence !== 'none' ? recurrenceEnd : undefined,
         reminderMinutes: reminderMinutes ?? undefined,
       });
+      localStorage.setItem(storageKey, JSON.stringify({ startTime, color, assignedToId, reminderMinutes }));
       onSubmit();
       onClose();
     } finally {

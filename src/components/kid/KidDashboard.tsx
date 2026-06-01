@@ -200,6 +200,38 @@ export function KidDashboard({
     });
   };
 
+  const completeTaskNow = async (taskId: string, count: number | undefined, xpReward: number, questions: string[], answers: Record<string, string>) => {
+    const task = tasks.find(t => t.id === taskId);
+    const stars = task?.starValue ?? 1;
+    setXpAnimation({ amount: xpReward, active: true });
+    setStarsAwarded(stars);
+    setShowStarBurst(true);
+    setTimeout(() => setShowStarBurst(false), 1200);
+    try {
+      const proofPayload = questions
+        .map((question, i) => ({ question, answer: String(answers[`q_${i}`] || '').trim() }))
+        .filter((entry) => entry.answer.length > 0);
+      await tasksClientService.completeTask(taskId, profile.uid, today, count, proofPayload.length > 0 ? proofPayload : undefined);
+      await userService.updateUserXP(profile.uid, xpReward);
+      setCompletions([...completions, {
+        id: `${taskId}_${today}_${count || 1}`,
+        taskId,
+        kidId: profile.uid,
+        completedAt: { seconds: Date.now()/1000 },
+        dateString: today,
+        count
+      }]);
+      onProfileUpdate();
+    } catch (e) {
+      console.error("Failed to complete task", e);
+      setXpAnimation({ amount: 0, active: false });
+      alert("Could not save completion. Please try again.");
+    }
+    setTimeout(() => {
+      setXpAnimation({ amount: 0, active: false });
+    }, 2500);
+  };
+
   const toggleTask = async (taskId: string, currentStatus: boolean, count?: number) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
@@ -215,6 +247,10 @@ export function KidDashboard({
     } else {
       const questions = Array.isArray(task.completionQuestions) ? task.completionQuestions.filter(Boolean) : [];
       const scopedQuestions = (!task.completionQuestionsKidId || task.completionQuestionsKidId === profile.uid) ? questions : [];
+      if (scopedQuestions.length === 0) {
+        await completeTaskNow(taskId, count, xpReward, [], {});
+        return;
+      }
       setProofAnswers({});
       setConfirmTask({ taskId, count, xpReward, taskTitle: task.title, questions: scopedQuestions });
     }
@@ -241,38 +277,9 @@ export function KidDashboard({
   const executeCompletion = async () => {
     if (!confirmTask) return;
     const { taskId, count, xpReward, questions = [] } = confirmTask;
-    const task = tasks.find(t => t.id === taskId);
-    const stars = task?.starValue ?? 1;
     setConfirmTask(null);
-    setXpAnimation({ amount: xpReward, active: true });
-    setStarsAwarded(stars);
-    setShowStarBurst(true);
-    setTimeout(() => setShowStarBurst(false), 1200);
-
-    try {
-      const proofPayload = questions
-        .map((question, i) => ({ question, answer: String(proofAnswers[`q_${i}`] || '').trim() }))
-        .filter((entry) => entry.answer.length > 0);
-      await tasksClientService.completeTask(taskId, profile.uid, today, count, proofPayload.length > 0 ? proofPayload : undefined);
-      await userService.updateUserXP(profile.uid, xpReward);
-      setCompletions([...completions, {
-        id: `${taskId}_${today}_${count || 1}`,
-        taskId,
-        kidId: profile.uid,
-        completedAt: { seconds: Date.now()/1000 },
-        dateString: today,
-        count
-      }]);
-      onProfileUpdate();
-    } catch (e) {
-      console.error("Failed to complete task", e);
-      setXpAnimation({ amount: 0, active: false });
-      alert("Could not save completion. Please try again.");
-    }
-    setTimeout(() => {
-      setXpAnimation({ amount: 0, active: false });
-    }, 2500);
-    };
+    await completeTaskNow(taskId, count, xpReward, questions, proofAnswers);
+  };
 
     const getCompletion = (taskId: string, count?: number) => {
     return completions.find((c: TaskCompletion) => c.taskId === taskId && c.count === count);
@@ -605,6 +612,16 @@ export function KidDashboard({
           onToggleTask={toggleTask}
           onSkipTask={skipTask}
         />
+      )}
+      {kidView === 'tasks' && (
+        <Suspense fallback={<div className="py-10 text-sm text-ui-muted">Loading homework...</div>}>
+          <HomeworkView
+            parentId={profile.parentId || profile.uid}
+            kids={kids}
+            userRole="kid"
+            currentUserId={profile.uid}
+          />
+        </Suspense>
       )}
       {kidView === 'calendar' && (
         <Suspense fallback={<div className="py-10 text-sm text-ui-muted">Loading calendar...</div>}>

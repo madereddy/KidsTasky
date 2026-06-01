@@ -104,6 +104,7 @@ export default function App() {
   const [showParentSwitchPin, setShowParentSwitchPin] = useState(false);
   const [parentSwitchPin, setParentSwitchPin] = useState('');
   const [switchError, setSwitchError] = useState('');
+  const [switchingProfileLabel, setSwitchingProfileLabel] = useState('');
   const kidsRef = useRef<UserProfile[]>([]);
 
   useEffect(() => {
@@ -222,6 +223,7 @@ export default function App() {
     if (profile.role === 'parent' && parentToken) {
       persistParentSession({ token: parentToken, user, profile });
     }
+    setSwitchingProfileLabel(`Switching to ${kid.name}...`);
     const res = await authService.signInKid(kid.uid, pin);
     if (!res) throw new Error('Invalid Access Key');
     const { user: next, token } = res;
@@ -235,12 +237,14 @@ export default function App() {
     // Make kid switch feel instant; hydrate shared data in background.
     void loadProfileData(next, { fastKidSwitch: true });
     warmProfile(next);
+    setSwitchingProfileLabel('');
   }, [loadProfileData, persistParentSession, profile, user, warmProfile]);
 
   const switchToParentProfile = useCallback(async (pin: string) => {
     if (!parentSession) throw new Error('No parent session available');
     const parentId = parentSession.profile.parentId || parentSession.profile.uid;
     if (!parentId) throw new Error('Invalid parent session');
+    setSwitchingProfileLabel('Switching to parent...');
     await settingsClientService.unlockDisplay(parentId, pin);
     localStorage.setItem('kidtasker_token', parentSession.token);
     const refreshed = await authService.getMe(parentSession.token);
@@ -254,6 +258,7 @@ export default function App() {
     setIsLocked(false);
     await loadProfileData(next);
     warmProfile(next);
+    setSwitchingProfileLabel('');
   }, [loadProfileData, parentSession, warmProfile]);
 
 
@@ -832,26 +837,40 @@ export default function App() {
               type="password"
               value={kidSwitchPin}
               onChange={(e) => setKidSwitchPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              onKeyDown={async (e) => {
+                if (e.key !== 'Enter' || kidSwitchPin.length !== 4 || !pendingKidSwitch) return;
+                e.preventDefault();
+                try {
+                  await switchToKidProfile(pendingKidSwitch, kidSwitchPin);
+                } catch (err: any) {
+                  setSwitchError(err?.message || 'Unable to switch profile');
+                } finally {
+                  setSwitchingProfileLabel('');
+                }
+              }}
               placeholder="4-digit PIN"
               className="w-full px-3 py-2 rounded-xl border border-ui bg-white text-ui-primary"
             />
             {switchError && <p className="text-sm text-rose-500 mt-2">{switchError}</p>}
+            {switchingProfileLabel && <p className="text-sm text-sky-600 mt-2">{switchingProfileLabel}</p>}
             <div className="flex gap-2 mt-4">
               <button className="flex-1 px-3 py-2 rounded-xl border border-ui" onClick={() => { setPendingKidSwitch(null); setKidSwitchPin(''); setSwitchError(''); }}>
                 Cancel
               </button>
               <button
                 className="flex-1 px-3 py-2 rounded-xl bg-sky-500 text-white font-semibold disabled:opacity-50"
-                disabled={kidSwitchPin.length !== 4}
+                disabled={kidSwitchPin.length !== 4 || !!switchingProfileLabel}
                 onClick={async () => {
                   try {
                     await switchToKidProfile(pendingKidSwitch, kidSwitchPin);
                   } catch (e: any) {
                     setSwitchError(e?.message || 'Unable to switch profile');
+                  } finally {
+                    setSwitchingProfileLabel('');
                   }
                 }}
               >
-                Switch
+                {switchingProfileLabel ? 'Switching...' : 'Switch'}
               </button>
             </div>
           </div>
@@ -866,26 +885,40 @@ export default function App() {
               type="password"
               value={parentSwitchPin}
               onChange={(e) => setParentSwitchPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+              onKeyDown={async (e) => {
+                if (e.key !== 'Enter' || parentSwitchPin.length < 4) return;
+                e.preventDefault();
+                try {
+                  await switchToParentProfile(parentSwitchPin);
+                } catch {
+                  setSwitchError('Incorrect PIN');
+                } finally {
+                  setSwitchingProfileLabel('');
+                }
+              }}
               placeholder="PIN"
               className="w-full px-3 py-2 rounded-xl border border-ui bg-white text-ui-primary"
             />
             {switchError && <p className="text-sm text-rose-500 mt-2">{switchError}</p>}
+            {switchingProfileLabel && <p className="text-sm text-sky-600 mt-2">{switchingProfileLabel}</p>}
             <div className="flex gap-2 mt-4">
               <button className="flex-1 px-3 py-2 rounded-xl border border-ui" onClick={() => { setShowParentSwitchPin(false); setParentSwitchPin(''); setSwitchError(''); }}>
                 Cancel
               </button>
               <button
                 className="flex-1 px-3 py-2 rounded-xl bg-sky-500 text-white font-semibold disabled:opacity-50"
-                disabled={parentSwitchPin.length < 4}
+                disabled={parentSwitchPin.length < 4 || !!switchingProfileLabel}
                 onClick={async () => {
                   try {
                     await switchToParentProfile(parentSwitchPin);
                   } catch {
                     setSwitchError('Incorrect PIN');
+                  } finally {
+                    setSwitchingProfileLabel('');
                   }
                 }}
               >
-                Switch
+                {switchingProfileLabel ? 'Switching...' : 'Switch'}
               </button>
             </div>
           </div>

@@ -16,6 +16,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
   const [homework, setHomework] = useState<Homework[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [actionId, setActionId] = useState<string | null>(null);
   const [proofPrompt, setProofPrompt] = useState<{ item: Homework; questions: string[] } | null>(null);
   const [proofAnswers, setProofAnswers] = useState<Record<string, string>>({});
@@ -23,9 +24,12 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const rows = await homeworkClientService.getHomework(parentId);
       setHomework(rows || []);
+    } catch {
+      setLoadError('Could not load homework right now.');
     } finally {
       setLoading(false);
     }
@@ -64,6 +68,12 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
       </div>
       <div className="space-y-2">
         {loading && <p className="text-sm text-ui-muted">Loading homework...</p>}
+        {!loading && loadError && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 flex items-center justify-between gap-3">
+            <p className="text-sm text-rose-700">{loadError}</p>
+            <button onClick={() => void load()} className="px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-rose-700 text-xs font-semibold">Retry</button>
+          </div>
+        )}
         {visibleHomework.map((item) => {
           const isOverdue = item.status !== 'done' && isBefore(new Date(item.dueDate), startOfDay(new Date()));
           const assignee = item.assignedToId ? kids.find((kid) => kid.uid === item.assignedToId)?.name || 'Assigned' : 'All kids';

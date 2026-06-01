@@ -32,6 +32,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
   submitLabel?: string,
   allowMultiAssign?: boolean
 }) {
+  const storageKey = 'kidtasky:last-task-defaults';
   const [title, setTitle] = useState('');
   const [frequency, setFrequency] = useState<TaskFrequency>('daily');
   const [customInterval, setCustomInterval] = useState(3);
@@ -65,6 +66,54 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
     setCompletionQuestionsText(Array.isArray(initialTask.completionQuestions) ? initialTask.completionQuestions.join('\n') : '');
     setCompletionQuestionsKidId(initialTask.completionQuestionsKidId || '');
   }, [initialTask]);
+  useEffect(() => {
+    if (initialTask) return;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+      const last = JSON.parse(raw) as { frequency?: TaskFrequency; difficulty?: TaskDifficulty; reminderTime?: string; categoryId?: string; assignmentMode?: 'specific' | 'all'; assignedKidIds?: string[] };
+      if (last.frequency) setFrequency(last.frequency);
+      if (last.difficulty) setDifficulty(last.difficulty);
+      if (last.reminderTime) setReminderTime(last.reminderTime);
+      if (last.categoryId !== undefined) setCategoryId(last.categoryId);
+      if (last.assignmentMode) setAssignmentMode(last.assignmentMode);
+      if (Array.isArray(last.assignedKidIds)) setAssignedKidIds(last.assignedKidIds);
+    } catch {}
+  }, [initialTask]);
+
+  const submit = () => {
+    if (assignmentMode === 'specific' && assignedKidIds.length === 0) return;
+    const payload = {
+      title,
+      frequency,
+      difficulty,
+      assignedKidId: assignmentMode === 'all' ? 'all' : (assignedKidIds[0] || ''),
+      assignedKidIds: assignmentMode === 'specific' ? assignedKidIds : undefined,
+      reminderTime,
+      parentId,
+      categoryId,
+      customInterval: frequency === 'custom' ? customInterval : undefined,
+      prerequisiteTaskIds: prerequisiteTaskIds.length > 0 ? prerequisiteTaskIds : undefined,
+      starValue,
+      requiresApproval: true,
+      completionQuestions: completionQuestionsText
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean),
+      completionQuestionsKidId: completionQuestionsKidId || null,
+    };
+    if (!initialTask) {
+      localStorage.setItem(storageKey, JSON.stringify({
+        frequency,
+        difficulty,
+        reminderTime,
+        categoryId,
+        assignmentMode,
+        assignedKidIds,
+      }));
+    }
+    onSubmit(payload);
+  };
 
   const togglePrereq = (id: string) => {
     if (prerequisiteTaskIds.includes(id)) {
@@ -153,6 +202,14 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-ui-soft-80 backdrop-blur-md"
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+        if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          submit();
+        }
+      }}
     >
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
@@ -477,25 +534,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
           <div className="flex gap-3 pt-6">
             <button onClick={onClose} className="flex-1 py-3 bg-ui-dark border border-ui-dark text-ui-muted font-black rounded-xl uppercase tracking-widest text-xs">Abort</button>
             <button
-              onClick={() => onSubmit({
-                title,
-                frequency,
-                difficulty,
-                assignedKidId: assignmentMode === 'all' ? 'all' : (assignedKidIds[0] || ''),
-                assignedKidIds: assignmentMode === 'specific' ? assignedKidIds : undefined,
-                reminderTime,
-                parentId,
-                categoryId,
-                customInterval: frequency === 'custom' ? customInterval : undefined,
-                prerequisiteTaskIds: prerequisiteTaskIds.length > 0 ? prerequisiteTaskIds : undefined,
-                starValue,
-                requiresApproval: true,
-                completionQuestions: completionQuestionsText
-                  .split('\n')
-                  .map((line) => line.trim())
-                  .filter(Boolean),
-                completionQuestionsKidId: completionQuestionsKidId || null,
-              })}
+              onClick={submit}
               disabled={assignmentMode === 'specific' && assignedKidIds.length === 0}
               className="flex-1 btn-immersive-primary bg-blue-600"
             >

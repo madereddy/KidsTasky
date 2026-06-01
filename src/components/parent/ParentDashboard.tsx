@@ -4,6 +4,9 @@ import { inviteService } from '../../services/invites';
 import { notificationService } from '../../services/notifications';
 import { rewardService } from '../../services/rewards';
 import { syncClientService } from '../../services/sync';
+import { tasksClientService } from '../../services/tasks';
+import { homeworkClientService } from '../../services/homework';
+import { eventsClientService } from '../../services/events';
 import React, { useState, useEffect, useCallback } from 'react';
 import { ShieldCheck, Bell, Send, CheckCircle2, Copy, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -37,6 +40,7 @@ export function ParentDashboard({
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
   const [editingAvatarFor, setEditingAvatarFor] = useState<UserProfile | null>(null);
+  const [todaySummary, setTodaySummary] = useState({ eventsToday: 0, homeworkDue: 0, pendingApprovals: 0, activeChores: 0 });
   const familyId = profile.parentId || profile.uid;
 
   const fetchData = useCallback(async () => {
@@ -55,6 +59,19 @@ export function ParentDashboard({
       setRewards(r || []);
       setConnections(c || []);
       setSyncCalendars(sc || []);
+      const today = new Date().toISOString().slice(0, 10);
+      const [events, homework, pending, tasks] = await Promise.all([
+        eventsClientService.getEvents(familyId).catch(() => []),
+        homeworkClientService.getHomework(familyId).catch(() => []),
+        tasksClientService.getPendingCompletions(familyId).catch(() => []),
+        tasksClientService.getTasksForParent(familyId).catch(() => []),
+      ]);
+      setTodaySummary({
+        eventsToday: (events || []).filter((e: any) => new Date(e.startTime).toISOString().slice(0, 10) === today).length,
+        homeworkDue: (homework || []).filter((h: any) => h.status !== 'done' && h.dueDate <= today).length,
+        pendingApprovals: (pending || []).length,
+        activeChores: (tasks || []).filter((t: any) => t.status === 'active').length,
+      });
     } catch (e) {
       console.error('Failed to fetch dashboard data:', e);
     } finally {
@@ -158,6 +175,12 @@ export function ParentDashboard({
   return (
     <div className="space-y-8">
       <RewardManager parentId={familyId} rewards={rewards} onUpdate={refreshRewards} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="rounded-2xl border border-ui bg-white p-3"><p className="text-[11px] uppercase text-ui-muted font-bold">Events Today</p><p className="text-2xl font-black text-ui-primary">{todaySummary.eventsToday}</p></div>
+        <div className="rounded-2xl border border-ui bg-white p-3"><p className="text-[11px] uppercase text-ui-muted font-bold">Homework Due</p><p className="text-2xl font-black text-ui-primary">{todaySummary.homeworkDue}</p></div>
+        <div className="rounded-2xl border border-ui bg-white p-3"><p className="text-[11px] uppercase text-ui-muted font-bold">Pending Approvals</p><p className="text-2xl font-black text-ui-primary">{todaySummary.pendingApprovals}</p></div>
+        <div className="rounded-2xl border border-ui bg-white p-3"><p className="text-[11px] uppercase text-ui-muted font-bold">Active Chores</p><p className="text-2xl font-black text-ui-primary">{todaySummary.activeChores}</p></div>
+      </div>
       <AllowanceLedger parentId={familyId} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 bg-white shadow-sm border border-ui-soft p-6 rounded-3xl flex justify-between items-center relative overflow-hidden">

@@ -61,12 +61,14 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
   const [rotationInterval, setRotationInterval] = useState(30);
   const [rotationOrder, setRotationOrder] = useState<string[]>(['chores', 'calendar', 'weather']);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const todayMs = new Date(today).getTime();
 
   const fetchData = useCallback(async () => {
     try {
+      setLoadError('');
       const [evts, hw, settings] = await Promise.all([
         eventsClientService.getEvents(parentId).catch(() => []),
         homeworkClientService.getHomework(parentId).catch(() => []),
@@ -97,6 +99,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
       }
     } catch (e) {
       console.error('[WallHome] fetchData error', e);
+      setLoadError('Could not load home data.');
     } finally {
       setLoading(false);
     }
@@ -186,14 +189,21 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
         <div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+        {loadError && <button onClick={() => void fetchData()} className="px-3 py-1.5 rounded-lg border border-ui text-sm text-ui-secondary">Retry</button>}
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {loadError && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 flex items-center justify-between">
+          <p className="text-sm text-rose-700">{loadError}</p>
+          <button onClick={() => void fetchData()} className="px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-rose-700 text-xs font-semibold">Retry</button>
+        </div>
+      )}
       {/* Top strip: clock + weather today */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
         <div className="md:col-span-1 bg-white/80 dark:bg-white/5 rounded-2xl p-4 shadow-sm border border-ui flex flex-col items-center">

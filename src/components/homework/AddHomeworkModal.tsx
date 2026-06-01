@@ -49,6 +49,7 @@ interface Props {
 }
 
 export function AddHomeworkModal({ kids, onClose, onSubmit, initialValues, titleLabel, submitLabel }: Props) {
+  const storageKey = 'kidtasky:last-homework-defaults';
   const { dialogRef, onKeyDown } = useDialogA11y(true, onClose);
   const [title, setTitle] = useState(initialValues?.title || '');
   const [subject, setSubject] = useState(initialValues?.subject || '');
@@ -126,10 +127,47 @@ export function AddHomeworkModal({ kids, onClose, onSubmit, initialValues, title
     await proofTemplatesClientService.import('homework', parsed);
     await loadTemplates();
   };
+  useEffect(() => {
+    if (initialValues) return;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+      const last = JSON.parse(raw) as { subject?: string; assignedToId?: string; recurrence?: 'none' | 'daily' | 'weekdays'; color?: string };
+      if (last.subject) setSubject(last.subject);
+      if (last.assignedToId) setAssignedToId(last.assignedToId);
+      if (last.recurrence) setRecurrence(last.recurrence);
+      if (last.color) setColor(last.color);
+    } catch {}
+  }, [initialValues]);
+
+  const submit = async () => {
+    if (!title || !subject || !dueDate) return;
+    await onSubmit({
+      title,
+      subject,
+      notes: notes || undefined,
+      dueDate,
+      assignedToId: assignedToId || undefined,
+      color,
+      recurrence,
+      completionQuestions: completionQuestionsText.split('\n').map((line) => line.trim()).filter(Boolean),
+      completionQuestionsKidId: completionQuestionsKidId || null,
+    });
+    if (!initialValues) {
+      localStorage.setItem(storageKey, JSON.stringify({ subject, assignedToId, recurrence, color }));
+    }
+    onClose();
+  };
 
   return (
     <div className="fixed inset-0 bg-ui-deep-80 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="add-homework-title" tabIndex={-1} onKeyDown={onKeyDown} onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-white rounded-2xl border border-ui p-5 space-y-3 my-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="add-homework-title" tabIndex={-1} onKeyDown={async (e) => {
+        onKeyDown(e);
+        if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          await submit();
+        }
+      }} onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-white rounded-2xl border border-ui p-5 space-y-3 my-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
         <h3 id="add-homework-title" className="text-lg font-bold text-ui-primary">{titleLabel || 'Add Homework'}</h3>
         <input className="w-full border border-ui rounded-lg px-3 py-2 text-sm" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
         <input className="w-full border border-ui rounded-lg px-3 py-2 text-sm" placeholder="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
@@ -261,21 +299,7 @@ export function AddHomeworkModal({ kids, onClose, onSubmit, initialValues, title
         <div className="flex gap-2 pt-2">
           <button onClick={onClose} className="flex-1 py-2 rounded-xl bg-ui-soft-2 text-ui-secondary font-semibold">Cancel</button>
           <button
-            onClick={async () => {
-              if (!title || !subject || !dueDate) return;
-              await onSubmit({
-                title,
-                subject,
-                notes: notes || undefined,
-                dueDate,
-                assignedToId: assignedToId || undefined,
-                color,
-                recurrence,
-                completionQuestions: completionQuestionsText.split('\n').map((line) => line.trim()).filter(Boolean),
-                completionQuestionsKidId: completionQuestionsKidId || null,
-              });
-              onClose();
-            }}
+            onClick={submit}
             className="flex-1 py-2 rounded-xl bg-blue-500 text-white font-semibold"
           >
             Save
