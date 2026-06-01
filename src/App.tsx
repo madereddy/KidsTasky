@@ -204,7 +204,7 @@ export default function App() {
   const currentThemeId = profile?.themeId || 'space';
   const currentTheme = THEMES.find(t => t.id === currentThemeId) || THEMES[0];
   const isDarkTheme = !!currentTheme.vocab?.darkMode;
-  const familyParentId = profile.parentId || profile.uid;
+  const familyParentId = profile?.parentId || profile?.uid || '';
 
   useEffect(() => {
     if (!profile || profile.role !== 'parent' || isLocked) return;
