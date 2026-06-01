@@ -146,6 +146,33 @@ export default function App() {
     }
   }, []);
 
+  const warmProfile = useCallback((u: UserProfile) => {
+    const parentId = u.parentId || u.uid;
+    if (!parentId) return;
+    runIdle(() => {
+      prefetchParentTasks();
+      prefetchCalendar();
+      prefetchLists();
+      prefetchMeals();
+      prefetchSettings();
+      if (u.role === 'parent') {
+        void Promise.allSettled([
+          tasksClientService.getTasksForParent(parentId),
+          eventsClientService.getEvents(parentId),
+          homeworkClientService.getHomework(parentId),
+          listsClientService.getLists(parentId),
+          mealsClientService.getRecipes(parentId),
+        ]);
+      } else {
+        void Promise.allSettled([
+          tasksClientService.getTasksForKid(u.uid),
+          eventsClientService.getEvents(parentId),
+          homeworkClientService.getHomework(parentId),
+        ]);
+      }
+    });
+  }, []);
+
   useEffect(() => {
     const initAuth = async () => {
       const storedToken = localStorage.getItem('kidtasker_token');
@@ -229,32 +256,6 @@ export default function App() {
     warmProfile(next);
   }, [loadProfileData, parentSession, warmProfile]);
 
-  const warmProfile = useCallback((u: UserProfile) => {
-    const parentId = u.parentId || u.uid;
-    if (!parentId) return;
-    runIdle(() => {
-      prefetchParentTasks();
-      prefetchCalendar();
-      prefetchLists();
-      prefetchMeals();
-      prefetchSettings();
-      if (u.role === 'parent') {
-        void Promise.allSettled([
-          tasksClientService.getTasksForParent(parentId),
-          eventsClientService.getEvents(parentId),
-          homeworkClientService.getHomework(parentId),
-          listsClientService.getLists(parentId),
-          mealsClientService.getRecipes(parentId),
-        ]);
-      } else {
-        void Promise.allSettled([
-          tasksClientService.getTasksForKid(u.uid),
-          eventsClientService.getEvents(parentId),
-          homeworkClientService.getHomework(parentId),
-        ]);
-      }
-    });
-  }, []);
 
   const refreshCategories = useCallback(async () => {
     if (!profile) return;
