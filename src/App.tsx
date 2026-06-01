@@ -3,7 +3,7 @@ import { userService } from './services/users';
 import { categoryService } from './services/categories';
 import { settingsClientService } from './services/settings';
 import { subscribeToPush, unsubscribeFromPush } from './services/push';
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { LogOut, Rocket, User as UserIcon, Activity, CalendarDays, List, UtensilsCrossed, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, Category } from './types';
@@ -90,6 +90,11 @@ export default function App() {
   const [showParentSwitchPin, setShowParentSwitchPin] = useState(false);
   const [parentSwitchPin, setParentSwitchPin] = useState('');
   const [switchError, setSwitchError] = useState('');
+  const kidsRef = useRef<UserProfile[]>([]);
+
+  useEffect(() => {
+    kidsRef.current = kids;
+  }, [kids]);
 
   const persistParentSession = useCallback((session: { token: string; user: AppUser; profile: UserProfile } | null) => {
     setParentSession(session);
@@ -100,16 +105,22 @@ export default function App() {
     sessionStorage.setItem(PARENT_SESSION_KEY, JSON.stringify(session));
   }, []);
 
-  const loadProfileData = useCallback(async (u: UserProfile) => {
+  const loadProfileData = useCallback(async (u: UserProfile, options?: { fastKidSwitch?: boolean }) => {
     const parentId = u.parentId || u.uid;
     if (!parentId) return;
     initSocket(parentId);
-    const cats = await categoryService.getCategories(parentId).catch(() => []);
+    const [cats, familyKids, settings] = await Promise.all([
+      categoryService.getCategories(parentId).catch(() => []),
+      options?.fastKidSwitch && u.role === 'kid'
+        ? Promise.resolve(kidsRef.current)
+        : userService.getKidsForParent(parentId).catch(() => []),
+      u.role === 'parent'
+        ? settingsClientService.getSettings(parentId).catch(() => null)
+        : Promise.resolve(null),
+    ]);
     setCategories(cats || []);
-    const familyKids = await userService.getKidsForParent(parentId).catch(() => []);
-    setKids(familyKids || []);
+    if (familyKids && familyKids.length > 0) setKids(familyKids || []);
     if (u.role === 'parent') {
-      const settings = await settingsClientService.getSettings(parentId).catch(() => null);
       setIsLocked(Boolean(settings?.isLocked));
       setSleepStart(settings?.sleepStart);
       setSleepEnd(settings?.sleepEnd);
@@ -134,7 +145,11 @@ export default function App() {
           if (u) {
             setUser({ uid: u.uid, name: u.name, email: u.email });
             setProfile(u);
-            await loadProfileData(u);
+            if (u.role === 'kid') {
+              void loadProfileData(u, { fastKidSwitch: true });
+            } else {
+              await loadProfileData(u);
+            }
             if (u.role === 'parent') {
               persistParentSession({ token: storedToken, user: { uid: u.uid, name: u.name, email: u.email }, profile: u });
             }
@@ -175,7 +190,8 @@ export default function App() {
     setPendingKidSwitch(null);
     setKidSwitchPin('');
     setSwitchError('');
-    await loadProfileData(next);
+    // Make kid switch feel instant; hydrate shared data in background.
+    void loadProfileData(next, { fastKidSwitch: true });
   }, [loadProfileData, persistParentSession, profile, user]);
 
   const switchToParentProfile = useCallback(async (pin: string) => {
@@ -364,7 +380,11 @@ export default function App() {
               localStorage.setItem('kidtasker_token', token);
               if (u.role) {
                 setProfile(u);
-                await loadProfileData(u);
+                if (u.role === 'kid') {
+                  void loadProfileData(u, { fastKidSwitch: true });
+                } else {
+                  await loadProfileData(u);
+                }
                 if (u.role === 'parent') {
                   persistParentSession({ token, user: { uid: u.uid, name: u.name, email: u.email }, profile: u });
                 }
@@ -382,7 +402,7 @@ export default function App() {
               localStorage.setItem('kidtasker_token', token);
               if (u.role) {
                 setProfile(u);
-                await loadProfileData(u);
+                void loadProfileData(u, { fastKidSwitch: true });
               }
               subscribeToPush().catch(console.warn);
             } else {
