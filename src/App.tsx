@@ -53,6 +53,9 @@ interface AppUser {
   displayName?: string;
 }
 
+const PARENT_SESSION_KEY = 'kidtasker_parent_session';
+const KID_IDLE_RETURN_MS = 5 * 60 * 1000;
+
 const prefetchParentTasks = () => { import('./components/parent/ParentTasksWorkspace'); };
 const prefetchCalendar = () => { import('./components/calendar/CalendarView'); };
 const prefetchLists = () => { import('./components/lists/ListsView'); };
@@ -62,6 +65,7 @@ const prefetchSettings = () => { import('./components/parent/SettingsView'); };
 export default function App() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [parentSession, setParentSession] = useState<{ token: string; user: AppUser; profile: UserProfile } | null>(null);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -80,37 +84,59 @@ export default function App() {
   const [initError, setInitError] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [screensaverPreview, setScreensaverPreview] = useState(false);
+  const [showProfileSwitcher, setShowProfileSwitcher] = useState(false);
+  const [pendingKidSwitch, setPendingKidSwitch] = useState<UserProfile | null>(null);
+  const [kidSwitchPin, setKidSwitchPin] = useState('');
+  const [showParentSwitchPin, setShowParentSwitchPin] = useState(false);
+  const [parentSwitchPin, setParentSwitchPin] = useState('');
+  const [switchError, setSwitchError] = useState('');
+
+  const persistParentSession = useCallback((session: { token: string; user: AppUser; profile: UserProfile } | null) => {
+    setParentSession(session);
+    if (!session) {
+      sessionStorage.removeItem(PARENT_SESSION_KEY);
+      return;
+    }
+    sessionStorage.setItem(PARENT_SESSION_KEY, JSON.stringify(session));
+  }, []);
+
+  const loadProfileData = useCallback(async (u: UserProfile) => {
+    const parentId = u.parentId || u.uid;
+    if (!parentId) return;
+    initSocket(parentId);
+    const cats = await categoryService.getCategories(parentId).catch(() => []);
+    setCategories(cats || []);
+    const familyKids = await userService.getKidsForParent(parentId).catch(() => []);
+    setKids(familyKids || []);
+    if (u.role === 'parent') {
+      const settings = await settingsClientService.getSettings(parentId).catch(() => null);
+      setIsLocked(Boolean(settings?.isLocked));
+      setSleepStart(settings?.sleepStart);
+      setSleepEnd(settings?.sleepEnd);
+      if (settings?.screensaverShuffle !== undefined) setScreensaverShuffle(Boolean(settings.screensaverShuffle));
+      if (settings?.screensaverDurationSec) setScreensaverDurationSec(settings.screensaverDurationSec);
+      if (settings?.screensaverCaptions !== undefined) setScreensaverCaptions(settings.screensaverCaptions !== false);
+    } else {
+      setIsLocked(false);
+    }
+  }, []);
 
   useEffect(() => {
     const initAuth = async () => {
       const storedToken = localStorage.getItem('kidtasker_token');
+      const rawParentSession = sessionStorage.getItem(PARENT_SESSION_KEY);
+      if (rawParentSession) {
+        try { setParentSession(JSON.parse(rawParentSession)); } catch {}
+      }
       if (storedToken) {
         try {
           const u = await authService.getMe(storedToken);
           if (u) {
             setUser({ uid: u.uid, name: u.name, email: u.email });
             setProfile(u);
-            const parentId = u.parentId || u.uid;
-            if (parentId) {
-              initSocket(parentId);
-              if (u.role === 'parent') {
-                const [cats, k, settings] = await Promise.all([
-                  categoryService.getCategories(parentId).catch(() => []),
-                  userService.getKidsForParent(parentId).catch(() => []),
-                  settingsClientService.getSettings(parentId).catch(() => null),
-                ]);
-                setCategories(cats || []);
-                setKids(k || []);
-                if (settings?.isLocked) setIsLocked(true);
-                if (settings?.sleepStart) setSleepStart(settings.sleepStart);
-                if (settings?.sleepEnd) setSleepEnd(settings.sleepEnd);
-                if (settings?.screensaverShuffle !== undefined) setScreensaverShuffle(Boolean(settings.screensaverShuffle));
-                if (settings?.screensaverDurationSec) setScreensaverDurationSec(settings.screensaverDurationSec);
-                if (settings?.screensaverCaptions !== undefined) setScreensaverCaptions(settings.screensaverCaptions !== false);
-              } else {
-                const cats = await categoryService.getCategories(parentId).catch(() => []);
-                setCategories(cats || []);
-              }
+            await loadProfileData(u);
+            if (u.role === 'parent') {
+              persistParentSession({ token: storedToken, user: { uid: u.uid, name: u.name, email: u.email }, profile: u });
             }
           } else {
             localStorage.removeItem('kidtasker_token');
@@ -123,14 +149,52 @@ export default function App() {
       setLoading(false);
     };
     initAuth();
-  }, []);
+  }, [loadProfileData, persistParentSession]);
 
   const handleLogout = async () => {
     await unsubscribeFromPush().catch(console.warn);
     localStorage.removeItem('kidtasker_token');
+    persistParentSession(null);
     setUser(null);
     setProfile(null);
   };
+
+  const switchToKidProfile = useCallback(async (kid: UserProfile, pin: string) => {
+    if (!profile || !user) return;
+    const parentToken = localStorage.getItem('kidtasker_token') || '';
+    if (profile.role === 'parent' && parentToken) {
+      persistParentSession({ token: parentToken, user, profile });
+    }
+    const res = await authService.signInKid(kid.uid, pin);
+    if (!res) throw new Error('Invalid Access Key');
+    const { user: next, token } = res;
+    localStorage.setItem('kidtasker_token', token);
+    setUser({ uid: next.uid, name: next.name, email: next.email });
+    setProfile(next);
+    setShowProfileSwitcher(false);
+    setPendingKidSwitch(null);
+    setKidSwitchPin('');
+    setSwitchError('');
+    await loadProfileData(next);
+  }, [loadProfileData, persistParentSession, profile, user]);
+
+  const switchToParentProfile = useCallback(async (pin: string) => {
+    if (!parentSession) throw new Error('No parent session available');
+    const parentId = parentSession.profile.parentId || parentSession.profile.uid;
+    if (!parentId) throw new Error('Invalid parent session');
+    await settingsClientService.unlockDisplay(parentId, pin);
+    localStorage.setItem('kidtasker_token', parentSession.token);
+    const refreshed = await authService.getMe(parentSession.token);
+    const next = refreshed && refreshed.role === 'parent' ? refreshed : parentSession.profile;
+    setUser({ uid: next.uid, name: next.name, email: next.email });
+    setProfile(next);
+    setShowParentSwitchPin(false);
+    setParentSwitchPin('');
+    setSwitchError('');
+    setShowProfileSwitcher(false);
+    setIsLocked(false);
+    await loadProfileData(next);
+  }, [loadProfileData, parentSession]);
 
   const refreshCategories = useCallback(async () => {
     if (!profile) return;
@@ -185,6 +249,43 @@ export default function App() {
     const timer = scheduleRefresh();
     return () => { if (timer) clearTimeout(timer); };
   }, [user]);
+
+  useEffect(() => {
+    if (!profile || profile.role !== 'kid' || !parentSession) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const resetIdle = () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        try {
+          const parent = parentSession.profile;
+          const parentId = parent.parentId || parent.uid;
+          localStorage.setItem('kidtasker_token', parentSession.token);
+          const refreshed = await authService.getMe(parentSession.token);
+          const next = refreshed && refreshed.role === 'parent' ? refreshed : parent;
+          setUser({ uid: next.uid, name: next.name, email: next.email });
+          setProfile(next);
+          setActiveSection('home');
+          await loadProfileData(next);
+          if (parentId) {
+            await settingsClientService.lockDisplay(parentId).catch(() => {});
+            setIsLocked(true);
+          }
+        } catch {
+          // keep kid session if switch-back fails
+        }
+      }, KID_IDLE_RETURN_MS);
+    };
+    window.addEventListener('mousemove', resetIdle);
+    window.addEventListener('keydown', resetIdle);
+    window.addEventListener('touchstart', resetIdle);
+    resetIdle();
+    return () => {
+      window.removeEventListener('mousemove', resetIdle);
+      window.removeEventListener('keydown', resetIdle);
+      window.removeEventListener('touchstart', resetIdle);
+      clearTimeout(timer);
+    };
+  }, [loadProfileData, parentSession, profile]);
 
   const handleProfileUpdate = async () => {
     if (user) {
@@ -261,9 +362,13 @@ export default function App() {
               const { user: u, token } = res;
               setUser({ uid: u.uid, name: u.name, email: u.email });
               localStorage.setItem('kidtasker_token', token);
-              if (u.role) setProfile(u);
-              const parentId = u.parentId || u.uid;
-              if (parentId) initSocket(parentId);
+              if (u.role) {
+                setProfile(u);
+                await loadProfileData(u);
+                if (u.role === 'parent') {
+                  persistParentSession({ token, user: { uid: u.uid, name: u.name, email: u.email }, profile: u });
+                }
+              }
               subscribeToPush().catch(console.warn);
             } else {
               alert('Invalid credentials or registration error');
@@ -275,9 +380,10 @@ export default function App() {
               const { user: u, token } = res;
               setUser({ uid: u.uid, name: u.name, email: u.email });
               localStorage.setItem('kidtasker_token', token);
-              if (u.role) setProfile(u);
-              const parentId = u.parentId || u.uid;
-              if (parentId) initSocket(parentId);
+              if (u.role) {
+                setProfile(u);
+                await loadProfileData(u);
+              }
               subscribeToPush().catch(console.warn);
             } else {
               alert('Invalid Access Key');
@@ -295,12 +401,7 @@ export default function App() {
           user={{ uid: user.uid, email: user.email, name: user.name }} 
           onComplete={async (p: UserProfile) => {
             setProfile(p);
-            const parentId = p.parentId || p.uid;
-            if (parentId) {
-              initSocket(parentId);
-              const cats = await categoryService.getCategories(parentId);
-              setCategories(cats || []);
-            }
+            await loadProfileData(p);
             subscribeToPush().catch(console.warn);
           }} 
         />
@@ -451,9 +552,42 @@ export default function App() {
               </button>
             )}
             <div className="relative group">
-              <div className="w-10 h-10 bg-ui-soft-2 border border-ui rounded-full flex items-center justify-center text-ui-muted-2 group-hover:text-sky-500 transition-colors cursor-pointer">
+              <button
+                onClick={() => setShowProfileSwitcher((v) => !v)}
+                className="w-10 h-10 bg-ui-soft-2 border border-ui rounded-full flex items-center justify-center text-ui-muted-2 hover:text-sky-500 transition-colors cursor-pointer"
+                title="Switch Profile"
+              >
                 <UserIcon className="w-5 h-5" />
-              </div>
+              </button>
+              {showProfileSwitcher && (
+                <div className={cn("absolute right-0 mt-2 w-64 rounded-2xl border shadow-xl z-50 p-2", isDarkTheme ? "bg-ui-deep border-ui-dark" : "bg-white border-ui")}>
+                  {kids.filter((k) => k.uid !== profile.uid).map((k) => (
+                    <button
+                      key={k.uid}
+                      onClick={() => {
+                        setPendingKidSwitch(k);
+                        setShowParentSwitchPin(false);
+                        setSwitchError('');
+                      }}
+                      className={cn("w-full text-left px-3 py-2 rounded-xl text-sm font-medium hover:bg-ui-soft transition-colors", isDarkTheme && "hover:bg-ui-dark-2")}
+                    >
+                      {k.name} <span className="text-xs text-ui-muted">Kid</span>
+                    </button>
+                  ))}
+                  {parentSession && profile.role === 'kid' && (
+                    <button
+                      onClick={() => {
+                        setShowParentSwitchPin(true);
+                        setPendingKidSwitch(null);
+                        setSwitchError('');
+                      }}
+                      className={cn("w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-ui-soft transition-colors", isDarkTheme && "hover:bg-ui-dark-2")}
+                    >
+                      {parentSession.profile.name} <span className="text-xs text-ui-muted">Parent</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             
             <button 
@@ -620,6 +754,74 @@ export default function App() {
           }}
           onPreviewScreensaver={() => setScreensaverPreview(true)}
         />
+      )}
+      {pendingKidSwitch && (
+        <div className="fixed inset-0 z-[210] bg-black/60 flex items-center justify-center p-4">
+          <div className={cn("w-full max-w-sm rounded-2xl p-5 border", isDarkTheme ? "bg-ui-deep border-ui-dark text-white" : "bg-white border-ui")}>
+            <h3 className="text-lg font-bold mb-1">Switch to {pendingKidSwitch.name}</h3>
+            <p className="text-sm text-ui-muted mb-3">Enter kid Access Key</p>
+            <input
+              type="password"
+              value={kidSwitchPin}
+              onChange={(e) => setKidSwitchPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              placeholder="4-digit PIN"
+              className="w-full px-3 py-2 rounded-xl border border-ui bg-white text-ui-primary"
+            />
+            {switchError && <p className="text-sm text-rose-500 mt-2">{switchError}</p>}
+            <div className="flex gap-2 mt-4">
+              <button className="flex-1 px-3 py-2 rounded-xl border border-ui" onClick={() => { setPendingKidSwitch(null); setKidSwitchPin(''); setSwitchError(''); }}>
+                Cancel
+              </button>
+              <button
+                className="flex-1 px-3 py-2 rounded-xl bg-sky-500 text-white font-semibold disabled:opacity-50"
+                disabled={kidSwitchPin.length !== 4}
+                onClick={async () => {
+                  try {
+                    await switchToKidProfile(pendingKidSwitch, kidSwitchPin);
+                  } catch (e: any) {
+                    setSwitchError(e?.message || 'Unable to switch profile');
+                  }
+                }}
+              >
+                Switch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showParentSwitchPin && (
+        <div className="fixed inset-0 z-[210] bg-black/60 flex items-center justify-center p-4">
+          <div className={cn("w-full max-w-sm rounded-2xl p-5 border", isDarkTheme ? "bg-ui-deep border-ui-dark text-white" : "bg-white border-ui")}>
+            <h3 className="text-lg font-bold mb-1">Parent PIN Required</h3>
+            <p className="text-sm text-ui-muted mb-3">Enter family PIN to switch to parent</p>
+            <input
+              type="password"
+              value={parentSwitchPin}
+              onChange={(e) => setParentSwitchPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+              placeholder="PIN"
+              className="w-full px-3 py-2 rounded-xl border border-ui bg-white text-ui-primary"
+            />
+            {switchError && <p className="text-sm text-rose-500 mt-2">{switchError}</p>}
+            <div className="flex gap-2 mt-4">
+              <button className="flex-1 px-3 py-2 rounded-xl border border-ui" onClick={() => { setShowParentSwitchPin(false); setParentSwitchPin(''); setSwitchError(''); }}>
+                Cancel
+              </button>
+              <button
+                className="flex-1 px-3 py-2 rounded-xl bg-sky-500 text-white font-semibold disabled:opacity-50"
+                disabled={parentSwitchPin.length < 4}
+                onClick={async () => {
+                  try {
+                    await switchToParentProfile(parentSwitchPin);
+                  } catch {
+                    setSwitchError('Incorrect PIN');
+                  }
+                }}
+              >
+                Switch
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       <PhotoScreensaver
         parentId={profile.parentId || profile.uid}
