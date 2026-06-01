@@ -1,21 +1,42 @@
 import { CalendarEvent } from '../types';
 import { fetchAPI } from './http';
 
+const EVENTS_TTL_MS = 10_000;
+const eventsCache = new Map<string, { value: CalendarEvent[]; expiresAt: number }>();
+const eventsInflight = new Map<string, Promise<CalendarEvent[]>>();
+
 export const eventsClientService = {
   getEvents: async (parentId: string): Promise<CalendarEvent[]> => {
-    return fetchAPI(`/parents/${parentId}/events`);
+    const cached = eventsCache.get(parentId);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    const inflight = eventsInflight.get(parentId);
+    if (inflight) return inflight;
+    const req = fetchAPI(`/parents/${parentId}/events`)
+      .then((res) => {
+        eventsCache.set(parentId, { value: res, expiresAt: Date.now() + EVENTS_TTL_MS });
+        return res;
+      })
+      .finally(() => eventsInflight.delete(parentId));
+    eventsInflight.set(parentId, req);
+    return req;
   },
 
   createEvent: async (event: Omit<CalendarEvent, 'id'>): Promise<{ success: boolean; ids: string[] }> => {
-    return fetchAPI('/events', { method: 'POST', body: JSON.stringify(event) });
+    const res = await fetchAPI('/events', { method: 'POST', body: JSON.stringify(event) });
+    eventsCache.delete(event.parentId);
+    return res;
   },
 
   updateEvent: async (id: string, data: Partial<CalendarEvent>, scope: 'one' | 'future' = 'one'): Promise<{ success: boolean }> => {
-    return fetchAPI(`/events/${id}?scope=${scope}`, { method: 'PUT', body: JSON.stringify(data) });
+    const res = await fetchAPI(`/events/${id}?scope=${scope}`, { method: 'PUT', body: JSON.stringify(data) });
+    eventsCache.clear();
+    return res;
   },
 
   deleteEvent: async (id: string, scope: 'one' | 'future' = 'one'): Promise<{ success: boolean }> => {
-    return fetchAPI(`/events/${id}?scope=${scope}`, { method: 'DELETE' });
+    const res = await fetchAPI(`/events/${id}?scope=${scope}`, { method: 'DELETE' });
+    eventsCache.clear();
+    return res;
   },
 
   addAttendee: async (eventId: string, userId: string): Promise<{ success: boolean }> => {

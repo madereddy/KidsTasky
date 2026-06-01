@@ -2,6 +2,11 @@ import { authService } from './services/auth';
 import { userService } from './services/users';
 import { categoryService } from './services/categories';
 import { settingsClientService } from './services/settings';
+import { tasksClientService } from './services/tasks';
+import { eventsClientService } from './services/events';
+import { homeworkClientService } from './services/homework';
+import { listsClientService } from './services/lists';
+import { mealsClientService } from './services/meals';
 import { subscribeToPush, unsubscribeFromPush } from './services/push';
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { LogOut, Rocket, User as UserIcon, Activity, CalendarDays, List, UtensilsCrossed, Settings } from 'lucide-react';
@@ -19,6 +24,8 @@ import { SleepModeOverlay } from './components/shared/SleepModeOverlay';
 import { PhotoScreensaver } from './components/shared/PhotoScreensaver';
 import { LoginView } from './components/auth/LoginView';
 import { OnboardingView } from './components/onboarding/OnboardingView';
+import { WallHome } from './components/parent/WallHome';
+import { KidDashboard } from './components/kid/KidDashboard';
 
 const lazyWithRetry = <T extends React.ComponentType<any>>(
   importer: () => Promise<{ default: T }>,
@@ -38,9 +45,7 @@ const lazyWithRetry = <T extends React.ComponentType<any>>(
 });
 
 const ParentDashboard = lazyWithRetry(() => import('./components/parent/ParentDashboard').then(m => ({ default: m.ParentDashboard })), 'parent-dashboard');
-const WallHome = lazyWithRetry(() => import('./components/parent/WallHome').then(m => ({ default: m.WallHome })), 'wall-home');
 const ParentTasksWorkspace = lazyWithRetry(() => import('./components/parent/ParentTasksWorkspace').then(m => ({ default: m.ParentTasksWorkspace })), 'parent-tasks');
-const KidDashboard = lazyWithRetry(() => import('./components/kid/KidDashboard').then(m => ({ default: m.KidDashboard })), 'kid-dashboard');
 const CalendarView = lazyWithRetry(() => import('./components/calendar/CalendarView').then(m => ({ default: m.CalendarView })), 'calendar');
 const ListsView = lazyWithRetry(() => import('./components/lists/ListsView').then(m => ({ default: m.ListsView })), 'lists');
 const MealPlanView = lazyWithRetry(() => import('./components/parent/MealPlanView').then(m => ({ default: m.MealPlanView })), 'meals');
@@ -61,6 +66,15 @@ const prefetchCalendar = () => { import('./components/calendar/CalendarView'); }
 const prefetchLists = () => { import('./components/lists/ListsView'); };
 const prefetchMeals = () => { import('./components/parent/MealPlanView'); };
 const prefetchSettings = () => { import('./components/parent/SettingsView'); };
+
+function runIdle(task: () => void) {
+  const anyWindow = window as any;
+  if (typeof anyWindow.requestIdleCallback === 'function') {
+    anyWindow.requestIdleCallback(() => task(), { timeout: 2000 });
+    return;
+  }
+  setTimeout(task, 0);
+}
 
 export default function App() {
   const [user, setUser] = useState<AppUser | null>(null);
@@ -153,6 +167,7 @@ export default function App() {
             if (u.role === 'parent') {
               persistParentSession({ token: storedToken, user: { uid: u.uid, name: u.name, email: u.email }, profile: u });
             }
+            warmProfile(u);
           } else {
             localStorage.removeItem('kidtasker_token');
           }
@@ -164,7 +179,7 @@ export default function App() {
       setLoading(false);
     };
     initAuth();
-  }, [loadProfileData, persistParentSession]);
+  }, [loadProfileData, persistParentSession, warmProfile]);
 
   const handleLogout = async () => {
     await unsubscribeFromPush().catch(console.warn);
@@ -192,7 +207,8 @@ export default function App() {
     setSwitchError('');
     // Make kid switch feel instant; hydrate shared data in background.
     void loadProfileData(next, { fastKidSwitch: true });
-  }, [loadProfileData, persistParentSession, profile, user]);
+    warmProfile(next);
+  }, [loadProfileData, persistParentSession, profile, user, warmProfile]);
 
   const switchToParentProfile = useCallback(async (pin: string) => {
     if (!parentSession) throw new Error('No parent session available');
@@ -210,7 +226,35 @@ export default function App() {
     setShowProfileSwitcher(false);
     setIsLocked(false);
     await loadProfileData(next);
-  }, [loadProfileData, parentSession]);
+    warmProfile(next);
+  }, [loadProfileData, parentSession, warmProfile]);
+
+  const warmProfile = useCallback((u: UserProfile) => {
+    const parentId = u.parentId || u.uid;
+    if (!parentId) return;
+    runIdle(() => {
+      prefetchParentTasks();
+      prefetchCalendar();
+      prefetchLists();
+      prefetchMeals();
+      prefetchSettings();
+      if (u.role === 'parent') {
+        void Promise.allSettled([
+          tasksClientService.getTasksForParent(parentId),
+          eventsClientService.getEvents(parentId),
+          homeworkClientService.getHomework(parentId),
+          listsClientService.getLists(parentId),
+          mealsClientService.getRecipes(parentId),
+        ]);
+      } else {
+        void Promise.allSettled([
+          tasksClientService.getTasksForKid(u.uid),
+          eventsClientService.getEvents(parentId),
+          homeworkClientService.getHomework(parentId),
+        ]);
+      }
+    });
+  }, []);
 
   const refreshCategories = useCallback(async () => {
     if (!profile) return;
@@ -388,6 +432,7 @@ export default function App() {
                 if (u.role === 'parent') {
                   persistParentSession({ token, user: { uid: u.uid, name: u.name, email: u.email }, profile: u });
                 }
+                warmProfile(u);
               }
               subscribeToPush().catch(console.warn);
             } else {
@@ -403,6 +448,7 @@ export default function App() {
               if (u.role) {
                 setProfile(u);
                 void loadProfileData(u, { fastKidSwitch: true });
+                warmProfile(u);
               }
               subscribeToPush().catch(console.warn);
             } else {
@@ -422,6 +468,7 @@ export default function App() {
           onComplete={async (p: UserProfile) => {
             setProfile(p);
             await loadProfileData(p);
+            warmProfile(p);
             subscribeToPush().catch(console.warn);
           }} 
         />

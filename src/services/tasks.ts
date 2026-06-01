@@ -1,6 +1,10 @@
 import { fetchAPI } from './http';
 import { Task, TaskCompletion } from '../types';
 
+const TASKS_TTL_MS = 10_000;
+const tasksCache = new Map<string, { value: Task[]; expiresAt: number }>();
+const tasksInflight = new Map<string, Promise<Task[]>>();
+
 export const tasksClientService = {
   async createTask(task: Omit<Task, 'id' | 'createdAt' | 'status'>): Promise<string> {
     const res = await fetchAPI('/tasks', {
@@ -11,7 +15,18 @@ export const tasksClientService = {
   },
 
   async getTasksForKid(kidId: string): Promise<Task[]> {
-    return await fetchAPI('/kids/' + kidId + '/tasks');
+    const cached = tasksCache.get(kidId);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    const inflight = tasksInflight.get(kidId);
+    if (inflight) return inflight;
+    const req = fetchAPI('/kids/' + kidId + '/tasks')
+      .then((res) => {
+        tasksCache.set(kidId, { value: res, expiresAt: Date.now() + TASKS_TTL_MS });
+        return res;
+      })
+      .finally(() => tasksInflight.delete(kidId));
+    tasksInflight.set(kidId, req);
+    return req;
   },
 
   async getTasksForParent(parentId: string): Promise<Task[]> {
@@ -20,10 +35,12 @@ export const tasksClientService = {
 
   async archiveTask(taskId: string): Promise<void> {
     await fetchAPI('/tasks/' + taskId + '/archive', { method: "PUT" });
+    tasksCache.clear();
   },
 
   async updateTask(taskId: string, patch: Partial<Task>): Promise<void> {
     await fetchAPI('/tasks/' + taskId, { method: 'PATCH', body: JSON.stringify(patch) });
+    tasksCache.clear();
   },
 
   async completeTask(

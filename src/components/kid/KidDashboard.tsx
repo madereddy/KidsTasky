@@ -1,7 +1,7 @@
 import { userService } from '../../services/users';
 import { tasksClientService } from '../../services/tasks';
 import { rewardService } from '../../services/rewards';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Settings, Flame, Trophy, Zap, TrendingUp, Award, Clock, CalendarDays, History, Bell, Star, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, startOfToday, isAfter, parse, addHours, subDays, differenceInDays, startOfDay } from 'date-fns';
@@ -16,8 +16,8 @@ import { AvatarDisplay, AvatarPicker } from '../shared/AvatarPicker';
 import { FamilyNote } from '../shared/FamilyNote';
 import { WeeklyChoreGrid } from '../shared/WeeklyChoreGrid';
 import { RewardsShop } from './RewardsShop';
-import { CalendarView } from '../calendar/CalendarView';
-import { HomeworkView } from '../homework/HomeworkView';
+const CalendarView = lazy(() => import('../calendar/CalendarView').then(m => ({ default: m.CalendarView })));
+const HomeworkView = lazy(() => import('../homework/HomeworkView').then(m => ({ default: m.HomeworkView })));
 
 export function KidDashboard({ 
   profile, 
@@ -38,7 +38,7 @@ export function KidDashboard({
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [completions, setCompletions] = useState<TaskCompletion[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [streak, setStreak] = useState(0);
   const today = format(startOfToday(), 'yyyy-MM-dd');
   const [unlockedBadge, setUnlockedBadge] = useState<BadgeDef | null>(null);
@@ -337,8 +337,6 @@ export function KidDashboard({
     onProgressChange(progressPercent);
   }, [progressPercent, onProgressChange]);
 
-  if (loading) return null;
-
   const getUrgency = (task: Task) => {
     if (!task.reminderTime || isCompleted(task.id)) return 'none';
     const now = new Date();
@@ -609,21 +607,25 @@ export function KidDashboard({
         />
       )}
       {kidView === 'calendar' && (
-        <CalendarView
-          parentId={profile.parentId || profile.uid}
-          kids={kids}
-          memberColorMap={memberColorMap}
-          isLocked={true}
-          userRole="kid"
-        />
+        <Suspense fallback={<div className="py-10 text-sm text-ui-muted">Loading calendar...</div>}>
+          <CalendarView
+            parentId={profile.parentId || profile.uid}
+            kids={kids}
+            memberColorMap={memberColorMap}
+            isLocked={true}
+            userRole="kid"
+          />
+        </Suspense>
       )}
       {kidView === 'homework' && (
-        <HomeworkView
-          parentId={profile.parentId || profile.uid}
-          kids={kids}
-          userRole="kid"
-          currentUserId={profile.uid}
-        />
+        <Suspense fallback={<div className="py-10 text-sm text-ui-muted">Loading homework...</div>}>
+          <HomeworkView
+            parentId={profile.parentId || profile.uid}
+            kids={kids}
+            userRole="kid"
+            currentUserId={profile.uid}
+          />
+        </Suspense>
       )}
       {kidView === 'shop' && (
         <div className={cn("p-6 rounded-[3rem] border", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-ui")}>
