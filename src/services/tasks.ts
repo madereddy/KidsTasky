@@ -49,8 +49,8 @@ export const tasksClientService = {
     dateString: string,
     count?: number,
     proofAnswers?: Array<{ question: string; answer: string }>
-  ): Promise<void> {
-    await fetchAPI('/completions', {
+  ): Promise<{ id: string; approvalStatus: 'pending' | 'approved'; created?: boolean }> {
+    return await fetchAPI('/completions', {
       method: "POST",
       body: JSON.stringify({ taskId, kidId, dateString, count, proofAnswers })
     });

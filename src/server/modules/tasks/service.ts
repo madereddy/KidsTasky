@@ -101,7 +101,7 @@ export const taskServiceServer = {
       const stars = task?.starValue ?? 1;
       db.prepare('UPDATE users SET earnedStars = earnedStars + ? WHERE uid = ?').run(stars, data.kidId);
     }
-    return { id, approvalStatus };
+    return { id, approvalStatus, created: result.changes > 0 };
   }),
 
   skipTask: (data: { taskId: string; kidId: string; dateString: string; count?: number }) => {

@@ -69,6 +69,7 @@ export function KidDashboard({
   const [starsAwarded, setStarsAwarded] = useState(0);
   const [celebrationTick, setCelebrationTick] = useState(0);
   const [localXp, setLocalXp] = useState(profile.xp || 0);
+  const [pendingTaskKeys, setPendingTaskKeys] = useState<Record<string, boolean>>({});
 
   const currentTheme = THEMES.find(t => t.id === profile.themeId) || THEMES[0];
   const isDarkMode = !!currentTheme.vocab?.darkMode;
@@ -208,6 +209,9 @@ export function KidDashboard({
   };
 
   const completeTaskNow = async (taskId: string, count: number | undefined, xpReward: number, questions: string[], answers: Record<string, string>) => {
+    const key = `${taskId}_${count || 1}`;
+    if (pendingTaskKeys[key]) return;
+    setPendingTaskKeys((prev) => ({ ...prev, [key]: true }));
     const task = tasks.find(t => t.id === taskId);
     const stars = task?.starValue ?? 1;
     setXpAnimation({ amount: xpReward, active: true });
@@ -218,7 +222,10 @@ export function KidDashboard({
       const proofPayload = questions
         .map((question, i) => ({ question, answer: String(answers[`q_${i}`] || '').trim() }))
         .filter((entry) => entry.answer.length > 0);
-      await tasksClientService.completeTask(taskId, profile.uid, today, count, proofPayload.length > 0 ? proofPayload : undefined);
+      const result = await tasksClientService.completeTask(taskId, profile.uid, today, count, proofPayload.length > 0 ? proofPayload : undefined);
+      if (result && result.created === false) {
+        return;
+      }
       try {
         await userService.updateUserXP(profile.uid, xpReward);
       } catch (xpError) {
@@ -239,13 +246,21 @@ export function KidDashboard({
       console.error("Failed to complete task", e);
       setXpAnimation({ amount: 0, active: false });
       alert("Could not save completion. Please try again.");
+    } finally {
+      setTimeout(() => {
+        setXpAnimation({ amount: 0, active: false });
+      }, 2500);
+      setPendingTaskKeys((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
     }
-    setTimeout(() => {
-      setXpAnimation({ amount: 0, active: false });
-    }, 2500);
   };
 
   const toggleTask = async (taskId: string, currentStatus: boolean, count?: number) => {
+    const key = `${taskId}_${count || 1}`;
+    if (pendingTaskKeys[key]) return;
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
     if (isTaskLocked(task) && !currentStatus) return; // Prevent completion if locked
@@ -253,11 +268,20 @@ export function KidDashboard({
     const xpReward = XP_REWARDS[task.difficulty || 'easy'];
 
     if (currentStatus) {
-      await tasksClientService.uncompleteTask(taskId, today, count);
-      await userService.updateUserXP(profile.uid, -xpReward);
-      setCompletions(completions.filter((c: TaskCompletion) => !(c.taskId === taskId && c.count === count)));
-      setLocalXp((prev) => Math.max(0, prev - xpReward));
-      onProfileUpdate();
+      setPendingTaskKeys((prev) => ({ ...prev, [key]: true }));
+      try {
+        await tasksClientService.uncompleteTask(taskId, today, count);
+        await userService.updateUserXP(profile.uid, -xpReward).catch(() => {});
+        setCompletions(completions.filter((c: TaskCompletion) => !(c.taskId === taskId && c.count === count)));
+        setLocalXp((prev) => Math.max(0, prev - xpReward));
+        onProfileUpdate();
+      } finally {
+        setPendingTaskKeys((prev) => {
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
+      }
     } else {
       const questions = Array.isArray(task.completionQuestions) ? task.completionQuestions.filter(Boolean) : [];
       const scopedQuestions = (!task.completionQuestionsKidId || task.completionQuestionsKidId === profile.uid) ? questions : [];

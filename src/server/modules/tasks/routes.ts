@@ -153,7 +153,7 @@ tasksRouter.post("/completions", authenticateUser, enforceEditUnlocked, [
   }
 });
 
-tasksRouter.delete("/completions/:completionId", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
+tasksRouter.delete("/completions/:completionId", authenticateUser, enforceEditUnlocked, [
   param('completionId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
@@ -163,6 +163,10 @@ tasksRouter.delete("/completions/:completionId", authenticateUser, requireRole('
     const task = taskServiceServer.getTaskById(completion.taskId);
     const userParentId = getParentId(req);
     if (task && task.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
+    const caller = (req as any).user as { uid: string; role: string };
+    if (caller.role === 'kid' && completion.kidId !== caller.uid) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     taskServiceServer.deleteCompletion(req.params.completionId as string);
     res.json({ success: true });
   } catch (error: any) {
