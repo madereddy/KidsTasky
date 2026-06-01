@@ -23,6 +23,7 @@ export function RewardManager({ parentId, rewards, onUpdate }: { parentId: strin
   };
 
   const deleteReward = async (id: string) => {
+    if (typeof window !== 'undefined' && !window.confirm('Are you sure you want to delete this reward?')) return;
     await rewardService.deleteReward(id);
     onUpdate();
   };

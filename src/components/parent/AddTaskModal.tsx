@@ -111,6 +111,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
     })();
   };
   const deleteCustomTemplate = (id: string) => {
+    if (typeof window !== 'undefined' && !window.confirm('Are you sure you want to delete this template?')) return;
     void (async () => {
       await proofTemplatesClientService.remove('task', id);
       await loadTemplates();

@@ -97,6 +97,7 @@ export function AddHomeworkModal({ kids, onClose, onSubmit, initialValues, title
     })();
   };
   const deleteCustomTemplate = (id: string) => {
+    if (typeof window !== 'undefined' && !window.confirm('Are you sure you want to delete this template?')) return;
     void (async () => {
       await proofTemplatesClientService.remove('homework', id);
       await loadTemplates();

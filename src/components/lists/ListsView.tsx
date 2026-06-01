@@ -43,6 +43,7 @@ export function ListsView({ parentId }: Props) {
   };
 
   const handleDeleteList = async (id: string) => {
+    if (typeof window !== 'undefined' && !window.confirm('Are you sure you want to delete this list?')) return;
     await listsClientService.deleteList(id);
     setLists(prev => prev.filter(l => l.id !== id));
     if (selectedListId === id) {
@@ -63,6 +64,7 @@ export function ListsView({ parentId }: Props) {
   };
 
   const handleDeleteItem = async (itemId: string) => {
+    if (typeof window !== 'undefined' && !window.confirm('Are you sure you want to delete this item?')) return;
     await listsClientService.deleteItem(itemId);
     setItems(prev => prev.filter(it => it.id !== itemId));
   };

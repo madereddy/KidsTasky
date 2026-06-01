@@ -70,6 +70,7 @@ export function RoutineTemplatesModal({ parentId, kids, templates, onClose, onAp
   };
 
   const handleDelete = async (id: string) => {
+    if (typeof window !== 'undefined' && !window.confirm('Are you sure you want to delete this routine template?')) return;
     await routinesClientService.deleteTemplate(id);
     onRefresh();
   };

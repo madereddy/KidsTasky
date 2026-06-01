@@ -118,6 +118,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
                     </button>
                     <button
                       onClick={async () => {
+                        if (typeof window !== 'undefined' && !window.confirm('Are you sure you want to delete this homework item?')) return;
                         try {
                           setActionId(item.id);
                           await homeworkClientService.deleteHomework(item.id);

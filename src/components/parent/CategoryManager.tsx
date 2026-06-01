@@ -45,6 +45,7 @@ export function CategoryManager({
   };
 
   const handleDelete = async (id: string) => {
+    if (typeof window !== 'undefined' && !window.confirm('Are you sure you want to delete this category?')) return;
     await categoryService.deleteCategory(id);
     const updated = await categoryService.getCategories(parentId);
     onUpdate(updated || []);

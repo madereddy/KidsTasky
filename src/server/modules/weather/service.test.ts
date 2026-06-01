@@ -15,6 +15,11 @@ describe('Weather Service', () => {
           temperature_2m_max: [75],
           temperature_2m_min: [55],
           weathercode: [3]
+        },
+        hourly: {
+          time: ['2026-04-25T10:00'],
+          temperature_2m: [68],
+          weathercode: [2]
         }
       })
     });
@@ -23,7 +28,7 @@ describe('Weather Service', () => {
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('open-meteo.com')
     );
-    expect(forecast.length).toBe(1);
-    expect(forecast[0].maxTemp).toBe(75);
+    expect(forecast.daily.length).toBe(1);
+    expect(forecast.daily[0].maxTemp).toBe(75);
   });
 });

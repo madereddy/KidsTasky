@@ -52,6 +52,10 @@ export function EventDetailModal({ event, kids, userRole, onClose, onUpdated }: 
   };
 
   const handleDelete = async (scope: DeleteScope) => {
+    const message = scope === 'future'
+      ? 'Are you sure you want to delete this and future events?'
+      : 'Are you sure you want to delete this event?';
+    if (typeof window !== 'undefined' && !window.confirm(message)) return;
     await eventsClientService.deleteEvent(event.id, scope);
     onUpdated();
     onClose();

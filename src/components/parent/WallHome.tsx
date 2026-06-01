@@ -4,7 +4,7 @@ import { CalendarEvent, UserProfile, Task, TaskCompletion, Homework } from '../.
 import { eventsClientService } from '../../services/events';
 import { tasksClientService } from '../../services/tasks';
 import { homeworkClientService } from '../../services/homework';
-import { weatherClientService, DailyForecast } from '../../services/weather';
+import { weatherClientService, DailyForecast, HourlyForecastEntry } from '../../services/weather';
 import { settingsClientService } from '../../services/settings';
 import { FamilyNote } from '../shared/FamilyNote';
 import { WeeklyWeather } from '../calendar/WeeklyWeather';
@@ -55,6 +55,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
   const [completionsByKid, setCompletionsByKid] = useState<Record<string, TaskCompletion[]>>({});
   const [homework, setHomework] = useState<Homework[]>([]);
   const [forecast, setForecast] = useState<DailyForecast[]>([]);
+  const [hourlyToday, setHourlyToday] = useState<HourlyForecastEntry[]>([]);
   const [tempUnit, setTempUnit] = useState<TemperatureUnitPref>('celsius');
   const [rotationEnabled, setRotationEnabled] = useState(false);
   const [rotationInterval, setRotationInterval] = useState(30);
@@ -82,8 +83,17 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
       }
 
       if (settings?.locationLat && settings?.locationLon) {
-        weatherClientService.getForecast(settings.locationLat, settings.locationLon)
-          .then(setForecast).catch(() => {});
+        weatherClientService.getForecastWithHourly(settings.locationLat, settings.locationLon)
+          .then((wx) => {
+            setForecast(wx.daily || []);
+            setHourlyToday(wx.hourlyToday || []);
+          }).catch(() => {
+            setForecast([]);
+            setHourlyToday([]);
+          });
+      } else {
+        setForecast([]);
+        setHourlyToday([]);
       }
     } catch (e) {
       console.error('[WallHome] fetchData error', e);
@@ -133,6 +143,32 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
   );
 
   const todayWeather = forecast.find(f => f.date === today);
+  const now = new Date();
+  const nowHour = now.getHours();
+  const remainingHourly = hourlyToday.filter((hour) => {
+    const hourDate = new Date(hour.time);
+    return !Number.isNaN(hourDate.getTime()) && hourDate.getHours() >= nowHour;
+  });
+  const weatherByHour = new Map(remainingHourly.map((hour) => [new Date(hour.time).getHours(), hour]));
+
+  const getEventWeather = (event: CalendarEvent): HourlyForecastEntry | null => {
+    if (event.isAllDay) return null;
+    const eventDate = new Date(event.startTime);
+    const eventHour = eventDate.getHours();
+    const direct = weatherByHour.get(eventHour);
+    if (direct) return direct;
+    let best: HourlyForecastEntry | null = null;
+    let delta = Number.POSITIVE_INFINITY;
+    for (const hour of remainingHourly) {
+      const hourDate = new Date(hour.time);
+      const diff = Math.abs(hourDate.getHours() - eventHour);
+      if (diff < delta) {
+        delta = diff;
+        best = hour;
+      }
+    }
+    return best;
+  };
 
   const kidProgress: KidProgress[] = kids.map(kid => {
     const tasks = (tasksByKid[kid.uid] || []).filter(t => t.status !== 'archived');
@@ -175,12 +211,26 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
         {/* Today's events */}
         <div className="md:col-span-2 bg-white/80 dark:bg-white/5 rounded-2xl p-4 shadow-sm border border-ui">
           <h2 className={cn("font-semibold text-ui-muted uppercase tracking-wide mb-3", isWallMode ? "text-base" : "text-sm")}>Today</h2>
+          {remainingHourly.length > 0 && (
+            <div className="mb-3 overflow-x-auto">
+              <div className="flex items-center gap-2 min-w-max">
+                {remainingHourly.map((hour) => (
+                  <div key={hour.time} className="px-2 py-1 rounded-lg bg-ui-soft text-xs text-ui-secondary flex items-center gap-1.5">
+                    <span>{format(new Date(hour.time), 'h a')}</span>
+                    <span>{getWeatherInfo(hour.weatherCode).icon}</span>
+                    <span>{Math.round(toDisplayTemp(hour.temp, tempUnit))}°</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {todayEvents.length === 0 && todayHomework.length === 0 ? (
             <p className={cn("text-ui-muted", isWallMode ? "text-base" : "text-sm")}>Nothing scheduled today.</p>
           ) : (
             <div className="space-y-2 max-h-40 overflow-y-auto">
               {todayEvents.map(event => {
                 const memberColor = event.assignedToId ? memberColorMap[event.assignedToId] : null;
+                const eventWeather = getEventWeather(event);
                 return (
                   <div key={event.id} className="flex items-center gap-3">
                     <div className="w-1 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: event.color || memberColor || '#6366f1' }} />
@@ -188,6 +238,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
                       <p className={cn("font-medium truncate", isWallMode ? "text-base" : "text-sm")}>{event.title}</p>
                       <p className={cn("text-ui-muted", isWallMode ? "text-sm" : "text-xs")}>
                         {event.isAllDay ? 'All day' : format(new Date(event.startTime), 'h:mm a')}
+                        {eventWeather ? ` · ${getWeatherInfo(eventWeather.weatherCode).icon} ${Math.round(toDisplayTemp(eventWeather.temp, tempUnit))}°` : ''}
                       </p>
                     </div>
                   </div>
@@ -260,7 +311,13 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
                         <div className="w-1.5 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: event.color || '#6366f1' }} />
                         <div>
                           <p className="text-base font-medium">{event.title}</p>
-                          <p className="text-sm text-ui-muted">{event.isAllDay ? 'All day' : format(new Date(event.startTime), 'h:mm a')}</p>
+                          <p className="text-sm text-ui-muted">
+                            {event.isAllDay ? 'All day' : format(new Date(event.startTime), 'h:mm a')}
+                            {(() => {
+                              const wx = getEventWeather(event);
+                              return wx ? ` · ${getWeatherInfo(wx.weatherCode).icon} ${Math.round(toDisplayTemp(wx.temp, tempUnit))}°` : '';
+                            })()}
+                          </p>
                         </div>
                       </div>
                     ))}
