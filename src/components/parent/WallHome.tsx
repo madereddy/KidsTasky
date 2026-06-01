@@ -85,20 +85,6 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
         weatherClientService.getForecast(settings.locationLat, settings.locationLon)
           .then(setForecast).catch(() => {});
       }
-
-      // Fetch tasks + completions per kid
-      const taskMap: Record<string, Task[]> = {};
-      const compMap: Record<string, TaskCompletion[]> = {};
-      await Promise.all(kids.map(async (kid) => {
-        const [tasks, comps] = await Promise.all([
-          tasksClientService.getTasksForKid(kid.uid).catch(() => []),
-          tasksClientService.getCompletionsForKid(kid.uid, today).catch(() => []),
-        ]);
-        taskMap[kid.uid] = tasks;
-        compMap[kid.uid] = comps;
-      }));
-      setTasksByKid(taskMap);
-      setCompletionsByKid(compMap);
     } catch (e) {
       console.error('[WallHome] fetchData error', e);
     } finally {
@@ -106,11 +92,34 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
     }
   }, [parentId, kids, today]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const fetchKidTaskData = useCallback(async () => {
+    const taskMap: Record<string, Task[]> = {};
+    const compMap: Record<string, TaskCompletion[]> = {};
+    await Promise.allSettled(kids.map(async (kid) => {
+      const [tasks, comps] = await Promise.all([
+        tasksClientService.getTasksForKid(kid.uid).catch(() => []),
+        tasksClientService.getCompletionsForKid(kid.uid, today).catch(() => []),
+      ]);
+      taskMap[kid.uid] = tasks;
+      compMap[kid.uid] = comps;
+    }));
+    setTasksByKid(taskMap);
+    setCompletionsByKid(compMap);
+  }, [kids, today]);
+
+  useEffect(() => {
+    fetchData();
+    void fetchKidTaskData();
+  }, [fetchData, fetchKidTaskData]);
 
   useSocketStaleData(['events', 'homework', 'tasks', 'completions', 'weather', 'settings'], useCallback((data: { entity?: string; type?: string }) => {
+    const signal = data.type || data.entity;
+    if (signal === 'tasks' || signal === 'completions') {
+      void fetchKidTaskData();
+      return;
+    }
     fetchData();
-  }, [fetchData]));
+  }, [fetchData, fetchKidTaskData]));
 
   const todayEvents = events
     .filter(e => {
