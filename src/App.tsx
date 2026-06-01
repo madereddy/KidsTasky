@@ -19,14 +19,32 @@ import { SleepModeOverlay } from './components/shared/SleepModeOverlay';
 import { PhotoScreensaver } from './components/shared/PhotoScreensaver';
 import { LoginView } from './components/auth/LoginView';
 import { OnboardingView } from './components/onboarding/OnboardingView';
-const ParentDashboard = lazy(() => import('./components/parent/ParentDashboard').then(m => ({ default: m.ParentDashboard })));
-const WallHome = lazy(() => import('./components/parent/WallHome').then(m => ({ default: m.WallHome })));
-const ParentTasksWorkspace = lazy(() => import('./components/parent/ParentTasksWorkspace').then(m => ({ default: m.ParentTasksWorkspace })));
-const KidDashboard = lazy(() => import('./components/kid/KidDashboard').then(m => ({ default: m.KidDashboard })));
-const CalendarView = lazy(() => import('./components/calendar/CalendarView').then(m => ({ default: m.CalendarView })));
-const ListsView = lazy(() => import('./components/lists/ListsView').then(m => ({ default: m.ListsView })));
-const MealPlanView = lazy(() => import('./components/parent/MealPlanView').then(m => ({ default: m.MealPlanView })));
-const SettingsView = lazy(() => import('./components/parent/SettingsView').then(m => ({ default: m.SettingsView })));
+
+const lazyWithRetry = <T extends React.ComponentType<any>>(
+  importer: () => Promise<{ default: T }>,
+  key: string
+) => lazy(async () => {
+  try {
+    return await importer();
+  } catch (error) {
+    const retryKey = `kidtasker:lazy-retry:${key}`;
+    const retried = sessionStorage.getItem(retryKey) === '1';
+    if (!retried) {
+      sessionStorage.setItem(retryKey, '1');
+      window.location.reload();
+    }
+    throw error;
+  }
+});
+
+const ParentDashboard = lazyWithRetry(() => import('./components/parent/ParentDashboard').then(m => ({ default: m.ParentDashboard })), 'parent-dashboard');
+const WallHome = lazyWithRetry(() => import('./components/parent/WallHome').then(m => ({ default: m.WallHome })), 'wall-home');
+const ParentTasksWorkspace = lazyWithRetry(() => import('./components/parent/ParentTasksWorkspace').then(m => ({ default: m.ParentTasksWorkspace })), 'parent-tasks');
+const KidDashboard = lazyWithRetry(() => import('./components/kid/KidDashboard').then(m => ({ default: m.KidDashboard })), 'kid-dashboard');
+const CalendarView = lazyWithRetry(() => import('./components/calendar/CalendarView').then(m => ({ default: m.CalendarView })), 'calendar');
+const ListsView = lazyWithRetry(() => import('./components/lists/ListsView').then(m => ({ default: m.ListsView })), 'lists');
+const MealPlanView = lazyWithRetry(() => import('./components/parent/MealPlanView').then(m => ({ default: m.MealPlanView })), 'meals');
+const SettingsView = lazyWithRetry(() => import('./components/parent/SettingsView').then(m => ({ default: m.SettingsView })), 'settings');
 
 interface AppUser {
   uid: string;
