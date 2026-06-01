@@ -207,11 +207,11 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
             type="button"
             onClick={(e) => { e.stopPropagation(); void onToggle(); }}
             className={cn(
-              "px-4 py-4 rounded-2xl font-bold uppercase tracking-wider text-xs border",
-              darkMode ? "bg-ui-dark border-ui-dark text-ui-secondary hover:text-white" : "bg-white border-ui text-ui-muted hover:text-ui-primary"
+              "px-4 py-4 rounded-2xl font-black uppercase tracking-wider text-xs border-2",
+              darkMode ? "bg-rose-500/10 border-rose-500/30 text-rose-300 hover:text-white" : "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100"
             )}
           >
-            Undo
+            Undo Completion
           </button>
         </div>
       )}

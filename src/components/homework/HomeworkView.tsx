@@ -95,7 +95,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
                   <p className="text-xs text-ui-secondary mt-1 whitespace-pre-line">{item.completionResponse}</p>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 ${userRole === 'kid' ? 'min-w-[180px] justify-end' : ''}`}>
                 <button
                   onClick={async () => {
                     try {
@@ -118,9 +118,15 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
                     }
                   }}
                   disabled={actionId === item.id}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${item.status === 'done' ? 'bg-emerald-100 text-emerald-700' : 'bg-ui-soft-2 text-ui-secondary'}`}
+                  className={`rounded-xl text-xs font-bold uppercase tracking-wide border ${
+                    userRole === 'kid' ? 'px-4 py-3 min-w-[150px]' : 'px-3 py-1'
+                  } ${
+                    item.status === 'done'
+                      ? 'bg-rose-50 border-rose-200 text-rose-700'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                  }`}
                 >
-                  {actionId === item.id ? 'Saving...' : (item.status === 'done' ? 'Undo' : 'Mark done')}
+                  {actionId === item.id ? 'Saving...' : (item.status === 'done' ? 'Undo Completion' : 'Mark Done')}
                 </button>
                 {userRole === 'parent' && (
                   <>

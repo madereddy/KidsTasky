@@ -68,6 +68,7 @@ export function KidDashboard({
   const [showStarBurst, setShowStarBurst] = useState(false);
   const [starsAwarded, setStarsAwarded] = useState(0);
   const [celebrationTick, setCelebrationTick] = useState(0);
+  const [localXp, setLocalXp] = useState(profile.xp || 0);
 
   const currentTheme = THEMES.find(t => t.id === profile.themeId) || THEMES[0];
   const isDarkMode = !!currentTheme.vocab?.darkMode;
@@ -77,6 +78,7 @@ export function KidDashboard({
     try {
       await rewardService.claimReward(profile.uid, rewardId, xpCost);
       setClaimedRewards([...claimedRewards, { id: 'tmp_' + Date.now(), kidId: profile.uid, rewardId, createdAt: Date.now() }]);
+      setLocalXp((prev) => Math.max(0, prev - xpCost));
       onProfileUpdate();
     } catch (e) {
       console.error("Failed to claim reward", e);
@@ -108,6 +110,10 @@ export function KidDashboard({
   });
 
   useEffect(() => {
+    setLocalXp(profile.xp || 0);
+  }, [profile.xp]);
+
+  useEffect(() => {
     const checkMilestones = async () => {
       if (loading) return;
       const earnedIds = (profile.badges || []).map(b => b.id);
@@ -120,7 +126,7 @@ export function KidDashboard({
       }
 
       // XP 100
-      if (!earnedIds.includes('xp_100') && (profile.xp || 0) >= 100) {
+      if (!earnedIds.includes('xp_100') && localXp >= 100) {
         await userService.addBadge(profile.uid, 'xp_100');
         setUnlockedBadge(BADGE_DEFS['xp_100']);
         onProfileUpdate();
@@ -134,7 +140,7 @@ export function KidDashboard({
       }
     };
     checkMilestones();
-  }, [completions.length, profile.xp, streak, loading]);
+  }, [completions.length, localXp, streak, loading]);
 
   useEffect(() => {
     fetchData();
@@ -226,6 +232,7 @@ export function KidDashboard({
         dateString: today,
         count
       }]);
+      setLocalXp((prev) => prev + xpReward);
       setCelebrationTick((n) => n + 1);
       onProfileUpdate();
     } catch (e) {
@@ -249,6 +256,7 @@ export function KidDashboard({
       await tasksClientService.uncompleteTask(taskId, today, count);
       await userService.updateUserXP(profile.uid, -xpReward);
       setCompletions(completions.filter((c: TaskCompletion) => !(c.taskId === taskId && c.count === count)));
+      setLocalXp((prev) => Math.max(0, prev - xpReward));
       onProfileUpdate();
     } else {
       const questions = Array.isArray(task.completionQuestions) ? task.completionQuestions.filter(Boolean) : [];
@@ -419,7 +427,7 @@ export function KidDashboard({
             <div>
               <p className={cn("text-xs uppercase font-bold mb-1", toneSecondary)}>Progress</p>
               <div className="flex items-baseline gap-1">
-                <span className={cn("text-3xl font-black leading-none", currentTheme.vocab?.textPrimary || "text-ui-primary")}>{(profile.xp || 0) % 100}</span>
+                <span className={cn("text-3xl font-black leading-none", currentTheme.vocab?.textPrimary || "text-ui-primary")}>{localXp % 100}</span>
                 <span className={cn("text-sm font-bold uppercase", isDarkMode ? "text-ui-muted-2" : "text-ui-muted-2")}>/ 100 {currentTheme.vocab?.points || 'XP'}</span>
               </div>
             </div>
@@ -433,7 +441,7 @@ export function KidDashboard({
               </div>
               <div className="text-right">
                 <p className={cn("text-[10px] uppercase font-bold mb-1", isDarkMode ? "text-ui-muted-2" : "text-ui-muted-2")}>Total</p>
-                <p className={cn("text-base font-bold leading-none", currentTheme.vocab?.textPrimary || "text-ui-primary")}>{profile.xp || 0} {currentTheme.vocab?.points || 'XP'}</p>
+                <p className={cn("text-base font-bold leading-none", currentTheme.vocab?.textPrimary || "text-ui-primary")}>{localXp} {currentTheme.vocab?.points || 'XP'}</p>
               </div>
             </div>
           </div>
@@ -441,7 +449,7 @@ export function KidDashboard({
           <div className="w-full h-6 bg-ui-soft-2 rounded-full overflow-hidden mb-3 shadow-inner">
             <motion.div 
               initial={{ width: 0 }}
-              animate={{ width: `${(profile.xp || 0) % 100}%` }}
+              animate={{ width: `${localXp % 100}%` }}
               transition={{ duration: 1, ease: "easeOut" }}
               className={cn("h-full rounded-full relative", `bg-${currentTheme.primary}`)}
             >
@@ -450,7 +458,7 @@ export function KidDashboard({
           
           <div className="flex justify-between items-center mt-2">
             <p className={cn("text-xs font-bold flex items-center gap-1", toneSecondary)}>
-              <TrendingUp className="w-4 h-4" /> {100 - ((profile.xp || 0) % 100)} {currentTheme.vocab?.points || 'XP'} to Next {currentTheme.vocab?.level || 'Level'}
+              <TrendingUp className="w-4 h-4" /> {100 - (localXp % 100)} {currentTheme.vocab?.points || 'XP'} to Next {currentTheme.vocab?.level || 'Level'}
             </p>
           </div>
         </div>
