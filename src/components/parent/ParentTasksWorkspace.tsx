@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { format } from 'date-fns';
 import { Grid3x3, List, ShieldCheck } from 'lucide-react';
 import { Task, UserProfile, Category } from '../../types';
 import { cn } from '../../lib/utils';
@@ -37,15 +38,28 @@ export function ParentTasksWorkspace({
   const [isManagingCategories, setIsManagingCategories] = useState(false);
   const [sortBy, setSortBy] = useState<'time' | 'created'>('created');
   const [taskDisplayMode, setTaskDisplayMode] = useState<'list' | 'chart'>('list');
+  const [todayApprovedCompletions, setTodayApprovedCompletions] = useState<any[]>([]);
 
   const loadTasks = useCallback(async () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
     const [t, pc] = await Promise.all([
       tasksClientService.getTasksForParent(parentId),
       tasksClientService.getPendingCompletions(parentId),
     ]);
+    const completionBuckets = await Promise.all(
+      kids.map(async (kid) => {
+        const rows = await tasksClientService.getCompletionsForKid(kid.uid, today).catch(() => []);
+        return rows.map((row: any) => ({ ...row, kidName: kid.name }));
+      })
+    );
+    const completedToday = completionBuckets
+      .flat()
+      .filter((row: any) => (row.approvalStatus || 'approved') === 'approved')
+      .sort((a: any, b: any) => Number(b.completedAt?.seconds || 0) - Number(a.completedAt?.seconds || 0));
     setTasks(t || []);
     setPendingCompletions(pc || []);
-  }, [parentId]);
+    setTodayApprovedCompletions(completedToday);
+  }, [parentId, kids]);
 
   useEffect(() => {
     loadTasks().catch((e) => console.error('Failed loading tasks workspace:', e));
@@ -92,6 +106,10 @@ export function ParentTasksWorkspace({
     await tasksClientService.rejectCompletion(id);
     setPendingCompletions((prev) => prev.filter((c) => c.id !== id));
   };
+  const undoCompletion = async (completion: any) => {
+    await tasksClientService.uncompleteTask(completion.taskId, completion.dateString, completion.count ?? undefined);
+    await loadTasks();
+  };
 
   return (
     <div className="space-y-6">
@@ -124,6 +142,31 @@ export function ParentTasksWorkspace({
                     Approve
                   </button>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {todayApprovedCompletions.length > 0 && (
+        <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-[2.5rem] space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <ShieldCheck className="w-5 h-5 text-emerald-500" />
+            <h3 className="text-sm font-black uppercase tracking-widest text-emerald-700">Completed Today</h3>
+            <span className="bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{todayApprovedCompletions.length}</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {todayApprovedCompletions.map((comp: any) => (
+              <div key={comp.id} className="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 flex justify-between items-center">
+                <div>
+                  <p className="text-xs font-black text-emerald-600 uppercase mb-1">{comp.kidName}</p>
+                  <p className="font-bold text-ui-primary text-sm">{tasks.find((t) => t.id === comp.taskId)?.title || comp.taskId}</p>
+                </div>
+                <button
+                  onClick={() => void undoCompletion(comp)}
+                  className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-rose-100 transition-colors"
+                >
+                  Undo
+                </button>
               </div>
             ))}
           </div>

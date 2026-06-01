@@ -43,6 +43,8 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
     if (userRole === 'parent') return homework;
     return homework.filter((item) => !item.assignedToId || item.assignedToId === currentUserId);
   }, [homework, userRole, currentUserId]);
+  const pendingHomework = useMemo(() => visibleHomework.filter((item) => item.status !== 'done'), [visibleHomework]);
+  const completedHomework = useMemo(() => visibleHomework.filter((item) => item.status === 'done'), [visibleHomework]);
 
   const getActiveQuestions = (item: Homework): string[] => {
     const questions = Array.isArray(item.completionQuestions) ? item.completionQuestions.filter(Boolean) : [];
@@ -79,7 +81,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
             <button onClick={() => void load()} className="px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-rose-700 text-xs font-semibold">Retry</button>
           </div>
         )}
-        {visibleHomework.map((item) => {
+        {(userRole === 'kid' ? pendingHomework : visibleHomework).map((item) => {
           const isOverdue = item.status !== 'done' && isBefore(new Date(item.dueDate), startOfDay(new Date()));
           const assignee = item.assignedToId ? kids.find((kid) => kid.uid === item.assignedToId)?.name || 'Assigned' : 'All kids';
           return (
@@ -107,10 +109,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
                         return;
                       }
                       setActionId(item.id);
-                      await homeworkClientService.updateHomework(item.id, {
-                        status: nextStatus,
-                        completionResponse: nextStatus === 'pending' ? null : item.completionResponse ?? null
-                      });
+                      await homeworkClientService.updateHomework(item.id, { status: nextStatus });
                       if (nextStatus === 'done') setCelebrationTick((n) => n + 1);
                       await load();
                     } finally {
@@ -160,6 +159,34 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
             </div>
           );
         })}
+        {userRole === 'kid' && completedHomework.length > 0 && (
+          <div className="pt-2 space-y-2">
+            <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Completed</p>
+            {completedHomework.map((item) => (
+              <div key={`done-${item.id}`} className="border-2 border-emerald-200 bg-emerald-50 rounded-xl p-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-emerald-800 line-through">{item.title}</p>
+                  <p className="text-xs text-emerald-700">Completed</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      setActionId(item.id);
+                      await homeworkClientService.updateHomework(item.id, { status: 'pending' });
+                      await load();
+                    } finally {
+                      setActionId(null);
+                    }
+                  }}
+                  disabled={actionId === item.id}
+                  className="px-4 py-3 min-w-[150px] rounded-xl text-xs font-bold uppercase tracking-wide border bg-rose-50 border-rose-200 text-rose-700"
+                >
+                  {actionId === item.id ? 'Saving...' : 'Undo Completion'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         {visibleHomework.length === 0 && <p className="text-sm text-ui-muted">No homework yet.</p>}
       </div>
       {showAdd && userRole === 'parent' && (
