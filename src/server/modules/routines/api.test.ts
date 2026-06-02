@@ -17,6 +17,23 @@ describe('Routines API', () => {
     db.prepare("INSERT OR IGNORE INTO users (uid, role, name, email, parentId) VALUES (?, ?, ?, ?, ?)").run(parentId, 'parent', 'Test Parent', 'routines@test.com', parentId);
   });
 
+  it('forbids a kid from creating or deleting routine templates', async () => {
+    const kidToken = jwt.sign({ uid: 'routines_kid_test', role: 'kid', parentId }, getJwtSecret());
+    const create = await request(app)
+      .post(`/api/parents/${parentId}/routines`)
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ title: 'Kid Routine', defaultStartTime: '08:00', color: '#f59e0b' });
+    expect(create.status).toBe(403);
+
+    db.prepare('INSERT INTO routine_templates (id, parentId, title, defaultDuration, createdAt) VALUES (?, ?, ?, ?, ?)').run(
+      'rt_kid_del', parentId, 'Delete Me', 3600000, Date.now()
+    );
+    const del = await request(app)
+      .delete('/api/routines/rt_kid_del')
+      .set('Authorization', `Bearer ${kidToken}`);
+    expect(del.status).toBe(403);
+  });
+
   it('creates a routine template', async () => {
     const res = await request(app)
       .post(`/api/parents/${parentId}/routines`)

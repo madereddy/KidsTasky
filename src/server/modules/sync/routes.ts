@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { google } from 'googleapis';
-import { authenticateUser, assertParentScope, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, getParentId, requireRole } from '../../middleware/auth.js';
 import jwt from 'jsonwebtoken';
 import { getJwtSecret } from '../../config.js';
 import { syncService } from './service.js';
@@ -17,7 +17,7 @@ syncRouter.get('/settings/:parentId/connections', authenticateUser, assertParent
   }
 });
 
-syncRouter.delete('/settings/connections/:id', authenticateUser, (req, res) => {
+syncRouter.delete('/settings/connections/:id', authenticateUser, requireRole('parent'), (req, res) => {
   const id = req.params.id as string;
   try {
     const conn = syncService.getConnectionById(id);
@@ -132,7 +132,7 @@ syncRouter.get('/settings/:parentId/calendars', authenticateUser, assertParentSc
 });
 
 // Toggle a calendar on/off
-syncRouter.patch('/settings/calendars/:id', authenticateUser, (req, res) => {
+syncRouter.patch('/settings/calendars/:id', authenticateUser, requireRole('parent'), (req, res) => {
   const id = req.params.id as string;
   const { enabled } = req.body;
   if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled (boolean) required' });
@@ -149,7 +149,7 @@ syncRouter.patch('/settings/calendars/:id', authenticateUser, (req, res) => {
   }
 });
 
-syncRouter.post('/sync/connect/manual', authenticateUser, (req, res) => {
+syncRouter.post('/sync/connect/manual', authenticateUser, requireRole('parent'), (req, res) => {
   const { email, appPassword } = req.body;
   if (!email || !appPassword) return res.status(400).json({ error: "Missing fields" });
 
@@ -162,7 +162,7 @@ syncRouter.post('/sync/connect/manual', authenticateUser, (req, res) => {
   }
 });
 
-syncRouter.post('/sync/:id/now', authenticateUser, async (req, res) => {
+syncRouter.post('/sync/:id/now', authenticateUser, requireRole('parent'), async (req, res) => {
   try {
     const connection = syncService.getConnectionById(String(req.params.id));
     if (!connection || connection.parentId !== getParentId(req)) {
@@ -176,7 +176,7 @@ syncRouter.post('/sync/:id/now', authenticateUser, async (req, res) => {
   }
 });
 
-syncRouter.post('/settings/:parentId/sync-now', authenticateUser, assertParentScope, async (req, res) => {
+syncRouter.post('/settings/:parentId/sync-now', authenticateUser, requireRole('parent'), assertParentScope, async (req, res) => {
   const parentId = req.params.parentId as string;
 
   try {

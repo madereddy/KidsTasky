@@ -1,5 +1,20 @@
 import { db } from '../../db.js';
 import { randomUUID } from 'crypto';
+import { levelForXp } from '../../../lib/xp.js';
+
+// XP per difficulty — server-authoritative, mirrors client XP_REWARDS in constants.ts.
+const XP_BY_DIFFICULTY: Record<string, number> = { easy: 10, medium: 25, hard: 50 };
+const xpForDifficulty = (difficulty?: string | null): number =>
+  XP_BY_DIFFICULTY[String(difficulty || 'easy')] ?? XP_BY_DIFFICULTY.easy;
+
+// Apply an XP delta to a user and recompute level on the RuneScape-style curve.
+function adjustUserXp(kidId: string, delta: number) {
+  const row = db.prepare('SELECT xp FROM users WHERE uid = ?').get(kidId) as { xp: number | null } | undefined;
+  if (!row) return;
+  const newXp = Math.max(0, (row.xp || 0) + delta);
+  const newLevel = levelForXp(newXp);
+  db.prepare('UPDATE users SET xp = ?, level = ? WHERE uid = ?').run(newXp, newLevel, kidId);
+}
 
 export const taskServiceServer = {
   createTask: (task: any) => {
@@ -85,7 +100,7 @@ export const taskServiceServer = {
   
   createCompletion: db.transaction((data: any) => {
     const id = `${data.taskId}_${data.dateString}_${data.count || 1}`;
-    const task = db.prepare('SELECT starValue, requiresApproval FROM tasks WHERE id = ?').get(data.taskId) as { starValue: number; requiresApproval: number } | undefined;
+    const task = db.prepare('SELECT starValue, requiresApproval, difficulty FROM tasks WHERE id = ?').get(data.taskId) as { starValue: number; requiresApproval: number; difficulty: string } | undefined;
     const needsApproval = Boolean(task?.requiresApproval);
     const approvalStatus = needsApproval ? 'pending' : 'approved';
     const proofAnswers = Array.isArray(data.proofAnswers) && data.proofAnswers.length > 0
@@ -96,10 +111,11 @@ export const taskServiceServer = {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO NOTHING
     `).run(id, data.taskId, data.kidId, Date.now(), data.dateString, data.count || null, approvalStatus, proofAnswers);
-    // Award stars immediately if approval not required
+    // Award stars + XP immediately if approval not required (otherwise granted on approval)
     if (result.changes > 0 && !needsApproval) {
       const stars = task?.starValue ?? 1;
       db.prepare('UPDATE users SET earnedStars = earnedStars + ? WHERE uid = ?').run(stars, data.kidId);
+      adjustUserXp(data.kidId, xpForDifficulty(task?.difficulty));
     }
     return { id, approvalStatus, created: result.changes > 0 };
   }),
@@ -117,11 +133,12 @@ export const taskServiceServer = {
   deleteCompletion: db.transaction((completionId: string) => {
     const completion = db.prepare("SELECT * FROM completions WHERE id = ?").get(completionId) as any;
     if (completion) {
-      // Only revoke stars that were actually awarded (approved completions)
+      // Only revoke stars + XP that were actually awarded (approved completions)
       if (!completion.approvalStatus || completion.approvalStatus === 'approved') {
-        const task = db.prepare('SELECT starValue FROM tasks WHERE id = ?').get(completion.taskId) as { starValue: number } | undefined;
+        const task = db.prepare('SELECT starValue, difficulty FROM tasks WHERE id = ?').get(completion.taskId) as { starValue: number; difficulty: string } | undefined;
         const stars = task?.starValue ?? 1;
         db.prepare('UPDATE users SET earnedStars = MAX(0, earnedStars - ?) WHERE uid = ?').run(stars, completion.kidId);
+        adjustUserXp(completion.kidId, -xpForDifficulty(task?.difficulty));
       }
     }
     db.prepare("DELETE FROM completions WHERE id = ?").run(completionId);
@@ -131,9 +148,10 @@ export const taskServiceServer = {
     const completion = db.prepare("SELECT * FROM completions WHERE id = ? AND approvalStatus = 'pending'").get(completionId) as any;
     if (!completion) throw new Error('Completion not found or not pending');
     db.prepare("UPDATE completions SET approvalStatus = 'approved' WHERE id = ?").run(completionId);
-    const task = db.prepare('SELECT starValue FROM tasks WHERE id = ?').get(completion.taskId) as { starValue: number } | undefined;
+    const task = db.prepare('SELECT starValue, difficulty FROM tasks WHERE id = ?').get(completion.taskId) as { starValue: number; difficulty: string } | undefined;
     const stars = task?.starValue ?? 1;
     db.prepare('UPDATE users SET earnedStars = earnedStars + ? WHERE uid = ?').run(stars, completion.kidId);
+    adjustUserXp(completion.kidId, xpForDifficulty(task?.difficulty));
   }),
 
   rejectCompletion: (completionId: string) => {

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
-import { requireAuth, assertParentScope, getParentId } from '../../middleware/auth.js';
+import { requireAuth, assertParentScope, getParentId, requireRole } from '../../middleware/auth.js';
 import { settingsService } from './service.js';
 import { syncService } from '../sync/service.js';
 
@@ -70,7 +70,7 @@ settingsRouter.get('/settings/:parentId', requireAuth, (req, res) => {
   }
 });
 
-settingsRouter.put('/settings/:parentId', requireAuth, async (req, res) => {
+settingsRouter.put('/settings/:parentId', requireAuth, requireRole('parent'), async (req, res) => {
   try {
     const userParentId = getParentId(req);
     if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
@@ -90,7 +90,7 @@ settingsRouter.put('/settings/:parentId', requireAuth, async (req, res) => {
   }
 });
 
-settingsRouter.post("/settings/:parentId/lock", requireAuth, (req, res) => {
+settingsRouter.post("/settings/:parentId/lock", requireAuth, requireRole('parent'), (req, res) => {
   try {
     const userParentId = getParentId(req);
     if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
@@ -101,7 +101,7 @@ settingsRouter.post("/settings/:parentId/lock", requireAuth, (req, res) => {
   }
 });
 
-settingsRouter.post("/settings/:parentId/unlock", requireAuth, async (req, res) => {
+settingsRouter.post("/settings/:parentId/unlock", requireAuth, requireRole('parent'), async (req, res) => {
   try {
     const userParentId = getParentId(req);
     if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });

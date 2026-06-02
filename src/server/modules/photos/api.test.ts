@@ -81,6 +81,31 @@ describe('Photos API', () => {
     db.prepare('DELETE FROM users WHERE email = ?').run(email);
   });
 
+  it('forbids deleting another family photo by id (IDOR)', async () => {
+    const owner = await createParentAuth();
+    const attacker = await createParentAuth();
+    const tinyPng = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9VE3rroAAAAASUVORK5CYII=',
+      'base64'
+    );
+    const uploadRes = await request(app)
+      .post('/api/photos/upload')
+      .set('Authorization', `Bearer ${owner.token}`)
+      .attach('photo', tinyPng, 'photo.png');
+    const photoId = uploadRes.body.id as string;
+
+    const del = await request(app)
+      .delete(`/api/photos/${photoId}`)
+      .set('Authorization', `Bearer ${attacker.token}`);
+    expect(del.status).toBe(403);
+
+    // Photo survives the cross-family delete attempt.
+    const row = db.prepare('SELECT id FROM family_photos WHERE id = ?').get(photoId) as { id: string } | undefined;
+    expect(row?.id).toBe(photoId);
+
+    db.prepare('DELETE FROM users WHERE email IN (?, ?)').run(owner.email, attacker.email);
+  });
+
   it('imports picker-selected photo items into family photos', async () => {
     const { token, parentId, email } = await createParentAuth();
     seedGoogleConnection(parentId);

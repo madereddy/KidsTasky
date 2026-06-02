@@ -25,6 +25,7 @@ magicRouter.post('/magic/import', magicLimiter, async (req, res) => {
 
     // When no webhook signing key is configured, require JWT auth instead
     const signingKey = process.env.MAILGUN_SIGNING_KEY;
+    let jwtFamily: string | null = null;
     if (!signingKey) {
       const authHeader = req.headers['authorization'];
       if (!authHeader) {
@@ -33,7 +34,8 @@ magicRouter.post('/magic/import', magicLimiter, async (req, res) => {
       try {
         const jwt = await import('jsonwebtoken');
         const { getJwtSecret } = await import('../../config.js');
-        jwt.default.verify(authHeader.replace('Bearer ', ''), getJwtSecret(), { algorithms: ['HS256'] });
+        const payload = jwt.default.verify(authHeader.replace('Bearer ', ''), getJwtSecret(), { algorithms: ['HS256'] }) as { uid: string; parentId?: string };
+        jwtFamily = payload.parentId || payload.uid;
       } catch {
         return res.status(401).json({ error: 'Invalid token' });
       }
@@ -78,6 +80,11 @@ magicRouter.post('/magic/import', magicLimiter, async (req, res) => {
     if (!parentId) return res.status(400).json({ error: 'Could not determine family from recipient' });
     const familyRow = db.prepare("SELECT uid FROM users WHERE uid = ? AND role = 'parent'").get(parentId);
     if (!familyRow) return res.status(404).json({ error: 'Unknown family' });
+    // JWT-authenticated callers may only import into their own family. (The
+    // webhook-signature path is trusted via HMAC and may target any recipient.)
+    if (jwtFamily && parentId !== jwtFamily) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
     // Parse date and time if possible into unix timestamp, mock here
     const ts = new Date(`${extractedEvent.date}T${extractedEvent.startTime}:00Z`).getTime() || Date.now();

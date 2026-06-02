@@ -67,6 +67,22 @@ describe('Magic Webhook API', () => {
     expect(res.status).toBe(404);
   });
 
+  it('blocks a JWT caller importing into another existing family', async () => {
+    const otherFamily = 'family-999';
+    db.prepare("INSERT OR IGNORE INTO users (uid, role, name, email, parentId, passwordHash) VALUES (?, 'parent', 'Other', 'other@test.com', ?, 'x')")
+      .run(otherFamily, otherFamily);
+    // Caller belongs to family-123 but targets family-999's recipient.
+    const token = makeToken(MAGIC_PARENT_UID, 'parent', MAGIC_PARENT_UID);
+    const res = await request(app)
+      .post('/api/magic/import')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ text: 'Injected', recipient: `${otherFamily}@import.ourcalendar.app` });
+    expect(res.status).toBe(403);
+    const leaked = db.prepare('SELECT COUNT(*) as n FROM events WHERE parentId = ?').get(otherFamily) as any;
+    expect(leaked.n).toBe(0);
+    db.prepare('DELETE FROM users WHERE uid = ?').run(otherFamily);
+  });
+
   it('rejects import with missing recipient', async () => {
     const token = makeToken(MAGIC_PARENT_UID, 'parent', MAGIC_PARENT_UID);
     const res = await request(app)

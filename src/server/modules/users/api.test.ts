@@ -99,6 +99,67 @@ describe('user mutation auth enforcement', () => {
   });
 });
 
+describe('POST /users creation guards', () => {
+  const parentUid = 'create_guard_parent';
+  const otherParentUid = 'create_guard_other';
+  let parentToken: string;
+  let kidToken: string;
+
+  beforeEach(() => {
+    db.prepare("DELETE FROM users WHERE uid LIKE 'create_guard%' OR uid LIKE 'newkid_%'").run();
+    db.prepare("INSERT INTO users (uid, role, name, parentId, passwordHash, badges, xp) VALUES (?, 'parent', 'P', ?, 'origHash', '[]', 0)")
+      .run(parentUid, parentUid);
+    db.prepare("INSERT INTO users (uid, role, name, parentId, passwordHash, badges, xp) VALUES ('create_guard_kid', 'kid', 'K', ?, 'x', '[]', 0)")
+      .run(parentUid);
+    db.prepare("INSERT INTO users (uid, role, name, parentId, passwordHash, badges, xp) VALUES (?, 'parent', 'O', ?, 'x', '[]', 0)")
+      .run(otherParentUid, otherParentUid);
+    parentToken = jwt.sign({ uid: parentUid, role: 'parent', parentId: parentUid }, SECRET);
+    kidToken = jwt.sign({ uid: 'create_guard_kid', role: 'kid', parentId: parentUid }, SECRET);
+  });
+
+  it('rejects unauthenticated kid creation (no invite code)', async () => {
+    const res = await request(app).post('/api/users').send({ uid: 'newkid_1', name: 'Hax' });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects a kid creating users', async () => {
+    const res = await request(app).post('/api/users')
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ uid: 'newkid_2', name: 'Hax' });
+    expect(res.status).toBe(403);
+  });
+
+  it('lets a parent create a managed kid in their own family', async () => {
+    const res = await request(app).post('/api/users')
+      .set('Authorization', `Bearer ${parentToken}`)
+      .send({ uid: 'newkid_3', name: 'Cadet', pin: '1234', isManaged: true });
+    expect(res.status).toBe(200);
+    const kid = db.prepare("SELECT role, parentId FROM users WHERE uid = 'newkid_3'").get() as any;
+    expect(kid.role).toBe('kid');
+    expect(kid.parentId).toBe(parentUid);
+  });
+
+  it('ignores client-supplied parentId/role/xp when a parent creates a kid', async () => {
+    const res = await request(app).post('/api/users')
+      .set('Authorization', `Bearer ${parentToken}`)
+      .send({ uid: 'newkid_4', name: 'Cadet', role: 'parent', parentId: otherParentUid, xp: 99999 });
+    expect(res.status).toBe(200);
+    const kid = db.prepare("SELECT role, parentId, xp FROM users WHERE uid = 'newkid_4'").get() as any;
+    expect(kid.role).toBe('kid');           // forced
+    expect(kid.parentId).toBe(parentUid);   // forced to caller family
+    expect(kid.xp).toBe(0);                  // not trusted from client
+  });
+
+  it('does not overwrite an existing account (no INSERT OR REPLACE takeover)', async () => {
+    const res = await request(app).post('/api/users')
+      .set('Authorization', `Bearer ${parentToken}`)
+      .send({ uid: parentUid, name: 'Takeover' });
+    expect(res.status).toBe(409);
+    const row = db.prepare("SELECT passwordHash FROM users WHERE uid = ?").get(parentUid) as any;
+    expect(row.passwordHash).toBe('origHash');  // untouched
+  });
+});
+
 describe('co-parent flow', () => {
   const ownerUid = 'owner_cp_test';
   let ownerToken: string;

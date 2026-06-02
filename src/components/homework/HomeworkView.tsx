@@ -109,7 +109,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
                         return;
                       }
                       setActionId(item.id);
-                      await homeworkClientService.updateHomework(item.id, { status: nextStatus });
+                      await homeworkClientService.updateHomework(item.id, { status: nextStatus, completionResponse: null });
                       if (nextStatus === 'done') setCelebrationTick((n) => n + 1);
                       await load();
                     } finally {

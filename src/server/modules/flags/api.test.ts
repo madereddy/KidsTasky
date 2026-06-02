@@ -103,6 +103,15 @@ describe('Feature Flags API', () => {
     expect(patchRes.status).toBe(403);
   });
 
+  it('forbids a kid from toggling feature flags', async () => {
+    const kidToken = jwt.sign({ uid: 'flags_kid_test', role: 'kid', parentId }, getJwtSecret());
+    const res = await request(app)
+      .patch(`/api/settings/${parentId}/flags/wall_v2_layout`)
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ enabled: false });
+    expect(res.status).toBe(403);
+  });
+
   it('all three Phase E flags can be independently toggled', async () => {
     const flags: Array<'wall_v2_layout' | 'sync_diagnostics' | 'calendar_visibility_profiles'> = [
       'wall_v2_layout',

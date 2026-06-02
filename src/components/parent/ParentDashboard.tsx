@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { UserProfile, Invite, Notification, Reward, SyncCalendar } from '../../types';
 import { MEMBER_COLORS } from '../../constants';
+import { levelForXp } from '../../lib/xp';
 import { AddKidForm } from './AddKidForm';
 import { RewardManager } from './RewardManager';
 import { AllowanceLedger } from './AllowanceLedger';
@@ -293,7 +294,7 @@ export function ParentDashboard({
           <div className="flex -space-x-2 mb-4 flex-wrap">
             {kids.length > 0 ? kids.map((k: UserProfile) => (
               <div key={k.uid} className="relative group/kid mb-2">
-                <button onClick={() => setEditingAvatarFor(k)} title={`${k.name} - LVL ${k.level || 1}`}>
+                <button onClick={() => setEditingAvatarFor(k)} title={`${k.name} - LVL ${levelForXp(k.xp ?? 0)}`}>
                   <AvatarDisplay
                     avatarPreset={k.avatarPreset}
                     avatarUrl={k.avatarUrl}

@@ -1,8 +1,14 @@
 import { Router } from 'express';
 import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId } from '../../middleware/auth.js';
 import { homeworkService } from './service.js';
+import { userService } from '../users/service.js';
 
 export const homeworkRouter = Router();
+
+// Flat XP awarded when a kid completes a (non-recurring) homework item.
+// Recurring homework is excluded: the server rolls it done -> pending on the
+// same request, so awarding there would let a kid farm XP by re-marking it.
+const HOMEWORK_XP = 15;
 
 const nextHomeworkDueDate = (fromDate: string, recurrence: 'none' | 'daily' | 'weekdays'): string => {
   const base = new Date(`${fromDate}T00:00:00.000Z`);
@@ -79,6 +85,18 @@ homeworkRouter.patch('/homework/:id', authenticateUser, enforceEditUnlocked, (re
       return res.status(400).json({ error: 'Invalid status' });
     }
     const recurrence = (existing as any).recurrence || 'none';
+
+    // Determine the kid-facing XP transition before any recurrence roll-forward
+    // mutates patch.status. Only non-recurring homework grants XP, and only when
+    // the actor is the kid (prevents parent toggling / recurring farm).
+    let homeworkXpDelta = 0;
+    if (user.role === 'kid' && recurrence === 'none') {
+      const wasDone = existing.status === 'done';
+      const willBeDone = patch?.status === 'done';
+      if (!wasDone && willBeDone) homeworkXpDelta = HOMEWORK_XP;
+      else if (wasDone && patch?.status === 'pending') homeworkXpDelta = -HOMEWORK_XP;
+    }
+
     if (patch?.status === 'done' && recurrence !== 'none') {
       const today = new Date().toISOString().slice(0, 10);
       const baseDate = String(existing.dueDate || today) < today ? today : String(existing.dueDate || today);
@@ -91,6 +109,7 @@ homeworkRouter.patch('/homework/:id', authenticateUser, enforceEditUnlocked, (re
 
     const ok = homeworkService.update(req.params.id as string, parentId, patch);
     if (!ok) return res.status(404).json({ error: 'Homework not found' });
+    if (homeworkXpDelta !== 0) userService.addXP(user.uid, homeworkXpDelta);
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

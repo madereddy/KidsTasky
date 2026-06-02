@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
 import { routinesService } from './service.js';
 
 export const routinesRouter = Router();
@@ -9,7 +9,7 @@ routinesRouter.get('/parents/:parentId/routines', authenticateUser, assertParent
   res.json(templates);
 });
 
-routinesRouter.post('/parents/:parentId/routines', authenticateUser, assertParentScope, enforceEditUnlocked, (req, res) => {
+routinesRouter.post('/parents/:parentId/routines', authenticateUser, requireRole('parent'), assertParentScope, enforceEditUnlocked, (req, res) => {
   const { title, description, defaultStartTime, defaultDuration, assignedToId, color } = req.body;
   if (!title) return res.status(400).json({ error: 'title required' });
   const id = routinesService.createTemplate({
@@ -24,7 +24,7 @@ routinesRouter.post('/parents/:parentId/routines', authenticateUser, assertParen
   res.json({ id });
 });
 
-routinesRouter.delete('/routines/:id', authenticateUser, enforceEditUnlocked, (req, res) => {
+routinesRouter.delete('/routines/:id', authenticateUser, requireRole('parent'), enforceEditUnlocked, (req, res) => {
   const template = routinesService.getTemplateById(req.params.id as string);
   if (!template) return res.status(404).json({ error: 'Not found' });
   if (template.parentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
@@ -32,7 +32,7 @@ routinesRouter.delete('/routines/:id', authenticateUser, enforceEditUnlocked, (r
   res.json({ success: true });
 });
 
-routinesRouter.put('/parents/:parentId/routines/reorder', authenticateUser, assertParentScope, enforceEditUnlocked, (req, res) => {
+routinesRouter.put('/parents/:parentId/routines/reorder', authenticateUser, requireRole('parent'), assertParentScope, enforceEditUnlocked, (req, res) => {
   const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
   routinesService.reorderTemplates(req.params.parentId as string, ids);
   res.json({ success: true });

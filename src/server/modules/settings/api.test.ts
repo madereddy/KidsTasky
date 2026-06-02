@@ -4,6 +4,8 @@ import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { app } from '../../../../server.js';
 import { db } from '../../db.js';
+import jwt from 'jsonwebtoken';
+import { getJwtSecret } from '../../config.js';
 
 import { randomBytes } from 'crypto';
 
@@ -84,5 +86,41 @@ describe('Settings lock API', () => {
     expect(row.isLocked).toBe(0);
 
     db.prepare('DELETE FROM users WHERE email = ?').run(email);
+  });
+});
+
+describe('Settings write is parent-only', () => {
+  async function setup() {
+    const { token, parentId, email } = await createParentAuth();
+    const kidUid = `settings_kid_${randomBytes(4).toString('hex')}`;
+    db.prepare("INSERT INTO users (uid, role, name, parentId, passwordHash, badges, xp) VALUES (?, 'kid', 'K', ?, 'x', '[]', 0)")
+      .run(kidUid, parentId);
+    const kidToken = jwt.sign({ uid: kidUid, role: 'kid', parentId }, getJwtSecret());
+    return { token, kidToken, parentId, email, kidUid };
+  }
+
+  it('rejects a kid changing family settings (e.g. PIN)', async () => {
+    const { kidToken, parentId, email, kidUid } = await setup();
+    const res = await request(app)
+      .put(`/api/settings/${parentId}`)
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ pin: '0000' });
+    expect(res.status).toBe(403);
+    db.prepare('DELETE FROM users WHERE uid = ? OR email = ?').run(kidUid, email);
+  });
+
+  it('rejects a kid locking/unlocking the display', async () => {
+    const { kidToken, parentId, email, kidUid } = await setup();
+    const lockRes = await request(app)
+      .post(`/api/settings/${parentId}/lock`)
+      .set('Authorization', `Bearer ${kidToken}`);
+    expect(lockRes.status).toBe(403);
+
+    const unlockRes = await request(app)
+      .post(`/api/settings/${parentId}/unlock`)
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ pin: '1234' });
+    expect(unlockRes.status).toBe(403);
+    db.prepare('DELETE FROM users WHERE uid = ? OR email = ?').run(kidUid, email);
   });
 });

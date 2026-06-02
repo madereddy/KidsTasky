@@ -36,6 +36,22 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
         return;
       }
       parentId = invite.parentId;
+
+      // Kid join goes through the public invite-code path; the server derives
+      // parentId from the invite (client-supplied parentId is no longer trusted).
+      try {
+        const profile = await fetchAPI('/users', {
+          method: 'POST',
+          body: JSON.stringify({ name, code: inviteCode }),
+        });
+        setLoading(false);
+        onComplete(profile);
+        return;
+      } catch (e: any) {
+        setError(e.message || 'Failed to join mission.');
+        setLoading(false);
+        return;
+      }
     }
 
     if (role === 'coparent') {

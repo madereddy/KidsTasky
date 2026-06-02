@@ -13,6 +13,13 @@ export const listsService = {
   getListItems: (listId: string): AppListItem[] => {
     return db.prepare('SELECT * FROM list_items WHERE listId = ?').all(listId) as AppListItem[];
   },
+  // Family that owns a given list item (via its parent list), or null if missing.
+  getItemParentId: (itemId: string): string | null => {
+    const row = db.prepare(
+      'SELECT l.parentId AS parentId FROM list_items i JOIN lists l ON l.id = i.listId WHERE i.id = ?'
+    ).get(itemId) as { parentId: string } | undefined;
+    return row?.parentId ?? null;
+  },
   createList: (parentId: string, title: string): AppList => {
     const id = randomUUID();
     db.prepare('INSERT INTO lists (id, parentId, title) VALUES (?, ?, ?)').run(id, parentId, title);

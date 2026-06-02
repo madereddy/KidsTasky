@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { mealsService } from './service.js';
-import { authenticateUser, assertParentScope, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, getParentId, requireRole, enforceEditUnlocked } from '../../middleware/auth.js';
 
 export const mealsRouter = Router();
 
@@ -10,7 +10,7 @@ mealsRouter.get('/parents/:parentId/recipes', authenticateUser, assertParentScop
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-mealsRouter.post('/recipes', authenticateUser, (req, res) => {
+mealsRouter.post('/recipes', authenticateUser, requireRole('parent'), enforceEditUnlocked, (req, res) => {
   try {
     const parentId = getParentId(req);
     const { name, ingredients } = req.body;
@@ -19,7 +19,7 @@ mealsRouter.post('/recipes', authenticateUser, (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-mealsRouter.delete('/recipes/:id', authenticateUser, (req, res) => {
+mealsRouter.delete('/recipes/:id', authenticateUser, requireRole('parent'), enforceEditUnlocked, (req, res) => {
   try {
     const recipe = mealsService.getRecipeById(String(req.params.id));
     if (!recipe) return res.status(404).json({ error: 'Not found' });
@@ -38,7 +38,7 @@ mealsRouter.get('/parents/:parentId/meal-plans', authenticateUser, assertParentS
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-mealsRouter.post('/meal-plans', authenticateUser, (req, res) => {
+mealsRouter.post('/meal-plans', authenticateUser, requireRole('parent'), enforceEditUnlocked, (req, res) => {
   try {
     const parentId = getParentId(req);
     const { date, mealType, recipeId } = req.body;
@@ -47,7 +47,7 @@ mealsRouter.post('/meal-plans', authenticateUser, (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-mealsRouter.delete('/meal-plans/:id', authenticateUser, (req, res) => {
+mealsRouter.delete('/meal-plans/:id', authenticateUser, requireRole('parent'), enforceEditUnlocked, (req, res) => {
   try {
     const plan = mealsService.getMealPlanById(String(req.params.id));
     if (!plan) return res.status(404).json({ error: 'Not found' });

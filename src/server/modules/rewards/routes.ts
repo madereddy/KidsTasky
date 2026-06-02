@@ -97,6 +97,7 @@ rewardsRouter.put("/allowances/:id/pay", authenticateUser, requireRole('parent')
   param('id').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  rewardService.markAllowancePaid(req.params.id as string);
+  const ok = rewardService.markAllowancePaid(req.params.id as string, getParentId(req));
+  if (!ok) return res.status(404).json({ error: 'Not found' });
   res.json({ success: true });
 });

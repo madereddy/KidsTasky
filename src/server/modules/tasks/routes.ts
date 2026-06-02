@@ -142,6 +142,11 @@ tasksRouter.post("/completions", authenticateUser, enforceEditUnlocked, [
     if (caller.role === 'kid' && req.body.kidId !== caller.uid) {
       return res.status(403).json({ error: 'Forbidden' });
     }
+    // Task must be assigned to this kid (or up-for-grabs) — stops a sibling
+    // earning XP/stars by completing another kid's assigned task.
+    if (task.assignedKidId !== 'all' && task.assignedKidId !== req.body.kidId) {
+      return res.status(403).json({ error: 'Task not assigned to this kid' });
+    }
     const result = taskServiceServer.createCompletion({
       ...req.body,
       proofAnswers: Array.isArray(req.body?.proofAnswers) ? req.body.proofAnswers : undefined,

@@ -37,27 +37,35 @@ describe('Backend API Tests', () => {
     expect(res.body.status).toBe('ok');
   });
 
-  it('POST /api/users should create a user and GET should retrieve them', async () => {
+  it('POST /api/users (authenticated parent) creates a managed kid and GET retrieves them', async () => {
+    // Unauthenticated arbitrary user creation was an account-takeover vector and
+    // is no longer allowed — parents register, then mint kids with their token.
+    const email = `srv_${Date.now()}@example.com`;
+    const reg = await request(app)
+      .post('/api/auth/register')
+      .send({ email, password: 'pass1234', name: 'Test Parent' });
+    expect([200, 201]).toContain(reg.status);
+    const token = reg.body.token as string;
+
     const createRes = await request(app)
       .post('/api/users')
-      .send({ 
-        uid: 'user_123', 
-        role: 'parent', 
-        name: 'Test Parent', 
-        email: 'test@example.com',
-        xp: 150,
-        level: 2
-      });
+      .set('Authorization', `Bearer ${token}`)
+      .send({ uid: 'kid_srv_123', name: 'Test Kid' });
     expect(createRes.status).toBe(200);
     expect(createRes.body.success).toBe(true);
-    
-    const token = jwt.sign({ uid: 'user_123', role: 'parent', parentId: 'user_123' }, getJwtSecret());
-    const fetchRes = await request(app).get('/api/users/user_123')
+
+    const fetchRes = await request(app).get('/api/users/kid_srv_123')
       .set('Authorization', `Bearer ${token}`);
     expect(fetchRes.status).toBe(200);
-    expect(fetchRes.body.name).toBe('Test Parent');
-    expect(fetchRes.body.role).toBe('parent');
-    expect(fetchRes.body.xp).toBe(150);
+    expect(fetchRes.body.name).toBe('Test Kid');
+    expect(fetchRes.body.role).toBe('kid');
+  });
+
+  it('rejects unauthenticated user creation without an invite code', async () => {
+    const res = await request(app)
+      .post('/api/users')
+      .send({ uid: 'user_takeover', role: 'parent', name: 'Attacker', xp: 150, level: 2 });
+    expect(res.status).toBe(401);
   });
 
   it('POST /api/tasks should create a task', async () => {

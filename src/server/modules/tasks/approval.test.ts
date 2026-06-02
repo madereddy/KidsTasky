@@ -7,6 +7,7 @@ import { db } from '../../db.js';
 import jwt from 'jsonwebtoken';
 import { getJwtSecret } from '../../config.js';
 import { taskServiceServer } from './service.js';
+import { levelForXp } from '../../../lib/xp.js';
 
 describe('Task Completion Approval', () => {
   const parentId = 'approval_parent_test';
@@ -201,6 +202,75 @@ describe('Task Completion Approval', () => {
     expect(res.status).toBe(200);
     const row = db.prepare('SELECT approvalStatus FROM completions WHERE id = ?').get(result.id) as any;
     expect(row.approvalStatus).toBe('rejected');
+  });
+
+  it('awards XP server-side on an auto-approved completion (by difficulty)', () => {
+    db.prepare("INSERT INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, requiresApproval, starValue, difficulty) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      'approval_task_xp1', 'Hard Chore', 'daily', kidId, parentId, 'active', Date.now(), 0, 1, 'hard'
+    );
+    const before = db.prepare('SELECT xp FROM users WHERE uid = ?').get(kidId) as any;
+    const result = taskServiceServer.createCompletion({ taskId: 'approval_task_xp1', kidId, dateString: '2026-02-01' });
+    expect(result.approvalStatus).toBe('approved');
+    const after = db.prepare('SELECT xp, level FROM users WHERE uid = ?').get(kidId) as any;
+    expect(after.xp).toBe((before?.xp || 0) + 50);   // hard = 50
+    expect(after.level).toBe(levelForXp(after.xp));  // RuneScape-style curve
+  });
+
+  it('does NOT award XP for a pending completion until approved', () => {
+    db.prepare("INSERT INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, requiresApproval, starValue, difficulty) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      'approval_task_xp2', 'Medium Chore', 'daily', kidId, parentId, 'active', Date.now(), 1, 1, 'medium'
+    );
+    const before = (db.prepare('SELECT xp FROM users WHERE uid = ?').get(kidId) as any)?.xp || 0;
+    const result = taskServiceServer.createCompletion({ taskId: 'approval_task_xp2', kidId, dateString: '2026-02-02' });
+    expect(result.approvalStatus).toBe('pending');
+    expect((db.prepare('SELECT xp FROM users WHERE uid = ?').get(kidId) as any).xp ?? 0).toBe(before); // no XP yet
+
+    taskServiceServer.approveCompletion(result.id);
+    expect((db.prepare('SELECT xp FROM users WHERE uid = ?').get(kidId) as any).xp ?? 0).toBe(before + 25); // medium = 25
+  });
+
+  it('revokes XP when an approved completion is deleted, never below 0', () => {
+    db.prepare("INSERT INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, requiresApproval, starValue, difficulty) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      'approval_task_xp3', 'Easy Chore', 'daily', kidId, parentId, 'active', Date.now(), 0, 1, 'easy'
+    );
+    const result = taskServiceServer.createCompletion({ taskId: 'approval_task_xp3', kidId, dateString: '2026-02-03' });
+    const awarded = (db.prepare('SELECT xp FROM users WHERE uid = ?').get(kidId) as any).xp;
+    expect(awarded).toBeGreaterThanOrEqual(10); // easy = 10
+    taskServiceServer.deleteCompletion(result.id);
+    const afterDelete = (db.prepare('SELECT xp FROM users WHERE uid = ?').get(kidId) as any).xp;
+    expect(afterDelete).toBe(awarded - 10);
+    expect(afterDelete).toBeGreaterThanOrEqual(0);
+  });
+
+  it('blocks a kid completing a task assigned to a sibling', async () => {
+    const sibling = 'approval_sibling_kid';
+    db.prepare("INSERT OR IGNORE INTO users (uid, role, name, parentId, earnedStars) VALUES (?, 'kid', 'Sibling', ?, 0)").run(sibling, parentId);
+    const siblingToken = jwt.sign({ uid: sibling, role: 'kid', parentId }, getJwtSecret());
+    db.prepare("INSERT INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, requiresApproval, starValue, difficulty) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      'approval_task_assign', 'Sibling Only', 'daily', kidId, parentId, 'active', Date.now(), 0, 1, 'easy'
+    );
+
+    const res = await request(app)
+      .post('/api/completions')
+      .set('Authorization', `Bearer ${siblingToken}`)
+      .send({ taskId: 'approval_task_assign', kidId: sibling, dateString: '2026-03-01' });
+
+    expect(res.status).toBe(403);
+    const row = db.prepare("SELECT * FROM completions WHERE taskId = 'approval_task_assign'").get();
+    expect(row).toBeFalsy();
+    db.prepare('DELETE FROM users WHERE uid = ?').run(sibling);
+  });
+
+  it('allows any kid to complete an up-for-grabs (assignedKidId="all") task', async () => {
+    const kidToken = jwt.sign({ uid: kidId, role: 'kid', parentId }, getJwtSecret());
+    db.prepare("INSERT INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, requiresApproval, starValue, difficulty) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      'approval_task_grab', 'Up For Grabs', 'daily', 'all', parentId, 'active', Date.now(), 0, 1, 'easy'
+    );
+    const res = await request(app)
+      .post('/api/completions')
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ taskId: 'approval_task_grab', kidId, dateString: '2026-03-02' });
+    expect(res.status).toBe(200);
   });
 
   it('persists task verification questions and question kid scope', () => {

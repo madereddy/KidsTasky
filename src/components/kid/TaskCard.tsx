@@ -194,9 +194,69 @@ export function TaskCard({ task, isDone, isLocked, onToggle, urgency, slotLabel,
             </button>
           )}
         </div>
+      ) : completion?.approvalStatus === 'rejected' ? (
+        <div className="mt-4 flex gap-2">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={cn("flex-1 py-4 font-bold rounded-2xl text-center uppercase tracking-wider text-sm flex items-center justify-center gap-2", darkMode ? "bg-rose-500/10 text-rose-300 border border-rose-500/30" : "bg-rose-50 text-rose-700 border border-rose-200")}
+          >
+            <ShieldAlert className="w-4 h-4" /> Not Approved
+          </motion.div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); void onToggle(); }}
+            className={cn(
+              "px-4 py-4 rounded-2xl font-black uppercase tracking-wider text-xs border-2",
+              darkMode ? "bg-blue-600/20 border-blue-500/40 text-blue-300 hover:text-white" : "bg-sky-50 border-sky-200 text-sky-700 hover:bg-sky-100"
+            )}
+          >
+            Try Again
+          </button>
+        </div>
+      ) : completion?.approvalStatus === 'pending' ? (
+        <div className="mt-4 flex gap-2">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={cn("flex-1 py-4 font-bold rounded-2xl text-center uppercase tracking-wider text-sm flex items-center justify-center gap-2", darkMode ? "bg-amber-500/10 text-amber-400 border border-amber-500/30" : "bg-amber-50 text-amber-700 border border-amber-200")}
+          >
+            <Hourglass className="w-4 h-4" /> Waiting for Approval
+          </motion.div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); void onToggle(); }}
+            className={cn(
+              "px-4 py-4 rounded-2xl font-black uppercase tracking-wider text-xs border-2",
+              darkMode ? "bg-ui-dark border-ui-dark text-ui-secondary hover:text-white" : "bg-ui-soft-2 border-ui text-ui-secondary hover:bg-ui-soft-3"
+            )}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : completion?.approvalStatus === 'skipped' ? (
+        <div className="mt-4 flex gap-2">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={cn("flex-1 py-4 font-bold rounded-2xl text-center uppercase tracking-wider text-sm flex items-center justify-center gap-2", darkMode ? "bg-slate-500/10 text-slate-300 border border-slate-500/30" : "bg-slate-50 text-slate-700 border border-slate-200")}
+          >
+            <Hourglass className="w-4 h-4" /> Skipped
+          </motion.div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); void onToggle(); }}
+            className={cn(
+              "px-4 py-4 rounded-2xl font-black uppercase tracking-wider text-xs border-2",
+              darkMode ? "bg-blue-600/20 border-blue-500/40 text-blue-300 hover:text-white" : "bg-sky-50 border-sky-200 text-sky-700 hover:bg-sky-100"
+            )}
+          >
+            Undo
+          </button>
+        </div>
       ) : (
         <div className="mt-4 flex gap-2">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className={cn("flex-1 py-4 font-bold rounded-2xl text-center uppercase tracking-wider text-sm flex items-center justify-center gap-2", darkMode ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border border-emerald-200")}

@@ -21,6 +21,15 @@ describe('Proof Templates API', () => {
     );
   });
 
+  it('forbids a kid from creating proof templates', async () => {
+    const kidToken = jwt.sign({ uid: 'templates_kid_1', role: 'kid', parentId }, getJwtSecret());
+    const res = await request(app)
+      .post('/api/proof-templates/task')
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ name: 'Kid Template', questions: ['Q1'], pinned: false });
+    expect(res.status).toBe(403);
+  });
+
   it('creates, lists, pins, imports and deletes templates', async () => {
     const create = await request(app)
       .post('/api/proof-templates/task')

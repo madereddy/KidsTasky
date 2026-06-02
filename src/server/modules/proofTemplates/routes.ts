@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
-import { authenticateUser, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, getParentId, requireRole } from '../../middleware/auth.js';
 import { proofTemplatesService, ProofTemplateKind } from './service.js';
 
 export const proofTemplatesRouter = Router();
@@ -22,6 +22,7 @@ proofTemplatesRouter.get('/proof-templates/:kind', authenticateUser, [kindValida
 proofTemplatesRouter.post(
   '/proof-templates/:kind',
   authenticateUser,
+  requireRole('parent'),
   [kindValidation, body('name').isString().notEmpty(), body('questions').isArray({ min: 1 }), body('pinned').optional().isBoolean(), validate],
   (req: Request, res: Response) => {
     const parentId = getParentId(req);
@@ -36,6 +37,7 @@ proofTemplatesRouter.post(
 proofTemplatesRouter.patch(
   '/proof-templates/:kind/:id/pin',
   authenticateUser,
+  requireRole('parent'),
   [kindValidation, param('id').isString().notEmpty(), body('pinned').isBoolean(), validate],
   (req: Request, res: Response) => {
     const parentId = getParentId(req);
@@ -46,7 +48,7 @@ proofTemplatesRouter.patch(
   }
 );
 
-proofTemplatesRouter.delete('/proof-templates/:kind/:id', authenticateUser, [kindValidation, param('id').isString().notEmpty(), validate], (req: Request, res: Response) => {
+proofTemplatesRouter.delete('/proof-templates/:kind/:id', authenticateUser, requireRole('parent'), [kindValidation, param('id').isString().notEmpty(), validate], (req: Request, res: Response) => {
   const parentId = getParentId(req);
   const kind = String(req.params.kind) as ProofTemplateKind;
   const ok = proofTemplatesService.remove(parentId, kind, req.params.id as string);
@@ -54,7 +56,7 @@ proofTemplatesRouter.delete('/proof-templates/:kind/:id', authenticateUser, [kin
   return res.json({ success: true });
 });
 
-proofTemplatesRouter.post('/proof-templates/:kind/import', authenticateUser, [
+proofTemplatesRouter.post('/proof-templates/:kind/import', authenticateUser, requireRole('parent'), [
   kindValidation,
   body('templates').isArray(),
   validate

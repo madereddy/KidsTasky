@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { rateLimit } from 'express-rate-limit';
 import { inviteService } from './service.js';
-import { authenticateUser, assertParentScope, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, getParentId, requireRole } from '../../middleware/auth.js';
 
 const inviteValidateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -20,7 +20,7 @@ const validate = (req: Request, res: Response, next: any) => {
   next();
 };
 
-invitesRouter.post("/invites", authenticateUser, [
+invitesRouter.post("/invites", authenticateUser, requireRole('parent'), [
   body('parentId').isString().notEmpty(),
   body('parentName').isString().notEmpty(),
   body('type').isIn(['kid', 'coparent']).optional(),

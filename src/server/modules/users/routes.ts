@@ -50,7 +50,7 @@ usersRouter.post("/users", [
   body('pin').isString().optional(),
   validate
 ], async (req: Request, res: Response) => {
-  // Co-parent join path: code present + invite type is 'coparent'
+  // ---- Public invite-code join paths (no session exists yet) ----
   if (req.body.code) {
     const invite = inviteService.validateInvite(req.body.code) as any;
     if (!invite) return res.status(400).json({ error: 'Invalid or expired invite code' });
@@ -69,16 +69,48 @@ usersRouter.post("/users", [
       inviteService.markInviteUsed(req.body.code);
       return res.json({ success: true, uid });
     }
-    // else: kid join — fall through to existing logic with invite.parentId
+
+    // Kid join via invite code. Trust the invite, never the client body:
+    // parentId comes from the invite, role is forced, XP/level/badges are zeroed.
+    const uid = 'kid_' + Date.now().toString(36) + randomBytes(4).toString('hex');
+    try {
+      await userService.createUser({
+        uid,
+        role: 'kid',
+        name: req.body.name,
+        parentId: invite.parentId,
+        pin: req.body.pin,
+        themeId: req.body.themeId,
+        isManaged: false,
+      });
+    } catch (err: any) {
+      return res.status(409).json({ error: err.message });
+    }
+    return res.json({ success: true, uid });
   }
 
-  if (!req.body.uid) {
-    return res.status(400).json({ error: 'uid is required' });
-  }
+  // ---- Authenticated path: a parent creating a managed kid in their family ----
+  authenticateUser(req, res, async () => {
+    const caller = (req as any).user as { uid: string; role: string; parentId: string };
+    if (caller.role !== 'parent') return res.status(403).json({ error: 'Forbidden' });
+    if (!req.body.uid) return res.status(400).json({ error: 'uid is required' });
 
-  // Existing kid/parent create path
-  await userService.createUser(req.body);
-  res.json({ success: true });
+    const callerFamily = caller.parentId || caller.uid;
+    try {
+      await userService.createUser({
+        uid: req.body.uid,
+        role: 'kid',                 // forced — this route only mints managed kids
+        name: req.body.name,
+        parentId: callerFamily,      // forced — ignore any client-supplied parentId
+        pin: req.body.pin,
+        themeId: req.body.themeId,
+        isManaged: req.body.isManaged ? true : false,
+      });
+    } catch (err: any) {
+      return res.status(409).json({ error: err.message });
+    }
+    res.json({ success: true });
+  });
 });
 
 // List co-parents for a family

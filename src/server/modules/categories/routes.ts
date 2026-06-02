@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { categoryService } from './service.js';
-import { authenticateUser, assertParentScope, getParentId } from '../../middleware/auth.js';
+import { authenticateUser, assertParentScope, getParentId, requireRole, enforceEditUnlocked } from '../../middleware/auth.js';
 
 export const categoriesRouter = Router();
 
@@ -11,7 +11,7 @@ const validate = (req: Request, res: Response, next: any) => {
   next();
 };
 
-categoriesRouter.post("/categories", authenticateUser, [
+categoriesRouter.post("/categories", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
   body('name').isString().notEmpty(),
   body('icon').isString().optional(),
   body('color').isString().optional(),
@@ -24,7 +24,7 @@ categoriesRouter.post("/categories", authenticateUser, [
   res.json({ id });
 });
 
-categoriesRouter.put("/categories/:id", authenticateUser, [
+categoriesRouter.put("/categories/:id", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
   param('id').isString().notEmpty(),
   body('name').isString().notEmpty(),
   body('icon').isString().optional(),
@@ -38,7 +38,7 @@ categoriesRouter.put("/categories/:id", authenticateUser, [
   res.json({ success: true });
 });
 
-categoriesRouter.delete("/categories/:id", authenticateUser, [
+categoriesRouter.delete("/categories/:id", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
   param('id').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {

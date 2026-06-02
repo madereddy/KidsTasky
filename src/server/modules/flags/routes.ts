@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth, assertParentScope } from '../../middleware/auth.js';
+import { requireAuth, assertParentScope, requireRole } from '../../middleware/auth.js';
 import { flagsService, KNOWN_FLAGS, FlagName } from './service.js';
 
 export const flagsRouter = Router();
@@ -12,7 +12,7 @@ flagsRouter.get('/settings/:parentId/flags', requireAuth, assertParentScope, (re
   }
 });
 
-flagsRouter.patch('/settings/:parentId/flags/:flag', requireAuth, assertParentScope, (req, res) => {
+flagsRouter.patch('/settings/:parentId/flags/:flag', requireAuth, requireRole('parent'), assertParentScope, (req, res) => {
   const flag = req.params.flag as FlagName;
   if (!(KNOWN_FLAGS as readonly string[]).includes(flag)) {
     return res.status(400).json({ error: `Unknown flag: ${flag}` });

@@ -8,6 +8,7 @@ import { format, startOfToday, isAfter, parse, addHours, subDays, differenceInDa
 import { Task, TaskCompletion, UserProfile, Category, Reward, ClaimedReward, BadgeDef } from '../../types';
 import { cn, parseTimestamp } from '../../lib/utils';
 import { THEMES, XP_REWARDS, BADGE_DEFS } from '../../constants';
+import { xpProgress } from '../../lib/xp';
 import { KidTaskBoard } from './KidTaskBoard';
 import { MissionHistoryModal } from './MissionHistoryModal';
 import { ThemeSelectorModal } from './ThemeSelectorModal';
@@ -214,10 +215,6 @@ export function KidDashboard({
     setPendingTaskKeys((prev) => ({ ...prev, [key]: true }));
     const task = tasks.find(t => t.id === taskId);
     const stars = task?.starValue ?? 1;
-    setXpAnimation({ amount: xpReward, active: true });
-    setStarsAwarded(stars);
-    setShowStarBurst(true);
-    setTimeout(() => setShowStarBurst(false), 1200);
     try {
       const proofPayload = questions
         .map((question, i) => ({ question, answer: String(answers[`q_${i}`] || '').trim() }))
@@ -226,21 +223,28 @@ export function KidDashboard({
       if (result && result.created === false) {
         return;
       }
-      try {
-        await userService.updateUserXP(profile.uid, xpReward);
-      } catch (xpError) {
-        console.warn("Task completed but XP update failed", xpError);
-      }
+      // XP/stars are awarded server-side in createCompletion. Don't call the
+      // parent-only /xp endpoint here (kids get 403). onProfileUpdate refetches
+      // the authoritative XP. Celebrate + optimistic bump only when the
+      // completion is actually awarded (not awaiting parent approval).
+      const isPending = result?.approvalStatus === 'pending';
       setCompletions([...completions, {
         id: `${taskId}_${today}_${count || 1}`,
         taskId,
         kidId: profile.uid,
         completedAt: { seconds: Date.now()/1000 },
         dateString: today,
-        count
+        count,
+        approvalStatus: result?.approvalStatus,
       }]);
-      setLocalXp((prev) => prev + xpReward);
-      setCelebrationTick((n) => n + 1);
+      if (!isPending) {
+        setXpAnimation({ amount: xpReward, active: true });
+        setStarsAwarded(stars);
+        setShowStarBurst(true);
+        setTimeout(() => setShowStarBurst(false), 1200);
+        setLocalXp((prev) => prev + xpReward);
+        setCelebrationTick((n) => n + 1);
+      }
       onProfileUpdate();
     } catch (e) {
       console.error("Failed to complete task", e);
@@ -269,11 +273,15 @@ export function KidDashboard({
 
     if (currentStatus) {
       setPendingTaskKeys((prev) => ({ ...prev, [key]: true }));
+      // XP was only granted if the completion was actually awarded (approved/none).
+      // Pending/rejected/skipped never earned XP, so don't optimistically deduct.
+      const existing = getCompletion(taskId, count);
+      const xpWasAwarded = !existing?.approvalStatus || existing.approvalStatus === 'approved';
       try {
         await tasksClientService.uncompleteTask(taskId, today, count);
-        await userService.updateUserXP(profile.uid, -xpReward).catch(() => {});
+        // Stars + XP revocation handled server-side in deleteCompletion.
         setCompletions(completions.filter((c: TaskCompletion) => !(c.taskId === taskId && ((c.count ?? 1) === (count ?? 1)))));
-        setLocalXp((prev) => Math.max(0, prev - xpReward));
+        if (xpWasAwarded) setLocalXp((prev) => Math.max(0, prev - xpReward));
         onProfileUpdate();
       } finally {
         setPendingTaskKeys((prev) => {
@@ -381,6 +389,10 @@ export function KidDashboard({
   const todayCompletions = completions.filter(c => c.dateString === today);
   const progressPercent = totalSlots > 0 ? (todayCompletions.length / totalSlots) * 100 : 0;
 
+  // RuneScape-style level/progress derived from current XP (not the stored,
+  // possibly-stale level column). Harder to level the higher you climb.
+  const xpStats = xpProgress(localXp);
+
   useEffect(() => {
     onProgressChange(progressPercent);
   }, [progressPercent, onProgressChange]);
@@ -414,7 +426,7 @@ export function KidDashboard({
         )}>
           <div className="relative z-10">
             <h3 className={cn("text-2xl font-bold mb-1", currentTheme.vocab?.textPrimary || "text-ui-primary")}>{currentTheme.vocab?.chores || 'My Chores'}</h3>
-            <p className={cn("text-sm font-medium", toneSecondary)}>{currentTheme.vocab?.level || 'Level'} {profile.level || 1}</p>
+            <p className={cn("text-sm font-medium", toneSecondary)}>{currentTheme.vocab?.level || 'Level'} {xpStats.level}</p>
           </div>
           <div className="flex gap-4 items-center relative z-10">
             <button onClick={() => setEditingAvatar(true)}>
@@ -454,8 +466,8 @@ export function KidDashboard({
             <div>
               <p className={cn("text-xs uppercase font-bold mb-1", toneSecondary)}>Progress</p>
               <div className="flex items-baseline gap-1">
-                <span className={cn("text-3xl font-black leading-none", currentTheme.vocab?.textPrimary || "text-ui-primary")}>{localXp % 100}</span>
-                <span className={cn("text-sm font-bold uppercase", isDarkMode ? "text-ui-muted-2" : "text-ui-muted-2")}>/ 100 {currentTheme.vocab?.points || 'XP'}</span>
+                <span className={cn("text-3xl font-black leading-none", currentTheme.vocab?.textPrimary || "text-ui-primary")}>{xpStats.xpIntoLevel}</span>
+                <span className={cn("text-sm font-bold uppercase", isDarkMode ? "text-ui-muted-2" : "text-ui-muted-2")}>/ {xpStats.xpForLevelSpan} {currentTheme.vocab?.points || 'XP'}</span>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -476,7 +488,7 @@ export function KidDashboard({
           <div className="w-full h-6 bg-ui-soft-2 rounded-full overflow-hidden mb-3 shadow-inner">
             <motion.div 
               initial={{ width: 0 }}
-              animate={{ width: `${localXp % 100}%` }}
+              animate={{ width: `${xpStats.percent}%` }}
               transition={{ duration: 1, ease: "easeOut" }}
               className={cn("h-full rounded-full relative", `bg-${currentTheme.primary}`)}
             >
@@ -485,7 +497,7 @@ export function KidDashboard({
           
           <div className="flex justify-between items-center mt-2">
             <p className={cn("text-xs font-bold flex items-center gap-1", toneSecondary)}>
-              <TrendingUp className="w-4 h-4" /> {100 - (localXp % 100)} {currentTheme.vocab?.points || 'XP'} to Next {currentTheme.vocab?.level || 'Level'}
+              <TrendingUp className="w-4 h-4" /> {xpStats.xpToNext} {currentTheme.vocab?.points || 'XP'} to Next {currentTheme.vocab?.level || 'Level'}
             </p>
           </div>
         </div>

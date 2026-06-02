@@ -29,4 +29,17 @@ describe('Meals API', () => {
     expect(res.status).toBe(200);
     expect(res.body[0].name).toBe('Pizza');
   });
+
+  it('forbids a kid from creating recipes or meal plans', async () => {
+    const kidToken = jwt.sign({ uid: 'kid_meals_1', role: 'kid', parentId }, SECRET);
+    const recipe = await request(app).post('/api/recipes')
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ name: 'Sneaky Snack', ingredients: '["Candy"]' });
+    expect(recipe.status).toBe(403);
+
+    const plan = await request(app).post('/api/meal-plans')
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ date: '2026-06-01', mealType: 'dinner', recipeId: null });
+    expect(plan.status).toBe(403);
+  });
 });

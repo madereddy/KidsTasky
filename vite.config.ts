@@ -45,7 +45,19 @@ export default defineConfig(({mode}) => {
       },
       environment: 'jsdom',
       environmentMatchGlobs: [['tests/server/**/*.test.ts', 'node']],
-      exclude: ['**/node_modules/**', '**/dist/**']
+      exclude: ['**/node_modules/**', '**/dist/**'],
+      // Each API test file imports the full server graph (Express + socket.io +
+      // a fresh better-sqlite3 :memory: DB + native bindings). Running every file
+      // in its own fork at full CPU parallelism exhausts memory and crashes a
+      // worker ("Worker exited unexpectedly"). Cap concurrent forks to keep peak
+      // memory bounded while preserving per-file DB isolation.
+      pool: 'forks',
+      poolOptions: {
+        forks: {
+          maxForks: 4,
+          minForks: 1,
+        },
+      },
     }
   };
 });

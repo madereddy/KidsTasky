@@ -15,3 +15,6 @@ coverage/
 tmp/
 .playwright-mcp/
 *-check.png
+
+# Runtime photo uploads (created by the app/tests, not source)
+uploads/

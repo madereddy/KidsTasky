@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { db } from '../../db.js';
+import { levelForXp } from '../../../lib/xp.js';
 
 export const rewardService = {
   getRewards: (parentId: string) => {
@@ -24,15 +25,20 @@ export const rewardService = {
     return db.prepare("SELECT * FROM claimedRewards WHERE kidId = ?").all(kidId);
   },
   
-  claimReward: db.transaction((kidId: string, rewardId: string, xpCost: number) => {
+  claimReward: db.transaction((kidId: string, rewardId: string, _clientXpCost?: number) => {
     const id = "claim_" + randomUUID();
 
+    const reward = db.prepare("SELECT * FROM rewards WHERE id = ?").get(rewardId) as any;
+    if (!reward) {
+      throw new Error("Reward not found");
+    }
+    // Cost is authoritative from the reward row — never trust the client-supplied amount.
+    const xpCost = Number(reward.xpCost) || 0;
+
     const user = db.prepare("SELECT xp, earnedStars, spentStars FROM users WHERE uid = ?").get(kidId) as any;
-    if (!user || user.xp < xpCost) {
+    if (!user || (user.xp || 0) < xpCost) {
       throw new Error("Not enough XP");
     }
-
-    const reward = db.prepare("SELECT * FROM rewards WHERE id = ?").get(rewardId) as any;
 
     if (reward?.starCost && reward.starCost > 0) {
       const availableStars = (user.earnedStars || 0) - (user.spentStars || 0);
@@ -45,7 +51,7 @@ export const rewardService = {
     db.prepare("INSERT INTO claimedRewards (id, kidId, rewardId, createdAt) VALUES (?, ?, ?, ?)").run(id, kidId, rewardId, Date.now());
 
     const newXP = Math.max(0, (user.xp || 0) - xpCost);
-    const newLevel = Math.floor(newXP / 100) + 1;
+    const newLevel = levelForXp(newXP);
     db.prepare("UPDATE users SET xp = ?, level = ? WHERE uid = ?").run(newXP, newLevel, kidId);
 
     if (reward?.allowanceCents && reward.allowanceCents > 0) {
@@ -69,8 +75,14 @@ export const rewardService = {
     `).all(parentId);
   },
 
-  markAllowancePaid: (id: string) => {
-    db.prepare("UPDATE allowance_ledger SET status = 'paid', paidAt = ? WHERE id = ?")
-      .run(new Date().toISOString(), id);
+  getAllowanceById: (id: string) => {
+    return db.prepare("SELECT id, parentId, status FROM allowance_ledger WHERE id = ?").get(id) as { id: string; parentId: string; status: string } | undefined;
+  },
+
+  // Scoped to the family so one parent can't settle another family's ledger entry.
+  markAllowancePaid: (id: string, parentId: string) => {
+    const result = db.prepare("UPDATE allowance_ledger SET status = 'paid', paidAt = ? WHERE id = ? AND parentId = ?")
+      .run(new Date().toISOString(), id, parentId);
+    return result.changes > 0;
   }
 };

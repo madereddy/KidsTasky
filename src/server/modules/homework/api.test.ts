@@ -189,6 +189,59 @@ describe('Homework API', () => {
     expect(kidPatch.status).toBe(200);
   });
 
+  it('awards XP to a kid completing non-recurring homework and revokes it on undo', async () => {
+    const create = await request(app)
+      .post('/api/homework')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Spelling', subject: 'English', dueDate: '2026-06-01', color: '#6366f1', assignedToId: kidA });
+    const id = create.body.id as string;
+    const before = (db.prepare('SELECT xp FROM users WHERE uid = ?').get(kidA) as any)?.xp || 0;
+
+    const done = await request(app)
+      .patch(`/api/homework/${id}`)
+      .set('Authorization', `Bearer ${kidAToken}`)
+      .send({ status: 'done' });
+    expect(done.status).toBe(200);
+    expect((db.prepare('SELECT xp FROM users WHERE uid = ?').get(kidA) as any).xp).toBe(before + 15);
+
+    const undo = await request(app)
+      .patch(`/api/homework/${id}`)
+      .set('Authorization', `Bearer ${kidAToken}`)
+      .send({ status: 'pending' });
+    expect(undo.status).toBe(200);
+    expect((db.prepare('SELECT xp FROM users WHERE uid = ?').get(kidA) as any).xp).toBe(before);
+  });
+
+  it('does NOT grant XP for recurring homework (prevents farming)', async () => {
+    const create = await request(app)
+      .post('/api/homework')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Daily reading', subject: 'English', dueDate: '2026-06-01', color: '#6366f1', recurrence: 'daily', assignedToId: kidA });
+    const id = create.body.id as string;
+    const before = (db.prepare('SELECT xp FROM users WHERE uid = ?').get(kidA) as any)?.xp || 0;
+
+    await request(app)
+      .patch(`/api/homework/${id}`)
+      .set('Authorization', `Bearer ${kidAToken}`)
+      .send({ status: 'done' });
+    expect((db.prepare('SELECT xp FROM users WHERE uid = ?').get(kidA) as any).xp ?? 0).toBe(before);
+  });
+
+  it('does NOT grant kid XP when a parent marks homework done', async () => {
+    const create = await request(app)
+      .post('/api/homework')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Parent-marked', subject: 'Math', dueDate: '2026-06-01', color: '#6366f1', assignedToId: kidA });
+    const id = create.body.id as string;
+    const before = (db.prepare('SELECT xp FROM users WHERE uid = ?').get(kidA) as any)?.xp || 0;
+
+    await request(app)
+      .patch(`/api/homework/${id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ status: 'done' });
+    expect((db.prepare('SELECT xp FROM users WHERE uid = ?').get(kidA) as any).xp ?? 0).toBe(before);
+  });
+
   it('auto-advances recurring homework when marked done', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-29T10:00:00.000Z'));

@@ -298,6 +298,11 @@ photosRouter.put("/photos/:id/caption", requireAuth, (req, res) => {
 
 photosRouter.delete("/photos/:id", requireAuth, (req, res) => {
   const parentId = getParentId(req);
+  // Verify family ownership before deleting — without this any authenticated
+  // user could delete another family's photo by id (IDOR).
+  const owner = db.prepare('SELECT parentId FROM family_photos WHERE id = ?').get(String(req.params.id)) as { parentId: string } | undefined;
+  if (!owner) return res.status(404).json({ error: 'Not found' });
+  if (owner.parentId !== parentId) return res.status(403).json({ error: 'Forbidden' });
   const url = photosService.deletePhoto(String(req.params.id));
   if (url) {
     // Handle both URL formats: /api/photos/file/{name} and legacy /uploads/photos/{name}

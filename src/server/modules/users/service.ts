@@ -1,5 +1,6 @@
 import { db } from '../../db.js';
 import bcrypt from 'bcrypt';
+import { levelForXp } from '../../../lib/xp.js';
 
 export const userService = {
   getUser: (uid: string) => {
@@ -7,13 +8,18 @@ export const userService = {
   },
   
   createUser: async (data: any) => {
+    // Never overwrite an existing account — INSERT OR REPLACE here was an
+    // account-takeover vector (wipes passwordHash / reassigns parentId).
+    const exists = db.prepare("SELECT uid FROM users WHERE uid = ?").get(data.uid);
+    if (exists) throw new Error('User already exists');
+
     let passwordHash = data.passwordHash || null;
     if (data.pin && !passwordHash) {
        passwordHash = await bcrypt.hash(data.pin, 10);
     }
 
     db.prepare(`
-      INSERT OR REPLACE INTO users (uid, role, name, email, parentId, xp, level, badges, themeId, passwordHash, isManaged)
+      INSERT INTO users (uid, role, name, email, parentId, xp, level, badges, themeId, passwordHash, isManaged)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       data.uid, 
@@ -45,7 +51,7 @@ export const userService = {
     const user = db.prepare("SELECT * FROM users WHERE uid = ?").get(uid) as any;
     if (user) {
       const newXP = Math.max(0, (user.xp || 0) + xpChange);
-      const newLevel = Math.floor(newXP / 100) + 1;
+      const newLevel = levelForXp(newXP);
       db.prepare("UPDATE users SET xp = ?, level = ? WHERE uid = ?").run(newXP, newLevel, uid);
     }
   },
