@@ -41,7 +41,12 @@ export function KidDashboard({
   kids: UserProfile[],
   memberColorMap: Record<string, string>
 }) {
+  const currentTheme = THEMES.find(t => t.id === profile.themeId) || THEMES[0];
+  const isDarkMode = !!currentTheme.vocab?.darkMode;
+  const toneSecondary = currentTheme.vocab?.textSecondary || (isDarkMode ? "text-ui-muted-2" : "text-ui-muted");
+
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [completions, setCompletions] = useState<TaskCompletion[]>([]);
   const [loading, setLoading] = useState(true);
   const today = format(startOfToday(), 'yyyy-MM-dd');
   const [sortBy, setSortBy] = useState<'time' | 'created'>('time');
@@ -55,9 +60,71 @@ export function KidDashboard({
     url: profile.avatarUrl,
   });
 
-  const currentTheme = THEMES.find(t => t.id === profile.themeId) || THEMES[0];
-  const isDarkMode = !!currentTheme.vocab?.darkMode;
-  const toneSecondary = currentTheme.vocab?.textSecondary || (isDarkMode ? "text-ui-muted-2" : "text-ui-muted");
+  const {
+    localXp,
+    setLocalXp,
+    confirmTask,
+    setConfirmTask,
+    proofAnswers,
+    setProofAnswers,
+    xpAnimation,
+    showStarBurst,
+    starsAwarded,
+    celebrationTick,
+    getCompletion,
+    isCompleted,
+    isTaskPending,
+    toggleTask,
+    skipTask,
+    executeCompletion,
+  } = useTaskCompletionController({
+    profile,
+    tasks,
+    today,
+    onProfileUpdate,
+  });
+
+  const {
+    rewards,
+    claimedRewards,
+    availableStars,
+    loadRewards,
+    claimReward,
+  } = useKidRewardsController({
+    profile,
+    parentId: profile.parentId || profile.uid,
+    kidId: profile.uid,
+    setLocalXp,
+    onProfileUpdate,
+  });
+
+  const {
+    streak,
+    shouldShowToday,
+    filteredTasks,
+    todayTasks,
+    totalSlots,
+    progressPercent,
+    getUrgency,
+  } = useKidProgress({
+    tasks,
+    completions,
+    profileUid: profile.uid,
+    today,
+    selectedCategoryId,
+    sortBy,
+  });
+
+  const { unlockedBadge, dismissUnlockedBadge } = useKidMilestones({
+    profile,
+    tasks,
+    completions,
+    localXp,
+    streak,
+    loading,
+    today,
+    onProfileUpdate,
+  });
 
   const isInitialMount = useRef(true);
 
@@ -92,70 +159,6 @@ export function KidDashboard({
     if (signal === 'rewards' || signal === 'users') {
       loadRewards().catch((e) => console.error('Failed refreshing rewards:', e));
     }
-  });
-  const {
-    completions,
-    setCompletions,
-    localXp,
-    setLocalXp,
-    confirmTask,
-    setConfirmTask,
-    proofAnswers,
-    setProofAnswers,
-    xpAnimation,
-    showStarBurst,
-    starsAwarded,
-    celebrationTick,
-    getCompletion,
-    isCompleted,
-    isTaskPending,
-    toggleTask,
-    skipTask,
-    executeCompletion,
-  } = useTaskCompletionController({
-    profile,
-    tasks,
-    today,
-    onProfileUpdate,
-  });
-  const {
-    rewards,
-    claimedRewards,
-    availableStars,
-    loadRewards,
-    claimReward,
-  } = useKidRewardsController({
-    profile,
-    parentId: profile.parentId || profile.uid,
-    kidId: profile.uid,
-    setLocalXp,
-    onProfileUpdate,
-  });
-  const {
-    streak,
-    shouldShowToday,
-    filteredTasks,
-    todayTasks,
-    totalSlots,
-    progressPercent,
-    getUrgency,
-  } = useKidProgress({
-    tasks,
-    completions,
-    profileUid: profile.uid,
-    today,
-    selectedCategoryId,
-    sortBy,
-  });
-  const { unlockedBadge, dismissUnlockedBadge } = useKidMilestones({
-    profile,
-    tasks,
-    completions,
-    localXp,
-    streak,
-    loading,
-    today,
-    onProfileUpdate,
   });
 
   useEffect(() => {
