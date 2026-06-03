@@ -64,7 +64,6 @@ class CalendarErrorBoundary extends React.Component<{ children: React.ReactNode 
 }
 
 export function CalendarView(props: Props) {
-  console.log('[CalendarView] wrapper rendering');
   return (
     <CalendarErrorBoundary>
       <CalendarViewInner {...props} />
@@ -73,7 +72,16 @@ export function CalendarView(props: Props) {
 }
 
 function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, userRole = 'parent' }: Props) {
-  console.log('[CalendarViewInner] rendering');
+  // ATTEMPT TO CATCH ANY RENDER ERROR
+  try {
+    return <CalendarViewContent parentId={parentId} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} userRole={userRole} />;
+  } catch (err) {
+    console.error('[CalendarViewInner] Render Error:', err);
+    throw err;
+  }
+}
+
+function CalendarViewContent({ parentId, kids, memberColorMap, isLocked = false, userRole = 'parent' }: Props) {
   const calendarSelectionStorageKey = `kidtasker:calendar:selected:${parentId}`;
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -121,11 +129,18 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
   // CONSOLIDATED INITIALIZATION
   useEffect(() => { 
     const init = async () => {
-      console.log('[CalendarView] init starting...');
+      console.error('[DEBUG] [CalendarView] init starting...');
       if (isInitialMount.current) {
         setLoading(true);
         isInitialMount.current = false;
       }
+      
+      // Safety: always stop loading after 5s no matter what
+      const timer = setTimeout(() => {
+        console.error('[DEBUG] [CalendarView] safety timeout reached');
+        setLoading(false);
+      }, 5000);
+
       try {
         await Promise.allSettled([
           fetchEvents(),
@@ -168,11 +183,12 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
           });
         }
 
-        console.log('[CalendarView] init completed');
+        console.error('[DEBUG] [CalendarView] init completed');
       } catch (err) {
-        console.error('[CalendarView] Initialization error', err);
+        console.error('[DEBUG] [CalendarView] Initialization error', err);
       } finally {
-        console.log('[CalendarView] setting loading=false');
+        clearTimeout(timer);
+        console.error('[DEBUG] [CalendarView] setting loading=false');
         setLoading(false);
       }
     };
