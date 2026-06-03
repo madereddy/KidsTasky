@@ -64,6 +64,7 @@ class CalendarErrorBoundary extends React.Component<{ children: React.ReactNode 
 }
 
 export function CalendarView(props: Props) {
+  console.error('[DEBUG] [CalendarView] Top-level component executing');
   return (
     <CalendarErrorBoundary>
       <CalendarViewInner {...props} />
@@ -72,6 +73,7 @@ export function CalendarView(props: Props) {
 }
 
 function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, userRole = 'parent' }: Props) {
+  console.error('[DEBUG] [CalendarViewInner] Executing');
   // ATTEMPT TO CATCH ANY RENDER ERROR
   try {
     return <CalendarViewContent parentId={parentId} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} userRole={userRole} />;
@@ -82,6 +84,7 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
 }
 
 function CalendarViewContent({ parentId, kids, memberColorMap, isLocked = false, userRole = 'parent' }: Props) {
+  console.error('[DEBUG] [CalendarViewContent] Render body executing');
   const calendarSelectionStorageKey = `kidtasker:calendar:selected:${parentId}`;
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
