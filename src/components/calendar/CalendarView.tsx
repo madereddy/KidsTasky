@@ -87,13 +87,32 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
         isInitialMount.current = false;
       }
       try {
-        await fetchEvents();
+        await Promise.allSettled([
+          fetchEvents(),
+          settingsClientService.getCalendars(parentId).then(c => setSyncCalendars(c || [])),
+          settingsClientService.getCalendarVisibility().then(rows => {
+            const map: Record<string, boolean> = {};
+            rows.forEach(r => map[r.calendarId] = Number(r.isVisible) === 1);
+            setCalendarVisibility(map);
+          }),
+          settingsClientService.getSettings(parentId).then(async (settings) => {
+            setTimezone(settings.timezone || 'America/Chicago');
+            setTemperatureUnit((settings.temperatureUnit as TemperatureUnitPref) || 'celsius');
+            setTimeFormat((settings.timeFormat as TimeFormatPref) || '12h');
+            if (typeof settings.locationLat === 'number' && typeof settings.locationLon === 'number') {
+              const wx = await weatherClientService.getForecast(settings.locationLat, settings.locationLon);
+              setForecast(wx || []);
+            }
+          })
+        ]);
+      } catch (err) {
+        console.error('[CalendarView] Initialization error', err);
       } finally {
         setLoading(false);
       }
     };
     init();
-  }, [fetchEvents]);
+  }, [fetchEvents, parentId]);
 
   useEffect(() => {
     if (!isFullscreen && isKioskMode) setIsKioskMode(false);
