@@ -1,15 +1,20 @@
+import { startTracing, stopTracing } from "./src/server/lib/tracing.js";
+startTracing();
+
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import helmet from "helmet";
 import cors from "cors";
 import { rateLimit } from "express-rate-limit";
+import pinoHttp from "pino-http";
 import { db } from "./src/server/db.js";
 import { apiRouter } from "./src/server/routes.js";
 import { startBackgroundWorker, stopWorker } from "./src/server/worker.js";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { socketWrapper } from "./src/server/socket.js";
+import { logger } from "./src/server/lib/logger.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -180,6 +185,8 @@ app.use(express.json({ limit: jsonBodyLimit }));
 app.use(express.urlencoded({ extended: false, limit: jsonBodyLimit }));
 // /uploads static mount removed — photos served via authenticated /api/photos/file/:filename endpoint
 
+app.use(pinoHttp({ logger }));
+
 const slowRequestThresholdMs = Number(process.env.SLOW_REQUEST_MS || 400);
 const perfStore: PerfStore = {};
 app.locals.perfStore = perfStore;
@@ -192,12 +199,7 @@ app.use((req, res, next) => {
       incrementPerfStats(perfStore, routeKey, duration);
     }
     if (duration >= slowRequestThresholdMs) {
-      console.warn('[perf:slow_request]', {
-        method: req.method,
-        path: req.originalUrl,
-        status: res.statusCode,
-        durationMs: duration,
-      });
+      logger.warn({ method: req.method, path: req.originalUrl, status: res.statusCode, durationMs: duration }, 'slow_request');
     }
   });
   next();
@@ -206,8 +208,8 @@ app.use((req, res, next) => {
 // Background Worker
 if (!process.env.VITEST && process.env.NODE_ENV !== 'test') {
   startBackgroundWorker(io);
-  process.on('SIGTERM', () => { stopWorker(); process.exit(0); });
-  process.on('SIGINT',  () => { stopWorker(); process.exit(0); });
+  process.on('SIGTERM', async () => { stopWorker(); await stopTracing(); process.exit(0); });
+  process.on('SIGINT',  async () => { stopWorker(); await stopTracing(); process.exit(0); });
 }
 
 // API Routes

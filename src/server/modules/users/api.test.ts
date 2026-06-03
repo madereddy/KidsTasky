@@ -28,11 +28,22 @@ describe('user mutation auth enforcement', () => {
     expect(res.status).toBe(401);
   });
 
-  it('rejects kid granting badge', async () => {
+  it('allows kid to award badge to self', async () => {
     const res = await request(app).post(`/api/users/${kidUid}/badge`)
       .set('Authorization', `Bearer ${kidToken}`)
       .send({ badgeId: 'star' });
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects kid granting badge to another kid', async () => {
+    const otherKidUid = 'auth_guard_other_kid';
+    db.prepare("INSERT INTO users (uid, role, name, parentId, passwordHash, badges, xp) VALUES (?, 'kid', 'OtherKid', ?, 'x', '[]', 0)")
+      .run(otherKidUid, parentUid);
+    const res = await request(app).post(`/api/users/${otherKidUid}/badge`)
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ badgeId: 'star' });
     expect(res.status).toBe(403);
+    db.prepare("DELETE FROM users WHERE uid = ?").run(otherKidUid);
   });
 
   it('allows parent to grant badge to own kid', async () => {

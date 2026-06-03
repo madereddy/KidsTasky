@@ -139,16 +139,18 @@ usersRouter.delete("/users/:uid/coparent", authenticateUser, [
   }
 });
 
-usersRouter.post("/users/:uid/badge", authenticateUser, requireRole('parent'), [
+usersRouter.post("/users/:uid/badge", authenticateUser, [
   param('uid').isString().notEmpty(),
   body('badgeId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  const callerParentId = getParentId(req);
+  const caller = (req as any).user as { uid: string; role: string; parentId?: string };
   const target = userService.getUser(req.params.uid as string) as any;
   if (!target) return res.status(404).json({ error: 'User not found' });
   const targetFamily = target.parentId ?? target.uid;
-  if (targetFamily !== callerParentId) return res.status(403).json({ error: 'Forbidden' });
+  const isSelf = caller.uid === req.params.uid;
+  const isParentOf = caller.role === 'parent' && targetFamily === getParentId(req);
+  if (!isSelf && !isParentOf) return res.status(403).json({ error: 'Forbidden' });
   userService.addBadge(req.params.uid as string, req.body.badgeId);
   res.json({ success: true });
 });

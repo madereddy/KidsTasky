@@ -22,7 +22,7 @@ const TASK_PROOF_TEMPLATES: Array<{ name: string; questions: string[] }> = [
 
 export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, existingTasks, initialTask, modalTitle, submitLabel, allowMultiAssign = true }: { 
   onClose: () => void, 
-  onSubmit: (t: any) => void, 
+  onSubmit: (t: any) => Promise<void> | void,
   kids: UserProfile[],
   parentId: string,
   categories: Category[],
@@ -81,7 +81,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
     } catch {}
   }, [initialTask]);
 
-  const submit = () => {
+  const submit = async () => {
     if (assignmentMode === 'specific' && assignedKidIds.length === 0) return;
     const payload = {
       title,
@@ -112,7 +112,8 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
         assignedKidIds,
       }));
     }
-    onSubmit(payload);
+    await onSubmit(payload);
+    onClose();
   };
 
   const togglePrereq = (id: string) => {
