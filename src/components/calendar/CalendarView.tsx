@@ -46,7 +46,9 @@ class CalendarErrorBoundary extends React.Component<{ children: React.ReactNode 
     this.state = { hasError: false };
   }
   static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(error: any, errorInfo: any) { console.error('[CalendarErrorBoundary]', error, errorInfo); }
+  componentDidCatch(error: any, errorInfo: any) { 
+    console.error('[CalendarErrorBoundary] CRASH:', error, errorInfo); 
+  }
   render() {
     if (this.state.hasError) {
       return (
@@ -96,19 +98,25 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
   const [isKioskMode, setIsKioskMode] = useState(false);
   const [loading, setLoading] = useState(true);
+  
   const wallRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const staleRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
   useWakeLock(isKioskMode);
 
   const fetchEvents = useCallback(async () => {
-    const ev = await eventsClientService.getEvents(parentId);
-    setEvents(ev || []);
-    setLastRefreshedAt(new Date());
+    try {
+      const ev = await eventsClientService.getEvents(parentId);
+      setEvents(ev || []);
+      setLastRefreshedAt(new Date());
+    } catch (err) {
+      console.error('[CalendarView] fetchEvents error', err);
+    }
   }, [parentId]);
 
   const isInitialMount = useRef(true);
 
+  // CONSOLIDATED INITIALIZATION
   useEffect(() => { 
     const init = async () => {
       console.log('[CalendarView] init starting...');
@@ -118,15 +126,15 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
       }
       try {
         await Promise.allSettled([
-          fetchEvents().catch(e => console.error('[CalendarView] fetchEvents error', e)),
-          settingsClientService.getCalendars(parentId).then(c => setSyncCalendars(c || [])).catch(e => console.error('[CalendarView] getCalendars error', e)),
+          fetchEvents(),
+          settingsClientService.getCalendars(parentId).then(c => setSyncCalendars(c || [])),
           settingsClientService.getCalendarVisibility().then(rows => {
             const map: Record<string, boolean> = {};
             if (Array.isArray(rows)) {
               rows.forEach(r => map[r.calendarId] = Number(r.isVisible) === 1);
             }
             setCalendarVisibility(map);
-          }).catch(e => console.error('[CalendarView] getCalendarVisibility error', e)),
+          }),
           settingsClientService.getSettings(parentId).then(async (settings) => {
             if (!settings) return;
             setTimezone(settings.timezone || 'America/Chicago');
@@ -140,18 +148,34 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
                 console.error('[CalendarView] weather error', wxErr);
               }
             }
-          }).catch(e => console.error('[CalendarView] getSettings error', e))
+          })
         ]);
-        console.log('[CalendarView] init completed successfully');
+        
+        // Secondary data for Wall Mode
+        if (isWallMode) {
+          void routinesClientService.getTemplates(parentId).then(setRoutineTemplates);
+          void listsClientService.getLists(parentId).then(async (lists) => {
+            const topLists = (lists || []).slice(0, 2);
+            const summaries = await Promise.all(topLists.map(async (list) => {
+              const items = await listsClientService.getItems(list.id).catch(() => [] as AppListItem[]);
+              const total = items.length;
+              const done = items.filter((item) => Boolean(item.completed)).length;
+              return { list, total, done };
+            }));
+            setListsSummary(summaries);
+          });
+        }
+
+        console.log('[CalendarView] init completed');
       } catch (err) {
         console.error('[CalendarView] Initialization error', err);
       } finally {
-        console.log('[CalendarView] set(loading, false)');
+        console.log('[CalendarView] setting loading=false');
         setLoading(false);
       }
     };
     init();
-  }, [fetchEvents, parentId]);
+  }, [fetchEvents, parentId, isWallMode]);
 
   useEffect(() => {
     if (!isFullscreen && isKioskMode) setIsKioskMode(false);
@@ -212,52 +236,7 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
     return () => { if (wallRefreshRef.current) clearInterval(wallRefreshRef.current); };
   }, [isWallMode, fetchEvents]);
 
-  useEffect(() => {
-    if (!isWallMode) return;
-    routinesClientService.getTemplates(parentId)
-      .then(setRoutineTemplates)
-      .catch(() => setRoutineTemplates([]));
-  }, [isWallMode, parentId]);
-
-  useEffect(() => {
-    settingsClientService.getCalendars(parentId)
-      .then((calendars) => setSyncCalendars(calendars || []))
-      .catch(() => setSyncCalendars([]));
-  }, [parentId]);
-
-  useEffect(() => {
-    settingsClientService.getCalendarVisibility()
-      .then((rows) => {
-        const map: Record<string, boolean> = {};
-        rows.forEach((row) => {
-          map[row.calendarId] = Number(row.isVisible) === 1;
-        });
-        setCalendarVisibility(map);
-      })
-      .catch(() => setCalendarVisibility({}));
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    settingsClientService.getSettings(parentId)
-      .then(async (settings) => {
-        if (!mounted) return;
-
-        setTimezone(settings.timezone || 'America/Chicago');
-        setTemperatureUnit((settings.temperatureUnit as TemperatureUnitPref) || 'celsius');
-        setTimeFormat((settings.timeFormat as TimeFormatPref) || '12h');
-
-        if (typeof settings.locationLat === 'number' && typeof settings.locationLon === 'number') {
-          const wx = await weatherClientService.getForecast(settings.locationLat, settings.locationLon);
-          if (mounted) setForecast(wx || []);
-        } else {
-          setForecast([]);
-        }
-      })
-      .catch(() => setForecast([]));
-    return () => { mounted = false; };
-  }, [parentId]);
-
+  // Meals effect
   useEffect(() => {
     if (viewMode === 'day' || isWallMode) {
       const weekStartDate = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -273,24 +252,7 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
     }
   }, [viewMode, currentDate, parentId, isWallMode]);
 
-  useEffect(() => {
-    let mounted = true;
-    listsClientService.getLists(parentId)
-      .then(async (lists) => {
-        if (!mounted) return;
-        const topLists = (lists || []).slice(0, 2);
-        const summaries = await Promise.all(topLists.map(async (list) => {
-          const items = await listsClientService.getItems(list.id).catch(() => [] as AppListItem[]);
-          const total = items.length;
-          const done = items.filter((item) => Boolean(item.completed)).length;
-          return { list, total, done };
-        }));
-        if (mounted) setListsSummary(summaries);
-      })
-      .catch(() => setListsSummary([]));
-    return () => { mounted = false; };
-  }, [parentId]);
-
+  // Local Selection Persistence
   useEffect(() => {
     try {
       const raw = localStorage.getItem(calendarSelectionStorageKey);
@@ -322,6 +284,7 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
     }
   }, [selectedCalendarIds, calendarSelectionStorageKey]);
 
+  // Sync Calendar Filter logic
   useEffect(() => {
     const enabled = syncCalendars.filter((cal) => Boolean(cal.enabled) && (calendarVisibility[cal.calendarId] ?? true));
     const enabledIds = new Set(enabled.map((cal) => cal.calendarId));
@@ -329,16 +292,12 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
     setSelectedCalendarIds((prev) => {
       const filteredPrev = new Set(Array.from(prev).filter((id) => enabledIds.has(id)));
       
-      // Prevent infinite loop: only update if the filtered set is different from prev
       const isSame = prev.size === filteredPrev.size && Array.from(prev).every(id => filteredPrev.has(id));
       if (isSame && prev.size > 0) return prev;
 
-      if (prev.size > 0) {
-        return filteredPrev;
-      }
-      if (calendarSelectionHydratedRef.current) {
-        return prev;
-      }
+      if (prev.size > 0) return filteredPrev;
+      if (calendarSelectionHydratedRef.current) return prev;
+
       const preferredFamily = enabled.filter((cal) => /family|shared|home|household/i.test(cal.name));
       if (preferredFamily.length > 0) return new Set(preferredFamily.map((cal) => cal.calendarId));
       if (enabled.length > 0) return new Set(enabled.map((cal) => cal.calendarId));
@@ -383,11 +342,13 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
   const visibleEvents = visibleMemberIds.has('all')
     ? events
     : events.filter((e) => !e.assignedToId || visibleMemberIds.has(e.assignedToId));
+    
   const enabledVisibleCalendarIds = new Set(
     syncCalendars
       .filter((cal) => Boolean(cal.enabled) && (calendarVisibility[cal.calendarId] ?? true))
       .map((cal) => cal.calendarId)
   );
+  
   const calendarFilteredEvents = selectedCalendarIds.size === 0
     ? visibleEvents.filter((e) => !e.sourceCalendarId || enabledVisibleCalendarIds.has(e.sourceCalendarId))
     : visibleEvents.filter((e) => !e.sourceCalendarId || selectedCalendarIds.has(e.sourceCalendarId));
@@ -406,12 +367,13 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
       return evs.filter((e) => e.startTime <= wEnd && e.endTime >= wStart);
     }
     if (wallFilter === 'allday') {
-      return evs.filter((e) => (e.isAllDay));
+      return evs.filter((e) => Boolean(e.isAllDay));
     }
     return evs;
   };
 
   const filteredEvents = applyWallFilter(calendarFilteredEvents);
+  
   const countdownEvents = useMemo(() => {
     const now = Date.now();
     return calendarFilteredEvents
@@ -419,6 +381,7 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
       .sort((a, b) => a.startTime - b.startTime)
       .slice(0, 3);
   }, [calendarFilteredEvents]);
+
   const daysUntil = (ts: number): number => Math.ceil((ts - Date.now()) / (1000 * 60 * 60 * 24));
   const dayKey = format(currentDate, 'yyyy-MM-dd');
   const todaysWeather = forecast.find((f) => f.date === dayKey);
