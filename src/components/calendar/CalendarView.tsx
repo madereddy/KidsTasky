@@ -64,6 +64,7 @@ class CalendarErrorBoundary extends React.Component<{ children: React.ReactNode 
 }
 
 export function CalendarView(props: Props) {
+  console.log('[CalendarView] wrapper rendering');
   return (
     <CalendarErrorBoundary>
       <CalendarViewInner {...props} />
@@ -72,6 +73,7 @@ export function CalendarView(props: Props) {
 }
 
 function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, userRole = 'parent' }: Props) {
+  console.log('[CalendarViewInner] rendering');
   const calendarSelectionStorageKey = `kidtasker:calendar:selected:${parentId}`;
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
