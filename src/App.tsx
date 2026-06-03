@@ -35,26 +35,19 @@ const lazyWithRetry = <T extends React.ComponentType<any>>(
   importer: () => Promise<{ default: T }>,
   key: string
 ) => lazy(async () => {
-  console.error(`[lazyWithRetry] Invoked for ${key}`);
+  // Yield one macrotask so React can commit the Suspense fallback and wire the
+  // retry-ping listener BEFORE this promise resolves.  Without this, a pre-cached
+  // import resolves in the same microtask queue flush as the Suspense setup,
+  // causing the ping to fire before the retry listener exists → stuck forever.
+  await new Promise<void>(resolve => setTimeout(resolve, 0));
+  const retryKey = `kidtasker:lazy-retry:${key}`;
   try {
-    const importerPromise = importer().then((res) => {
-      console.error(`[lazyWithRetry] Importer resolved for ${key}. Has default: ${!!res.default}, Type: ${typeof res.default}`);
-      return res;
-    });
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const timeoutPromise = new Promise<{ default: T }>((_, reject) => {
-      timer = setTimeout(() => reject(new Error(`[lazyWithRetry] Timeout loading chunk for ${key}`)), 10000);
-    });
-    console.error(`[lazyWithRetry] Awaiting Promise.race for ${key}`);
-    const result = await Promise.race([importerPromise, timeoutPromise]);
-    console.error(`[lazyWithRetry] Promise.race completed for ${key}. Component type: ${typeof result.default}`);
-    if (timer) clearTimeout(timer);
-    return result;
+    const mod = await importer();
+    sessionStorage.removeItem(retryKey);
+    return mod;
   } catch (error) {
-    console.error('[lazyWithRetry] Error loading', key, ':', error);
-    const retryKey = `kidtasker:lazy-retry:${key}`;
-    const retried = sessionStorage.getItem(retryKey) === '1';
-    if (!retried) {
+    // Stale chunk after a deploy: hard-reload once to fetch the new manifest.
+    if (sessionStorage.getItem(retryKey) !== '1') {
       sessionStorage.setItem(retryKey, '1');
       window.location.reload();
     }
@@ -104,6 +97,16 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<'home' | 'tasks' | 'calendar' | 'lists' | 'meals' | 'manage'>('home');
+  // Separate counter used only to force a re-render after lazy chunks resolve.
+  // Pre-cached chunks can miss React's Suspense retry ping (the ping fires before
+  // React commits the fallback and wires the retry listener). A re-render ~50ms
+  // after the section switch re-reconciles the Suspense boundary, which by then
+  // has the lazy module cached, so it commits the component without throwing.
+  const [, setNavRetryTick] = useState(0);
+  const goToSection = useCallback((section: 'home' | 'tasks' | 'calendar' | 'lists' | 'meals' | 'manage') => {
+    setActiveSection(section);
+    setTimeout(() => setNavRetryTick(t => t + 1), 50);
+  }, []);
   const [kids, setKids] = useState<UserProfile[]>([]);
   const [isLocked, setIsLocked] = useState(false);
   const [sleepStart, setSleepStart] = useState<string | undefined>(undefined);
@@ -479,8 +482,6 @@ export default function App() {
     );
   }
 
-  console.log('[App] render. activeSection:', activeSection, 'profile role:', profile?.role);
-
   return (
     <FamilyDataContext.Provider value={{ kids, categories, memberColorMap, refreshKids, refreshCategories }}>
     <DisplayContext.Provider value={{ isWallMode: isLocked, isSleepMode }}>
@@ -503,7 +504,7 @@ export default function App() {
             {profile?.role === 'parent' && (
               <nav className={cn("hidden md:flex gap-1 p-1 rounded-2xl", isDarkTheme ? "bg-ui-dark-50" : "bg-ui-soft-2")}>
                 <button
-                  onClick={() => setActiveSection('home')}
+                  onClick={() => goToSection('home')}
                   className={cn(
                     "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
                     activeSection === 'home' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary")
@@ -512,7 +513,7 @@ export default function App() {
                   Home
                 </button>
                 <button
-                  onClick={() => setActiveSection('tasks')}
+                  onClick={() => goToSection('tasks')}
                   onMouseEnter={prefetchParentTasks}
                   onFocus={prefetchParentTasks}
                   onTouchStart={prefetchParentTasks}
@@ -524,7 +525,7 @@ export default function App() {
                   Tasks
                 </button>
                 <button
-                  onClick={() => setActiveSection('calendar')}
+                  onClick={() => goToSection('calendar')}
                   onMouseEnter={prefetchCalendar}
                   onFocus={prefetchCalendar}
                   onTouchStart={prefetchCalendar}
@@ -536,7 +537,7 @@ export default function App() {
                   <CalendarDays className="w-4 h-4" /> Calendar
                 </button>
                 <button
-                  onClick={() => setActiveSection('lists')}
+                  onClick={() => goToSection('lists')}
                   onMouseEnter={prefetchLists}
                   onFocus={prefetchLists}
                   onTouchStart={prefetchLists}
@@ -548,7 +549,7 @@ export default function App() {
                   <List className="w-4 h-4" /> Lists
                 </button>
                 <button
-                  onClick={() => setActiveSection('meals')}
+                  onClick={() => goToSection('meals')}
                   onMouseEnter={prefetchMeals}
                   onFocus={prefetchMeals}
                   onTouchStart={prefetchMeals}
@@ -699,7 +700,7 @@ export default function App() {
               kids={kids}
               memberColorMap={memberColorMap}
               isLocked={isLocked}
-              onManage={() => setActiveSection('manage')}
+              onManage={() => goToSection('manage')}
               settings={familySettings}
             />
           </Suspense>
@@ -708,7 +709,7 @@ export default function App() {
           <div className="space-y-4">
             <div className="mb-4">
               <button
-                onClick={() => setActiveSection('home')}
+                onClick={() => goToSection('home')}
                 className="text-sm text-ui-muted hover:text-ui-primary transition-colors"
               >
                 ← Back to Home

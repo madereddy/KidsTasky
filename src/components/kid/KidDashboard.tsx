@@ -51,6 +51,13 @@ export function KidDashboard({
   const today = format(startOfToday(), 'yyyy-MM-dd');
   const [sortBy, setSortBy] = useState<'time' | 'created'>('time');
   const [kidView, setKidView] = useState<'tasks' | 'calendar' | 'homework' | 'shop'>('tasks');
+  const [, setTabRetryTick] = useState(0);
+  // See App.tsx goToSection: a 50ms follow-up re-render forces re-reconciliation
+  // of the Suspense boundary after the lazy chunk resolves from cache.
+  const goKidView = useCallback((view: 'tasks' | 'calendar' | 'homework' | 'shop') => {
+    setKidView(view);
+    setTimeout(() => setTabRetryTick(t => t + 1), 50);
+  }, []);
   const [taskView, setTaskView] = useState<'all' | 'upforgrabs' | 'assigned'>('all');
   const [showHistory, setShowHistory] = useState(false);
   const [showThemeSelector, setShowThemeSelector] = useState(false);
@@ -308,7 +315,7 @@ export function KidDashboard({
         <div className="flex gap-2 items-center">
           <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-ui-soft")}>
             <button
-              onClick={() => setKidView('tasks')}
+              onClick={() => goKidView('tasks')}
               className={cn(
                 "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
                 kidView === 'tasks' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
@@ -317,7 +324,7 @@ export function KidDashboard({
               {currentTheme.vocab?.hub || 'My Chores'}
             </button>
             <button
-              onClick={() => setKidView('calendar')}
+              onClick={() => goKidView('calendar')}
               className={cn(
                 "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5",
                 kidView === 'calendar' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
@@ -326,7 +333,7 @@ export function KidDashboard({
               <CalendarDays className="w-4 h-4" /> Calendar
             </button>
             <button
-              onClick={() => setKidView('homework')}
+              onClick={() => goKidView('homework')}
               className={cn(
                 "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
                 kidView === 'homework' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
@@ -336,7 +343,7 @@ export function KidDashboard({
             </button>
             {rewards.length > 0 && (
               <button
-                onClick={() => setKidView('shop')}
+                onClick={() => goKidView('shop')}
                 className={cn(
                   "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider flex items-center gap-1",
                   kidView === 'shop' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
