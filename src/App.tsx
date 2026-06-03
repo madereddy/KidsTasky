@@ -36,8 +36,13 @@ const lazyWithRetry = <T extends React.ComponentType<any>>(
   key: string
 ) => lazy(async () => {
   try {
-    return await importer();
+    const importerPromise = importer();
+    const timeoutPromise = new Promise<{ default: T }>((_, reject) => 
+      setTimeout(() => reject(new Error(`[lazyWithRetry] Timeout loading chunk for ${key}`)), 10000)
+    );
+    return await Promise.race([importerPromise, timeoutPromise]);
   } catch (error) {
+    console.error(`[lazyWithRetry] Error loading ${key}:`, error);
     const retryKey = `kidtasker:lazy-retry:${key}`;
     const retried = sessionStorage.getItem(retryKey) === '1';
     if (!retried) {
