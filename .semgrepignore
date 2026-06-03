@@ -3,3 +3,4 @@ dist/
 build/
 .agents/
 .pnpm-store/
+scripts/audit-loading-states.mjs
