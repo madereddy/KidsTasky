@@ -245,7 +245,9 @@ export default function App() {
     const parentId = profile.parentId || profile.uid;
     if (!parentId) return;
     const nextKids = await userService.getKidsForParent(parentId);
-    setKids(nextKids || []);
+    if (nextKids && JSON.stringify(nextKids) !== JSON.stringify(kidsRef.current)) {
+      setKids(nextKids);
+    }
   }, [profile]);
 
   useSocketStaleData(['categories', 'users', 'kids'], useCallback((data: { entity?: string; type?: string }) => {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { Task, TaskCompletion, UserProfile } from '../types';
 import { tasksClientService } from '../services/tasks';
@@ -19,6 +19,9 @@ export function useParentTaskWorkspace({ parentId, kids }: UseParentTaskWorkspac
   const [tasks, setTasks] = useState<Task[]>([]);
   const [pendingCompletions, setPendingCompletions] = useState<ParentCompletionSummary[]>([]);
   const [todayApprovedCompletions, setTodayApprovedCompletions] = useState<ParentCompletionSummary[]>([]);
+  
+  const memoKids = useMemo(() => JSON.stringify(kids), [kids]);
+
   const compareCompletionRecency = (left: ParentCompletionSummary, right: ParentCompletionSummary) => {
     const leftTime = typeof left.completedAt === 'number' ? left.completedAt : (left.completedAt?.seconds || 0);
     const rightTime = typeof right.completedAt === 'number' ? right.completedAt : (right.completedAt?.seconds || 0);
@@ -32,8 +35,9 @@ export function useParentTaskWorkspace({ parentId, kids }: UseParentTaskWorkspac
       tasksClientService.getPendingCompletions(parentId),
     ]);
 
+    const parsedKids = JSON.parse(memoKids) as UserProfile[];
     const completionBuckets = await Promise.all(
-      kids.map(async (kid) => {
+      parsedKids.map(async (kid) => {
         const rows = await tasksClientService.getCompletionsForKid(kid.uid, today).catch(() => []);
         return rows.map((row) => ({
           ...row,
@@ -55,7 +59,7 @@ export function useParentTaskWorkspace({ parentId, kids }: UseParentTaskWorkspac
     setTasks(taskList);
     setPendingCompletions((pendingRows || []) as ParentCompletionSummary[]);
     setTodayApprovedCompletions(completedToday);
-  }, [kids, parentId]);
+  }, [memoKids, parentId]);
 
   useEffect(() => {
     void loadWorkspace();

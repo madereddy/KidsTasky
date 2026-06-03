@@ -25,8 +25,9 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  const today = format(new Date(), 'yyyy-MM-dd');
   const memoKids = useMemo(() => JSON.stringify(kids), [kids]);
+  const memoSettings = useMemo(() => JSON.stringify(initialSettings), [initialSettings]);
+  const today = format(new Date(), 'yyyy-MM-dd');
 
   const fetchFamilyData = useCallback(async () => {
     try {
@@ -93,7 +94,7 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
     } finally {
       setLoading(false);
     }
-  }, [parentId, memoKids, today, initialSettings]);
+  }, [parentId, memoKids, today, memoSettings]); // use stable settings string
 
   useEffect(() => {
     void fetchFamilyData();
