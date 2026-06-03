@@ -82,32 +82,42 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
 
   useEffect(() => { 
     const init = async () => {
+      console.log('[CalendarView] init starting...');
       if (isInitialMount.current) {
         setLoading(true);
         isInitialMount.current = false;
       }
       try {
         await Promise.allSettled([
-          fetchEvents(),
-          settingsClientService.getCalendars(parentId).then(c => setSyncCalendars(c || [])),
+          fetchEvents().catch(e => console.error('[CalendarView] fetchEvents error', e)),
+          settingsClientService.getCalendars(parentId).then(c => setSyncCalendars(c || [])).catch(e => console.error('[CalendarView] getCalendars error', e)),
           settingsClientService.getCalendarVisibility().then(rows => {
             const map: Record<string, boolean> = {};
-            rows.forEach(r => map[r.calendarId] = Number(r.isVisible) === 1);
+            if (Array.isArray(rows)) {
+              rows.forEach(r => map[r.calendarId] = Number(r.isVisible) === 1);
+            }
             setCalendarVisibility(map);
-          }),
+          }).catch(e => console.error('[CalendarView] getCalendarVisibility error', e)),
           settingsClientService.getSettings(parentId).then(async (settings) => {
+            if (!settings) return;
             setTimezone(settings.timezone || 'America/Chicago');
             setTemperatureUnit((settings.temperatureUnit as TemperatureUnitPref) || 'celsius');
             setTimeFormat((settings.timeFormat as TimeFormatPref) || '12h');
             if (typeof settings.locationLat === 'number' && typeof settings.locationLon === 'number') {
-              const wx = await weatherClientService.getForecast(settings.locationLat, settings.locationLon);
-              setForecast(wx || []);
+              try {
+                const wx = await weatherClientService.getForecast(settings.locationLat, settings.locationLon);
+                setForecast(wx || []);
+              } catch (wxErr) {
+                console.error('[CalendarView] weather error', wxErr);
+              }
             }
-          })
+          }).catch(e => console.error('[CalendarView] getSettings error', e))
         ]);
+        console.log('[CalendarView] init completed successfully');
       } catch (err) {
         console.error('[CalendarView] Initialization error', err);
       } finally {
+        console.log('[CalendarView] set(loading, false)');
         setLoading(false);
       }
     };
