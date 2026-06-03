@@ -37,6 +37,7 @@ export function ParentTasksWorkspace({
   const [sortBy, setSortBy] = useState<'time' | 'created'>('created');
   const [taskDisplayMode, setTaskDisplayMode] = useState<'list' | 'chart'>('list');
   const [loading, setLoading] = useState(true);
+  console.log('[ParentTasksWorkspace] Rendering. loading:', loading);
 
   const {
     tasks,
@@ -54,9 +55,23 @@ export function ParentTasksWorkspace({
     kids,
   });
 
+  const isInitialMount = React.useRef(true);
+
   React.useEffect(() => {
-    setLoading(true);
-    loadWorkspace().finally(() => setLoading(false));
+    console.log('[ParentTasksWorkspace] useEffect running. isInitialMount:', isInitialMount.current);
+    if (isInitialMount.current) {
+      setLoading(true);
+      isInitialMount.current = false;
+    }
+    
+    loadWorkspace().then(() => {
+      console.log('[ParentTasksWorkspace] loadWorkspace resolved');
+    }).catch(err => {
+      console.error('[ParentTasksWorkspace] loadWorkspace failed:', err);
+    }).finally(() => {
+      console.log('[ParentTasksWorkspace] setting loading to false');
+      setLoading(false);
+    });
   }, [loadWorkspace]);
 
   useSocketStaleData(['tasks', 'completions'], (data: StaleDataEvent) => {

@@ -247,7 +247,10 @@ export default function App() {
     if (!parentId) return;
     const nextKids = await userService.getKidsForParent(parentId);
     if (nextKids && JSON.stringify(nextKids) !== JSON.stringify(kidsRef.current)) {
+      console.log('[App] refreshKids: Updating kids state');
       setKids(nextKids);
+    } else {
+      console.log('[App] refreshKids: Kids data unchanged');
     }
   }, [profile]);
 

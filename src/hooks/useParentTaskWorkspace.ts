@@ -30,38 +30,42 @@ export function useParentTaskWorkspace({ parentId, kids }: UseParentTaskWorkspac
   };
 
   const loadWorkspace = useCallback(async () => {
+    console.log('[useParentTaskWorkspace] loadWorkspace started');
     const today = format(new Date(), 'yyyy-MM-dd');
     const parsedKids = JSON.parse(memoKids) as UserProfile[];
     
-    // Use the batched aggregator for all family data
-    const dashboardData = await dashboardClientService.getFamilyDashboardData(parentId, today);
+    try {
+      console.log('[useParentTaskWorkspace] Fetching family dashboard data...');
+      const dashboardData = await dashboardClientService.getFamilyDashboardData(parentId, today);
+      console.log('[useParentTaskWorkspace] dashboardData received:', !!dashboardData);
 
-    const taskList = dashboardData.tasks || [];
-    
-    // Process today's completions from the batched data
-    const completedToday = dashboardData.completions
-      .filter((row) => isAwardedTaskCompletion(row))
-      .map((row) => {
-        const kid = parsedKids.find(k => k.uid === row.kidId);
-        return {
-          ...row,
-          kidName: kid?.name || 'Unknown',
-          taskTitle: taskList.find((task) => task.id === row.taskId)?.title,
-        };
-      })
-      .sort(compareCompletionRecency);
+      const taskList = dashboardData.tasks || [];
+      
+      const completedToday = dashboardData.completions
+        .filter((row) => isAwardedTaskCompletion(row))
+        .map((row) => {
+          const kid = parsedKids.find(k => k.uid === row.kidId);
+          return {
+            ...row,
+            kidName: kid?.name || 'Unknown',
+            taskTitle: taskList.find((task) => task.id === row.taskId)?.title,
+          };
+        })
+        .sort(compareCompletionRecency);
 
-    setTasks(taskList);
-    // Note: getFamilyDashboardData might not include pending completions depending on its implementation.
-    // Let's check dashboard.ts implementation or keep a separate call if needed.
-    // Based on previous plan, it was supposed to aggregate everything.
-    
-    // Assuming getFamilyDashboardData returns { tasks, completions, events, homework }
-    // We might still need pending approvals if they aren't in 'completions'
-    const pendingRows = await tasksClientService.getPendingCompletions(parentId).catch(() => []);
+      setTasks(taskList);
+      
+      console.log('[useParentTaskWorkspace] Fetching pending completions...');
+      const pendingRows = await tasksClientService.getPendingCompletions(parentId).catch(() => []);
+      console.log('[useParentTaskWorkspace] pendingRows received:', pendingRows?.length);
 
-    setPendingCompletions((pendingRows || []) as ParentCompletionSummary[]);
-    setTodayApprovedCompletions(completedToday);
+      setPendingCompletions((pendingRows || []) as ParentCompletionSummary[]);
+      setTodayApprovedCompletions(completedToday);
+      console.log('[useParentTaskWorkspace] loadWorkspace successfully finished');
+    } catch (err) {
+      console.error('[useParentTaskWorkspace] loadWorkspace caught error:', err);
+      throw err;
+    }
   }, [memoKids, parentId]);
 
   useEffect(() => {

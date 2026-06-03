@@ -78,9 +78,14 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
     setLastRefreshedAt(new Date());
   }, [parentId]);
 
+  const isInitialMount = useRef(true);
+
   useEffect(() => { 
     const init = async () => {
-      setLoading(true);
+      if (isInitialMount.current) {
+        setLoading(true);
+        isInitialMount.current = false;
+      }
       try {
         await fetchEvents();
       } finally {

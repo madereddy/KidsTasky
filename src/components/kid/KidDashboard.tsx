@@ -59,9 +59,15 @@ export function KidDashboard({
   const isDarkMode = !!currentTheme.vocab?.darkMode;
   const toneSecondary = currentTheme.vocab?.textSecondary || (isDarkMode ? "text-ui-muted-2" : "text-ui-muted");
 
+  const isInitialMount = useRef(true);
+
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
+      console.log('[KidDashboard] fetchData started. isInitialMount:', isInitialMount.current);
+      if (isInitialMount.current) {
+        setLoading(true);
+        isInitialMount.current = false;
+      }
       await Promise.all([
         tasksClientService.getTasksForKid(profile.uid),
         tasksClientService.getCompletionsForKid(profile.uid, today),

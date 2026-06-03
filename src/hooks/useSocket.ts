@@ -25,6 +25,9 @@ export const initSocket = (parentId: string) => {
       }, CLIENT_DEBOUNCE_MS);
       pendingByEntity.set(key, timer);
     });
+  } else if (socket.connected) {
+    const token = localStorage.getItem('kidtasker_token');
+    socket.emit('join-room', parentId, token);
   }
 };
 
