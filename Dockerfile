@@ -1,6 +1,9 @@
 # Stage 1: Build Environment
 FROM cgr.dev/chainguard/node:latest-dev AS builder
 
+ARG BUILD_VERSION=dev
+ENV VITE_BUILD_VERSION=$BUILD_VERSION
+
 USER root
 
 WORKDIR /app

@@ -890,6 +890,8 @@ export default function App() {
               <Activity className="w-4 h-4" />
             </div>
             <p className="text-xs text-ui-muted font-medium">Synced</p>
+            <div className="h-3 w-[1px] bg-ui-soft-3 mx-2"></div>
+            <p className="text-[10px] text-ui-muted-2 font-mono tabular-nums">{__BUILD_VERSION__}</p>
           </div>
         </div>
       </footer>

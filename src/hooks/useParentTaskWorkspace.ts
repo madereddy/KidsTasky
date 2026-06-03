@@ -30,14 +30,11 @@ export function useParentTaskWorkspace({ parentId, kids }: UseParentTaskWorkspac
   };
 
   const loadWorkspace = useCallback(async () => {
-    console.log('[useParentTaskWorkspace] loadWorkspace started');
     const today = format(new Date(), 'yyyy-MM-dd');
     const parsedKids = JSON.parse(memoKids) as UserProfile[];
     
     try {
-      console.log('[useParentTaskWorkspace] Fetching family dashboard data...');
       const dashboardData = await dashboardClientService.getFamilyDashboardData(parentId, today);
-      console.log('[useParentTaskWorkspace] dashboardData received:', !!dashboardData);
 
       const taskList = dashboardData.tasks || [];
       
@@ -55,13 +52,10 @@ export function useParentTaskWorkspace({ parentId, kids }: UseParentTaskWorkspac
 
       setTasks(taskList);
       
-      console.log('[useParentTaskWorkspace] Fetching pending completions...');
       const pendingRows = await tasksClientService.getPendingCompletions(parentId).catch(() => []);
-      console.log('[useParentTaskWorkspace] pendingRows received:', pendingRows?.length);
 
       setPendingCompletions((pendingRows || []) as ParentCompletionSummary[]);
       setTodayApprovedCompletions(completedToday);
-      console.log('[useParentTaskWorkspace] loadWorkspace successfully finished');
     } catch (err) {
       console.error('[useParentTaskWorkspace] loadWorkspace caught error:', err);
       throw err;

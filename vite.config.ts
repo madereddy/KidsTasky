@@ -9,6 +9,7 @@ export default defineConfig(({mode}) => {
   return {
     plugins: [react(), tailwindcss()],
     define: {
+      '__BUILD_VERSION__': JSON.stringify(env.VITE_BUILD_VERSION || 'dev-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')),
     },
     resolve: {
       alias: {
