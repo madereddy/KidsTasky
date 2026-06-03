@@ -17,6 +17,18 @@ export const eventsClientService = {
         return res;
       })
       .finally(() => eventsInflight.delete(parentId));
+
+    // Safety timeout to ensure inflight promise doesn't hang the UI forever
+    // fetchAPI has its own 15s timeout, so this is just extra defense
+    const safetyTimeout = setTimeout(() => {
+      if (eventsInflight.get(parentId) === req) {
+        console.warn('[eventsClientService] Safety timeout triggered for inflight request');
+        eventsInflight.delete(parentId);
+      }
+    }, 20000);
+    
+    req.finally(() => clearTimeout(safetyTimeout));
+
     eventsInflight.set(parentId, req);
     return req;
   },
