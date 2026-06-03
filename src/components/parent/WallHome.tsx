@@ -1,20 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { CalendarEvent, UserProfile, Task, TaskCompletion, Homework } from '../../types';
-import { eventsClientService } from '../../services/events';
-import { tasksClientService } from '../../services/tasks';
-import { homeworkClientService } from '../../services/homework';
-import { weatherClientService, DailyForecast, HourlyForecastEntry } from '../../services/weather';
-import { settingsClientService } from '../../services/settings';
+import { CalendarEvent, UserProfile } from '../../types';
+import { HourlyForecastEntry } from '../../services/weather';
 import { FamilyNote } from '../shared/FamilyNote';
 import { WeeklyWeather } from '../calendar/WeeklyWeather';
 import { WeeklyChoreGrid } from '../shared/WeeklyChoreGrid';
 import { DisplayCarousel } from '../shared/DisplayCarousel';
 import { getWeatherInfo } from '../../constants';
-import { toDisplayTemp, TemperatureUnitPref } from '../../lib/dateTimePrefs';
+import { toDisplayTemp } from '../../lib/dateTimePrefs';
 import { useSocketStaleData } from '../../hooks/useSocket';
 import { useDisplayMode } from '../../contexts/DisplayContext';
 import { cn } from '../../lib/utils';
+import { useWallHomeController } from '../../hooks/useWallHomeController';
+import { WallSkeleton } from '../shared/Skeleton';
 
 interface Props {
   parentId: string;
@@ -23,6 +21,7 @@ interface Props {
   memberColorMap: Record<string, string>;
   isLocked: boolean;
   onManage: () => void;
+  settings?: any;
 }
 
 function LiveClock() {
@@ -48,82 +47,27 @@ interface KidProgress {
   done: number;
 }
 
-export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, onManage }: Props) {
+export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, onManage, settings }: Props) {
   const { isWallMode } = useDisplayMode();
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [tasksByKid, setTasksByKid] = useState<Record<string, Task[]>>({});
-  const [completionsByKid, setCompletionsByKid] = useState<Record<string, TaskCompletion[]>>({});
-  const [homework, setHomework] = useState<Homework[]>([]);
-  const [forecast, setForecast] = useState<DailyForecast[]>([]);
-  const [hourlyToday, setHourlyToday] = useState<HourlyForecastEntry[]>([]);
-  const [tempUnit, setTempUnit] = useState<TemperatureUnitPref>('celsius');
-  const [rotationEnabled, setRotationEnabled] = useState(false);
-  const [rotationInterval, setRotationInterval] = useState(30);
-  const [rotationOrder, setRotationOrder] = useState<string[]>(['chores', 'calendar', 'weather']);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
-
-  const today = format(new Date(), 'yyyy-MM-dd');
-  const todayMs = new Date(today).getTime();
-
-  const fetchData = useCallback(async () => {
-    try {
-      setLoadError('');
-      const [evts, hw, settings] = await Promise.all([
-        eventsClientService.getEvents(parentId).catch(() => []),
-        homeworkClientService.getHomework(parentId).catch(() => []),
-        settingsClientService.getSettings(parentId).catch(() => null),
-      ]);
-
-      setEvents(evts);
-      setHomework(hw);
-      if (settings?.temperatureUnit) setTempUnit(settings.temperatureUnit);
-      if (settings?.displayRotationEnabled !== undefined) setRotationEnabled(Boolean(settings.displayRotationEnabled));
-      if (settings?.displayRotationInterval) setRotationInterval(settings.displayRotationInterval);
-      if (settings?.displayRotationOrder) {
-        try { setRotationOrder(JSON.parse(settings.displayRotationOrder)); } catch {}
-      }
-
-      if (settings?.locationLat && settings?.locationLon) {
-        weatherClientService.getForecastWithHourly(settings.locationLat, settings.locationLon)
-          .then((wx) => {
-            setForecast(wx.daily || []);
-            setHourlyToday(wx.hourlyToday || []);
-          }).catch(() => {
-            setForecast([]);
-            setHourlyToday([]);
-          });
-      } else {
-        setForecast([]);
-        setHourlyToday([]);
-      }
-    } catch (e) {
-      console.error('[WallHome] fetchData error', e);
-      setLoadError('Could not load home data.');
-    } finally {
-      setLoading(false);
-    }
-  }, [parentId, kids, today]);
-
-  const fetchKidTaskData = useCallback(async () => {
-    const taskMap: Record<string, Task[]> = {};
-    const compMap: Record<string, TaskCompletion[]> = {};
-    await Promise.allSettled(kids.map(async (kid) => {
-      const [tasks, comps] = await Promise.all([
-        tasksClientService.getTasksForKid(kid.uid).catch(() => []),
-        tasksClientService.getCompletionsForKid(kid.uid, today).catch(() => []),
-      ]);
-      taskMap[kid.uid] = tasks;
-      compMap[kid.uid] = comps;
-    }));
-    setTasksByKid(taskMap);
-    setCompletionsByKid(compMap);
-  }, [kids, today]);
-
-  useEffect(() => {
-    fetchData();
-    void fetchKidTaskData();
-  }, [fetchData, fetchKidTaskData]);
+  const {
+    today,
+    events,
+    tasksByKid,
+    completionsByKid,
+    homework,
+    forecast,
+    hourlyToday,
+    tempUnit,
+    rotationEnabled,
+    rotationInterval,
+    rotationOrder,
+    loading,
+    loadError,
+    fetchFamilyData,
+    fetchKidTaskData,
+    allTasks,
+    allCompletions,
+  } = useWallHomeController({ parentId, kids, initialSettings: settings });
 
   useSocketStaleData(['events', 'homework', 'tasks', 'completions', 'weather', 'settings'], useCallback((data: { entity?: string; type?: string }) => {
     const signal = data.type || data.entity;
@@ -131,8 +75,8 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
       void fetchKidTaskData();
       return;
     }
-    fetchData();
-  }, [fetchData, fetchKidTaskData]));
+    fetchFamilyData();
+  }, [fetchFamilyData, fetchKidTaskData]));
 
   const todayEvents = events
     .filter(e => {
@@ -187,16 +131,8 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
     };
   });
 
-  const allTasks = Object.values(tasksByKid).flat();
-  const allCompletions = Object.values(completionsByKid).flat();
-
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3">
-        <div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
-        {loadError && <button onClick={() => void fetchData()} className="px-3 py-1.5 rounded-lg border border-ui text-sm text-ui-secondary">Retry</button>}
-      </div>
-    );
+    return <WallSkeleton />;
   }
 
   return (
@@ -204,7 +140,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
       {loadError && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 flex items-center justify-between">
           <p className="text-sm text-rose-700">{loadError}</p>
-          <button onClick={() => void fetchData()} className="px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-rose-700 text-xs font-semibold">Retry</button>
+          <button onClick={() => void fetchFamilyData()} className="px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-rose-700 text-xs font-semibold">Retry</button>
         </div>
       )}
       {/* Top strip: clock + weather today */}

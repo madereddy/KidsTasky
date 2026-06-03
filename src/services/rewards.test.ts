@@ -29,4 +29,20 @@ describe('Reward System', () => {
     const id = await rewardService.createReward({ parentId: 'p1', title: 'New', xpCost: 50 });
     expect(id).toBe('new_reward');
   });
+
+  it('should return claimed reward payload and balances when claiming', async () => {
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        claimedReward: { id: 'c1', kidId: 'k1', rewardId: 'r1', createdAt: { seconds: 1 } },
+        balances: { xp: 100, level: 2, spentStars: 10 },
+      })
+    });
+
+    const result = await rewardService.claimReward('k1', 'r1', 0);
+    expect(result).toEqual({
+      claimedReward: { id: 'c1', kidId: 'k1', rewardId: 'r1', createdAt: { seconds: 1 } },
+      balances: { xp: 100, level: 2, spentStars: 10 },
+    });
+  });
 });

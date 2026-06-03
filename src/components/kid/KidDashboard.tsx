@@ -1,12 +1,11 @@
 import { userService } from '../../services/users';
 import { tasksClientService } from '../../services/tasks';
-import { rewardService } from '../../services/rewards';
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Settings, Flame, Trophy, Zap, TrendingUp, Award, Clock, CalendarDays, History, Bell, Star, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { format, startOfToday, isAfter, parse, addHours, subDays, differenceInDays, startOfDay } from 'date-fns';
-import { Task, TaskCompletion, UserProfile, Category, Reward, ClaimedReward, BadgeDef } from '../../types';
-import { cn, parseTimestamp } from '../../lib/utils';
+import { format, startOfToday, subDays } from 'date-fns';
+import { Task, TaskCompletion, UserProfile, Category, BadgeDef } from '../../types';
+import { cn } from '../../lib/utils';
 import { THEMES, XP_REWARDS, BADGE_DEFS } from '../../constants';
 import { xpProgress } from '../../lib/xp';
 import { KidTaskBoard } from './KidTaskBoard';
@@ -17,6 +16,11 @@ import { AvatarDisplay, AvatarPicker } from '../shared/AvatarPicker';
 import { FamilyNote } from '../shared/FamilyNote';
 import { WeeklyChoreGrid } from '../shared/WeeklyChoreGrid';
 import { RewardsShop } from './RewardsShop';
+import { useTaskCompletionController } from '../../hooks/useTaskCompletionController';
+import { useKidProgress } from '../../hooks/useKidProgress';
+import { useKidMilestones } from '../../hooks/useKidMilestones';
+import { useKidRewardsController } from '../../hooks/useKidRewardsController';
+import { KidDashboardSkeleton } from '../shared/Skeleton';
 const CalendarView = lazy(() => import('../calendar/CalendarView').then(m => ({ default: m.CalendarView })));
 const HomeworkView = lazy(() => import('../homework/HomeworkView').then(m => ({ default: m.HomeworkView })));
 
@@ -38,165 +42,114 @@ export function KidDashboard({
   memberColorMap: Record<string, string>
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [completions, setCompletions] = useState<TaskCompletion[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [streak, setStreak] = useState(0);
+  const [loading, setLoading] = useState(true);
   const today = format(startOfToday(), 'yyyy-MM-dd');
-  const [unlockedBadge, setUnlockedBadge] = useState<BadgeDef | null>(null);
   const [sortBy, setSortBy] = useState<'time' | 'created'>('time');
   const [kidView, setKidView] = useState<'tasks' | 'calendar' | 'homework' | 'shop'>('tasks');
   const [taskView, setTaskView] = useState<'all' | 'upforgrabs' | 'assigned'>('all');
   const [showHistory, setShowHistory] = useState(false);
   const [showThemeSelector, setShowThemeSelector] = useState(false);
-  const [rewards, setRewards] = useState<Reward[]>([]);
-  const [claimedRewards, setClaimedRewards] = useState<ClaimedReward[]>([]);
   const [editingAvatar, setEditingAvatar] = useState(false);
   const [localAvatar, setLocalAvatar] = useState<{ preset?: string; url?: string }>({
     preset: profile.avatarPreset,
     url: profile.avatarUrl,
   });
-  
-  // Task Confirmation & Animation
-  const [confirmTask, setConfirmTask] = useState<{
-    taskId: string;
-    count?: number;
-    xpReward: number;
-    taskTitle: string;
-    questions?: string[];
-  } | null>(null);
-  const [proofAnswers, setProofAnswers] = useState<Record<string, string>>({});
-  const [xpAnimation, setXpAnimation] = useState<{amount: number, active: boolean}>({amount: 0, active: false});
-  const [showStarBurst, setShowStarBurst] = useState(false);
-  const [starsAwarded, setStarsAwarded] = useState(0);
-  const [celebrationTick, setCelebrationTick] = useState(0);
-  const [localXp, setLocalXp] = useState(profile.xp || 0);
-  const [pendingTaskKeys, setPendingTaskKeys] = useState<Record<string, boolean>>({});
 
   const currentTheme = THEMES.find(t => t.id === profile.themeId) || THEMES[0];
   const isDarkMode = !!currentTheme.vocab?.darkMode;
   const toneSecondary = currentTheme.vocab?.textSecondary || (isDarkMode ? "text-ui-muted-2" : "text-ui-muted");
 
-  const claimReward = async (rewardId: string, xpCost: number) => {
-    try {
-      await rewardService.claimReward(profile.uid, rewardId, xpCost);
-      setClaimedRewards([...claimedRewards, { id: 'tmp_' + Date.now(), kidId: profile.uid, rewardId, createdAt: Date.now() }]);
-      setLocalXp((prev) => Math.max(0, prev - xpCost));
-      onProfileUpdate();
-    } catch (e) {
-      console.error("Failed to claim reward", e);
-      alert("Could not claim reward. Please try again.");
-    }
-  };
-
   const fetchData = useCallback(async () => {
     try {
-      const [t, c, r, cr] = await Promise.all([
+      setLoading(true);
+      const [t, c] = await Promise.all([
         tasksClientService.getTasksForKid(profile.uid),
         tasksClientService.getCompletionsForKid(profile.uid, today),
-        rewardService.getRewards(profile.parentId!),
-        rewardService.getClaimedRewards(profile.uid)
       ]);
       setTasks(t || []);
       setCompletions(c || []);
-      setRewards(r || []);
-      setClaimedRewards(cr || []);
     } catch (e) {
       console.error("Failed to fetch kid dashboard data", e);
     } finally {
       setLoading(false);
     }
-  }, [profile.uid, profile.parentId, today]);
+  }, [profile.uid, today]);
 
   useSocketStaleData(['tasks', 'completions', 'rewards', 'users'], (data) => {
     fetchData();
+    const signal = data.type || data.entity;
+    if (signal === 'rewards' || signal === 'users') {
+      loadRewards().catch((e) => console.error('Failed refreshing rewards:', e));
+    }
   });
-
-  useEffect(() => {
-    setLocalXp(profile.xp || 0);
-  }, [profile.xp]);
-
-  useEffect(() => {
-    const checkMilestones = async () => {
-      if (loading) return;
-      const earnedIds = (profile.badges || []).map(b => b.id);
-      
-      // First Mission
-      if (!earnedIds.includes('first_mission') && completions.length > 0) {
-        await userService.addBadge(profile.uid, 'first_mission');
-        setUnlockedBadge(BADGE_DEFS['first_mission']);
-        onProfileUpdate();
-      }
-
-      // XP 100
-      if (!earnedIds.includes('xp_100') && localXp >= 100) {
-        await userService.addBadge(profile.uid, 'xp_100');
-        setUnlockedBadge(BADGE_DEFS['xp_100']);
-        onProfileUpdate();
-      }
-
-      // Streak 7
-      if (!earnedIds.includes('streak_7') && streak >= 7) {
-        await userService.addBadge(profile.uid, 'streak_7');
-        setUnlockedBadge(BADGE_DEFS['streak_7']);
-        onProfileUpdate();
-      }
-    };
-    checkMilestones();
-  }, [completions.length, localXp, streak, loading]);
+  const {
+    completions,
+    setCompletions,
+    localXp,
+    setLocalXp,
+    confirmTask,
+    setConfirmTask,
+    proofAnswers,
+    setProofAnswers,
+    xpAnimation,
+    showStarBurst,
+    starsAwarded,
+    celebrationTick,
+    getCompletion,
+    isCompleted,
+    isTaskPending,
+    toggleTask,
+    skipTask,
+    executeCompletion,
+  } = useTaskCompletionController({
+    profile,
+    tasks,
+    today,
+    onProfileUpdate,
+  });
+  const {
+    rewards,
+    claimedRewards,
+    availableStars,
+    loadRewards,
+    claimReward,
+  } = useKidRewardsController({
+    profile,
+    parentId: profile.parentId || profile.uid,
+    kidId: profile.uid,
+    setLocalXp,
+    onProfileUpdate,
+  });
+  const {
+    streak,
+    shouldShowToday,
+    filteredTasks,
+    todayTasks,
+    totalSlots,
+    progressPercent,
+    getUrgency,
+  } = useKidProgress({
+    tasks,
+    completions,
+    profileUid: profile.uid,
+    today,
+    selectedCategoryId,
+    sortBy,
+  });
+  const { unlockedBadge, dismissUnlockedBadge } = useKidMilestones({
+    profile,
+    tasks,
+    completions,
+    localXp,
+    streak,
+    loading,
+    today,
+    onProfileUpdate,
+  });
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  useEffect(() => {
-    const calculateStreak = async () => {
-      if (tasks.length === 0) return;
-      
-      const totalSlots = tasks.reduce((acc: number, task: Task) => acc + (task.frequency === 'twice-daily' ? 2 : 1), 0);
-      if (totalSlots === 0) return;
-
-      const startDate = format(subDays(startOfToday(), 30), 'yyyy-MM-dd');
-      const histCompletions = await tasksClientService.getCompletionsForDateRange(profile.uid, startDate, today);
-      
-      let currentStreak = 0;
-      let checkDate = startOfToday();
-      
-      const compsByDate: Record<string, number> = {};
-      histCompletions.forEach(hc => {
-        compsByDate[hc.dateString] = (compsByDate[hc.dateString] || 0) + 1;
-      });
-
-      // Override today with current local state
-      compsByDate[today] = completions.length;
-
-      for (let i = 0; i < 30; i++) {
-        const ds = format(checkDate, 'yyyy-MM-dd');
-        const compsCount = compsByDate[ds] || 0;
-        
-        if (compsCount >= totalSlots) {
-          currentStreak++;
-        } else if (i > 0) {
-          break;
-        }
-        checkDate = subDays(checkDate, 1);
-      }
-      setStreak(currentStreak);
-
-      // Milestone Check: Elite Striker (10 Hard completions)
-      const earnedIds = (profile.badges || []).map(b => b.id);
-      if (!earnedIds.includes('hard_master')) {
-        const hardTaskIds = tasks.filter((t: Task) => t.difficulty === 'hard').map(t => t.id);
-        const hardCount = histCompletions.filter((hc: TaskCompletion) => hardTaskIds.includes(hc.taskId)).length;
-        if (hardCount >= 5) { // Lowering to 5 for easier demo verification
-          await userService.addBadge(profile.uid, 'hard_master');
-          setUnlockedBadge(BADGE_DEFS['hard_master']);
-          onProfileUpdate();
-        }
-      }
-    };
-
-    calculateStreak();
-  }, [tasks, completions, profile.uid, today]);
 
   const isTaskLocked = (task: Task) => {
     if (!task.prerequisiteTaskIds || task.prerequisiteTaskIds.length === 0) return false;
@@ -209,163 +162,6 @@ export function KidDashboard({
     });
   };
 
-  const completeTaskNow = async (taskId: string, count: number | undefined, xpReward: number, questions: string[], answers: Record<string, string>) => {
-    const key = `${taskId}_${count || 1}`;
-    if (pendingTaskKeys[key]) return;
-    setPendingTaskKeys((prev) => ({ ...prev, [key]: true }));
-    const task = tasks.find(t => t.id === taskId);
-    const stars = task?.starValue ?? 1;
-    try {
-      const proofPayload = questions
-        .map((question, i) => ({ question, answer: String(answers[`q_${i}`] || '').trim() }))
-        .filter((entry) => entry.answer.length > 0);
-      const result = await tasksClientService.completeTask(taskId, profile.uid, today, count, proofPayload.length > 0 ? proofPayload : undefined);
-      if (result && result.created === false) {
-        return;
-      }
-      // XP/stars are awarded server-side in createCompletion. Don't call the
-      // parent-only /xp endpoint here (kids get 403). onProfileUpdate refetches
-      // the authoritative XP. Celebrate + optimistic bump only when the
-      // completion is actually awarded (not awaiting parent approval).
-      const isPending = result?.approvalStatus === 'pending';
-      setCompletions([...completions, {
-        id: `${taskId}_${today}_${count || 1}`,
-        taskId,
-        kidId: profile.uid,
-        completedAt: { seconds: Date.now()/1000 },
-        dateString: today,
-        count,
-        approvalStatus: result?.approvalStatus,
-      }]);
-      if (!isPending) {
-        setXpAnimation({ amount: xpReward, active: true });
-        setStarsAwarded(stars);
-        setShowStarBurst(true);
-        setTimeout(() => setShowStarBurst(false), 1200);
-        setLocalXp((prev) => prev + xpReward);
-        setCelebrationTick((n) => n + 1);
-      }
-      onProfileUpdate();
-    } catch (e) {
-      console.error("Failed to complete task", e);
-      setXpAnimation({ amount: 0, active: false });
-      alert("Could not save completion. Please try again.");
-    } finally {
-      setTimeout(() => {
-        setXpAnimation({ amount: 0, active: false });
-      }, 2500);
-      setPendingTaskKeys((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-    }
-  };
-
-  const toggleTask = async (taskId: string, currentStatus: boolean, count?: number) => {
-    const key = `${taskId}_${count || 1}`;
-    if (pendingTaskKeys[key]) return;
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
-    if (isTaskLocked(task) && !currentStatus) return; // Prevent completion if locked
-
-    const xpReward = XP_REWARDS[task.difficulty || 'easy'];
-
-    if (currentStatus) {
-      setPendingTaskKeys((prev) => ({ ...prev, [key]: true }));
-      // XP was only granted if the completion was actually awarded (approved/none).
-      // Pending/rejected/skipped never earned XP, so don't optimistically deduct.
-      const existing = getCompletion(taskId, count);
-      const xpWasAwarded = !existing?.approvalStatus || existing.approvalStatus === 'approved';
-      try {
-        await tasksClientService.uncompleteTask(taskId, today, count);
-        // Stars + XP revocation handled server-side in deleteCompletion.
-        setCompletions(completions.filter((c: TaskCompletion) => !(c.taskId === taskId && ((c.count ?? 1) === (count ?? 1)))));
-        if (xpWasAwarded) setLocalXp((prev) => Math.max(0, prev - xpReward));
-        onProfileUpdate();
-      } finally {
-        setPendingTaskKeys((prev) => {
-          const next = { ...prev };
-          delete next[key];
-          return next;
-        });
-      }
-    } else {
-      const questions = Array.isArray(task.completionQuestions) ? task.completionQuestions.filter(Boolean) : [];
-      const scopedQuestions = (!task.completionQuestionsKidId || task.completionQuestionsKidId === profile.uid) ? questions : [];
-      if (scopedQuestions.length === 0) {
-        await completeTaskNow(taskId, count, xpReward, [], {});
-        return;
-      }
-      setProofAnswers({});
-      setConfirmTask({ taskId, count, xpReward, taskTitle: task.title, questions: scopedQuestions });
-    }
-  };
-
-  const skipTask = async (taskId: string, count?: number) => {
-    try {
-      await tasksClientService.skipTask(taskId, profile.uid, today, count);
-      setCompletions([...completions, {
-        id: `${taskId}_${today}_${count || 1}`,
-        taskId,
-        kidId: profile.uid,
-        completedAt: { seconds: Date.now() / 1000 },
-        dateString: today,
-        count,
-        approvalStatus: 'skipped'
-      }]);
-    } catch (e) {
-      console.error("Failed to skip task", e);
-      alert("Could not skip task. Please try again.");
-    }
-  };
-
-  const executeCompletion = async () => {
-    if (!confirmTask) return;
-    const { taskId, count, xpReward, questions = [] } = confirmTask;
-    setConfirmTask(null);
-    await completeTaskNow(taskId, count, xpReward, questions, proofAnswers);
-  };
-
-  const sameSlot = (completionCount: number | null | undefined, slotCount: number | undefined) =>
-    (completionCount ?? 1) === (slotCount ?? 1);
-
-  const getCompletion = (taskId: string, count?: number) => {
-    return completions.find((c: TaskCompletion) => c.taskId === taskId && sameSlot(c.count as any, count));
-  };
-
-  const isCompleted = (taskId: string, count?: number) => {
-    return completions.some((c: TaskCompletion) => c.taskId === taskId && sameSlot(c.count as any, count));
-  };
-
-    const shouldShowToday = (task: Task) => {
-    if (task.frequency === 'daily' || task.frequency === 'twice-daily') return true;
-    if (task.frequency === 'weekdays') {
-      const day = new Date().getDay();
-      return day >= 1 && day <= 5;
-    }
-    
-    // For weekly, bi-weekly, custom
-    const createdDate = parseTimestamp(task.createdAt);
-    const daysSinceCreated = differenceInDays(startOfToday(), startOfDay(createdDate));
-    
-    if (task.frequency === 'weekly') return daysSinceCreated % 7 === 0;
-    if (task.frequency === 'bi-weekly') return daysSinceCreated % 14 === 0;
-    if (task.frequency === 'custom' && task.customInterval) return daysSinceCreated % task.customInterval === 0;
-    
-    return false;
-  };
-
-  const filteredTasks = (selectedCategoryId 
-    ? tasks.filter((t: Task) => t.categoryId === selectedCategoryId && shouldShowToday(t))
-    : tasks.filter((t: Task) => shouldShowToday(t))).sort((a: Task, b: Task) => {
-      if (sortBy === 'time') {
-        const timeA = a.reminderTime || '99:99';
-        const timeB = b.reminderTime || '99:99';
-        return timeA.localeCompare(timeB);
-      }
-      return parseTimestamp(b.createdAt).getTime() - parseTimestamp(a.createdAt).getTime();
-    });
   const upForGrabsTasks = filteredTasks.filter((t) => t.assignedKidId === 'all');
   const assignedTasks = filteredTasks.filter((t) => t.assignedKidId !== 'all');
   const taskSections = taskView === 'all'
@@ -384,11 +180,6 @@ export function KidDashboard({
         },
       ];
 
-  const todayTasks = tasks.filter((t: Task) => shouldShowToday(t));
-  const totalSlots = todayTasks.reduce((acc: number, t: Task) => acc + (t.frequency === 'twice-daily' ? 2 : 1), 0);
-  const todayCompletions = completions.filter(c => c.dateString === today);
-  const progressPercent = totalSlots > 0 ? (todayCompletions.length / totalSlots) * 100 : 0;
-
   // RuneScape-style level/progress derived from current XP (not the stored,
   // possibly-stale level column). Harder to level the higher you climb.
   const xpStats = xpProgress(localXp);
@@ -397,19 +188,14 @@ export function KidDashboard({
     onProgressChange(progressPercent);
   }, [progressPercent, onProgressChange]);
 
-  const getUrgency = (task: Task) => {
-    if (!task.reminderTime || isCompleted(task.id)) return 'none';
-    const now = new Date();
-    const reminder = parse(task.reminderTime, 'HH:mm', now);
-    if (isAfter(now, reminder)) return 'overdue';
-    if (isAfter(now, addHours(reminder, -1))) return 'soon';
-    return 'none';
-  };
-
   const handleThemeSelect = async (themeId: string) => {
     await userService.updateUserTheme(profile.uid, themeId);
     onProfileUpdate();
   };
+
+  if (loading) {
+    return <KidDashboardSkeleton />;
+  }
 
   return (
     <div className="space-y-8">
@@ -474,7 +260,7 @@ export function KidDashboard({
               <div className="flex items-center gap-1">
                 <span className="text-amber-400 text-lg">⭐</span>
                 <span className={cn("font-bold text-lg", currentTheme.vocab?.textPrimary || "text-ui-primary")}>
-                  {Math.max(0, (profile.earnedStars ?? 0) - (profile.spentStars ?? 0))}
+                  {availableStars}
                 </span>
                 <span className={cn("text-xs", isDarkMode ? "text-ui-muted-2" : "text-ui-muted-2")}>stars</span>
               </div>
@@ -661,8 +447,9 @@ export function KidDashboard({
           getUrgency={getUrgency}
           isTaskLocked={isTaskLocked}
           isCompleted={isCompleted}
+          isTaskPending={isTaskPending}
           getCompletion={getCompletion}
-          onToggleTask={toggleTask}
+          onToggleTask={(taskId, currentStatus, count) => void toggleTask(taskId, currentStatus, count, isTaskLocked)}
           onSkipTask={skipTask}
         />
       )}
@@ -703,9 +490,9 @@ export function KidDashboard({
           <RewardsShop
             rewards={rewards}
             claimedRewards={claimedRewards}
-            kidXP={profile.xp ?? 0}
-            kidStars={Math.max(0, (profile.earnedStars ?? 0) - (profile.spentStars ?? 0))}
-            onClaim={(rewardId, xpCost) => claimReward(rewardId, xpCost)}
+            kidXP={localXp}
+            kidStars={availableStars}
+            onClaim={(rewardId, xpCost) => void claimReward(rewardId, xpCost)}
           />
         </div>
       )}
@@ -900,7 +687,7 @@ export function KidDashboard({
               <p className="text-ui-primary font-black text-lg leading-tight mb-2">{unlockedBadge.name}</p>
               <p className={cn("text-sm mb-8 leading-relaxed", toneSecondary)}>{unlockedBadge.description}</p>
               <button 
-                onClick={() => setUnlockedBadge(null)}
+                onClick={dismissUnlockedBadge}
                 className="w-full py-4 bg-sky-500 text-white font-bold rounded-2xl hover:bg-sky-400 transition-all active:scale-95"
               >
                 Awesome

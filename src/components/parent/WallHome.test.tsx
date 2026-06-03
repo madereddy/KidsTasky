@@ -12,7 +12,10 @@ vi.mock('../../services/tasks', () => ({
   },
 }));
 vi.mock('../../services/homework', () => ({ homeworkClientService: { getHomework: vi.fn().mockResolvedValue([]) } }));
-vi.mock('../../services/weather', () => ({ weatherClientService: { getForecast: vi.fn().mockResolvedValue([]) } }));
+vi.mock('../../services/dashboard', () => ({
+  dashboardClientService: { getFamilyDashboardData: vi.fn().mockResolvedValue({ tasks: [], completions: [], events: [], homework: [] }) }
+}));
+vi.mock('../../services/weather', () => ({ weatherClientService: { getForecastWithHourly: vi.fn().mockResolvedValue([]) } }));
 vi.mock('../../services/settings', () => ({ settingsClientService: { getSettings: vi.fn().mockResolvedValue(null) } }));
 vi.mock('../../hooks/useSocket', () => ({ useSocketStaleData: vi.fn() }));
 vi.mock('../shared/FamilyNote', () => ({ FamilyNote: () => <div>FamilyNote</div> }));

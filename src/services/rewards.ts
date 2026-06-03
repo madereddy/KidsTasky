@@ -1,7 +1,8 @@
+import { ClaimedReward, Reward } from '../types';
 import { fetchAPI } from './http';
 
 export const rewardService = {
-  async getRewards(parentId: string): Promise<any[]> {
+  async getRewards(parentId: string): Promise<Reward[]> {
     return await fetchAPI('/parents/' + parentId + '/rewards');
   },
 
@@ -17,12 +18,15 @@ export const rewardService = {
     await fetchAPI('/rewards/' + rewardId, { method: "DELETE" });
   },
 
-  async getClaimedRewards(kidId: string): Promise<any[]> {
+  async getClaimedRewards(kidId: string): Promise<ClaimedReward[]> {
     return await fetchAPI('/kids/' + kidId + '/claimedRewards');
   },
 
-  async claimReward(kidId: string, rewardId: string, xpCost: number): Promise<void> {
-    await fetchAPI('/claimedRewards', {
+  async claimReward(kidId: string, rewardId: string, xpCost: number): Promise<{
+    claimedReward: ClaimedReward;
+    balances: { xp: number; level: number; spentStars: number };
+  }> {
+    return await fetchAPI('/claimedRewards', {
       method: "POST",
       body: JSON.stringify({ kidId, rewardId, xpCost })
     });

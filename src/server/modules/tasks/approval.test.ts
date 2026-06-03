@@ -329,6 +329,48 @@ describe('Task Completion Approval', () => {
     ]);
   });
 
+  it('POST /completions returns created=false on duplicate completion instead of re-awarding', async () => {
+    const kidToken = jwt.sign({ uid: kidId, role: 'kid', parentId }, getJwtSecret());
+    db.prepare("INSERT INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, requiresApproval, starValue, difficulty) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      'approval_task_duplicate', 'Morning Routine', 'daily', kidId, parentId, 'active', Date.now(), 0, 2, 'medium'
+    );
+
+    const payload = {
+      taskId: 'approval_task_duplicate',
+      kidId,
+      dateString: '2026-01-10',
+    };
+
+    const firstRes = await request(app)
+      .post('/api/completions')
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send(payload);
+
+    expect(firstRes.status).toBe(200);
+    expect(firstRes.body).toMatchObject({
+      approvalStatus: 'approved',
+      created: true,
+    });
+
+    const secondRes = await request(app)
+      .post('/api/completions')
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send(payload);
+
+    expect(secondRes.status).toBe(200);
+    expect(secondRes.body).toMatchObject({
+      id: firstRes.body.id,
+      approvalStatus: 'approved',
+      created: false,
+    });
+
+    const kid = db.prepare('SELECT earnedStars, xp FROM users WHERE uid = ?').get(kidId) as any;
+    expect(kid.earnedStars).toBe(2);
+    expect(kid.xp).toBe(25);
+    const completionCount = db.prepare("SELECT COUNT(*) as count FROM completions WHERE taskId = 'approval_task_duplicate'").get() as any;
+    expect(completionCount.count).toBe(1);
+  });
+
   it('PATCH /tasks/:taskId updates editable task fields for parent', async () => {
     const createdId = taskServiceServer.createTask({
       title: 'Original',

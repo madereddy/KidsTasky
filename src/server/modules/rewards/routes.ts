@@ -78,8 +78,14 @@ rewardsRouter.post("/claimedRewards", authenticateUser, enforceEditUnlocked, [
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
-    const id = rewardService.claimReward(kidId, rewardId, xpCost);
-    res.json({ id });
+    const result = rewardService.claimReward(kidId, rewardId, xpCost);
+    res.json({
+      claimedReward: {
+        ...result.claimedReward,
+        createdAt: { seconds: result.claimedReward.createdAt / 1000 },
+      },
+      balances: result.balances,
+    });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }

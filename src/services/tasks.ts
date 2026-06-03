@@ -1,5 +1,6 @@
 import { fetchAPI } from './http';
 import { Task, TaskCompletion } from '../types';
+import { buildTaskCompletionId } from '../lib/completion-state';
 
 const TASKS_TTL_MS = 10_000;
 const tasksCache = new Map<string, { value: Task[]; expiresAt: number }>();
@@ -57,7 +58,7 @@ export const tasksClientService = {
   },
 
   async uncompleteTask(taskId: string, dateString: string, count?: number): Promise<void> {
-    const id = taskId + '_' + dateString + '_' + (count || 1);
+    const id = buildTaskCompletionId(taskId, dateString, count);
     await fetchAPI('/completions/' + id, { method: "DELETE" });
   },
 

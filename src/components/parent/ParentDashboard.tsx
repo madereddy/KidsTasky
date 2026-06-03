@@ -1,17 +1,10 @@
 import { fetchAPI } from '../../services/http';
 import { userService } from '../../services/users';
-import { inviteService } from '../../services/invites';
-import { notificationService } from '../../services/notifications';
-import { rewardService } from '../../services/rewards';
-import { syncClientService } from '../../services/sync';
-import { tasksClientService } from '../../services/tasks';
-import { homeworkClientService } from '../../services/homework';
-import { eventsClientService } from '../../services/events';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { ShieldCheck, Bell, Send, CheckCircle2, Copy, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
-import { UserProfile, Invite, Notification, Reward, SyncCalendar } from '../../types';
+import { UserProfile, Notification as AppNotification } from '../../types';
 import { MEMBER_COLORS } from '../../constants';
 import { levelForXp } from '../../lib/xp';
 import { AddKidForm } from './AddKidForm';
@@ -21,6 +14,7 @@ import { ConnectedAccountsView } from './ConnectedAccountsView';
 import { StaleDataEvent, useSocketStaleData } from '../../hooks/useSocket';
 import { FamilyNote } from '../shared/FamilyNote';
 import { AvatarDisplay, AvatarPicker } from '../shared/AvatarPicker';
+import { useParentDashboardController } from '../../hooks/useParentDashboardController';
 
 export function ParentDashboard({
   profile,
@@ -29,75 +23,32 @@ export function ParentDashboard({
 }) {
   const isDarkMode = !!profile.themeId && profile.themeId !== 'light_blue' && profile.themeId !== 'light_green' && profile.themeId !== 'light_rose';
   const toneSecondary = isDarkMode ? 'text-ui-muted-2' : 'text-ui-muted';
-  const [kids, setKids] = useState<UserProfile[]>([]);
-  const [invite, setInvite] = useState<Invite | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [generatingInvite, setGeneratingInvite] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [connections, setConnections] = useState<any[]>([]);
-  const [syncCalendars, setSyncCalendars] = useState<SyncCalendar[]>([]);
-  const [rewards, setRewards] = useState<Reward[]>([]);
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
   const [editingAvatarFor, setEditingAvatarFor] = useState<UserProfile | null>(null);
-  const [todaySummary, setTodaySummary] = useState({ eventsToday: 0, homeworkDue: 0, pendingApprovals: 0, activeChores: 0 });
   const familyId = profile.parentId || profile.uid;
-
-  const fetchData = useCallback(async () => {
-    try {
-      const [k, i, n, r, c, sc] = await Promise.all([
-        userService.getKidsForParent(familyId),
-        inviteService.getActiveInvite(familyId),
-        notificationService.getUnreadNotifications(familyId),
-        rewardService.getRewards(familyId),
-        fetchAPI('/settings/' + familyId + '/connections').catch(() => []),
-        syncClientService.getCalendars(familyId).catch(() => []),
-      ]);
-      setKids(k || []);
-      setInvite(i || null);
-      setNotifications(n || []);
-      setRewards(r || []);
-      setConnections(c || []);
-      setSyncCalendars(sc || []);
-      const today = new Date().toISOString().slice(0, 10);
-      const [events, homework, pending, tasks] = await Promise.all([
-        eventsClientService.getEvents(familyId).catch(() => []),
-        homeworkClientService.getHomework(familyId).catch(() => []),
-        tasksClientService.getPendingCompletions(familyId).catch(() => []),
-        tasksClientService.getTasksForParent(familyId).catch(() => []),
-      ]);
-      setTodaySummary({
-        eventsToday: (events || []).filter((e: any) => new Date(e.startTime).toISOString().slice(0, 10) === today).length,
-        homeworkDue: (homework || []).filter((h: any) => h.status !== 'done' && h.dueDate <= today).length,
-        pendingApprovals: (pending || []).length,
-        activeChores: (tasks || []).filter((t: any) => t.status === 'active').length,
-      });
-    } catch (e) {
-      console.error('Failed to fetch dashboard data:', e);
-    } finally {
-      setLoading(false);
-    }
-  }, [familyId]);
-
-  const refreshNotifications = useCallback(async () => {
-    const n = await notificationService.getUnreadNotifications(familyId);
-    setNotifications(n || []);
-  }, [familyId]);
-
-  const refreshKids = useCallback(async () => {
-    const k = await userService.getKidsForParent(familyId);
-    setKids(k || []);
-  }, [familyId]);
-
-  const refreshConnectionsAndCalendars = useCallback(async () => {
-    const [c, sc] = await Promise.all([
-      fetchAPI('/settings/' + familyId + '/connections').catch(() => []),
-      syncClientService.getCalendars(familyId).catch(() => []),
-    ]);
-    setConnections(c || []);
-    setSyncCalendars(sc || []);
-  }, [familyId]);
+  const {
+    kids,
+    setKids,
+    invite,
+    notifications,
+    loading,
+    generatingInvite,
+    connections,
+    syncCalendars,
+    rewards,
+    todaySummary,
+    fetchData,
+    refreshNotifications,
+    refreshKids,
+    refreshConnectionsAndCalendars,
+    markRead,
+    generateInvite,
+    refreshRewards,
+    handleDisconnect,
+    handleToggleCalendar,
+  } = useParentDashboardController({ familyId });
 
   useSocketStaleData(['all'], (data: StaleDataEvent) => {
     const signal = data.type || data.entity;
@@ -116,58 +67,11 @@ export function ParentDashboard({
     fetchData().catch((e) => console.error('Failed full dashboard refresh:', e));
   });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData, familyId]);
-
-  const markRead = async (id: string) => {
-    await notificationService.markNotificationRead(id);
-    setNotifications(notifications.filter((n: Notification) => n.id !== id));
-  };
-
-  const generateInvite = async () => {
-    setGeneratingInvite(true);
-    await inviteService.createInvite(familyId, profile.name);
-    const updatedInvite = await inviteService.getActiveInvite(familyId);
-    setInvite(updatedInvite);
-    setGeneratingInvite(false);
-  };
-
   const handleCopy = () => {
     if (invite) {
       navigator.clipboard.writeText(invite.id);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const refreshRewards = async () => {
-    const r = await rewardService.getRewards(familyId);
-    setRewards(r || []);
-  };
-
-  const handleDisconnect = async (connId: string) => {
-    try {
-      await fetchAPI('/settings/connections/' + connId, { method: 'DELETE' });
-      setConnections(connections.filter(c => c.id !== connId));
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleToggleCalendar = async (calendarId: string, enabled: boolean) => {
-    const previous = syncCalendars;
-    setSyncCalendars((calendars) =>
-      calendars.map((calendar) =>
-        calendar.id === calendarId ? { ...calendar, enabled } : calendar
-      )
-    );
-    try {
-      await syncClientService.toggleCalendar(calendarId, enabled);
-    } catch (e) {
-      console.error(e);
-      setSyncCalendars(previous);
-      alert('Failed to update calendar sync setting');
     }
   };
 
@@ -224,7 +128,7 @@ export function ParentDashboard({
                         <p className="text-xs text-ui-muted uppercase font-bold">No breaches detected</p>
                       </div>
                     ) : (
-                      notifications.map((n: Notification) => (
+                      notifications.map((n: AppNotification) => (
                         <div key={n.id} className="p-3 bg-white hover:bg-ui-soft rounded-xl border border-ui-soft flex flex-col gap-2 group">
                           <div>
                             <p className="text-[7px] font-black text-amber-600 uppercase mb-0.5">Overdue Objective</p>
@@ -249,7 +153,7 @@ export function ParentDashboard({
           <div className="relative z-10 flex flex-col items-end">
             {!invite ? (
               <button
-                onClick={generateInvite}
+                onClick={() => generateInvite(profile.name)}
                 disabled={generatingInvite}
                 className="bg-sky-500 hover:bg-sky-600 text-white shadow-md border border-sky-600 rounded-2xl transition-all px-6 py-3 font-bold text-xs uppercase tracking-wider"
               >

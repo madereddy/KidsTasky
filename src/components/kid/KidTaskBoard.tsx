@@ -26,6 +26,7 @@ interface Props {
   getUrgency: (task: Task) => Urgency;
   isTaskLocked: (task: Task) => boolean;
   isCompleted: (taskId: string, count?: number) => boolean;
+  isTaskPending: (taskId: string, count?: number) => boolean;
   getCompletion: (taskId: string, count?: number) => TaskCompletion | undefined;
   onToggleTask: (taskId: string, currentStatus: boolean, count?: number) => void;
   onSkipTask: (taskId: string, count?: number) => void;
@@ -44,6 +45,7 @@ export function KidTaskBoard({
   getUrgency,
   isTaskLocked,
   isCompleted,
+  isTaskPending,
   getCompletion,
   onToggleTask,
   onSkipTask,
@@ -61,6 +63,7 @@ export function KidTaskBoard({
               key={`${task.id}-${slot}`}
               task={task}
               isDone={isCompleted(task.id, slot)}
+              isPending={isTaskPending(task.id, slot)}
               completion={getCompletion(task.id, slot)}
               isLocked={locked}
               onToggle={() => onToggleTask(task.id, isCompleted(task.id, slot), slot)}
@@ -81,6 +84,7 @@ export function KidTaskBoard({
         key={task.id}
         task={task}
         isDone={isCompleted(task.id)}
+        isPending={isTaskPending(task.id)}
         completion={getCompletion(task.id)}
         isLocked={locked}
         onToggle={() => onToggleTask(task.id, isCompleted(task.id))}

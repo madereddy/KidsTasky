@@ -27,6 +27,7 @@ export const rewardService = {
   
   claimReward: db.transaction((kidId: string, rewardId: string, _clientXpCost?: number) => {
     const id = "claim_" + randomUUID();
+    const createdAt = Date.now();
 
     const reward = db.prepare("SELECT * FROM rewards WHERE id = ?").get(rewardId) as any;
     if (!reward) {
@@ -48,11 +49,12 @@ export const rewardService = {
       db.prepare("UPDATE users SET spentStars = spentStars + ? WHERE uid = ?").run(reward.starCost, kidId);
     }
 
-    db.prepare("INSERT INTO claimedRewards (id, kidId, rewardId, createdAt) VALUES (?, ?, ?, ?)").run(id, kidId, rewardId, Date.now());
+    db.prepare("INSERT INTO claimedRewards (id, kidId, rewardId, createdAt) VALUES (?, ?, ?, ?)").run(id, kidId, rewardId, createdAt);
 
     const newXP = Math.max(0, (user.xp || 0) - xpCost);
     const newLevel = levelForXp(newXP);
     db.prepare("UPDATE users SET xp = ?, level = ? WHERE uid = ?").run(newXP, newLevel, kidId);
+    const nextSpentStars = (user.spentStars || 0) + (reward?.starCost || 0);
 
     if (reward?.allowanceCents && reward.allowanceCents > 0) {
       const entryId = randomUUID();
@@ -62,7 +64,14 @@ export const rewardService = {
       `).run(entryId, kidId, reward.parentId, rewardId, reward.title, reward.allowanceCents, new Date().toISOString());
     }
 
-    return id;
+    return {
+      claimedReward: { id, kidId, rewardId, createdAt },
+      balances: {
+        xp: newXP,
+        level: newLevel,
+        spentStars: nextSpentStars,
+      },
+    };
   }),
 
   getPendingAllowances: (parentId: string) => {

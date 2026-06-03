@@ -29,14 +29,29 @@ function isCacheValid<T>(entry?: CacheEntry<T> | null): entry is CacheEntry<T> {
   return Boolean(entry && entry.expiresAt > Date.now());
 }
 
+function cacheEntry<T>(value: T, ttlMs: number): CacheEntry<T> {
+  return { value, expiresAt: Date.now() + ttlMs };
+}
+
 function invalidateParentCaches(parentId: string) {
   settingsCache.delete(parentId);
+  settingsInflight.delete(parentId);
   calendarsCache.delete(parentId);
+  calendarsInflight.delete(parentId);
+}
+
+function hydrateBootstrapCaches(parentId: string, bootstrap: SettingsBootstrapResponse) {
+  settingsCache.set(parentId, cacheEntry(bootstrap.settings, SETTINGS_TTL_MS));
+  calendarsCache.set(parentId, cacheEntry(bootstrap.calendars || [], CALENDARS_TTL_MS));
+  visibilityCache = cacheEntry(bootstrap.calendarVisibility || [], VISIBILITY_TTL_MS);
 }
 
 export const settingsClientService = {
   getBootstrap: (parentId: string): Promise<SettingsBootstrapResponse> =>
-    fetchAPI(`/settings/${parentId}/bootstrap`),
+    fetchAPI(`/settings/${parentId}/bootstrap`).then((result) => {
+      hydrateBootstrapCaches(parentId, result);
+      return result;
+    }),
 
   getSettings: (parentId: string): Promise<FamilySettings> => {
     const cached = settingsCache.get(parentId);
@@ -47,7 +62,7 @@ export const settingsClientService = {
 
     const req = fetchAPI(`/settings/${parentId}`)
       .then((result) => {
-        settingsCache.set(parentId, { value: result, expiresAt: Date.now() + SETTINGS_TTL_MS });
+        settingsCache.set(parentId, cacheEntry(result, SETTINGS_TTL_MS));
         return result;
       })
       .finally(() => {
@@ -71,7 +86,7 @@ export const settingsClientService = {
 
     const req = fetchAPI(`/settings/${parentId}/calendars`)
       .then((result) => {
-        calendarsCache.set(parentId, { value: result, expiresAt: Date.now() + CALENDARS_TTL_MS });
+        calendarsCache.set(parentId, cacheEntry(result, CALENDARS_TTL_MS));
         return result;
       })
       .finally(() => {
@@ -82,16 +97,22 @@ export const settingsClientService = {
     return req;
   },
   lockDisplay: (parentId: string): Promise<{ success: boolean }> =>
-    fetchAPI(`/settings/${parentId}/lock`, { method: "POST" }),
+    fetchAPI(`/settings/${parentId}/lock`, { method: "POST" }).then((result) => {
+      invalidateParentCaches(parentId);
+      return result;
+    }),
   unlockDisplay: (parentId: string, pin: string): Promise<{ success: boolean }> =>
-    fetchAPI(`/settings/${parentId}/unlock`, { method: "POST", body: JSON.stringify({ pin }) }),
+    fetchAPI(`/settings/${parentId}/unlock`, { method: "POST", body: JSON.stringify({ pin }) }).then((result) => {
+      invalidateParentCaches(parentId);
+      return result;
+    }),
   getCalendarVisibility: (): Promise<Array<{ calendarId: string; isVisible: number }>> => {
     if (isCacheValid(visibilityCache)) return Promise.resolve(visibilityCache.value);
     if (visibilityInflight) return visibilityInflight;
 
     visibilityInflight = fetchAPI('/settings/visibility')
       .then((result) => {
-        visibilityCache = { value: result, expiresAt: Date.now() + VISIBILITY_TTL_MS };
+        visibilityCache = cacheEntry(result, VISIBILITY_TTL_MS);
         return result;
       })
       .finally(() => {
@@ -106,6 +127,16 @@ export const settingsClientService = {
       body: JSON.stringify({ calendarId, isVisible: isVisible ? 1 : 0 }) 
     }).then((result) => {
       visibilityCache = null;
+      visibilityInflight = null;
       return result;
     }),
 };
+
+export function resetSettingsClientCachesForTests() {
+  settingsCache.clear();
+  settingsInflight.clear();
+  calendarsCache.clear();
+  calendarsInflight.clear();
+  visibilityCache = null;
+  visibilityInflight = null;
+}

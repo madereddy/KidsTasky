@@ -1,9 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { format } from 'date-fns';
+import React, { useState } from 'react';
 import { Grid3x3, List, ShieldCheck } from 'lucide-react';
 import { Task, UserProfile, Category } from '../../types';
 import { cn } from '../../lib/utils';
-import { tasksClientService } from '../../services/tasks';
 import { ParentTaskBoard } from './ParentTaskBoard';
 import { ChoreChart } from './ChoreChart';
 import { AddTaskModal } from './AddTaskModal';
@@ -11,6 +9,7 @@ import { CategoryManager } from './CategoryManager';
 import { HomeworkView } from '../homework/HomeworkView';
 import { MEMBER_COLORS } from '../../constants';
 import { StaleDataEvent, useSocketStaleData } from '../../hooks/useSocket';
+import { useParentTaskWorkspace } from '../../hooks/useParentTaskWorkspace';
 
 interface Props {
   parentId: string;
@@ -31,85 +30,33 @@ export function ParentTasksWorkspace({
   isDarkMode = false,
   onCategoriesChange,
 }: Props) {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [pendingCompletions, setPendingCompletions] = useState<any[]>([]);
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isManagingCategories, setIsManagingCategories] = useState(false);
   const [sortBy, setSortBy] = useState<'time' | 'created'>('created');
   const [taskDisplayMode, setTaskDisplayMode] = useState<'list' | 'chart'>('list');
-  const [todayApprovedCompletions, setTodayApprovedCompletions] = useState<any[]>([]);
-
-  const loadTasks = useCallback(async () => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const [t, pc] = await Promise.all([
-      tasksClientService.getTasksForParent(parentId),
-      tasksClientService.getPendingCompletions(parentId),
-    ]);
-    const completionBuckets = await Promise.all(
-      kids.map(async (kid) => {
-        const rows = await tasksClientService.getCompletionsForKid(kid.uid, today).catch(() => []);
-        return rows.map((row: any) => ({ ...row, kidName: kid.name }));
-      })
-    );
-    const completedToday = completionBuckets
-      .flat()
-      .filter((row: any) => (row.approvalStatus || 'approved') === 'approved')
-      .sort((a: any, b: any) => Number(b.completedAt?.seconds || 0) - Number(a.completedAt?.seconds || 0));
-    setTasks(t || []);
-    setPendingCompletions(pc || []);
-    setTodayApprovedCompletions(completedToday);
-  }, [parentId, kids]);
-
-  useEffect(() => {
-    loadTasks().catch((e) => console.error('Failed loading tasks workspace:', e));
-  }, [loadTasks]);
+  const {
+    tasks,
+    pendingCompletions,
+    todayApprovedCompletions,
+    loadWorkspace,
+    addTask,
+    archiveTask,
+    editTask,
+    approveCompletion,
+    rejectCompletion,
+    undoCompletion,
+  } = useParentTaskWorkspace({
+    parentId,
+    kids,
+  });
 
   useSocketStaleData(['tasks', 'completions'], (data: StaleDataEvent) => {
     const signal = data.type || data.entity;
     if (signal === 'tasks' || signal === 'completions') {
-      loadTasks().catch((e) => console.error('Failed refreshing tasks workspace:', e));
+      loadWorkspace().catch((e) => console.error('Failed refreshing tasks workspace:', e));
     }
   });
-
-  const addTask = async (task: Omit<Task, 'id' | 'createdAt' | 'status'>) => {
-    const payload = task as any;
-    const selectedKidIds: string[] = Array.isArray(payload.assignedKidIds)
-      ? payload.assignedKidIds.filter(Boolean)
-      : [];
-    if (selectedKidIds.length > 1) {
-      await Promise.all(selectedKidIds.map((kidId) => tasksClientService.createTask({ ...payload, assignedKidId: kidId })));
-    } else {
-      await tasksClientService.createTask({ ...payload, assignedKidId: selectedKidIds[0] || payload.assignedKidId });
-    }
-    await loadTasks();
-    setIsAddingTask(false);
-  };
-
-  const archiveTask = async (id: string) => {
-    await tasksClientService.archiveTask(id);
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  const editTask = async (taskId: string, patch: Partial<Task>) => {
-    await tasksClientService.updateTask(taskId, patch);
-    await loadTasks();
-    setEditingTask(null);
-  };
-
-  const approveCompletion = async (id: string) => {
-    await tasksClientService.approveCompletion(id);
-    setPendingCompletions((prev) => prev.filter((c) => c.id !== id));
-  };
-
-  const rejectCompletion = async (id: string) => {
-    await tasksClientService.rejectCompletion(id);
-    setPendingCompletions((prev) => prev.filter((c) => c.id !== id));
-  };
-  const undoCompletion = async (completion: any) => {
-    await tasksClientService.uncompleteTask(completion.taskId, completion.dateString, completion.count ?? undefined);
-    await loadTasks();
-  };
 
   return (
     <div className="space-y-6">
@@ -129,14 +76,14 @@ export function ParentTasksWorkspace({
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => rejectCompletion(comp.id)}
+                    onClick={() => void rejectCompletion(comp.id)}
                     className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
                     title="Reject"
                   >
                     Reject
                   </button>
                   <button
-                    onClick={() => approveCompletion(comp.id)}
+                  onClick={() => void approveCompletion(comp.id)}
                     className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-emerald-600 transition-colors shadow-sm"
                   >
                     Approve
@@ -159,7 +106,7 @@ export function ParentTasksWorkspace({
               <div key={comp.id} className="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 flex justify-between items-center">
                 <div>
                   <p className="text-xs font-black text-emerald-600 uppercase mb-1">{comp.kidName}</p>
-                  <p className="font-bold text-ui-primary text-sm">{tasks.find((t) => t.id === comp.taskId)?.title || comp.taskId}</p>
+                  <p className="font-bold text-ui-primary text-sm">{comp.taskTitle || comp.taskId}</p>
                 </div>
                 <button
                   onClick={() => void undoCompletion(comp)}
@@ -225,7 +172,10 @@ export function ParentTasksWorkspace({
       {isAddingTask && (
         <AddTaskModal
           onClose={() => setIsAddingTask(false)}
-          onSubmit={addTask}
+          onSubmit={async (payload) => {
+            await addTask(payload);
+            setIsAddingTask(false);
+          }}
           kids={kids}
           parentId={parentId}
           categories={categories}
@@ -250,6 +200,7 @@ export function ParentTasksWorkspace({
               completionQuestions: payload.completionQuestions || [],
               completionQuestionsKidId: payload.completionQuestionsKidId || null,
             } as any);
+            setEditingTask(null);
           }}
           kids={kids}
           parentId={parentId}

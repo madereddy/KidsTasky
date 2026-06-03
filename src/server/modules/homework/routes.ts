@@ -5,6 +5,12 @@ import { userService } from '../users/service.js';
 
 export const homeworkRouter = Router();
 
+const serializeHomeworkRow = (row: any) => {
+  let completionQuestions: string[] = [];
+  try { completionQuestions = JSON.parse(row.completionQuestions || '[]'); } catch {}
+  return { ...row, completionQuestions };
+};
+
 // Flat XP awarded when a kid completes a (non-recurring) homework item.
 // Recurring homework is excluded: the server rolls it done -> pending on the
 // same request, so awarding there would let a kid farm XP by re-marking it.
@@ -25,11 +31,7 @@ const nextHomeworkDueDate = (fromDate: string, recurrence: 'none' | 'daily' | 'w
 
 homeworkRouter.get('/parents/:parentId/homework', authenticateUser, assertParentScope, (req, res) => {
   try {
-    const rows = homeworkService.getByParent(req.params.parentId as string).map((row: any) => {
-      let completionQuestions: string[] = [];
-      try { completionQuestions = JSON.parse(row.completionQuestions || '[]'); } catch {}
-      return { ...row, completionQuestions };
-    });
+    const rows = homeworkService.getByParent(req.params.parentId as string).map(serializeHomeworkRow);
     res.json(rows);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -57,7 +59,7 @@ homeworkRouter.post('/homework', authenticateUser, enforceEditUnlocked, (req, re
       completionQuestionsKidId: req.body.completionQuestionsKidId || null,
       completionResponse: null,
     });
-    const created = homeworkService.getById(id);
+    const created = serializeHomeworkRow(homeworkService.getById(id));
     res.json(created);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -110,7 +112,7 @@ homeworkRouter.patch('/homework/:id', authenticateUser, enforceEditUnlocked, (re
     const ok = homeworkService.update(req.params.id as string, parentId, patch);
     if (!ok) return res.status(404).json({ error: 'Homework not found' });
     if (homeworkXpDelta !== 0) userService.addXP(user.uid, homeworkXpDelta);
-    res.json({ success: true });
+    res.json({ success: true, homework: serializeHomeworkRow(homeworkService.getById(req.params.id as string)) });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

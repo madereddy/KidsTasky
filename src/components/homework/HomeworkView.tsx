@@ -1,10 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { Plus, Trash2, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Homework, UserProfile } from '../../types';
-import { homeworkClientService } from '../../services/homework';
+import { UserProfile } from '../../types';
 import { AddHomeworkModal } from './AddHomeworkModal';
+import { useHomeworkController } from '../../hooks/useHomeworkController';
 
 interface Props {
   parentId: string;
@@ -14,51 +14,35 @@ interface Props {
 }
 
 export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props) {
-  const [homework, setHomework] = useState<Homework[]>([]);
   const [showAdd, setShowAdd] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
-  const [actionId, setActionId] = useState<string | null>(null);
-  const [proofPrompt, setProofPrompt] = useState<{ item: Homework; questions: string[] } | null>(null);
-  const [proofAnswers, setProofAnswers] = useState<Record<string, string>>({});
-  const [editingHomework, setEditingHomework] = useState<Homework | null>(null);
-  const [celebrationTick, setCelebrationTick] = useState(0);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setLoadError('');
-    try {
-      const rows = await homeworkClientService.getHomework(parentId);
-      setHomework(rows || []);
-    } catch {
-      setLoadError('Could not load homework right now.');
-    } finally {
-      setLoading(false);
-    }
-  }, [parentId]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const visibleHomework = useMemo(() => {
-    if (userRole === 'parent') return homework;
-    return homework.filter((item) => !item.assignedToId || item.assignedToId === currentUserId);
-  }, [homework, userRole, currentUserId]);
-  const pendingHomework = useMemo(() => visibleHomework.filter((item) => item.status !== 'done'), [visibleHomework]);
-  const completedHomework = useMemo(() => visibleHomework.filter((item) => item.status === 'done'), [visibleHomework]);
-
-  const getActiveQuestions = (item: Homework): string[] => {
-    const questions = Array.isArray(item.completionQuestions) ? item.completionQuestions.filter(Boolean) : [];
-    if (questions.length === 0) return [];
-    if (!item.completionQuestionsKidId) return questions;
-    return item.completionQuestionsKidId === currentUserId ? questions : [];
-  };
-
-  const buildHomeworkResponse = (questions: string[]) =>
-    questions
-      .map((q, i) => ({ question: q, answer: String(proofAnswers[`q_${i}`] || '').trim() }))
-      .filter((pair) => pair.answer.length > 0)
-      .map((pair) => `${pair.question} ${pair.answer}`)
-      .join('\n');
+  const [editingHomework, setEditingHomework] = useState<any | null>(null);
+  const {
+    visibleHomework,
+    pendingHomework,
+    completedHomework,
+    loading,
+    loadError,
+    load,
+    proofPrompt,
+    setProofPrompt,
+    proofAnswers,
+    setProofAnswers,
+    celebrationTick,
+    isHomeworkPending,
+    getHomeworkCompletionState,
+    getAssigneeName,
+    handleHomeworkToggle,
+    updateHomeworkStatus,
+    submitProofPrompt,
+    deleteHomework,
+    createHomework,
+    editHomework,
+  } = useHomeworkController({
+    parentId,
+    kids,
+    userRole,
+    currentUserId,
+  });
 
   return (
     <div className="rounded-2xl border border-ui bg-white p-4 space-y-3">
@@ -82,8 +66,9 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
           </div>
         )}
         {(userRole === 'kid' ? pendingHomework : visibleHomework).map((item) => {
-          const isOverdue = item.status !== 'done' && isBefore(new Date(item.dueDate), startOfDay(new Date()));
-          const assignee = item.assignedToId ? kids.find((kid) => kid.uid === item.assignedToId)?.name || 'Assigned' : 'All kids';
+          const completionState = getHomeworkCompletionState(item);
+          const isOverdue = completionState !== 'done' && isBefore(new Date(item.dueDate), startOfDay(new Date()));
+          const assignee = getAssigneeName(item);
           return (
             <div key={item.id} className={`border rounded-xl p-3 flex items-center justify-between gap-3 ${userRole === 'kid' ? 'border-2 border-ui-soft shadow-sm bg-white' : 'border-ui'}`}>
               <div>
@@ -99,39 +84,23 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
               </div>
               <div className={`flex items-center gap-2 ${userRole === 'kid' ? 'min-w-[180px] justify-end' : ''}`}>
                 <button
-                  onClick={async () => {
-                    try {
-                      const nextStatus = item.status === 'done' ? 'pending' : 'done';
-                      const questions = nextStatus === 'done' && userRole === 'kid' ? getActiveQuestions(item) : [];
-                      if (questions.length > 0 && nextStatus === 'done') {
-                        setProofAnswers({});
-                        setProofPrompt({ item, questions });
-                        return;
-                      }
-                      setActionId(item.id);
-                      await homeworkClientService.updateHomework(item.id, { status: nextStatus, completionResponse: null });
-                      if (nextStatus === 'done') setCelebrationTick((n) => n + 1);
-                      await load();
-                    } finally {
-                      setActionId(null);
-                    }
-                  }}
-                  disabled={actionId === item.id}
+                  onClick={() => void handleHomeworkToggle(item)}
+                  disabled={isHomeworkPending(item.id)}
                   className={`rounded-xl text-xs font-bold uppercase tracking-wide border ${
                     userRole === 'kid' ? 'px-4 py-3 min-w-[150px]' : 'px-3 py-1'
                   } ${
-                    item.status === 'done'
+                    completionState === 'done'
                       ? 'bg-rose-50 border-rose-200 text-rose-700'
                       : 'bg-emerald-50 border-emerald-200 text-emerald-700'
                   }`}
                 >
-                  {actionId === item.id ? 'Saving...' : (item.status === 'done' ? 'Undo Completion' : 'Mark Done')}
+                  {isHomeworkPending(item.id) ? 'Saving...' : (completionState === 'done' ? 'Undo Completion' : 'Mark Done')}
                 </button>
                 {userRole === 'parent' && (
                   <>
                     <button
                       onClick={() => setEditingHomework(item)}
-                      disabled={actionId === item.id}
+                      disabled={isHomeworkPending(item.id)}
                       className="p-2 rounded-lg text-blue-600 hover:bg-blue-50"
                       aria-label={`Edit homework ${item.title}`}
                     >
@@ -140,15 +109,9 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
                     <button
                       onClick={async () => {
                         if (typeof window !== 'undefined' && !window.confirm('Are you sure you want to delete this homework item?')) return;
-                        try {
-                          setActionId(item.id);
-                          await homeworkClientService.deleteHomework(item.id);
-                          await load();
-                        } finally {
-                          setActionId(null);
-                        }
+                        await deleteHomework(item.id);
                       }}
-                      disabled={actionId === item.id}
+                      disabled={isHomeworkPending(item.id)}
                       className="p-2 rounded-lg text-rose-600 hover:bg-rose-50"
                     >
                       <Trash2 size={14} />
@@ -169,19 +132,11 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
                   <p className="text-xs text-emerald-700">Completed</p>
                 </div>
                 <button
-                  onClick={async () => {
-                    try {
-                      setActionId(item.id);
-                      await homeworkClientService.updateHomework(item.id, { status: 'pending' });
-                      await load();
-                    } finally {
-                      setActionId(null);
-                    }
-                  }}
-                  disabled={actionId === item.id}
+                  onClick={() => void updateHomeworkStatus(item, 'pending')}
+                  disabled={isHomeworkPending(item.id)}
                   className="px-4 py-3 min-w-[150px] rounded-xl text-xs font-bold uppercase tracking-wide border bg-rose-50 border-rose-200 text-rose-700"
                 >
-                  {actionId === item.id ? 'Saving...' : 'Undo Completion'}
+                  {isHomeworkPending(item.id) ? 'Saving...' : 'Undo Completion'}
                 </button>
               </div>
             ))}
@@ -194,8 +149,8 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
           kids={kids}
           onClose={() => setShowAdd(false)}
           onSubmit={async (payload) => {
-            await homeworkClientService.createHomework({ ...payload, parentId, status: 'pending' });
-            await load();
+            await createHomework({ ...payload, parentId, status: 'pending' });
+            setShowAdd(false);
           }}
         />
       )}
@@ -217,8 +172,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
           }}
           onClose={() => setEditingHomework(null)}
           onSubmit={async (payload) => {
-            await homeworkClientService.updateHomework(editingHomework.id, payload);
-            await load();
+            await editHomework(editingHomework.id, payload);
             setEditingHomework(null);
           }}
         />
@@ -242,18 +196,8 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
               <button onClick={() => setProofPrompt(null)} className="flex-1 py-2 rounded-xl bg-ui-soft-2 text-ui-secondary font-semibold">Cancel</button>
               <button
                 onClick={async () => {
-                  const response = buildHomeworkResponse(proofPrompt.questions);
-                  if (!response.trim()) return;
-                  setActionId(proofPrompt.item.id);
-                  try {
-                    await homeworkClientService.updateHomework(proofPrompt.item.id, { status: 'done', completionResponse: response });
-                    setCelebrationTick((n) => n + 1);
-                    setProofPrompt(null);
-                    setProofAnswers({});
-                    await load();
-                  } finally {
-                    setActionId(null);
-                  }
+                  await submitProofPrompt();
+                  setProofPrompt(null);
                 }}
                 className="flex-1 py-2 rounded-xl bg-blue-500 text-white font-semibold"
               >

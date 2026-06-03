@@ -16,6 +16,8 @@ import { cn } from './lib/utils';
 import { THEMES, MEMBER_COLORS } from './constants';
 import { initSocket, useSocketStaleData } from './hooks/useSocket';
 import { useSleepMode } from './hooks/useSleepMode';
+import { useProfileSwitchController } from './hooks/useProfileSwitchController';
+import { useProfileDataLoader } from './hooks/useProfileDataLoader';
 import { DisplayContext } from './contexts/DisplayContext';
 import { FamilyDataContext } from './contexts/FamilyDataContext';
 
@@ -26,6 +28,7 @@ import { LoginView } from './components/auth/LoginView';
 import { OnboardingView } from './components/onboarding/OnboardingView';
 import { WallHome } from './components/parent/WallHome';
 import { KidDashboard } from './components/kid/KidDashboard';
+import { Skeleton, WallSkeleton } from './components/shared/Skeleton';
 
 const lazyWithRetry = <T extends React.ComponentType<any>>(
   importer: () => Promise<{ default: T }>,
@@ -79,6 +82,7 @@ function runIdle(task: () => void) {
 export default function App() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [familySettings, setFamilySettings] = useState<any>(null);
   const [parentSession, setParentSession] = useState<{ token: string; user: AppUser; profile: UserProfile } | null>(null);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
@@ -98,13 +102,6 @@ export default function App() {
   const [initError, setInitError] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [screensaverPreview, setScreensaverPreview] = useState(false);
-  const [showProfileSwitcher, setShowProfileSwitcher] = useState(false);
-  const [pendingKidSwitch, setPendingKidSwitch] = useState<UserProfile | null>(null);
-  const [kidSwitchPin, setKidSwitchPin] = useState('');
-  const [showParentSwitchPin, setShowParentSwitchPin] = useState(false);
-  const [parentSwitchPin, setParentSwitchPin] = useState('');
-  const [switchError, setSwitchError] = useState('');
-  const [switchingProfileLabel, setSwitchingProfileLabel] = useState('');
   const kidsRef = useRef<UserProfile[]>([]);
 
   useEffect(() => {
@@ -120,32 +117,18 @@ export default function App() {
     sessionStorage.setItem(PARENT_SESSION_KEY, JSON.stringify(session));
   }, []);
 
-  const loadProfileData = useCallback(async (u: UserProfile, options?: { fastKidSwitch?: boolean }) => {
-    const parentId = u.parentId || u.uid;
-    if (!parentId) return;
-    initSocket(parentId);
-    const [cats, familyKids, settings] = await Promise.all([
-      categoryService.getCategories(parentId).catch(() => []),
-      options?.fastKidSwitch && u.role === 'kid'
-        ? Promise.resolve(kidsRef.current)
-        : userService.getKidsForParent(parentId).catch(() => []),
-      u.role === 'parent'
-        ? settingsClientService.getSettings(parentId).catch(() => null)
-        : Promise.resolve(null),
-    ]);
-    setCategories(cats || []);
-    if (familyKids && familyKids.length > 0) setKids(familyKids || []);
-    if (u.role === 'parent') {
-      setIsLocked(Boolean(settings?.isLocked));
-      setSleepStart(settings?.sleepStart);
-      setSleepEnd(settings?.sleepEnd);
-      if (settings?.screensaverShuffle !== undefined) setScreensaverShuffle(Boolean(settings.screensaverShuffle));
-      if (settings?.screensaverDurationSec) setScreensaverDurationSec(settings.screensaverDurationSec);
-      if (settings?.screensaverCaptions !== undefined) setScreensaverCaptions(settings.screensaverCaptions !== false);
-    } else {
-      setIsLocked(false);
-    }
-  }, []);
+  const { loadProfileData } = useProfileDataLoader({
+    kidsRef,
+    initSocket,
+    setCategories,
+    setKids,
+    setIsLocked,
+    setSleepStart,
+    setSleepEnd,
+    setScreensaverShuffle,
+    setScreensaverDurationSec,
+    setScreensaverCaptions,
+  });
 
   const warmProfile = useCallback((u: UserProfile) => {
     const parentId = u.parentId || u.uid;
@@ -188,9 +171,10 @@ export default function App() {
             setUser({ uid: u.uid, name: u.name, email: u.email });
             setProfile(u);
             if (u.role === 'kid') {
-              void loadProfileData(u, { fastKidSwitch: true });
+              void loadProfileData(u, { fastKidSwitch: true }).then(setFamilySettings);
             } else {
-              await loadProfileData(u);
+              const settings = await loadProfileData(u);
+              setFamilySettings(settings);
             }
             if (u.role === 'parent') {
               persistParentSession({ token: storedToken, user: { uid: u.uid, name: u.name, email: u.email }, profile: u });
@@ -217,49 +201,34 @@ export default function App() {
     setProfile(null);
   };
 
-  const switchToKidProfile = useCallback(async (kid: UserProfile, pin: string) => {
-    if (!profile || !user) return;
-    const parentToken = localStorage.getItem('kidtasker_token') || '';
-    if (profile.role === 'parent' && parentToken) {
-      persistParentSession({ token: parentToken, user, profile });
-    }
-    setSwitchingProfileLabel(`Switching to ${kid.name}...`);
-    const res = await authService.signInKid(kid.uid, pin);
-    if (!res) throw new Error('Invalid Access Key');
-    const { user: next, token } = res;
-    localStorage.setItem('kidtasker_token', token);
-    setUser({ uid: next.uid, name: next.name, email: next.email });
-    setProfile(next);
-    setShowProfileSwitcher(false);
-    setPendingKidSwitch(null);
-    setKidSwitchPin('');
-    setSwitchError('');
-    // Make kid switch feel instant; hydrate shared data in background.
-    void loadProfileData(next, { fastKidSwitch: true });
-    warmProfile(next);
-    setSwitchingProfileLabel('');
-  }, [loadProfileData, persistParentSession, profile, user, warmProfile]);
-
-  const switchToParentProfile = useCallback(async (pin: string) => {
-    if (!parentSession) throw new Error('No parent session available');
-    const parentId = parentSession.profile.parentId || parentSession.profile.uid;
-    if (!parentId) throw new Error('Invalid parent session');
-    setSwitchingProfileLabel('Switching to parent...');
-    await settingsClientService.unlockDisplay(parentId, pin);
-    localStorage.setItem('kidtasker_token', parentSession.token);
-    const refreshed = await authService.getMe(parentSession.token);
-    const next = refreshed && refreshed.role === 'parent' ? refreshed : parentSession.profile;
-    setUser({ uid: next.uid, name: next.name, email: next.email });
-    setProfile(next);
-    setShowParentSwitchPin(false);
-    setParentSwitchPin('');
-    setSwitchError('');
-    setShowProfileSwitcher(false);
-    setIsLocked(false);
-    await loadProfileData(next);
-    warmProfile(next);
-    setSwitchingProfileLabel('');
-  }, [loadProfileData, parentSession, warmProfile]);
+  const {
+    showProfileSwitcher,
+    setShowProfileSwitcher,
+    pendingKidSwitch,
+    setPendingKidSwitch,
+    kidSwitchPin,
+    setKidSwitchPin,
+    showParentSwitchPin,
+    setShowParentSwitchPin,
+    parentSwitchPin,
+    setParentSwitchPin,
+    switchError,
+    setSwitchError,
+    switchingProfileLabel,
+    setSwitchingProfileLabel,
+    switchToKidProfile,
+    switchToParentProfile,
+  } = useProfileSwitchController({
+    profile,
+    user,
+    parentSession,
+    persistParentSession,
+    loadProfileData,
+    warmProfile,
+    setUser: (next) => setUser(next),
+    setProfile: (next) => setProfile(next),
+    setIsLocked,
+  });
 
 
   const refreshCategories = useCallback(async () => {
@@ -394,12 +363,20 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-ui-soft flex items-center justify-center">
-        <motion.div
-          animate={{ scale: [1, 1.2, 1], rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          className="w-16 h-16 border-4 border-sky-500 border-t-transparent rounded-full"
-        />
+      <div className="min-h-screen bg-ui-soft p-6">
+        <div className="max-w-7xl mx-auto">
+          <header className="h-16 mb-8 rounded-[2rem] bg-white/80 border border-ui flex items-center px-6 justify-between">
+            <div className="flex items-center gap-3">
+              <Skeleton className="w-10 h-10 rounded-xl" />
+              <Skeleton className="w-32 h-6" />
+            </div>
+            <div className="flex gap-4">
+              <Skeleton className="w-10 h-10 rounded-full" />
+              <Skeleton className="w-10 h-10 rounded-full" />
+            </div>
+          </header>
+          <WallSkeleton />
+        </div>
       </div>
     );
   }
@@ -708,6 +685,7 @@ export default function App() {
                 memberColorMap={memberColorMap}
                 isLocked={isLocked}
                 onManage={() => setActiveSection('manage')}
+                settings={familySettings}
               />
             </motion.div>
           )}

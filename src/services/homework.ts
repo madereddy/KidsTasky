@@ -27,7 +27,7 @@ export const homeworkClientService = {
       return res;
     });
   },
-  updateHomework(id: string, data: Partial<Homework>): Promise<{ success: boolean }> {
+  updateHomework(id: string, data: Partial<Homework>): Promise<{ success: boolean; homework?: Homework }> {
     return fetchAPI(`/homework/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((res) => {
       homeworkCache.clear();
       homeworkInflight.clear();

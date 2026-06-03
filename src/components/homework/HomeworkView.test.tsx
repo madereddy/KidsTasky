@@ -69,6 +69,52 @@ describe('HomeworkView permissions UX', () => {
     await waitFor(() => expect(updateHomework).toHaveBeenCalledWith('h1', { status: 'done', completionResponse: null }));
   });
 
+  it('persists done -> refresh -> undo -> refresh for kid homework', async () => {
+    const baseRows = [
+      {
+        id: 'h1',
+        parentId: 'p1',
+        title: 'Math',
+        subject: 'Math',
+        dueDate: '2026-06-20',
+        assignedToId: 'k1',
+        status: 'pending',
+        color: '#6366f1',
+        createdAt: Date.now(),
+      },
+    ];
+    let rows = baseRows.map((item) => ({ ...item }));
+
+    getHomework.mockImplementation(async () => rows);
+    updateHomework.mockImplementation(async (id: string, patch: any) => {
+      rows = rows.map((item) => (item.id === id ? { ...item, ...patch } : item));
+      return { success: true };
+    });
+
+    const renderView = () => render(<HomeworkView parentId="p1" kids={kids} userRole="kid" currentUserId="k1" />);
+
+    const firstRender = renderView();
+    expect(await screen.findByText('Math')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Mark Done/i }));
+    expect(await screen.findByRole('button', { name: /Undo Completion/i })).toBeInTheDocument();
+    expect(screen.getAllByText('Completed').length).toBeGreaterThan(0);
+
+    firstRender.unmount();
+
+    const secondRender = renderView();
+    expect(await screen.findByRole('button', { name: /Undo Completion/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Undo Completion/i }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /Mark Done/i })).toBeInTheDocument());
+
+    secondRender.unmount();
+
+    renderView();
+    expect(await screen.findByRole('button', { name: /Mark Done/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Undo Completion/i })).not.toBeInTheDocument();
+  });
+
   it('prompts for follow-up answers when homework has verification questions', async () => {
     getHomework.mockResolvedValueOnce([
       {

@@ -20,6 +20,7 @@ import { flagsRouter } from './modules/flags/routes.js';
 import { notesRouter } from './modules/notes/routes.js';
 import { homeworkRouter } from './modules/homework/routes.js';
 import { proofTemplatesRouter } from './modules/proofTemplates/routes.js';
+import { dashboardRouter } from './modules/dashboard/routes.js';
 
 const router = Router();
 
@@ -85,6 +86,7 @@ router.use(flagsRouter);
 router.use(notesRouter);
 router.use(homeworkRouter);
 router.use(proofTemplatesRouter);
+router.use(dashboardRouter);
 
 export const apiRouter = router;
 

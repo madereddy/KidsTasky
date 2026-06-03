@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { format, startOfWeek, addWeeks, subWeeks, addDays, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, Plus, Trash2, UtensilsCrossed } from 'lucide-react';
-import { mealsClientService, MealPlanWithRecipe } from '../../services/meals';
 import { Recipe } from '../../types';
 import { RecipeFormModal } from './RecipeFormModal';
 import { cn } from '../../lib/utils';
+import { useMealPlanController } from '../../hooks/useMealPlanController';
 
 const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
 
@@ -12,50 +12,20 @@ interface Props { parentId: string; }
 
 export function MealPlanView({ parentId }: Props) {
   const [currentWeek, setCurrentWeek] = useState(new Date());
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [mealPlans, setMealPlans] = useState<MealPlanWithRecipe[]>([]);
   const [pickerCell, setPickerCell] = useState<{ date: string; mealType: string } | null>(null);
   const [showRecipeForm, setShowRecipeForm] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
-  const [deletingRecipe, setDeletingRecipe] = useState<string | null>(null);
-
+  const {
+    recipes,
+    deletingRecipe,
+    addRecipe,
+    deleteRecipe,
+    assignMeal,
+    getMeal,
+  } = useMealPlanController({ parentId, currentWeek });
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-  const weekStartStr = format(weekStart, 'yyyy-MM-dd');
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = new Date();
-
-  const fetchRecipes = useCallback(async () => {
-    const r = await mealsClientService.getRecipes(parentId);
-    setRecipes(r || []);
-  }, [parentId]);
-
-  const fetchMealPlans = useCallback(async () => {
-    const p = await mealsClientService.getMealPlans(parentId, weekStartStr);
-    setMealPlans(p || []);
-  }, [parentId, weekStartStr]);
-
-  useEffect(() => { fetchRecipes(); }, [fetchRecipes]);
-  useEffect(() => { fetchMealPlans(); }, [fetchMealPlans]);
-
-  const getMeal = (date: string, mealType: string) =>
-    mealPlans.find(m => m.date === date && m.mealType === mealType);
-
-  const assignMeal = async (date: string, mealType: string, recipeId: string | null) => {
-    await mealsClientService.setMealPlan(parentId, date, mealType, recipeId);
-    setPickerCell(null);
-    fetchMealPlans();
-  };
-
-  const deleteRecipe = async (id: string) => {
-    setDeletingRecipe(id);
-    try {
-      await mealsClientService.deleteRecipe(id);
-      if (selectedRecipe?.id === id) setSelectedRecipe(null);
-      fetchRecipes();
-    } finally {
-      setDeletingRecipe(null);
-    }
-  };
 
   return (
     <div className="space-y-6" onClick={() => setPickerCell(null)}>
@@ -135,7 +105,7 @@ export function MealPlanView({ parentId }: Props) {
                               <p className="text-[10px] font-bold uppercase text-ui-muted-2 px-2 pb-1">Pick recipe</p>
                               <div className="max-h-40 overflow-y-auto space-y-0.5">
                                 {recipes.map(r => (
-                                  <button key={r.id} onClick={() => assignMeal(dateStr, mealType, r.id)}
+                                  <button key={r.id} onClick={() => { void assignMeal(dateStr, mealType, r.id); setPickerCell(null); }}
                                     className="w-full text-left px-2 py-1.5 text-xs font-semibold hover:bg-blue-50 rounded-lg truncate">
                                     {r.name}
                                   </button>
@@ -143,7 +113,7 @@ export function MealPlanView({ parentId }: Props) {
                                 {recipes.length === 0 && <p className="text-xs text-ui-muted-2 px-2 py-1">No recipes yet</p>}
                               </div>
                               {meal && (
-                                <button onClick={() => assignMeal(dateStr, mealType, null)}
+                                <button onClick={() => { void assignMeal(dateStr, mealType, null); setPickerCell(null); }}
                                   className="w-full text-left px-2 py-1.5 text-xs text-rose-500 hover:bg-rose-50 rounded-lg mt-1 font-semibold">
                                   Clear
                                 </button>
@@ -189,7 +159,7 @@ export function MealPlanView({ parentId }: Props) {
                         <p className="text-sm font-semibold text-ui-primary truncate">{r.name}</p>
                         <p className="text-[10px] text-ui-muted-2 font-medium mt-0.5">{ings.length} ingredient{ings.length !== 1 ? 's' : ''}</p>
                       </div>
-                      <button onClick={e => { e.stopPropagation(); if (confirm(`Delete "${r.name}"?`)) deleteRecipe(r.id); }}
+                      <button onClick={e => { e.stopPropagation(); if (confirm(`Delete "${r.name}"?`)) { void deleteRecipe(r.id); if (selectedRecipe?.id === r.id) setSelectedRecipe(null); } }}
                         disabled={deletingRecipe === r.id}
                         className="p-1.5 text-ui-muted-2 hover:text-rose-500 transition-colors ml-2">
                         <Trash2 size={14} />
@@ -214,7 +184,7 @@ export function MealPlanView({ parentId }: Props) {
       </div>
 
       {showRecipeForm && (
-        <RecipeFormModal parentId={parentId} onClose={() => setShowRecipeForm(false)} onCreated={fetchRecipes} />
+        <RecipeFormModal parentId={parentId} onClose={() => setShowRecipeForm(false)} onCreated={addRecipe} />
       )}
     </div>
   );

@@ -268,4 +268,71 @@ describe('Homework API', () => {
     expect(list.body[0].recurrence).toBe('weekdays');
     vi.useRealTimers();
   });
+
+  it('returns the updated homework payload for kid completion with proof response', async () => {
+    const create = await request(app)
+      .post('/api/homework')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        title: 'Workbook',
+        subject: 'Math',
+        dueDate: '2026-06-01',
+        color: '#6366f1',
+        assignedToId: kidA,
+        completionQuestions: ['What pages?'],
+        completionQuestionsKidId: kidA,
+      });
+    const id = create.body.id as string;
+
+    const patch = await request(app)
+      .patch(`/api/homework/${id}`)
+      .set('Authorization', `Bearer ${kidAToken}`)
+      .send({ status: 'done', completionResponse: 'What pages? 10-20' });
+
+    expect(patch.status).toBe(200);
+    expect(patch.body).toMatchObject({
+      success: true,
+      homework: expect.objectContaining({
+        id,
+        status: 'done',
+        completionResponse: 'What pages? 10-20',
+        completionQuestions: ['What pages?'],
+      }),
+    });
+  });
+
+  it('returns the rolled-forward recurring homework payload when done is submitted', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-29T10:00:00.000Z'));
+    const create = await request(app)
+      .post('/api/homework')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        title: 'Reading',
+        subject: 'English',
+        dueDate: '2026-05-29',
+        color: '#6366f1',
+        recurrence: 'daily',
+        assignedToId: kidA,
+      });
+    const id = create.body.id as string;
+
+    const patch = await request(app)
+      .patch(`/api/homework/${id}`)
+      .set('Authorization', `Bearer ${kidAToken}`)
+      .send({ status: 'done', completionResponse: 'Finished chapter 4' });
+
+    expect(patch.status).toBe(200);
+    expect(patch.body).toMatchObject({
+      success: true,
+      homework: expect.objectContaining({
+        id,
+        status: 'pending',
+        dueDate: '2026-05-30',
+        recurrence: 'daily',
+        completionResponse: 'Finished chapter 4',
+      }),
+    });
+    vi.useRealTimers();
+  });
 });

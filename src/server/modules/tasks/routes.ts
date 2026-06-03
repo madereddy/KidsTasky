@@ -151,7 +151,7 @@ tasksRouter.post("/completions", authenticateUser, enforceEditUnlocked, [
       ...req.body,
       proofAnswers: Array.isArray(req.body?.proofAnswers) ? req.body.proofAnswers : undefined,
     });
-    res.json({ id: result.id, approvalStatus: result.approvalStatus });
+    res.json({ id: result.id, approvalStatus: result.approvalStatus, created: result.created });
   } catch (error: any) {
     console.error('[tasks:complete]', error);
     res.status(500).json({ error: error.message });

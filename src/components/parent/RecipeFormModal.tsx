@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { mealsClientService } from '../../services/meals';
 import { useDialogA11y } from '../../hooks/useDialogA11y';
+import { Recipe } from '../../types';
 
 interface Props {
   parentId: string;
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (recipe: Recipe) => void;
 }
 
 export function RecipeFormModal({ parentId, onClose, onCreated }: Props) {
@@ -25,8 +26,8 @@ export function RecipeFormModal({ parentId, onClose, onCreated }: Props) {
     const filtered = ingredients.filter(s => s.trim());
     setSaving(true);
     try {
-      await mealsClientService.createRecipe(parentId, name.trim(), filtered);
-      onCreated();
+      const recipe = await mealsClientService.createRecipe(parentId, name.trim(), filtered);
+      onCreated(recipe);
       onClose();
     } finally {
       setSaving(false);

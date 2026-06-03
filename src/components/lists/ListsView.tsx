@@ -1,72 +1,52 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Plus, Trash2, Clipboard, ClipboardCheck } from 'lucide-react';
-import { listsClientService } from '../../services/lists';
-import { AppList, AppListItem } from '../../types';
 import { ListSidebar } from './ListSidebar';
 import { cn } from '../../lib/utils';
+import { useListsController } from '../../hooks/useListsController';
 
 interface Props {
   parentId: string;
 }
 
 export function ListsView({ parentId }: Props) {
-  const [lists, setLists] = useState<AppList[]>([]);
-  const [selectedListId, setSelectedListId] = useState<string | null>(null);
-  const [items, setItems] = useState<AppListItem[]>([]);
   const [newListTitle, setNewListTitle] = useState('');
   const [copied, setCopied] = useState(false);
-
-  const fetchLists = useCallback(async () => {
-    const l = await listsClientService.getLists(parentId);
-    setLists(l || []);
-    if (l && l.length > 0 && !selectedListId) {
-      setSelectedListId(l[0].id);
-    }
-  }, [parentId]);
-
-  const fetchItems = useCallback(async () => {
-    if (!selectedListId) { setItems([]); return; }
-    const i = await listsClientService.getItems(selectedListId);
-    setItems(i || []);
-  }, [selectedListId]);
-
-  useEffect(() => { fetchLists(); }, [fetchLists]);
-  useEffect(() => { fetchItems(); }, [fetchItems]);
+  const {
+    lists,
+    items,
+    selectedList,
+    selectedListId,
+    setSelectedListId,
+    createList,
+    deleteList,
+    addItem,
+    toggleItem,
+    deleteItem,
+  } = useListsController({ parentId });
 
   const handleCreateList = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newListTitle.trim()) return;
-    const list = await listsClientService.createList(newListTitle.trim());
+    await createList(newListTitle.trim());
     setNewListTitle('');
-    setLists(prev => [...prev, list]);
-    setSelectedListId(list.id);
   };
 
   const handleDeleteList = async (id: string) => {
     if (typeof window !== 'undefined' && !window.confirm('Are you sure you want to delete this list?')) return;
-    await listsClientService.deleteList(id);
-    setLists(prev => prev.filter(l => l.id !== id));
-    if (selectedListId === id) {
-      const remaining = lists.filter(l => l.id !== id);
-      setSelectedListId(remaining.length > 0 ? remaining[0].id : null);
-    }
+    await deleteList(id);
   };
 
   const handleAddItem = async (text: string) => {
-    if (!selectedListId) return;
-    const item = await listsClientService.addItem(selectedListId, text);
-    setItems(prev => [...prev, item]);
+    await addItem(text);
   };
 
   const handleToggleItem = async (itemId: string, completed: boolean) => {
-    await listsClientService.toggleItem(itemId, completed);
-    setItems(prev => prev.map(it => it.id === itemId ? { ...it, completed: completed ? 1 : 0 } : it));
+    await toggleItem(itemId, completed);
   };
 
   const handleDeleteItem = async (itemId: string) => {
     if (typeof window !== 'undefined' && !window.confirm('Are you sure you want to delete this item?')) return;
-    await listsClientService.deleteItem(itemId);
-    setItems(prev => prev.filter(it => it.id !== itemId));
+    await deleteItem(itemId);
   };
 
   const handleCopyItems = () => {
@@ -75,9 +55,6 @@ export function ListsView({ parentId }: Props) {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-
-  const selectedList = lists.find(l => l.id === selectedListId);
-
   return (
     <div className="flex h-[calc(100vh-200px)] bg-white rounded-2xl border border-ui overflow-hidden shadow-sm">
       <div className="w-64 shrink-0 border-r border-ui flex flex-col bg-ui-soft">

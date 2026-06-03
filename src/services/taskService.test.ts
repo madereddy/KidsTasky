@@ -2,6 +2,7 @@ import { userService } from './users';
 import { tasksClientService } from './tasks';
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { buildTaskCompletionId } from '../lib/completion-state';
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -60,5 +61,34 @@ describe('Task Service', () => {
 
     await expect(userService.getUserProfile('999')).resolves.toBeNull(); 
     // getUserProfile catches the error and returns null
+  });
+
+  it('completeTask should return approvalStatus and created contract fields', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 'task1_2026-06-03_1', approvalStatus: 'approved', created: false }),
+    });
+
+    const result = await tasksClientService.completeTask('task1', 'kid1', '2026-06-03');
+
+    expect(mockFetch).toHaveBeenCalledWith('/api/completions', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ taskId: 'task1', kidId: 'kid1', dateString: '2026-06-03', count: undefined, proofAnswers: undefined })
+    }));
+    expect(result).toEqual({ id: 'task1_2026-06-03_1', approvalStatus: 'approved', created: false });
+  });
+
+  it('uncompleteTask should delete the deterministic completion id', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
+
+    await tasksClientService.uncompleteTask('task1', '2026-06-03', 2);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      `/api/completions/${buildTaskCompletionId('task1', '2026-06-03', 2)}`,
+      expect.objectContaining({ method: 'DELETE' })
+    );
   });
 });

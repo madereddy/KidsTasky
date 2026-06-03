@@ -30,6 +30,19 @@ describe('rewardService', () => {
     expect(claimed.kidId).toBe(kidId);
   });
 
+  it('claimReward returns claimed reward payload and updated balances', () => {
+    const result = rewardService.claimReward(kidId, rewardId, 100);
+    expect(result.claimedReward).toMatchObject({
+      kidId,
+      rewardId,
+    });
+    expect(result.balances).toMatchObject({
+      xp: 100,
+      level: expect.any(Number),
+      spentStars: 0,
+    });
+  });
+
   it('claimReward throws when XP insufficient', () => {
     const pricey = rewardService.createReward(parentId, 'Pricey', '', 300);
     expect(() => rewardService.claimReward(kidId, pricey, 300)).toThrow('Not enough XP');
