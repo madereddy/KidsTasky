@@ -38,7 +38,7 @@ const lazyWithRetry = <T extends React.ComponentType<any>>(
   console.error(`[lazyWithRetry] Invoked for ${key}`);
   try {
     const importerPromise = importer().then((res) => {
-      console.error(`[lazyWithRetry] Importer resolved for ${key}`);
+      console.error(`[lazyWithRetry] Importer resolved for ${key}. Has default: ${!!res.default}, Type: ${typeof res.default}`);
       return res;
     });
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -47,7 +47,7 @@ const lazyWithRetry = <T extends React.ComponentType<any>>(
     });
     console.error(`[lazyWithRetry] Awaiting Promise.race for ${key}`);
     const result = await Promise.race([importerPromise, timeoutPromise]);
-    console.error(`[lazyWithRetry] Promise.race completed for ${key}`);
+    console.error(`[lazyWithRetry] Promise.race completed for ${key}. Component type: ${typeof result.default}`);
     if (timer) clearTimeout(timer);
     return result;
   } catch (error) {
