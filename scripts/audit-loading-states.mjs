@@ -124,7 +124,7 @@ async function runAudit() {
   const version = await page.locator('footer p.font-mono').innerText();
   console.log(`\nBuild Version: ${version}`);
   
-  const EXPECTED_VERSION = '90e5a0c';
+  const EXPECTED_VERSION = '9399d81';
   if (version.includes(EXPECTED_VERSION)) {
     console.log('✅ Verified: Running against the latest deployment.');
   } else {
