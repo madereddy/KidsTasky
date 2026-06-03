@@ -35,13 +35,19 @@ const lazyWithRetry = <T extends React.ComponentType<any>>(
   importer: () => Promise<{ default: T }>,
   key: string
 ) => lazy(async () => {
+  console.error(`[lazyWithRetry] Invoked for ${key}`);
   try {
-    const importerPromise = importer();
+    const importerPromise = importer().then((res) => {
+      console.error(`[lazyWithRetry] Importer resolved for ${key}`);
+      return res;
+    });
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<{ default: T }>((_, reject) => {
       timer = setTimeout(() => reject(new Error(`[lazyWithRetry] Timeout loading chunk for ${key}`)), 10000);
     });
+    console.error(`[lazyWithRetry] Awaiting Promise.race for ${key}`);
     const result = await Promise.race([importerPromise, timeoutPromise]);
+    console.error(`[lazyWithRetry] Promise.race completed for ${key}`);
     if (timer) clearTimeout(timer);
     return result;
   } catch (error) {
