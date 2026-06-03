@@ -289,6 +289,11 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
 
     setSelectedCalendarIds((prev) => {
       const filteredPrev = new Set(Array.from(prev).filter((id) => enabledIds.has(id)));
+      
+      // Prevent infinite loop: only update if the filtered set is different from prev
+      const isSame = prev.size === filteredPrev.size && Array.from(prev).every(id => filteredPrev.has(id));
+      if (isSame && prev.size > 0) return prev;
+
       if (prev.size > 0) {
         return filteredPrev;
       }

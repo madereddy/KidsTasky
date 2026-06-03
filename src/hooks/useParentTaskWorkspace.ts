@@ -20,6 +20,7 @@ export function useParentTaskWorkspace({ parentId, kids }: UseParentTaskWorkspac
   const [tasks, setTasks] = useState<Task[]>([]);
   const [pendingCompletions, setPendingCompletions] = useState<ParentCompletionSummary[]>([]);
   const [todayApprovedCompletions, setTodayApprovedCompletions] = useState<ParentCompletionSummary[]>([]);
+  const [loading, setLoading] = useState(true);
   
   const memoKids = useMemo(() => JSON.stringify(kids), [kids]);
 
@@ -59,10 +60,13 @@ export function useParentTaskWorkspace({ parentId, kids }: UseParentTaskWorkspac
     } catch (err) {
       console.error('[useParentTaskWorkspace] loadWorkspace caught error:', err);
       throw err;
+    } finally {
+      setLoading(false);
     }
   }, [memoKids, parentId]);
 
   useEffect(() => {
+    setLoading(true);
     void loadWorkspace();
   }, [loadWorkspace]);
 
@@ -134,5 +138,6 @@ export function useParentTaskWorkspace({ parentId, kids }: UseParentTaskWorkspac
     approveCompletion,
     rejectCompletion,
     undoCompletion,
+    loading,
   };
 }

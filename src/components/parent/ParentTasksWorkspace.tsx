@@ -36,7 +36,6 @@ export function ParentTasksWorkspace({
   const [isManagingCategories, setIsManagingCategories] = useState(false);
   const [sortBy, setSortBy] = useState<'time' | 'created'>('created');
   const [taskDisplayMode, setTaskDisplayMode] = useState<'list' | 'chart'>('list');
-  const [loading, setLoading] = useState(true);
 
   const {
     tasks,
@@ -49,29 +48,14 @@ export function ParentTasksWorkspace({
     approveCompletion,
     rejectCompletion,
     undoCompletion,
+    loading
   } = useParentTaskWorkspace({
     parentId,
     kids,
   });
 
-  const isInitialMount = React.useRef(true);
-
-  React.useEffect(() => {
-    if (isInitialMount.current) {
-      setLoading(true);
-      isInitialMount.current = false;
-    }
-    
-    loadWorkspace().finally(() => {
-      setLoading(false);
-    });
-  }, [loadWorkspace]);
-
-  useSocketStaleData(['tasks', 'completions'], (data: StaleDataEvent) => {
-    const signal = data.type || data.entity;
-    if (signal === 'tasks' || signal === 'completions') {
-      loadWorkspace().catch((e) => console.error('Failed refreshing tasks workspace:', e));
-    }
+  useSocketStaleData(['tasks', 'completions', 'users'], (data: StaleDataEvent) => {
+    loadWorkspace().catch(() => {});
   });
 
   if (loading) {
@@ -79,20 +63,52 @@ export function ParentTasksWorkspace({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 pb-12">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className={cn("text-3xl font-black tracking-tight mb-1", isDarkMode ? "text-white" : "text-ui-primary")}>
+            Tasks & Achievements
+          </h2>
+          <p className="text-ui-muted-2 font-medium">Manage family chores and approve completions</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsManagingCategories(true)}
+            className={cn(
+              "px-4 py-2 rounded-xl text-sm font-bold border transition-all",
+              isDarkMode 
+                ? "bg-ui-dark-2 border-ui-dark text-ui-secondary hover:text-white" 
+                : "bg-white border-ui text-ui-secondary hover:bg-ui-soft hover:text-ui-primary"
+            )}
+          >
+            Categories
+          </button>
+          {!isLocked && (
+            <button
+              onClick={() => setIsAddingTask(true)}
+              className="bg-sky-500 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-sky-500/20 hover:bg-sky-400 transition-all active:scale-95"
+            >
+              Add New Task
+            </button>
+          )}
+        </div>
+      </div>
+
       {pendingCompletions.length > 0 && (
-        <div className="bg-amber-50 border border-amber-100 p-6 rounded-[2.5rem] space-y-4">
+        <div className="bg-sky-50 border border-sky-100 p-6 rounded-[2.5rem] space-y-4">
           <div className="flex items-center gap-2 mb-2">
-            <ShieldCheck className="w-5 h-5 text-amber-500" />
-            <h3 className="text-sm font-black uppercase tracking-widest text-amber-700">Awaiting Approval</h3>
-            <span className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{pendingCompletions.length}</span>
+            <ShieldCheck className="w-5 h-5 text-sky-500" />
+            <h3 className="text-sm font-black uppercase tracking-widest text-sky-700">Pending Approval</h3>
+            <span className="bg-sky-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{pendingCompletions.length}</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {pendingCompletions.map((comp: any) => (
-              <div key={comp.id} className="bg-white p-4 rounded-2xl shadow-sm border border-amber-100 flex justify-between items-center group">
-                <div>
-                  <p className="text-xs font-black text-amber-600 uppercase mb-1">{comp.kidName}</p>
-                  <p className="font-bold text-ui-primary text-sm">{comp.taskTitle}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pendingCompletions.map((comp) => (
+              <div key={comp.id} className="bg-white p-4 rounded-2xl shadow-sm border border-sky-100 space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-xs font-black text-sky-600 uppercase mb-1">{comp.kidName}</p>
+                    <p className="font-bold text-ui-primary text-sm">{comp.taskTitle || comp.taskId}</p>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -163,81 +179,59 @@ export function ParentTasksWorkspace({
         </div>
       </div>
 
-      {taskDisplayMode === 'list' ? (
-        <ParentTaskBoard
-          tasks={tasks}
-          categories={categories}
-          selectedCategoryId={selectedCategoryId}
-          isDarkMode={isDarkMode}
-          isLocked={isLocked}
-          sortBy={sortBy}
-          onSortByChange={setSortBy}
-          onArchiveTask={archiveTask}
-          onEditTask={setEditingTask}
-          onOpenCategories={() => setIsManagingCategories(true)}
-          onOpenAddTask={() => setIsAddingTask(true)}
-          onCategoriesChange={onCategoriesChange}
-        />
-      ) : (
-        <ChoreChart
-          tasks={tasks}
-          kids={kids}
-          categories={categories}
-          memberColorMap={Object.fromEntries(kids.map((kid) => [kid.uid, kid.color || MEMBER_COLORS[0]]))}
-        />
-      )}
+      <div className="space-y-12">
+        {taskDisplayMode === 'list' ? (
+          <ParentTaskBoard
+            tasks={tasks}
+            categories={categories}
+            kids={kids}
+            selectedCategoryId={selectedCategoryId}
+            onArchive={archiveTask}
+            onEdit={setEditingTask}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            isLocked={isLocked}
+          />
+        ) : (
+          <ChoreChart
+            tasks={tasks}
+            kids={kids}
+            categories={categories}
+          />
+        )}
 
-      <HomeworkView parentId={parentId} kids={kids} userRole="parent" />
+        <div className="pt-8 border-t border-ui">
+          <HomeworkView parentId={parentId} kids={kids} isLocked={isLocked} />
+        </div>
+      </div>
 
       {isAddingTask && (
         <AddTaskModal
           onClose={() => setIsAddingTask(false)}
-          onSubmit={async (payload) => {
-            await addTask(payload);
-            setIsAddingTask(false);
-          }}
+          onSubmit={addTask}
           kids={kids}
-          parentId={parentId}
           categories={categories}
-          existingTasks={tasks}
+          parentId={parentId}
         />
       )}
+
       {editingTask && (
         <AddTaskModal
           onClose={() => setEditingTask(null)}
-          onSubmit={async (payload) => {
-            await editTask(editingTask.id, {
-              title: payload.title,
-              frequency: payload.frequency,
-              difficulty: payload.difficulty,
-              assignedKidId: payload.assignedKidId === 'all' ? 'all' : (Array.isArray(payload.assignedKidIds) ? payload.assignedKidIds[0] : payload.assignedKidId),
-              reminderTime: payload.reminderTime,
-              categoryId: payload.categoryId || null,
-              customInterval: payload.frequency === 'custom' ? payload.customInterval : null,
-              prerequisiteTaskIds: payload.prerequisiteTaskIds || [],
-              starValue: payload.starValue,
-              requiresApproval: payload.requiresApproval,
-              completionQuestions: payload.completionQuestions || [],
-              completionQuestionsKidId: payload.completionQuestionsKidId || null,
-            } as any);
-            setEditingTask(null);
-          }}
+          onSubmit={(data) => editTask(editingTask.id, data)}
           kids={kids}
-          parentId={parentId}
           categories={categories}
-          existingTasks={tasks.filter((t) => t.id !== editingTask.id)}
-          initialTask={editingTask}
-          modalTitle="Edit Mission"
-          submitLabel="Save"
-          allowMultiAssign={false}
+          parentId={parentId}
+          initialData={editingTask}
         />
       )}
+
       {isManagingCategories && (
         <CategoryManager
           parentId={parentId}
           categories={categories}
           onClose={() => setIsManagingCategories(false)}
-          onUpdate={onCategoriesChange}
+          onChange={onCategoriesChange}
         />
       )}
     </div>
