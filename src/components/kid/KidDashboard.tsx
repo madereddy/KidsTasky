@@ -62,18 +62,24 @@ export function KidDashboard({
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [t, c] = await Promise.all([
+      await Promise.all([
         tasksClientService.getTasksForKid(profile.uid),
         tasksClientService.getCompletionsForKid(profile.uid, today),
-      ]);
-      setTasks(t || []);
-      setCompletions(c || []);
+        loadRewards(),
+      ]).then(([t, c]) => {
+        setTasks(t || []);
+        setCompletions(c || []);
+      });
     } catch (e) {
       console.error("Failed to fetch kid dashboard data", e);
     } finally {
       setLoading(false);
     }
-  }, [profile.uid, today]);
+  }, [profile.uid, today, loadRewards]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   useSocketStaleData(['tasks', 'completions', 'rewards', 'users'], (data) => {
     fetchData();

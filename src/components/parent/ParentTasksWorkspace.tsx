@@ -10,6 +10,7 @@ import { HomeworkView } from '../homework/HomeworkView';
 import { MEMBER_COLORS } from '../../constants';
 import { StaleDataEvent, useSocketStaleData } from '../../hooks/useSocket';
 import { useParentTaskWorkspace } from '../../hooks/useParentTaskWorkspace';
+import { ParentTasksWorkspaceSkeleton } from '../shared/Skeleton';
 
 interface Props {
   parentId: string;
@@ -35,6 +36,8 @@ export function ParentTasksWorkspace({
   const [isManagingCategories, setIsManagingCategories] = useState(false);
   const [sortBy, setSortBy] = useState<'time' | 'created'>('created');
   const [taskDisplayMode, setTaskDisplayMode] = useState<'list' | 'chart'>('list');
+  const [loading, setLoading] = useState(true);
+
   const {
     tasks,
     pendingCompletions,
@@ -51,12 +54,21 @@ export function ParentTasksWorkspace({
     kids,
   });
 
+  React.useEffect(() => {
+    setLoading(true);
+    loadWorkspace().finally(() => setLoading(false));
+  }, [loadWorkspace]);
+
   useSocketStaleData(['tasks', 'completions'], (data: StaleDataEvent) => {
     const signal = data.type || data.entity;
     if (signal === 'tasks' || signal === 'completions') {
       loadWorkspace().catch((e) => console.error('Failed refreshing tasks workspace:', e));
     }
   });
+
+  if (loading) {
+    return <ParentTasksWorkspaceSkeleton />;
+  }
 
   return (
     <div className="space-y-6">

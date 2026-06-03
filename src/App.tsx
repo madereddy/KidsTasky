@@ -29,6 +29,7 @@ import { OnboardingView } from './components/onboarding/OnboardingView';
 import { WallHome } from './components/parent/WallHome';
 import { KidDashboard } from './components/kid/KidDashboard';
 import { Skeleton, WallSkeleton } from './components/shared/Skeleton';
+import { SectionSkeleton } from './components/shared/SectionSkeleton';
 
 const lazyWithRetry = <T extends React.ComponentType<any>>(
   importer: () => Promise<{ default: T }>,
@@ -461,6 +462,8 @@ export default function App() {
     );
   }
 
+  console.log('[App] render. activeSection:', activeSection, 'profile role:', profile?.role);
+
   return (
     <FamilyDataContext.Provider value={{ kids, categories, memberColorMap, refreshKids, refreshCategories }}>
     <DisplayContext.Provider value={{ isWallMode: isLocked, isSleepMode }}>
@@ -670,121 +673,84 @@ export default function App() {
             Display is locked in read-only mode. Calendar and profiles stay visible, but parent edits are disabled until unlock.
           </div>
         )}
-        <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" /></div>}>
-        <AnimatePresence mode="wait">
-          {profile.role === 'parent' && activeSection === 'home' && (
-            <motion.div
-              key="parent-home"
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.3 }}
-            >
-              <WallHome
-                parentId={familyParentId}
-                profile={profile}
-                kids={kids}
-                memberColorMap={memberColorMap}
-                isLocked={isLocked}
-                onManage={() => setActiveSection('manage')}
-                settings={familySettings}
-              />
-            </motion.div>
-          )}
-          {profile.role === 'parent' && activeSection === 'manage' && (
-            <motion.div
-              key="parent-manage"
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="mb-4">
-                <button
-                  onClick={() => setActiveSection('home')}
-                  className="text-sm text-ui-muted hover:text-ui-primary transition-colors"
-                >
-                  ← Back to Home
-                </button>
-              </div>
+
+        {profile.role === 'parent' && activeSection === 'home' && (
+          <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="home" />}>
+            <WallHome
+              parentId={familyParentId}
+              profile={profile}
+              kids={kids}
+              memberColorMap={memberColorMap}
+              isLocked={isLocked}
+              onManage={() => setActiveSection('manage')}
+              settings={familySettings}
+            />
+          </Suspense>
+        )}
+        {profile.role === 'parent' && activeSection === 'manage' && (
+          <div className="space-y-4">
+            <div className="mb-4">
+              <button
+                onClick={() => setActiveSection('home')}
+                className="text-sm text-ui-muted hover:text-ui-primary transition-colors"
+              >
+                ← Back to Home
+              </button>
+            </div>
+            <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="manage" />}>
               <ParentDashboard
                 profile={profile}
               />
-            </motion.div>
-          )}
-          {profile.role === 'parent' && activeSection === 'calendar' && (
-            <motion.div
-              key="calendar-view"
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.3 }}
-            >
-              <CalendarView 
-                parentId={familyParentId} 
-                kids={kids} 
-                memberColorMap={memberColorMap} 
-                isLocked={isLocked} 
-                userRole={profile.role} 
-              />
-            </motion.div>
-          )}
-          {profile.role === 'parent' && activeSection === 'tasks' && (
-            <motion.div
-              key="tasks-workspace"
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.3 }}
-            >
-              <ParentTasksWorkspace
-                parentId={familyParentId}
-                kids={kids}
-                categories={categories}
-                selectedCategoryId={selectedCategoryId}
-                isLocked={isLocked}
-                isDarkMode={isDarkTheme}
-                onCategoriesChange={setCategories}
-              />
-            </motion.div>
-          )}
-          {profile.role === 'parent' && activeSection === 'lists' && (
-            <motion.div
-              key="lists-view"
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.3 }}
-            >
-              <ListsView parentId={familyParentId} />
-            </motion.div>
-          )}
-          {profile.role === 'parent' && activeSection === 'meals' && (
-            <motion.div key="meals-view" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.3 }}>
-              <MealPlanView parentId={familyParentId} />
-            </motion.div>
-          )}
-          {profile.role !== 'parent' && (
-            <motion.div
-              key="kid-dash"
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.3 }}
-            >
-              <KidDashboard
-                profile={profile}
-                onProgressChange={setProgress}
-                categories={categories}
-                selectedCategoryId={selectedCategoryId}
-                onProfileUpdate={handleProfileUpdate}
-                kids={kids}
-                memberColorMap={memberColorMap}
-              />
-            </motion.div>
-          )}
-          </AnimatePresence>
-        </Suspense>
+            </Suspense>
+          </div>
+        )}
+        {profile.role === 'parent' && activeSection === 'calendar' && (
+          <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="calendar" />}>
+            <CalendarView 
+              parentId={familyParentId} 
+              kids={kids} 
+              memberColorMap={memberColorMap} 
+              isLocked={isLocked} 
+              userRole={profile.role} 
+            />
+          </Suspense>
+        )}
+        {profile.role === 'parent' && activeSection === 'tasks' && (
+          <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="tasks" />}>
+            <ParentTasksWorkspace
+              parentId={familyParentId}
+              kids={kids}
+              categories={categories}
+              selectedCategoryId={selectedCategoryId}
+              isLocked={isLocked}
+              isDarkMode={isDarkTheme}
+              onCategoriesChange={setCategories}
+            />
+          </Suspense>
+        )}
+        {profile.role === 'parent' && activeSection === 'lists' && (
+          <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="lists" />}>
+            <ListsView parentId={familyParentId} />
+          </Suspense>
+        )}
+        {profile.role === 'parent' && activeSection === 'meals' && (
+          <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="meals" />}>
+            <MealPlanView parentId={familyParentId} />
+          </Suspense>
+        )}
+        {profile.role !== 'parent' && (
+          <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="home" />}>
+            <KidDashboard
+              profile={profile}
+              onProgressChange={setProgress}
+              categories={categories}
+              selectedCategoryId={selectedCategoryId}
+              onProfileUpdate={handleProfileUpdate}
+              kids={kids}
+              memberColorMap={memberColorMap}
+            />
+          </Suspense>
+        )}
       </main>
       {profile.role === "parent" && showUnlockPrompt && (
         <ParentalLockOverlay

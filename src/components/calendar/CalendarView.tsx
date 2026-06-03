@@ -20,6 +20,7 @@ import { EventDetailModal } from './EventDetailModal';
 import { useSocketStaleData } from '../../hooks/useSocket';
 import { useFullscreen } from '../../hooks/useFullscreen';
 import { useWakeLock } from '../../hooks/useWakeLock';
+import { CalendarSkeleton } from '../shared/Skeleton';
 
 type ViewMode = 'month' | 'week' | 'day' | 'agenda';
 type WallFilter = 'today' | 'week' | 'allday';
@@ -65,6 +66,7 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
   const [showRoutinesModal, setShowRoutinesModal] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
   const [isKioskMode, setIsKioskMode] = useState(false);
+  const [loading, setLoading] = useState(true);
   const wallRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const staleRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
@@ -76,7 +78,17 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
     setLastRefreshedAt(new Date());
   }, [parentId]);
 
-  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  useEffect(() => { 
+    const init = async () => {
+      setLoading(true);
+      try {
+        await fetchEvents();
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
+  }, [fetchEvents]);
 
   useEffect(() => {
     if (!isFullscreen && isKioskMode) setIsKioskMode(false);
@@ -343,6 +355,10 @@ export function CalendarView({ parentId, kids, memberColorMap, isLocked = false,
   const dayKey = format(currentDate, 'yyyy-MM-dd');
   const todaysWeather = forecast.find((f) => f.date === dayKey);
   const todaysMeals = dayMeals;
+
+  if (loading) {
+    return <CalendarSkeleton />;
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-200px)] bg-white rounded-2xl border border-ui overflow-hidden shadow-sm">
