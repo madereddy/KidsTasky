@@ -40,9 +40,6 @@ const VIEW_LABELS: { mode: ViewMode; label: string }[] = [
   { mode: 'agenda', label: 'Agenda' },
 ];
 
-// ... existing imports ...
-import { CalendarSkeleton } from '../shared/Skeleton';
-
 class CalendarErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
@@ -73,7 +70,7 @@ export function CalendarView(props: Props) {
 }
 
 function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, userRole = 'parent' }: Props) {
-  // ... existing component body ...
+  const calendarSelectionStorageKey = `kidtasker:calendar:selected:${parentId}`;
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);

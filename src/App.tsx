@@ -678,7 +678,7 @@ export default function App() {
         )}
 
         {profile.role === 'parent' && activeSection === 'home' && (
-          <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="home" />}>
+          <Suspense fallback={<SectionSkeleton role={(profile.role as string) === 'kid' ? 'kid' : 'parent'} activeSection="home" />}>
             <WallHome
               parentId={familyParentId}
               profile={profile}
@@ -742,7 +742,7 @@ export default function App() {
           </Suspense>
         )}
         {profile.role !== 'parent' && (
-          <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="home" />}>
+          <Suspense fallback={<SectionSkeleton role={(profile.role as string) === 'kid' ? 'kid' : 'parent'} activeSection="home" />}>
             <KidDashboard
               profile={profile}
               onProgressChange={setProgress}

@@ -184,13 +184,16 @@ export function ParentTasksWorkspace({
           <ParentTaskBoard
             tasks={tasks}
             categories={categories}
-            kids={kids}
             selectedCategoryId={selectedCategoryId}
-            onArchive={archiveTask}
-            onEdit={setEditingTask}
+            onArchiveTask={archiveTask}
+            onEditTask={setEditingTask}
             sortBy={sortBy}
-            onSortChange={setSortBy}
+            onSortByChange={setSortBy}
             isLocked={isLocked}
+            isDarkMode={isDarkMode}
+            onOpenCategories={() => setIsManagingCategories(true)}
+            onOpenAddTask={() => setIsAddingTask(true)}
+            onCategoriesChange={onCategoriesChange}
           />
         ) : (
           <ChoreChart
@@ -201,7 +204,7 @@ export function ParentTasksWorkspace({
         )}
 
         <div className="pt-8 border-t border-ui">
-          <HomeworkView parentId={parentId} kids={kids} isLocked={isLocked} />
+          <HomeworkView parentId={parentId} kids={kids} userRole="parent" />
         </div>
       </div>
 
@@ -212,6 +215,7 @@ export function ParentTasksWorkspace({
           kids={kids}
           categories={categories}
           parentId={parentId}
+          existingTasks={tasks}
         />
       )}
 
@@ -222,7 +226,8 @@ export function ParentTasksWorkspace({
           kids={kids}
           categories={categories}
           parentId={parentId}
-          initialData={editingTask}
+          initialTask={editingTask}
+          existingTasks={tasks}
         />
       )}
 
@@ -231,7 +236,7 @@ export function ParentTasksWorkspace({
           parentId={parentId}
           categories={categories}
           onClose={() => setIsManagingCategories(false)}
-          onChange={onCategoriesChange}
+          onUpdate={onCategoriesChange}
         />
       )}
     </div>
