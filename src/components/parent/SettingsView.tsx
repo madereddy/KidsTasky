@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, MapPin, Globe, Moon, Lock, RefreshCw, CheckCircle, AlertTriangle, Users, Trash2, Palette } from 'lucide-react';
+import { authService } from '../../services/auth';
 import { settingsClientService } from '../../services/settings';
 import { syncClientService, SyncNowResult } from '../../services/sync';
 import { userService } from '../../services/users';
@@ -69,6 +70,11 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
   const [pin, setPin] = useState('');
   const [hasPIN, setHasPIN] = useState(false);
   const [showPinInput, setShowPinInput] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordChanging, setPasswordChanging] = useState(false);
+  const [passwordChangeMessage, setPasswordChangeMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [syncingNow, setSyncingNow] = useState(false);
@@ -320,6 +326,41 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
       onClose();
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    const trimmedCurrent = currentPassword.trim();
+    const trimmedNew = newPassword.trim();
+    const trimmedConfirm = confirmPassword.trim();
+
+    if (!trimmedCurrent || !trimmedNew || !trimmedConfirm) {
+      setPasswordChangeMessage('Fill out the current password and both new password fields.');
+      return;
+    }
+    if (trimmedNew.length < 8) {
+      setPasswordChangeMessage('New password must be at least 8 characters.');
+      return;
+    }
+    if (trimmedNew !== trimmedConfirm) {
+      setPasswordChangeMessage('New passwords do not match.');
+      return;
+    }
+
+    setPasswordChanging(true);
+    setPasswordChangeMessage('');
+    try {
+      const ok = await authService.changePassword(trimmedCurrent, trimmedNew);
+      if (!ok) {
+        setPasswordChangeMessage('Password change failed. Check your current password and try again.');
+        return;
+      }
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordChangeMessage('Password updated.');
+    } finally {
+      setPasswordChanging(false);
     }
   };
 
@@ -619,6 +660,52 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
                 <p className="text-xs text-ui-muted-2 mt-1">Enter a new 4-digit PIN</p>
               </div>
             )}
+          </section>
+
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <Lock size={16} className="text-slate-500" />
+              <h3 className="font-bold text-ui-secondary">Parent Password</h3>
+            </div>
+            <p className="text-xs text-ui-muted mb-3">Change the password used to sign in as a parent.</p>
+            <div className="space-y-3">
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={e => setCurrentPassword(e.target.value)}
+                placeholder="Current password"
+                autoComplete="current-password"
+                className="w-full border border-ui rounded-lg px-3 py-2 text-sm bg-white text-ui-primary focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+              <input
+                type="password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="New password"
+                autoComplete="new-password"
+                className="w-full border border-ui rounded-lg px-3 py-2 text-sm bg-white text-ui-primary focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+                autoComplete="new-password"
+                className="w-full border border-ui rounded-lg px-3 py-2 text-sm bg-white text-ui-primary focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+              <button
+                onClick={handleChangePassword}
+                disabled={passwordChanging || !currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()}
+                className="px-3 py-2 bg-slate-700 text-white rounded-lg text-sm font-semibold hover:bg-slate-600 disabled:opacity-60"
+              >
+                {passwordChanging ? 'Updating...' : 'Update Password'}
+              </button>
+              {passwordChangeMessage && (
+                <p className={`text-xs ${passwordChangeMessage === 'Password updated.' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {passwordChangeMessage}
+                </p>
+              )}
+            </div>
           </section>
 
           {/* Co-Parents */}

@@ -102,6 +102,50 @@ describe('Backend API Tests', () => {
     }
   });
 
+  it('POST /api/auth/change-password should require the current password and update login credentials', async () => {
+    const blockedEmail = `pw_blocked_${Date.now()}@example.com`;
+    const blockedRegisterRes = await request(app)
+      .post('/api/auth/register')
+      .send({ email: blockedEmail, password: 'pass1234', name: 'Password Parent' });
+
+    expect(blockedRegisterRes.status).toBe(200);
+    const blockedToken = blockedRegisterRes.body.token as string;
+
+    const wrongCurrent = await request(app)
+      .post('/api/auth/change-password')
+      .set('Authorization', `Bearer ${blockedToken}`)
+      .send({ currentPassword: 'wrongpass', newPassword: 'newpass123' });
+
+    expect(wrongCurrent.status).toBe(401);
+
+    const email = `pw_${Date.now()}@example.com`;
+    const registerRes = await request(app)
+      .post('/api/auth/register')
+      .send({ email, password: 'pass1234', name: 'Password Parent' });
+
+    expect(registerRes.status).toBe(200);
+    const token = registerRes.body.token as string;
+
+    const changeRes = await request(app)
+      .post('/api/auth/change-password')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ currentPassword: 'pass1234', newPassword: 'newpass123' });
+
+    expect(changeRes.status).toBe(200);
+    expect(changeRes.body.success).toBe(true);
+
+    const newLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email, password: 'newpass123' });
+    expect(newLogin.status).toBe(200);
+    expect(newLogin.body.token).toBeTypeOf('string');
+
+    const oldLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email, password: 'pass1234' });
+    expect(oldLogin.status).toBe(401);
+  });
+
   it('GET /api/health/deps should probe real endpoints and surface configured Google checks', async () => {
     const prevGoogleClientId = process.env.GOOGLE_CLIENT_ID;
     const prevGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET;

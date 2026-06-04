@@ -64,4 +64,21 @@ describe('authService', () => {
     expect(options.headers.get('Authorization')).toBe('Bearer my_token');
     expect(options.body).toBe(JSON.stringify({ pin: '4321' }));
   });
+
+  it('changePassword calls backend with current and new passwords', async () => {
+    localStorage.setItem('kidtasker_token', 'my_token');
+    (fetch as any).mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true })
+    });
+
+    const res = await authService.changePassword('oldpass123', 'newpass123');
+    expect(res).toBe(true);
+
+    const [url, options] = (fetch as any).mock.calls[0];
+    expect(url).toContain('/auth/change-password');
+    expect(options.method).toBe('POST');
+    expect(options.headers.get('Authorization')).toBe('Bearer my_token');
+    expect(options.body).toBe(JSON.stringify({ currentPassword: 'oldpass123', newPassword: 'newpass123' }));
+  });
 });

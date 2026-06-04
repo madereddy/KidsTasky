@@ -60,6 +60,20 @@ export const authService = {
     }
   },
 
+  async changePassword(currentPassword: string, newPassword: string): Promise<boolean> {
+    const token = localStorage.getItem('kidtasker_token');
+    try {
+      await fetchAPI('/auth/change-password', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
   async refresh(): Promise<string | null> {
     try {
       const res = await fetchAPI('/auth/refresh', { method: 'POST' });

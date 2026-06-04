@@ -47,6 +47,17 @@ export const authService = {
     const hash = await bcrypt.hash(pin, 10);
     db.prepare("UPDATE users SET passwordHash = ? WHERE uid = ?").run(hash, uid);
   },
+  changePassword: async (uid: string, currentPassword: string, newPassword: string) => {
+    const user = db.prepare("SELECT uid, passwordHash FROM users WHERE uid = ? AND role = 'parent'").get(uid) as any;
+    if (!user || !user.passwordHash) return false;
+
+    const currentMatches = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!currentMatches) return false;
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    db.prepare("UPDATE users SET passwordHash = ? WHERE uid = ?").run(hash, uid);
+    return true;
+  },
   refresh: (uid: string, role: string, parentId: string) => {
     const token = jwt.sign({ uid, role, parentId }, getJwtSecret(), { expiresIn: '24h' });
     return { token };

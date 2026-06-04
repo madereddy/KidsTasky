@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { rateLimit } from 'express-rate-limit';
 import { authService } from './service.js';
-import { authenticateUser } from '../../middleware/auth.js';
+import { authenticateUser, requireRole } from '../../middleware/auth.js';
 import { logSecurityEvent } from '../../lib/securityLog.js';
 
 export const authRouter = Router();
@@ -19,6 +19,13 @@ const profileLookupLimiter = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: { error: 'Too many profile lookups. Please try again later.' },
+});
+const passwordChangeLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Too many password change attempts. Please try again later.' },
 });
 
 type AttemptState = { failures: number; lockUntil: number };
@@ -152,6 +159,32 @@ authRouter.post('/auth/set-pin', authenticateUser, [
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
+});
+
+authRouter.post('/auth/change-password', authenticateUser, requireRole('parent'), passwordChangeLimiter, [
+  body('currentPassword').isString().notEmpty(),
+  body('newPassword').isString().isLength({ min: 8 }),
+  validate
+], async (req: Request, res: Response) => {
+  const user = (req as any).user as { uid: string };
+  const ip = getClientIp(req);
+  const key = getAttemptKey('password-change', user.uid, ip);
+  const retryAfterMs = getRetryAfterMs(key);
+  if (retryAfterMs > 0) {
+    logSecurityEvent('auth.password_change.blocked', { uid: user.uid, ip, retryAfterMs });
+    return res.status(429).json({ error: 'Too many failed password change attempts. Please try again shortly.' });
+  }
+
+  const success = await authService.changePassword(user.uid, req.body.currentPassword, req.body.newPassword);
+  if (!success) {
+    const backoffMs = recordAuthFailure(key);
+    logSecurityEvent('auth.password_change.failed', { uid: user.uid, ip, backoffMs });
+    return res.status(401).json({ error: 'Current password is incorrect.' });
+  }
+
+  clearAuthFailure(key);
+  logSecurityEvent('auth.password_change.success', { uid: user.uid, ip }, 'info');
+  res.json({ success: true });
 });
 
 authRouter.post('/auth/refresh', authenticateUser, authLimiter, (req: Request, res: Response) => {
