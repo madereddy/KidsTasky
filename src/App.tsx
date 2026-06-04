@@ -490,6 +490,10 @@ export default function App() {
     };
   }, [profile, isLocked]);
 
+  const visibleTasks = useMemo(() => allTasks.filter(t => !hiddenMissionIds.has(`task_${t.id}`)), [allTasks, hiddenMissionIds]);
+  const visibleEvents = useMemo(() => events.filter(e => !hiddenMissionIds.has(`event_${e.id}`)), [events, hiddenMissionIds]);
+  const visibleListItems = useMemo(() => globalListItems.filter(l => !hiddenMissionIds.has(`list_${l.id}`)), [globalListItems, hiddenMissionIds]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-ui-soft p-6">
@@ -587,10 +591,6 @@ export default function App() {
       </div>
     );
   }
-
-  const visibleTasks = useMemo(() => allTasks.filter(t => !hiddenMissionIds.has(`task_${t.id}`)), [allTasks, hiddenMissionIds]);
-  const visibleEvents = useMemo(() => events.filter(e => !hiddenMissionIds.has(`event_${e.id}`)), [events, hiddenMissionIds]);
-  const visibleListItems = useMemo(() => globalListItems.filter(l => !hiddenMissionIds.has(`list_${l.id}`)), [globalListItems, hiddenMissionIds]);
 
   return (
     <FamilyDataContext.Provider value={{ kids, categories, memberColorMap, refreshKids, refreshCategories }}>
