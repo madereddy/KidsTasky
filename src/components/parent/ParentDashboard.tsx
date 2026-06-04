@@ -43,6 +43,7 @@ export function ParentDashboard({
     refreshNotifications,
     refreshKids,
     refreshConnectionsAndCalendars,
+    refreshTodaySummary,
     markRead,
     generateInvite,
     refreshRewards,
@@ -62,6 +63,14 @@ export function ParentDashboard({
     }
     if (signal === 'sync' || signal === 'calendars' || signal === 'connections') {
       refreshConnectionsAndCalendars().catch((e) => console.error('Failed to refresh sync settings:', e));
+      return;
+    }
+    if (signal === 'rewards') {
+      refreshRewards().catch((e) => console.error('Failed to refresh rewards:', e));
+      return;
+    }
+    if (signal === 'tasks' || signal === 'completions' || signal === 'events' || signal === 'homework') {
+      refreshTodaySummary().catch((e) => console.error('Failed to refresh today summary:', e));
       return;
     }
     fetchData().catch((e) => console.error('Failed full dashboard refresh:', e));

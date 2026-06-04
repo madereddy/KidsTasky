@@ -40,14 +40,10 @@ vi.mock('../services/tasks', () => ({
     getTasksForParent: vi.fn(),
   },
 }));
-vi.mock('../services/homework', () => ({
-  homeworkClientService: {
-    getHomework: vi.fn(),
-  },
-}));
-vi.mock('../services/events', () => ({
-  eventsClientService: {
-    getEvents: vi.fn(),
+vi.mock('../services/dashboard', () => ({
+  dashboardClientService: {
+    getFamilyDashboardData: vi.fn(),
+    clearCache: vi.fn(),
   },
 }));
 
@@ -58,8 +54,7 @@ import { notificationService } from '../services/notifications';
 import { rewardService } from '../services/rewards';
 import { syncClientService } from '../services/sync';
 import { tasksClientService } from '../services/tasks';
-import { homeworkClientService } from '../services/homework';
-import { eventsClientService } from '../services/events';
+import { dashboardClientService } from '../services/dashboard';
 
 describe('useParentDashboardController', () => {
   beforeEach(() => {
@@ -70,10 +65,14 @@ describe('useParentDashboardController', () => {
     vi.mocked(rewardService.getRewards).mockResolvedValue([{ id: 'r1', parentId: 'p1', title: 'Reward', xpCost: 50 }] as any);
     vi.mocked(fetchAPI).mockResolvedValue([] as any);
     vi.mocked(syncClientService.getCalendars).mockResolvedValue([{ id: 'cal1', enabled: true }] as any);
-    vi.mocked(eventsClientService.getEvents).mockResolvedValue([{ id: 'e1', startTime: Date.now() + 1000 }] as any);
-    vi.mocked(homeworkClientService.getHomework).mockResolvedValue([{ id: 'h1', dueDate: new Date().toISOString().slice(0, 10), status: 'pending' }] as any);
+    const today = new Date().toISOString().slice(0, 10);
+    vi.mocked(dashboardClientService.getFamilyDashboardData).mockResolvedValue({
+      tasks: [{ id: 't1', status: 'active' }],
+      completions: [],
+      events: [{ id: 'e1', startTime: new Date(`${today}T12:00:00`).getTime() }],
+      homework: [{ id: 'h1', dueDate: today, status: 'pending' }],
+    } as any);
     vi.mocked(tasksClientService.getPendingCompletions).mockResolvedValue([{ id: 'pc1' }] as any);
-    vi.mocked(tasksClientService.getTasksForParent).mockResolvedValue([{ id: 't1', status: 'active' }] as any);
   });
 
   it('loads aggregate dashboard state and summary', async () => {

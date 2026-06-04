@@ -116,6 +116,27 @@ export const eventsService = {
     return events.map((event) => ({ ...event, attendees: attendeeMap.get(event.id) ?? [] }));
   },
 
+  getEventsByParentWindowed: (parentId: string, fromMs: number, toMs: number): CalendarEvent[] => {
+    const events = db.prepare(
+      'SELECT * FROM events WHERE parentId = ? AND startTime >= ? AND startTime <= ? ORDER BY startTime ASC'
+    ).all(parentId, fromMs, toMs) as CalendarEvent[];
+    if (events.length === 0) return [];
+    const attendees = db.prepare(`
+      SELECT ea.id, ea.eventId, ea.userId, ea.rsvp, u.name
+      FROM event_attendees ea
+      LEFT JOIN users u ON u.uid = ea.userId
+      WHERE ea.eventId IN (
+        SELECT id FROM events WHERE parentId = ? AND startTime >= ? AND startTime <= ?
+      )
+    `).all(parentId, fromMs, toMs) as EventAttendee[];
+    const attendeeMap = new Map<string, EventAttendee[]>();
+    for (const attendee of attendees) {
+      if (!attendeeMap.has(attendee.eventId)) attendeeMap.set(attendee.eventId, []);
+      attendeeMap.get(attendee.eventId)!.push(attendee);
+    }
+    return events.map((event) => ({ ...event, attendees: attendeeMap.get(event.id) ?? [] }));
+  },
+
   getEventById: (id: string): CalendarEvent | undefined => {
     return db.prepare('SELECT * FROM events WHERE id = ?').get(id) as CalendarEvent | undefined;
   },

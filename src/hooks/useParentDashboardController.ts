@@ -6,8 +6,7 @@ import { notificationService } from '../services/notifications';
 import { rewardService } from '../services/rewards';
 import { syncClientService } from '../services/sync';
 import { tasksClientService } from '../services/tasks';
-import { homeworkClientService } from '../services/homework';
-import { eventsClientService } from '../services/events';
+import { dashboardClientService } from '../services/dashboard';
 import { Invite, Notification, Reward, SyncCalendar, UserProfile } from '../types';
 import { removeEntityById } from '../lib/entity-list';
 
@@ -26,6 +25,22 @@ export function useParentDashboardController({ familyId }: UseParentDashboardCon
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [todaySummary, setTodaySummary] = useState({ eventsToday: 0, homeworkDue: 0, pendingApprovals: 0, activeChores: 0 });
 
+  const refreshTodaySummary = useCallback(async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const [dashData, pending] = await Promise.all([
+      dashboardClientService.getFamilyDashboardData(familyId, today).catch(() => null),
+      tasksClientService.getPendingCompletions(familyId).catch(() => []),
+    ]);
+    if (dashData) {
+      setTodaySummary({
+        eventsToday: dashData.events.filter((e) => new Date(e.startTime).toISOString().slice(0, 10) === today).length,
+        homeworkDue: dashData.homework.filter((h) => h.status !== 'done' && h.dueDate <= today).length,
+        pendingApprovals: (pending || []).length,
+        activeChores: dashData.tasks.filter((t) => t.status === 'active').length,
+      });
+    }
+  }, [familyId]);
+
   const fetchData = useCallback(async () => {
     try {
       const [k, i, n, r, c, sc] = await Promise.all([
@@ -42,23 +57,11 @@ export function useParentDashboardController({ familyId }: UseParentDashboardCon
       setRewards(r || []);
       setConnections(c || []);
       setSyncCalendars(sc || []);
-      const today = new Date().toISOString().slice(0, 10);
-      const [events, homework, pending, tasks] = await Promise.all([
-        eventsClientService.getEvents(familyId).catch(() => []),
-        homeworkClientService.getHomework(familyId).catch(() => []),
-        tasksClientService.getPendingCompletions(familyId).catch(() => []),
-        tasksClientService.getTasksForParent(familyId).catch(() => []),
-      ]);
-      setTodaySummary({
-        eventsToday: (events || []).filter((e: any) => new Date(e.startTime).toISOString().slice(0, 10) === today).length,
-        homeworkDue: (homework || []).filter((h: any) => h.status !== 'done' && h.dueDate <= today).length,
-        pendingApprovals: (pending || []).length,
-        activeChores: (tasks || []).filter((t: any) => t.status === 'active').length,
-      });
+      await refreshTodaySummary();
     } finally {
       setLoading(false);
     }
-  }, [familyId]);
+  }, [familyId, refreshTodaySummary]);
 
   useEffect(() => {
     void fetchData();
@@ -136,6 +139,7 @@ export function useParentDashboardController({ familyId }: UseParentDashboardCon
     refreshNotifications,
     refreshKids,
     refreshConnectionsAndCalendars,
+    refreshTodaySummary,
     markRead,
     generateInvite,
     refreshRewards,
