@@ -75,4 +75,25 @@ describe('useListsController - Smart Metadata', () => {
     expect(result.current.items[0].storeName).toBe('Costco');
     expect(result.current.items[0].completedAt).toBe(1700000000000);
   });
+
+  it('adds item with explicit store parsing', async () => {
+    vi.mocked(listsClientService.getLists).mockResolvedValue([{ id: 'list-1', parentId: 'parent-1', title: 'Groceries' }]);
+    vi.mocked(listsClientService.getItems).mockResolvedValue([]);
+    vi.mocked(listsClientService.addItem).mockResolvedValue({
+      id: 'item-2', listId: 'list-1', text: 'Eggs |META:{"storeName":"Costco"}|', completed: 0
+    });
+
+    const { result } = renderHook(() => useListsController({ parentId: 'parent-1' }));
+    
+    await waitFor(() => expect(result.current.selectedListId).toBe('list-1'));
+
+    await act(async () => {
+      await result.current.addItem('Eggs @ Costco');
+    });
+
+    expect(listsClientService.addItem).toHaveBeenCalledWith('list-1', 'Eggs |META:{"storeName":"Costco"}|');
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.items[0].text).toBe('Eggs');
+    expect(result.current.items[0].storeName).toBe('Costco');
+  });
 });

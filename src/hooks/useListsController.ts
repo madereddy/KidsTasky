@@ -26,6 +26,14 @@ function stringifyItemMetadata(text: string, storeName?: string, completedAt?: n
   return `${text} |META:${JSON.stringify({ storeName, completedAt })}|`;
 }
 
+function extractStoreFromText(rawText: string): { cleanText: string, storeName?: string } {
+  const match = rawText.match(/(.+?)(?:\s+@\s+|\s+at\s+)(Costco|Walmart|Target|Trader Joe's|Aldi|Whole Foods)$/i);
+  if (match) {
+    return { cleanText: match[1].trim(), storeName: match[2].trim() };
+  }
+  return { cleanText: rawText.trim() };
+}
+
 interface UseListsControllerOptions {
   parentId: string;
 }
@@ -98,11 +106,18 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
     }
   };
 
-  const addItem = async (text: string) => {
+  const addItem = async (text: string, explicitStore?: string) => {
     if (!selectedListId) return null;
-    const created = await listsClientService.addItem(selectedListId, text);
-    setItems((prev) => [...prev, created]);
-    return created;
+
+    const { cleanText, storeName: parsedStore } = extractStoreFromText(text);
+    const finalStore = explicitStore || parsedStore;
+
+    const rawText = stringifyItemMetadata(cleanText, finalStore);
+    const created = await listsClientService.addItem(selectedListId, rawText);
+
+    const parsedCreated = parseItemMetadata(created);
+    setItems((prev) => [...prev, parsedCreated]);
+    return parsedCreated;
   };
 
   const toggleItem = async (itemId: string, completed: boolean) => {
@@ -110,7 +125,6 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
     if (!item) return;
 
     const completedAt = completed ? Date.now() : undefined;
-    const rawText = stringifyItemMetadata(item.text, item.storeName, completedAt);
 
     await listsClientService.toggleItem(itemId, completed);
     setItems((prev) => prev.map((i) => (
