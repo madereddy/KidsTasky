@@ -63,6 +63,28 @@ class CalendarErrorBoundary extends React.Component<{ children: React.ReactNode 
   }
 }
 
+function CalSkyLiveClock() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 15000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div>
+      <div className="text-6xl font-black tabular-nums leading-none text-gray-900 dark:text-white">
+        {format(now, 'h:mm')}
+        <span className="text-2xl font-semibold ml-2 text-gray-400 dark:text-gray-500">{format(now, 'a')}</span>
+      </div>
+      <div className="mt-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.15em]">
+        {format(now, 'EEEE')}
+      </div>
+      <div className="text-base font-semibold text-gray-600 dark:text-gray-300 mt-0.5">
+        {format(now, 'MMMM d, yyyy')}
+      </div>
+    </div>
+  );
+}
+
 export function CalendarView(props: Props) {
   return (
     <CalendarErrorBoundary>
@@ -393,6 +415,126 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
 
   if (loading) {
     return <CalendarSkeleton />;
+  }
+
+  if (isWallMode) {
+    const nowMs = Date.now();
+    type DayGroup = { label: string; dateStr: string; items: CalendarEvent[] };
+    const dayGroups: DayGroup[] = [];
+    for (let d = 0; d <= 4; d++) {
+      const dt = addDays(new Date(), d);
+      const dateStr = format(dt, 'yyyy-MM-dd');
+      const label = d === 0 ? 'TODAY' : d === 1 ? 'TOMORROW' : format(dt, 'EEE, MMM d').toUpperCase();
+      const dayEvts = calendarFilteredEvents
+        .filter((e) => {
+          const evDateStr = format(new Date(e.startTime), 'yyyy-MM-dd');
+          if (d === 0) return evDateStr === dateStr && e.startTime >= nowMs;
+          return evDateStr === dateStr;
+        })
+        .sort((a, b) => a.startTime - b.startTime);
+      if (dayEvts.length > 0 || d <= 1) {
+        dayGroups.push({ label, dateStr, items: dayEvts });
+      }
+    }
+
+    const wxCode = todaysWeather?.weatherCode ?? -1;
+    const wxIcon = wxCode < 0 ? '' : wxCode === 0 ? '☀️' : wxCode <= 3 ? '⛅' : wxCode <= 48 ? '🌫️' : wxCode <= 67 ? '🌧️' : wxCode <= 77 ? '❄️' : wxCode <= 82 ? '🌦️' : '⛈️';
+    const wxDesc = wxCode < 0 ? '' : wxCode === 0 ? 'Clear Sky' : wxCode <= 3 ? 'Partly Cloudy' : wxCode <= 48 ? 'Cloudy / Foggy' : wxCode <= 67 ? 'Rainy' : wxCode <= 77 ? 'Snowy' : wxCode <= 82 ? 'Showers' : 'Stormy';
+
+    return (
+      <div className="flex h-[calc(100vh-200px)] bg-white rounded-2xl border border-ui overflow-hidden shadow-sm">
+        {/* Left panel */}
+        <div className="w-72 shrink-0 flex flex-col gap-6 p-8 border-r border-ui bg-gray-50 dark:bg-gray-900 overflow-y-auto">
+          <CalSkyLiveClock />
+
+          {todaysWeather ? (
+            <div>
+              <div className="text-3xl mb-1">{wxIcon}</div>
+              <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">{wxDesc}</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                High {Math.round(toDisplayTemp(todaysWeather.maxTemp, temperatureUnit))}° / Low {Math.round(toDisplayTemp(todaysWeather.minTemp, temperatureUnit))}°
+              </div>
+            </div>
+          ) : null}
+
+          {todaysMeals.length > 0 && (
+            <div>
+              <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Today's Meals</div>
+              <div className="space-y-1">
+                {todaysMeals.slice(0, 3).map((m, i) => (
+                  <div key={i} className="text-sm text-gray-700 dark:text-gray-200">
+                    <span className="font-semibold capitalize">{m.mealType}:</span> {m.recipeName || 'Planned'}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={() => setIsWallMode(false)}
+            className="mt-auto flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+          >
+            <MonitorSmartphone size={16} /> Exit Wall
+          </button>
+        </div>
+
+        {/* Right panel — 5-day agenda */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {dayGroups.map((group) => (
+            <div key={group.dateStr}>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-xs font-bold text-gray-400 dark:text-gray-500 tracking-widest whitespace-nowrap">{group.label}</span>
+                <hr className="flex-1 border-gray-200 dark:border-gray-700" />
+              </div>
+              {group.items.length === 0 ? (
+                <p className="text-sm text-gray-400 italic pl-2">No events</p>
+              ) : (
+                <div className="space-y-1">
+                  {group.items.map((e) => {
+                    const color = (e.assignedToId && memberColorMap[e.assignedToId]) || e.color || '#6366f1';
+                    const assignedKid = e.assignedToId ? kids.find((k) => k.uid === e.assignedToId) : null;
+                    return (
+                      <div key={e.id} onClick={() => setSelectedEvent(e)} className="flex items-stretch gap-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 px-2 py-1.5 cursor-pointer">
+                        <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{e.title}</span>
+                            {assignedKid && (
+                              <span className="flex items-center gap-1 text-xs text-gray-400 shrink-0">
+                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                                {assignedKid.name}
+                              </span>
+                            )}
+                          </div>
+                          {!e.isAllDay ? (
+                            <div className="text-xs text-gray-400">
+                              {format(new Date(e.startTime), 'h:mm a')}
+                              {e.endTime && e.endTime !== e.startTime ? ` – ${format(new Date(e.endTime), 'h:mm a')}` : ''}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-400">All day</div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {selectedEvent && (
+          <EventDetailModal
+            event={selectedEvent}
+            kids={kids}
+            userRole={userRole}
+            onClose={() => setSelectedEvent(null)}
+            onUpdated={() => { setSelectedEvent(null); void fetchEvents(); }}
+          />
+        )}
+      </div>
+    );
   }
 
   return (
