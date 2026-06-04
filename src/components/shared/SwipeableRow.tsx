@@ -17,6 +17,8 @@ export function SwipeableRow({ children, onSwipeRight, onSwipeLeft, rightLabel =
   const x = useMotionValue(0);
   const opacity = useTransform(x, [-100, 0, 100], [0.5, 1, 0.5]);
   const background = useTransform(x, [-100, 0, 100], ['#f59e0b', 'transparent', '#10b981']);
+  const doneOpacity = useTransform(x, [0, 40], [0, 1]);
+  const dismissOpacity = useTransform(x, [-40, 0], [1, 0]);
 
   const handleDragEnd = (_: any, info: any) => {
     if (info.offset.x > 100) onSwipeRight();
@@ -26,8 +28,12 @@ export function SwipeableRow({ children, onSwipeRight, onSwipeLeft, rightLabel =
   return (
     <div className={cn("relative overflow-hidden rounded-xl", className)}>
       <motion.div style={{ background }} className="absolute inset-0 flex items-center justify-between px-6">
-        <div className="flex items-center gap-2 text-white font-bold"><Check size={20} /> {rightLabel}</div>
-        <div className="flex items-center gap-2 text-white font-bold">{leftLabel} <X size={20} /></div>
+        <motion.div style={{ opacity: doneOpacity }} className="flex items-center gap-2 text-white font-bold">
+          <Check size={20} /> {rightLabel}
+        </motion.div>
+        <motion.div style={{ opacity: dismissOpacity }} className="flex items-center gap-2 text-white font-bold">
+          {leftLabel} <X size={20} />
+        </motion.div>
       </motion.div>
       <motion.div
         drag="x"

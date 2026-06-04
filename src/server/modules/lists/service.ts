@@ -25,6 +25,11 @@ export const listsService = {
     db.prepare('INSERT INTO lists (id, parentId, title) VALUES (?, ?, ?)').run(id, parentId, title);
     return { id, parentId, title };
   },
+  updateList: (id: string, title: string): AppList => {
+    db.prepare('UPDATE lists SET title = ? WHERE id = ?').run(title, id);
+    const updated = db.prepare('SELECT * FROM lists WHERE id = ?').get(id) as any;
+    return { id: updated.id, parentId: updated.parentId, title: updated.title };
+  },
   deleteList: (id: string) => {
     db.prepare('DELETE FROM list_items WHERE listId = ?').run(id);
     db.prepare('DELETE FROM lists WHERE id = ?').run(id);
@@ -34,8 +39,12 @@ export const listsService = {
     db.prepare('INSERT INTO list_items (id, listId, text, completed) VALUES (?, ?, ?, 0)').run(id, listId, text);
     return { id, listId, text, completed: 0 };
   },
-  toggleItem: (itemId: string, completed: boolean) => {
-    db.prepare('UPDATE list_items SET completed = ? WHERE id = ?').run(completed ? 1 : 0, itemId);
+  toggleItem: (itemId: string, completed: boolean, text?: string) => {
+    if (text !== undefined) {
+      db.prepare('UPDATE list_items SET completed = ?, text = ? WHERE id = ?').run(completed ? 1 : 0, text, itemId);
+    } else {
+      db.prepare('UPDATE list_items SET completed = ? WHERE id = ?').run(completed ? 1 : 0, itemId);
+    }
   },
   deleteItem: (itemId: string) => {
     db.prepare('DELETE FROM list_items WHERE id = ?').run(itemId);

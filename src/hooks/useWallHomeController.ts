@@ -16,6 +16,8 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
   const [tasksByKid, setTasksByKid] = useState<Record<string, Task[]>>({});
   const [completionsByKid, setCompletionsByKid] = useState<Record<string, TaskCompletion[]>>({});
   const [homework, setHomework] = useState<Homework[]>([]);
+  const [lists, setLists] = useState<AppList[]>([]);
+  const [listItems, setListItems] = useState<AppListItem[]>([]);
   const [forecast, setForecast] = useState<DailyForecast[]>([]);
   const [hourlyToday, setHourlyToday] = useState<HourlyForecastEntry[]>([]);
   const [tempUnit, setTempUnit] = useState<'celsius' | 'fahrenheit'>('celsius');
@@ -54,6 +56,8 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
 
       setEvents(dashboardData.events);
       setHomework(dashboardData.homework);
+      setLists(dashboardData.lists || []);
+      setListItems(dashboardData.listItems || []);
       
       // Map tasks and completions by kid
       const tMap: Record<string, Task[]> = {};
@@ -124,5 +128,7 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
     fetchKidTaskData: fetchFamilyData, // Alias for backward compatibility in WallHome
     allTasks,
     allCompletions,
+    lists,
+    listItems,
   };
 }

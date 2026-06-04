@@ -8,12 +8,14 @@ export const listsClientService = {
     fetchAPI('/lists', { method: 'POST', body: JSON.stringify({ title }) }),
   deleteList: (id: string): Promise<void> =>
     fetchAPI(`/lists/${id}`, { method: 'DELETE' }),
+  updateList: (id: string, title: string): Promise<AppList> =>
+    fetchAPI(`/lists/${id}`, { method: 'PUT', body: JSON.stringify({ title }) }),
   getItems: (listId: string): Promise<AppListItem[]> =>
     fetchAPI(`/lists/${listId}/items`),
   addItem: (listId: string, text: string): Promise<AppListItem> =>
     fetchAPI(`/lists/${listId}/items`, { method: 'POST', body: JSON.stringify({ text }) }),
-  toggleItem: (itemId: string, completed: boolean): Promise<void> =>
-    fetchAPI(`/list-items/${itemId}`, { method: 'PUT', body: JSON.stringify({ completed }) }),
+  toggleItem: (itemId: string, completed: boolean, text?: string): Promise<void> =>
+    fetchAPI(`/list-items/${itemId}`, { method: 'PUT', body: JSON.stringify({ completed, text }) }),
   deleteItem: (itemId: string): Promise<void> =>
     fetchAPI(`/list-items/${itemId}`, { method: 'DELETE' }),
 };

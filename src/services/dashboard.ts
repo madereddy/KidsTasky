@@ -1,11 +1,13 @@
 import { fetchAPI } from './http';
-import { CalendarEvent, Homework, Task, TaskCompletion } from '../types';
+import { CalendarEvent, Homework, Task, TaskCompletion, AppList, AppListItem } from '../types';
 
 export interface FamilyDashboardData {
   tasks: Task[];
   completions: TaskCompletion[];
   events: CalendarEvent[];
   homework: Homework[];
+  lists: AppList[];
+  listItems: AppListItem[];
 }
 
 const DASHBOARD_TTL_MS = 10_000;

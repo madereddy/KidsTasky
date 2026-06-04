@@ -11,7 +11,7 @@ import { subscribeToPush, unsubscribeFromPush } from './services/push';
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { LogOut, Rocket, User as UserIcon, Activity, CalendarDays, List, UtensilsCrossed, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { UserProfile, Category } from './types';
+import { UserProfile, Category, MissionItem } from './types';
 import { cn } from './lib/utils';
 import { THEMES, MEMBER_COLORS } from './constants';
 import { initSocket, useSocketStaleData } from './hooks/useSocket';
@@ -31,6 +31,12 @@ import { WallHome } from './components/parent/WallHome';
 import { KidDashboard } from './components/kid/KidDashboard';
 import { Skeleton, WallSkeleton } from './components/shared/Skeleton';
 import { SectionSkeleton } from './components/shared/SectionSkeleton';
+import { MissionTodayView } from './components/shared/MissionTodayView';
+import { ActionBolt } from './components/shared/ActionBolt';
+import { BottomNav } from './components/shared/BottomNav';
+import { useWallHomeController } from './hooks/useWallHomeController';
+import { useListsController } from './hooks/useListsController';
+import { format } from 'date-fns';
 
 const lazyWithRetry = <T extends React.ComponentType<any>>(
   importer: () => Promise<{ default: T }>,
@@ -98,6 +104,38 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<'home' | 'tasks' | 'calendar' | 'lists' | 'meals' | 'manage'>('home');
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
+  const [hiddenMissionIds, setHiddenMissionIds] = useState<Set<string>>(() => {
+    const stored = localStorage.getItem('kidtasker_hidden_missions');
+    const today = format(new Date(), 'yyyy-MM-dd');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed.date === today && Array.isArray(parsed.ids)) {
+          return new Set(parsed.ids);
+        }
+      } catch (e) {
+        // ignore parse error
+      }
+    }
+    return new Set();
+  });
+
+  useEffect(() => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    localStorage.setItem('kidtasker_hidden_missions', JSON.stringify({
+      date: today,
+      ids: Array.from(hiddenMissionIds)
+    }));
+  }, [hiddenMissionIds]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const handleResize = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mediaQuery.addEventListener('change', handleResize);
+    return () => mediaQuery.removeEventListener('change', handleResize);
+  }, []);
+
   // Separate counter used only to force a re-render after lazy chunks resolve.
   // Pre-cached chunks can miss React's Suspense retry ping (the ping fires before
   // React commits the fallback and wires the retry listener). A re-render ~50ms
@@ -378,6 +416,59 @@ export default function App() {
   const isDarkTheme = !!currentTheme.vocab?.darkMode;
   const familyParentId = profile?.parentId || profile?.uid || '';
 
+  const {
+    allTasks,
+    allCompletions,
+    events,
+    fetchFamilyData: refreshWallData,
+    lists: globalLists,
+    listItems: globalListItems
+  } = useWallHomeController({ 
+    parentId: familyParentId, 
+    kids, 
+    initialSettings: familySettings 
+  });
+
+  useSocketStaleData(['tasks', 'completions', 'lists', 'list_items'], useCallback(() => {
+    refreshWallData();
+  }, [refreshWallData]));
+
+  const {
+    items: selectedListItems,
+    lists: sidebarLists,
+    toggleItem: toggleListItem
+  } = useListsController({ 
+    parentId: familyParentId 
+  });
+
+  const handleMissionAction = useCallback(async (item: MissionItem, action: 'complete' | 'dismiss') => {
+    if (!profile) return;
+    const today = format(new Date(), 'yyyy-MM-dd');
+    
+    // Optimistic UI: Hide immediately
+    setHiddenMissionIds(prev => new Set([...prev, item.id]));
+
+    if (action === 'complete') {
+      if (item.type === 'task') {
+        const kidId = item.assignedToId || profile.uid;
+        await tasksClientService.completeTask(item.originalData.id, kidId, today);
+      } else if (item.type === 'list_item') {
+        await toggleListItem(item.originalData.id, true);
+      } else if (item.type === 'routine') {
+        // Bulk-complete all uncompleted items in this routine
+        const routineItems = globalListItems.filter(li => li.listId === item.originalData.id && li.completed === 0);
+        await Promise.all(routineItems.map(li => toggleListItem(li.id, true)));
+      }
+      refreshWallData();
+    } else if (action === 'dismiss') {
+      if (item.type === 'task') {
+        const kidId = item.assignedToId || profile.uid;
+        await tasksClientService.skipTask(item.originalData.id, kidId, today);
+      }
+      refreshWallData();
+    }
+  }, [profile, refreshWallData, toggleListItem]);
+
   useEffect(() => {
     if (!profile || profile.role !== 'parent' || isLocked) return;
     let timer: ReturnType<typeof setTimeout>;
@@ -494,6 +585,10 @@ export default function App() {
       </div>
     );
   }
+
+  const visibleTasks = useMemo(() => allTasks.filter(t => !hiddenMissionIds.has(`task_${t.id}`)), [allTasks, hiddenMissionIds]);
+  const visibleEvents = useMemo(() => events.filter(e => !hiddenMissionIds.has(`event_${e.id}`)), [events, hiddenMissionIds]);
+  const visibleListItems = useMemo(() => globalListItems.filter(l => !hiddenMissionIds.has(`list_${l.id}`)), [globalListItems, hiddenMissionIds]);
 
   return (
     <FamilyDataContext.Provider value={{ kids, categories, memberColorMap, refreshKids, refreshCategories }}>
@@ -706,84 +801,135 @@ export default function App() {
           </div>
         )}
 
-        {profile.role === 'parent' && activeSection === 'home' && (
-          <Suspense fallback={<SectionSkeleton role={(profile.role as string) === 'kid' ? 'kid' : 'parent'} activeSection="home" />}>
-            <WallHome
-              parentId={familyParentId}
+        {isMobile && activeSection === 'home' ? (
+          <Suspense fallback={<SectionSkeleton role={profile.role === 'kid' ? 'kid' : 'parent'} activeSection="home" />}>
+            <MissionTodayView
               profile={profile}
-              kids={kids}
-              memberColorMap={memberColorMap}
-              isLocked={isLocked}
-              onManage={() => goToSection('manage')}
-              settings={familySettings}
-            />
-          </Suspense>
-        )}
-        {profile.role === 'parent' && activeSection === 'manage' && (
-          <div className="space-y-4">
-            <div className="mb-4">
-              <button
-                onClick={() => goToSection('home')}
-                className="text-sm text-ui-muted hover:text-ui-primary transition-colors"
-              >
-                ← Back to Home
-              </button>
-            </div>
-            <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="manage" />}>
-              <ParentDashboard
-                profile={profile}
-              />
-            </Suspense>
-          </div>
-        )}
-        {profile.role === 'parent' && activeSection === 'calendar' && (
-          <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="calendar" />}>
-            <CalendarView 
-              parentId={familyParentId} 
-              kids={kids} 
-              memberColorMap={memberColorMap} 
-              isLocked={isLocked} 
-              userRole={profile.role} 
-            />
-          </Suspense>
-        )}
-        {profile.role === 'parent' && activeSection === 'tasks' && (
-          <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="tasks" />}>
-            <ParentTasksWorkspace
-              parentId={familyParentId}
+              tasks={visibleTasks}
+              events={visibleEvents}
+              completions={allCompletions}
+              listItems={visibleListItems}
+              lists={globalLists}
               kids={kids}
               categories={categories}
-              selectedCategoryId={selectedCategoryId}
-              isLocked={isLocked}
-              isDarkMode={isDarkTheme}
-              onCategoriesChange={setCategories}
+              onAction={handleMissionAction}
             />
           </Suspense>
-        )}
-        {profile.role === 'parent' && activeSection === 'lists' && (
-          <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="lists" />}>
-            <ListsView parentId={familyParentId} />
-          </Suspense>
-        )}
-        {profile.role === 'parent' && activeSection === 'meals' && (
-          <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="meals" />}>
-            <MealPlanView parentId={familyParentId} />
-          </Suspense>
-        )}
-        {profile.role !== 'parent' && (
-          <Suspense fallback={<SectionSkeleton role={(profile.role as string) === 'kid' ? 'kid' : 'parent'} activeSection="home" />}>
-            <KidDashboard
-              profile={profile}
-              onProgressChange={setProgress}
-              categories={categories}
-              selectedCategoryId={selectedCategoryId}
-              onProfileUpdate={handleProfileUpdate}
-              kids={kids}
-              memberColorMap={memberColorMap}
-            />
-          </Suspense>
+        ) : (
+          <>
+            {profile.role === 'parent' && activeSection === 'home' && (
+              <Suspense fallback={<SectionSkeleton role={(profile.role as string) === 'kid' ? 'kid' : 'parent'} activeSection="home" />}>
+                <WallHome
+                  parentId={familyParentId}
+                  profile={profile}
+                  kids={kids}
+                  memberColorMap={memberColorMap}
+                  isLocked={isLocked}
+                  onManage={() => goToSection('manage')}
+                  settings={familySettings}
+                />
+              </Suspense>
+            )}
+            {profile.role === 'parent' && activeSection === 'manage' && (
+              <div className="space-y-4">
+                <div className="mb-4">
+                  <button
+                    onClick={() => goToSection('home')}
+                    className="text-sm text-ui-muted hover:text-ui-primary transition-colors"
+                  >
+                    ← Back to Home
+                  </button>
+                </div>
+                <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="manage" />}>
+                  <ParentDashboard
+                    profile={profile}
+                  />
+                </Suspense>
+              </div>
+            )}
+            {profile.role === 'parent' && activeSection === 'calendar' && (
+              <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="calendar" />}>
+                <CalendarView 
+                  parentId={familyParentId} 
+                  kids={kids} 
+                  memberColorMap={memberColorMap} 
+                  isLocked={isLocked} 
+                  userRole={profile.role} 
+                />
+              </Suspense>
+            )}
+            {profile.role === 'parent' && activeSection === 'tasks' && (
+              <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="tasks" />}>
+                <ParentTasksWorkspace
+                  parentId={familyParentId}
+                  kids={kids}
+                  categories={categories}
+                  selectedCategoryId={selectedCategoryId}
+                  isLocked={isLocked}
+                  isDarkMode={isDarkTheme}
+                  onCategoriesChange={setCategories}
+                />
+              </Suspense>
+            )}
+            {profile.role === 'parent' && activeSection === 'meals' && (
+              <Suspense fallback={<SectionSkeleton role="parent" activeSection="meals" />}>
+                <MealPlanView parentId={familyParentId} />
+              </Suspense>
+            )}
+            {activeSection === 'lists' && (
+              <Suspense fallback={<SectionSkeleton role={profile.role === 'kid' ? 'kid' : 'parent'} activeSection="lists" />}>
+                <ListsView parentId={familyParentId} />
+              </Suspense>
+            )}
+            {profile.role !== 'parent' && activeSection !== 'lists' && (
+              <Suspense fallback={<SectionSkeleton role="kid" activeSection="home" />}>
+                <KidDashboard
+                  profile={profile}
+                  onProgressChange={setProgress}
+                  categories={categories}
+                  selectedCategoryId={selectedCategoryId}
+                  onProfileUpdate={handleProfileUpdate}
+                  kids={kids}
+                  memberColorMap={memberColorMap}
+                  activeSection={activeSection}
+                />
+              </Suspense>
+            )}
+          </>
         )}
       </main>
+
+      {isMobile && (
+        <ActionBolt 
+          profile={profile}
+          onAction={(type) => {
+            if (type === 'task') goToSection('tasks');
+            else if (type === 'grocery') goToSection('lists');
+          }} 
+        />
+      )}
+      {isMobile && (
+        <BottomNav
+          activeTab={activeSection}
+          onTabSelect={(tab) => {
+            if (tab.startsWith('kid_')) {
+              const kidId = tab.replace('kid_', '');
+              if (kidId === profile?.uid) {
+                goToSection('home');
+                return;
+              }
+              const kid = kids.find(k => k.uid === kidId);
+              if (kid) {
+                setPendingKidSwitch(kid);
+                setShowParentSwitchPin(false);
+              }
+            } else {
+              goToSection(tab as any);
+            }
+          }}
+          kids={kids}
+        />
+      )}
       {profile.role === "parent" && showUnlockPrompt && (
         <ParentalLockOverlay
           parentId={familyParentId}

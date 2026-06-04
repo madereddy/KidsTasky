@@ -2,9 +2,12 @@ import { db } from '../../db.js';
 import { taskServiceServer } from '../tasks/service.js';
 import { eventsService } from '../events/service.js';
 import { homeworkService } from '../homework/service.js';
+import { logger } from '../../lib/logger.js';
 
 export const dashboardService = {
   getFamilyDashboardData: (parentId: string, dateString: string) => {
+    const start = Date.now();
+    
     // 1. Tasks for the whole family
     const rawTasks = taskServiceServer.getParentsTasks(parentId);
     const tasks = rawTasks.map((t: any) => {
@@ -45,11 +48,27 @@ export const dashboardService = {
     const hwToDate = new Date(dateBase.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const homework = homeworkService.getByParentWindowed(parentId, hwFromDate, hwToDate);
 
+    // 5. Active list items and their parent lists
+    const lists = db.prepare('SELECT * FROM lists WHERE parentId = ?').all(parentId);
+    const listItems = db.prepare(`
+      SELECT i.* 
+      FROM list_items i 
+      JOIN lists l ON i.listId = l.id 
+      WHERE l.parentId = ? AND i.completed = 0
+    `).all(parentId);
+
+    const duration = Date.now() - start;
+    if (duration > 200) {
+      logger.warn({ parentId, dateString, durationMs: duration }, 'slow_dashboard_aggregation');
+    }
+
     return {
       tasks,
       completions,
       events,
-      homework
+      homework,
+      lists,
+      listItems
     };
   }
 };

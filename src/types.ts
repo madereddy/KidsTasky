@@ -242,6 +242,8 @@ export interface AppList {
   id: string;
   parentId: string;
   title: string;
+  locationName?: string; // e.g. 'Home', 'Car', 'School'
+  isRoutine?: number;    // 0 or 1
 }
 
 export interface AppListItem {
@@ -250,6 +252,7 @@ export interface AppListItem {
   text: string;
   completed: number;
   storeName?: string;
+  locationName?: string; // Specific location override
   completedAt?: number;
 }
 export interface Recipe {
@@ -283,13 +286,14 @@ export interface FeatureFlags {
 
 export interface MissionItem {
   id: string;
-  type: 'event' | 'task' | 'list_item';
+  type: 'event' | 'task' | 'list_item' | 'routine';
   title: string;
   subtitle?: string;
   time?: string;
   status: 'pending' | 'needs_approval' | 'completed';
   color?: string;
-  originalData: Task | CalendarEvent | AppListItem;
+  originalData: Task | CalendarEvent | AppListItem | AppList;
   assignedToId?: string;
-  storeName?: string; // For grocery items
+  storeName?: string;
+  locationName?: string;
 }

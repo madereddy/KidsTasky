@@ -31,7 +31,8 @@ export function KidDashboard({
   selectedCategoryId,
   onProfileUpdate,
   kids,
-  memberColorMap
+  memberColorMap,
+  activeSection
 }: { 
   profile: UserProfile, 
   onProgressChange: (p: number) => void,
@@ -39,7 +40,8 @@ export function KidDashboard({
   selectedCategoryId: string | null,
   onProfileUpdate: () => void,
   kids: UserProfile[],
-  memberColorMap: Record<string, string>
+  memberColorMap: Record<string, string>,
+  activeSection?: string
 }) {
   const currentTheme = THEMES.find(t => t.id === profile.themeId) || THEMES[0];
   const isDarkMode = !!currentTheme.vocab?.darkMode;
@@ -52,6 +54,16 @@ export function KidDashboard({
   const [sortBy, setSortBy] = useState<'time' | 'created'>('time');
   const [kidView, setKidView] = useState<'tasks' | 'calendar' | 'homework' | 'shop'>('tasks');
   const [, setTabRetryTick] = useState(0);
+
+  // Sync kidView with activeSection from parent/nav
+  useEffect(() => {
+    if (!activeSection) return;
+    if (activeSection === 'home' || activeSection === 'tasks') setKidView('tasks');
+    else if (activeSection === 'calendar') setKidView('calendar');
+    else if (activeSection === 'manage') setKidView('shop');
+    else if (activeSection === 'lists') setKidView('tasks'); // Default back to tasks if lists selected (since KidDashboard doesn't have lists yet)
+  }, [activeSection]);
+
   // See App.tsx goToSection: a 50ms follow-up re-render forces re-reconciliation
   // of the Suspense boundary after the lazy chunk resolves from cache.
   const goKidView = useCallback((view: 'tasks' | 'calendar' | 'homework' | 'shop') => {

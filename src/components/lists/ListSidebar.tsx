@@ -1,25 +1,28 @@
 // src/components/lists/ListSidebar.tsx
 import React, { useState } from 'react';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { X, Plus, Trash2, MapPin } from 'lucide-react';
 import { AppListItem } from '../../types';
 import { cn } from '../../lib/utils';
+import { COMMON_LOCATIONS } from '../../constants';
 
 interface Props {
   listTitle: string;
   items: AppListItem[];
+  frequentItems?: { text: string; storeName?: string; locationName?: string }[];
   isOpen: boolean;
   onToggleItem: (id: string, isCompleted: boolean) => void;
   onClose?: () => void;
-  onAddItem?: (text: string, store?: string) => void;
+  onAddItem?: (text: string, store?: string, location?: string) => void;
   onDeleteItem?: (id: string) => void;
   onDeleteList?: () => void;
   inline?: boolean;
 }
 
-export function ListSidebar({ listTitle, items, isOpen, onToggleItem, onClose, onAddItem, onDeleteItem, onDeleteList, inline }: Props) {
+export function ListSidebar({ listTitle, items, frequentItems, isOpen, onToggleItem, onClose, onAddItem, onDeleteItem, onDeleteList, inline }: Props) {
   const [newItemText, setNewItemText] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [selectedStoreChip, setSelectedStoreChip] = useState<string | null>(null);
+  const [selectedLocationChip, setSelectedLocationChip] = useState<string | null>(null);
 
   const COMMON_STORES = ['Costco', 'Walmart', 'Target', 'Trader Joe\'s', 'Grocery'];
 
@@ -28,9 +31,10 @@ export function ListSidebar({ listTitle, items, isOpen, onToggleItem, onClose, o
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemText.trim() || !onAddItem) return;
-    onAddItem(newItemText.trim(), selectedStoreChip || undefined);
+    onAddItem(newItemText.trim(), selectedStoreChip || undefined, selectedLocationChip || undefined);
     setNewItemText('');
     setSelectedStoreChip(null);
+    setSelectedLocationChip(null);
   };
 
   const containerClass = inline
@@ -79,7 +83,12 @@ export function ListSidebar({ listTitle, items, isOpen, onToggleItem, onClose, o
                 <span className={cn("text-sm font-medium break-words flex-1", item.completed === 1 ? "text-ui-muted line-through" : "text-ui-primary")}>
                   {item.text}
                 </span>
-                {item.storeName && item.completed !== 1 && (
+                {item.locationName && item.completed !== 1 && (
+                  <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-100 text-slate-600 text-[9px] font-bold uppercase rounded border border-slate-200">
+                    <MapPin size={8} /> {item.locationName}
+                  </span>
+                )}
+                {item.storeName && !item.locationName && item.completed !== 1 && (
                   <span className="ml-2 inline-block px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[9px] font-bold uppercase rounded-sm border border-blue-200">
                     {item.storeName}
                   </span>
@@ -100,21 +109,58 @@ export function ListSidebar({ listTitle, items, isOpen, onToggleItem, onClose, o
 
       {onAddItem && (
         <div className="p-3 border-t border-ui bg-white flex flex-col gap-2 shrink-0">
-          <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-            {COMMON_STORES.map(store => (
-              <button
-                key={store}
-                type="button"
-                onClick={() => setSelectedStoreChip(prev => prev === store ? null : store)}
-                className={cn(
-                  "px-2.5 py-1 rounded-md text-[10px] font-bold whitespace-nowrap transition-colors border",
-                  selectedStoreChip === store ? "bg-amber-100 text-amber-800 border-amber-300" : "bg-ui-soft text-ui-muted border-transparent hover:bg-ui-soft-2"
-                )}
-              >
-                {store}
-              </button>
-            ))}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+              {COMMON_STORES.map(store => (
+                <button
+                  key={store}
+                  type="button"
+                  onClick={() => {
+                    setSelectedStoreChip(prev => prev === store ? null : store);
+                    setSelectedLocationChip(null);
+                  }}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md text-[10px] font-bold whitespace-nowrap transition-all border flex items-center gap-1",
+                    selectedStoreChip === store ? "bg-amber-100 text-amber-800 border-amber-300" : "bg-ui-soft text-ui-muted border-transparent hover:bg-ui-soft-2"
+                  )}
+                >
+                  🛒 {store}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+              {COMMON_LOCATIONS.map(loc => (
+                <button
+                  key={loc.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedLocationChip(prev => prev === loc.label ? null : loc.label);
+                    setSelectedStoreChip(null);
+                  }}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md text-[10px] font-bold whitespace-nowrap transition-all border flex items-center gap-1",
+                    selectedLocationChip === loc.label ? "bg-sky-100 text-sky-800 border-sky-300" : "bg-ui-soft text-ui-muted border-transparent hover:bg-ui-soft-2"
+                  )}
+                >
+                  {loc.icon} {loc.label}
+                </button>
+              ))}
+            </div>
           </div>
+          {frequentItems && frequentItems.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+              {frequentItems.map((item, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => onAddItem(item.text, item.storeName, item.locationName)}
+                  className="px-2.5 py-1 rounded-md text-[10px] font-bold whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                >
+                  + {item.text}
+                </button>
+              ))}
+            </div>
+          )}
           <form onSubmit={handleAddItem} className="flex gap-2">
             <input
               value={newItemText}
