@@ -14,3 +14,20 @@ export function ensurePhotosUploadsDir(fsLike: FsLike = fs): string {
   fsLike.mkdirSync(uploadsDir, { recursive: true });
   return uploadsDir;
 }
+
+export function getSafePhotoFilename(input: string): string | null {
+  const trimmed = String(input || "").trim();
+  if (!trimmed) return null;
+  const safeName = path.basename(trimmed);
+  if (!safeName || safeName === "." || safeName === "..") return null;
+  return safeName;
+}
+
+export function resolvePhotoUploadPath(filename: string, uploadsDir = getPhotosUploadsDir()): string | null {
+  const safeName = getSafePhotoFilename(filename);
+  if (!safeName) return null;
+  const root = path.resolve(uploadsDir);
+  const resolved = path.resolve(root, safeName);
+  if (!resolved.startsWith(root + path.sep)) return null;
+  return resolved;
+}

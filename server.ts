@@ -2,6 +2,7 @@ import { startTracing, stopTracing } from "./src/server/lib/tracing.js";
 startTracing();
 
 import express from "express";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import helmet from "helmet";
@@ -274,9 +275,19 @@ export async function startServer() {
     app.use(vite.middlewares);
   } else if (process.env.NODE_ENV === "production" && !process.env.TEST_BUILD) {
     const distPath = path.join(process.cwd(), 'dist');
+    const indexPath = path.resolve(distPath, 'index.html');
     app.use(express.static(distPath));
     app.get(/^(?!\/api).*/, (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      res.type('html');
+      fs.createReadStream(indexPath)
+        .on('error', () => {
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to load app shell' });
+          } else {
+            res.destroy();
+          }
+        })
+        .pipe(res);
     });
   }
 

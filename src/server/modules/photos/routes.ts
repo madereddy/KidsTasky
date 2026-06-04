@@ -6,7 +6,7 @@ import fs from 'fs';
 import { google } from 'googleapis';
 import { requireAuth, assertParentScope, getParentId } from '../../middleware/auth.js';
 import { photosService } from './service.js';
-import { ensurePhotosUploadsDir, getPhotosUploadsDir } from './storage.js';
+import { ensurePhotosUploadsDir, getPhotosUploadsDir, getSafePhotoFilename, resolvePhotoUploadPath } from './storage.js';
 import { syncService } from '../sync/service.js';
 import { db } from '../../db.js';
 import { TTLCache } from '../../lib/ttlCache.js';
@@ -34,18 +34,23 @@ photosRouter.get('/photos/file/:filename', requireAuth, (req, res) => {
   }
 
   const photosDir = getPhotosUploadsDir();
-  // path.basename strips any directory components (incl. ../), so safeName cannot escape photosDir.
-  const safeName = path.basename(filename);
-  // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal,javascript.express.security.audit.express-path-join-resolve-traversal.express-path-join-resolve-traversal
-  const filePath = path.join(photosDir, safeName);
-
-  if (!filePath.startsWith(photosDir + path.sep) && filePath !== photosDir) {
+  const safeName = getSafePhotoFilename(filename);
+  const filePath = safeName ? resolvePhotoUploadPath(safeName, photosDir) : null;
+  if (!safeName || !filePath) {
     return res.status(400).json({ error: 'Invalid filename' });
   }
 
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Not found' });
-  // nosemgrep: javascript.express.security.audit.express-res-sendfile.express-res-sendfile
-  res.sendFile(filePath);
+  res.type(path.extname(safeName));
+  fs.createReadStream(filePath)
+    .on('error', () => {
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to read photo file' });
+      } else {
+        res.destroy();
+      }
+    })
+    .pipe(res);
 });
 
 const googleAlbumsCache = new TTLCache<any[]>(5 * 60 * 1000, 500, 'google-photos-albums');
@@ -309,13 +314,13 @@ photosRouter.delete("/photos/:id", requireAuth, (req, res) => {
     const photosDir = getPhotosUploadsDir();
     let filename: string | null = null;
     if (url.startsWith('/api/photos/file/')) {
-      filename = path.basename(url.replace('/api/photos/file/', ''));
+      filename = getSafePhotoFilename(url.replace('/api/photos/file/', ''));
     } else if (url.startsWith('/uploads/photos/')) {
-      filename = path.basename(url.replace('/uploads/photos/', ''));
+      filename = getSafePhotoFilename(url.replace('/uploads/photos/', ''));
     }
     if (filename) {
-      const filePath = path.join(photosDir, filename);
-      if (filePath.startsWith(photosDir + path.sep) || filePath.startsWith(photosDir + '/')) {
+      const filePath = resolvePhotoUploadPath(filename, photosDir);
+      if (filePath) {
         fs.unlink(filePath, () => {});
       }
     }

@@ -1,120 +1,125 @@
 # KidTasky
 
-Local-first family planner and kid tasking app with parent controls, approvals, rewards, routines, calendar, wall mode, shared lists, meals, photos, and optional external integrations.
+KidTasky is a local-first family planner for parents and kids. It combines tasks, approvals, routines, rewards, calendar planning, lists, meals, photos, notifications, and optional external integrations in one app.
 
-## Current Status
-- Core family workflows are implemented and in active local use.
-- Recent delivery includes: `Up for Grabs` tasks, task skip without stars, routine drag-reorder with persistence, and server-enforced parent edit-lock checks on mutation routes.
-- Multi-device convergence is improved through socket `stale-data` refetch behavior.
-- Reliability hardening includes a stabilized coverage E2E approval flow and refreshed dependency security updates (`nodemailer` patched line).
-- Security hardening includes auth attempt backoff/temporary lockout, structured security event logs, and image upload magic-byte validation with extension normalization.
-- Weather caching uses `TTLCache` with stale-while-revalidate: background refresh fires 60s before the 10-minute TTL expires, eliminating blocking API call spikes at cache expiry.
+## What It Covers
+- Parent-managed tasks, approvals, routines, rewards, and notifications
+- Kid dashboards and shared family views
+- Calendar, notes, homework, lists, meals, and events
+- Family photos with local uploads and Google Photos picker import
+- Optional weather, push notifications, SMTP email, Google sync, and magic email ingestion
 
-## Tech Stack
+## Stack
 - Frontend: React 19, TypeScript, Vite, Tailwind CSS 4
-- Backend: Node.js + Express 5 + Socket.IO
+- Backend: Node.js, Express 5, Socket.IO
 - Storage: SQLite via `better-sqlite3`
-- Tests: Vitest + Testing Library + Supertest
-- Containerization: Docker + Docker Compose
+- Tests: Vitest, Testing Library, Supertest
+- Runtime: Docker and Docker Compose supported
 
 ## Prerequisites
 - Node.js 24+
 - pnpm 10+
-- Docker Desktop (for container workflow)
+- Docker Desktop for container workflows
 
-## Local Dev Setup
+## Quick Start
 1. Install dependencies:
 ```bash
 pnpm install
 ```
-2. Rebuild native modules if needed (Windows/local ABI issues):
+2. Rebuild `better-sqlite3` if your local Node ABI changed:
 ```bash
 pnpm rebuild better-sqlite3
 ```
-3. Start dev server:
+3. Create a local env file from `.env.example`.
+4. Start the app:
 ```bash
 pnpm dev
 ```
-4. Open app:
-- `http://localhost:3000`
+5. Open `http://localhost:3000`
 
-## Build and Validation
+## Common Commands
 - Typecheck:
 ```bash
 pnpm exec tsc --noEmit
+```
+- Test:
+```bash
+pnpm test
 ```
 - Production build:
 ```bash
 pnpm build
 ```
-- Test suite:
+- Focused E2E verification:
 ```bash
-pnpm test
-```
-- Focused E2E reliability workflow:
-```bash
-node scripts/playwright-coverage-matrix.mjs
+pnpm test:e2e:verification
 ```
 
-## Docker / Compose (Local Production-like)
-This repo maps container port `3000` to host port `3010`.
+## Docker
+The container exposes port `3000` and maps it to host port `3010`.
 
-1. Rebuild containers:
+1. Build:
 ```bash
 docker compose build
 ```
-2. Relaunch stack:
+2. Start:
 ```bash
-docker compose down
 docker compose up -d
 ```
-3. Verify status and logs:
+3. Check status:
 ```bash
 docker compose ps
+```
+4. Tail logs:
+```bash
 docker compose logs --tail=200 webapp
 ```
-4. Open app:
-- `http://localhost:3010`
-5. Sample runtime memory over time:
+5. Open `http://localhost:3010`
+
+## Health Endpoints
+These are useful when the app is slow, background work is failing, or memory usage needs to be tracked over time.
+
+- `/api/health/build` - build metadata, git SHA, process start time
+- `/api/health/cache` - cache sizes, hit/miss counters, and load stats
+- `/api/health/db` - SQLite responsiveness, pragmas, and DB/WAL file sizes
+- `/api/health/deps` - short dependency probes and integration config flags
+- `/api/health/memory` - process memory, uptime, and socket counts
+- `/api/health/perf` - aggregated latency buckets for selected hot routes
+- `/api/health/requests` - request totals, in-flight count, status classes, recent slow requests
+- `/api/health/worker` - background job run state and Google sync backoff
+
+### Memory Sampling
+Sample runtime memory over time:
 ```bash
 pnpm health:memory:sample -- --url http://localhost:3010/api/health/memory --interval-ms 30000 --samples 20
 ```
 
-The sampler writes JSONL snapshots under `tmp/health/` by default so you can compare `rssMb`, `heapUsedMb`, and socket counts over time.
+The sampler writes JSONL snapshots under `tmp/health/` so you can compare `rssMb`, `heapUsedMb`, and socket counts over time.
 
-Useful troubleshooting endpoints:
-- `/api/health/memory` - process memory, uptime, socket counts
-- `/api/health/requests` - request totals, in-flight count, recent slow requests
-- `/api/health/perf` - aggregated latency buckets for selected hot routes
-- `/api/health/cache` - TTL cache sizes and hit/miss/load diagnostics
-- `/api/health/worker` - background job run state and sync backoff status
-- `/api/health/db` - SQLite responsiveness, pragmas, and DB/WAL file sizes
-- `/api/health/deps` - short external dependency probes and integration config flags
-- `/api/health/build` - version/build metadata and process start time
+## Environment Notes
+Copy `.env.example` to `.env` and fill in only what you need. Core local task, calendar, list, and reward flows work without most optional integrations.
 
-## Environment
-Copy `.env.example` to `.env` and set values as needed for optional integrations.
-
-For internet exposure behind Caddy/TLS, set:
+For internet exposure behind Caddy or another TLS-terminating proxy, set:
 - `ALLOWED_ORIGINS=https://your-domain.example`
 - `TRUST_PROXY_HOPS=1`
 - `ENFORCE_HTTPS=true`
-- strong `JWT_SECRET` value
+- a strong `JWT_SECRET`
 
-Optional integrations include:
+Optional integrations:
 - Google Calendar sync
-- Google Photos album display (via Google OAuth)
-- Weather — via [open-meteo.com](https://open-meteo.com/), no API key required; lat/lon set in family Settings UI
-- Magic email/webhook ingestion (Mailgun + Gemini AI)
-- Push notifications / SMTP fallback
+- Google Photos picker import
+- Weather via [open-meteo.com](https://open-meteo.com/)
+- Mailgun + Gemini-based magic email ingestion
+- Push notifications
+- SMTP fallback delivery
 
-Family photo controls now include:
-- in-app scheduled hard-delete cleanup settings
-- Google Photos album selector for display in photo surfaces
-
-If unset, core local task/calendar/list/reward flows still run.
+## Operations Notes
+- Request logs are structured and redact sensitive headers by default.
+- Slow requests are logged as `slow_request`.
+- Background jobs log under `[worker]`.
+- Photo import and Google Photos activity log under `[photos:*]`.
 
 ## Project Docs
 - Architecture and migration strategy: [ARCHITECTURE.md](ARCHITECTURE.md)
-- Setup variables and integration specifics: [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md)
-- Superpowers implementation plans: `docs/superpowers/plans/`
+- Setup variables and integration details: [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md)
+- Internal implementation plans: `docs/superpowers/plans/`

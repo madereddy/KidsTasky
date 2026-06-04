@@ -11,8 +11,8 @@ Options:
                         Default: 30000
   --samples <count>     Number of samples to capture before exiting
                         Default: 20
-  --out <path>          Output JSONL file path
-                        Default: tmp/health/memory-<timestamp>.jsonl
+  --out <filename>      Output JSONL filename written under tmp/health
+                        Default: memory-<timestamp>.jsonl
   --help                Show this message
 `);
 }
@@ -62,11 +62,28 @@ function parseArgs(argv) {
   return options;
 }
 
+function buildDefaultOutputName() {
+  return `memory-${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl`;
+}
+
+function sanitizeOutputFilename(input) {
+  const trimmed = String(input || '').trim();
+  if (!trimmed) return buildDefaultOutputName();
+  const safeName = path.basename(trimmed);
+  if (!safeName || safeName === '.' || safeName === '..') {
+    throw new Error('--out must be a filename, not a directory path');
+  }
+  if (safeName !== trimmed || safeName.includes(path.sep) || safeName.includes('/')) {
+    throw new Error('--out must be a filename under tmp/health');
+  }
+  return safeName;
+}
+
 function ensureOutputPath(outPath) {
-  const resolved = path.resolve(
-    outPath || path.join('tmp', 'health', `memory-${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl`),
-  );
-  fs.mkdirSync(path.dirname(resolved), { recursive: true });
+  const outputDir = path.resolve('tmp', 'health');
+  const safeFilename = sanitizeOutputFilename(outPath);
+  const resolved = path.resolve(outputDir, safeFilename);
+  fs.mkdirSync(outputDir, { recursive: true });
   return resolved;
 }
 

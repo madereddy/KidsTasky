@@ -12,7 +12,7 @@ import { magicService } from './modules/magic/service.js';
 import { syncService } from './modules/sync/service.js';
 import { sendPushToUser } from './modules/notifications/pushService.js';
 import { sendEmail } from './modules/notifications/emailService.js';
-import { ensurePhotosUploadsDir } from './modules/photos/storage.js';
+import { ensurePhotosUploadsDir, getSafePhotoFilename, resolvePhotoUploadPath } from './modules/photos/storage.js';
 
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
@@ -361,24 +361,26 @@ export function startBackgroundWorker(io?: SocketServer) {
           // Extract filename for local photos only; skip remote URLs (Google Photos https*)
           let localFilename: string | null = null;
           if (url.startsWith('/api/photos/file/')) {
-            localFilename = path.basename(url.replace('/api/photos/file/', ''));
+            localFilename = getSafePhotoFilename(url.replace('/api/photos/file/', ''));
           } else if (url.startsWith('/uploads/photos/')) {
-            localFilename = path.basename(url.replace('/uploads/photos/', ''));
+            localFilename = getSafePhotoFilename(url.replace('/uploads/photos/', ''));
           }
 
           if (!parentExists) {
             db.prepare('DELETE FROM family_photos WHERE id = ?').run(photo.id);
             if (localFilename) {
-              const filePath = path.join(ensurePhotosUploadsDir(), localFilename);
-              fs.unlink(filePath, () => {});
+              const filePath = resolvePhotoUploadPath(localFilename, ensurePhotosUploadsDir());
+              if (filePath) {
+                fs.unlink(filePath, () => {});
+              }
             }
             continue;
           }
 
           // Only check file existence for local photos; remote URLs are always "present"
           if (localFilename) {
-            const filePath = path.join(ensurePhotosUploadsDir(), localFilename);
-            if (!fs.existsSync(filePath)) {
+            const filePath = resolvePhotoUploadPath(localFilename, ensurePhotosUploadsDir());
+            if (filePath && !fs.existsSync(filePath)) {
               db.prepare('DELETE FROM family_photos WHERE id = ?').run(photo.id);
             }
           }
@@ -403,11 +405,15 @@ export function startBackgroundWorker(io?: SocketServer) {
         const trackedFiles = new Set(
           (db.prepare("SELECT url FROM family_photos WHERE url LIKE '/uploads/photos/%' OR url LIKE '/api/photos/file/%'")
             .all() as Array<{ url: string }>)
-            .map((r) => path.basename(r.url))
+            .map((r) => getSafePhotoFilename(r.url))
+            .filter((value): value is string => Boolean(value))
         );
         for (const file of fs.readdirSync(uploadsDir)) {
           if (!trackedFiles.has(file)) {
-            fs.unlink(path.join(uploadsDir, file), () => {});
+            const filePath = resolvePhotoUploadPath(file, uploadsDir);
+            if (filePath) {
+              fs.unlink(filePath, () => {});
+            }
           }
         }
       }
