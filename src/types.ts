@@ -279,3 +279,16 @@ export interface FeatureFlags {
   sync_diagnostics: boolean;
   calendar_visibility_profiles: boolean;
 }
+
+export interface MissionItem {
+  id: string;
+  type: 'event' | 'task' | 'list_item';
+  title: string;
+  subtitle?: string;
+  time?: string;
+  status: 'pending' | 'needs_approval' | 'completed';
+  color?: string;
+  originalData: any;
+  assignedToId?: string;
+  storeName?: string; // For grocery items
+}
