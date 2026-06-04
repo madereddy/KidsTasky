@@ -67,5 +67,11 @@ export const socketWrapper = {
     if (socketIds && io) {
       socketIds.forEach(socketId => io.to(socketId).emit(event, data));
     }
-  }
+  },
+
+  getDiagnostics: () => ({
+    connectedUsers: userSocketMap.size,
+    connectedSockets: socketToUid.size,
+    pendingStaleEmitTimers: staleEmitTimers.size,
+  }),
 };

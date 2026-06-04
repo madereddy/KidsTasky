@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "test:e2e:verification": "node scripts/playwright-verification-workflow.mjs"
+    "test:e2e:verification": "node scripts/playwright-verification-workflow.mjs",
+    "health:memory:sample": "node scripts/sample-health-memory.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.7.0",

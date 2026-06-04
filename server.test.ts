@@ -37,6 +37,57 @@ describe('Backend API Tests', () => {
     expect(res.body.status).toBe('ok');
   });
 
+  it('GET /api/health/memory should return runtime and memory diagnostics', async () => {
+    const res = await request(app).get('/api/health/memory');
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('ok');
+    expect(res.body.runtime.pid).toBeTypeOf('number');
+    expect(res.body.runtime.node).toBeTypeOf('string');
+    expect(res.body.runtime.uptimeSec).toBeTypeOf('number');
+    expect(res.body.memory.rssBytes).toBeTypeOf('number');
+    expect(res.body.memory.heapUsedBytes).toBeTypeOf('number');
+    expect(res.body.memory.rssMb).toBeGreaterThan(0);
+    expect(res.body.sockets.connectedUsers).toBeTypeOf('number');
+    expect(res.body.sockets.connectedSockets).toBeTypeOf('number');
+    expect(res.body.sockets.pendingStaleEmitTimers).toBeTypeOf('number');
+  });
+
+  it('GET troubleshooting health endpoints should return diagnostics payloads', async () => {
+    const buildRes = await request(app).get('/api/health/build');
+    expect(buildRes.status).toBe(200);
+    expect(buildRes.body.status).toBe('ok');
+    expect(buildRes.body.build.version).toBeTypeOf('string');
+    expect(buildRes.body.build.processStartedAt).toBeTypeOf('number');
+
+    const dbRes = await request(app).get('/api/health/db');
+    expect(dbRes.status).toBe(200);
+    expect(dbRes.body.status).toBe('ok');
+    expect(dbRes.body.db.ok).toBe(true);
+    expect(dbRes.body.db.latencyMs).toBeTypeOf('number');
+
+    const cacheRes = await request(app).get('/api/health/cache');
+    expect(cacheRes.status).toBe(200);
+    expect(cacheRes.body.status).toBe('ok');
+    expect(Array.isArray(cacheRes.body.caches)).toBe(true);
+
+    const workerRes = await request(app).get('/api/health/worker');
+    expect(workerRes.status).toBe(200);
+    expect(workerRes.body.status).toBe('ok');
+    expect(workerRes.body.worker.active).toBe(false);
+    expect(workerRes.body.worker.googleSyncBackoff.failCount).toBeTypeOf('number');
+
+    const depsRes = await request(app).get('/api/health/deps');
+    expect(depsRes.status).toBe(200);
+    expect(depsRes.body.status).toBe('ok');
+    expect(Array.isArray(depsRes.body.dependencies.checks)).toBe(true);
+
+    const requestsRes = await request(app).get('/api/health/requests');
+    expect(requestsRes.status).toBe(200);
+    expect(requestsRes.body.status).toBe('ok');
+    expect(requestsRes.body.requests.total).toBeGreaterThan(0);
+    expect(requestsRes.body.requests.byMethod.GET).toBeGreaterThan(0);
+  });
+
   it('POST /api/users (authenticated parent) creates a managed kid and GET retrieves them', async () => {
     // Unauthenticated arbitrary user creation was an account-takeover vector and
     // is no longer allowed — parents register, then mint kids with their token.

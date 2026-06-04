@@ -75,6 +75,22 @@ docker compose logs --tail=200 webapp
 ```
 4. Open app:
 - `http://localhost:3010`
+5. Sample runtime memory over time:
+```bash
+pnpm health:memory:sample -- --url http://localhost:3010/api/health/memory --interval-ms 30000 --samples 20
+```
+
+The sampler writes JSONL snapshots under `tmp/health/` by default so you can compare `rssMb`, `heapUsedMb`, and socket counts over time.
+
+Useful troubleshooting endpoints:
+- `/api/health/memory` - process memory, uptime, socket counts
+- `/api/health/requests` - request totals, in-flight count, recent slow requests
+- `/api/health/perf` - aggregated latency buckets for selected hot routes
+- `/api/health/cache` - TTL cache sizes and hit/miss/load diagnostics
+- `/api/health/worker` - background job run state and sync backoff status
+- `/api/health/db` - SQLite responsiveness, pragmas, and DB/WAL file sizes
+- `/api/health/deps` - short external dependency probes and integration config flags
+- `/api/health/build` - version/build metadata and process start time
 
 ## Environment
 Copy `.env.example` to `.env` and set values as needed for optional integrations.

@@ -48,6 +48,7 @@ export function ParentTasksWorkspace({
     approveCompletion,
     rejectCompletion,
     undoCompletion,
+    isCompletionActionPending,
     loading
   } = useParentTaskWorkspace({
     parentId,
@@ -138,20 +139,30 @@ export function ParentTasksWorkspace({
             <span className="bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{todayApprovedCompletions.length}</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {todayApprovedCompletions.map((comp: any) => (
-              <div key={comp.id} className="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 flex justify-between items-center">
-                <div>
-                  <p className="text-xs font-black text-emerald-600 uppercase mb-1">{comp.kidName}</p>
-                  <p className="font-bold text-ui-primary text-sm">{comp.taskTitle || comp.taskId}</p>
+            {todayApprovedCompletions.map((comp: any) => {
+              const pendingKey = `undo:${comp.id}`;
+              const isUndoPending = isCompletionActionPending(pendingKey);
+              return (
+                <div key={comp.id} className="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 flex justify-between items-center">
+                  <div>
+                    <p className="text-xs font-black text-emerald-600 uppercase mb-1">{comp.kidName}</p>
+                    <p className="font-bold text-ui-primary text-sm">{comp.taskTitle || comp.taskId}</p>
+                  </div>
+                  <button
+                    onClick={() => void undoCompletion(comp)}
+                    disabled={isUndoPending}
+                    className={cn(
+                      "border px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors",
+                      isUndoPending
+                        ? "bg-rose-100 border-rose-100 text-rose-400 cursor-not-allowed"
+                        : "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100",
+                    )}
+                  >
+                    {isUndoPending ? 'Undoing...' : 'Undo'}
+                  </button>
                 </div>
-                <button
-                  onClick={() => void undoCompletion(comp)}
-                  className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-rose-100 transition-colors"
-                >
-                  Undo
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

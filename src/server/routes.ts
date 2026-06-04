@@ -1,5 +1,10 @@
 import { Router } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { socketWrapper } from './socket.js';
+import { db, dbPath } from './db.js';
+import { getTTLCacheDiagnostics } from './lib/ttlCache.js';
+import { getWorkerDiagnostics } from './worker.js';
 import { authRouter } from './modules/auth/routes.js';
 import { usersRouter } from './modules/users/routes.js';
 import { tasksRouter } from './modules/tasks/routes.js';
@@ -23,9 +28,162 @@ import { proofTemplatesRouter } from './modules/proofTemplates/routes.js';
 import { dashboardRouter } from './modules/dashboard/routes.js';
 
 const router = Router();
+const buildStartedAt = Date.now();
+
+function toMb(bytes: number) {
+  return Math.round((bytes / 1024 / 1024) * 100) / 100;
+}
+
+function safeReadJsonFile(filePath: string): Record<string, unknown> | null {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    return JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function getBuildInfo() {
+  const metadata = safeReadJsonFile(path.resolve(process.cwd(), 'metadata.json'));
+  const pkg = safeReadJsonFile(path.resolve(process.cwd(), 'package.json'));
+  return {
+    appName: String(process.env.APP_NAME || metadata?.name || 'KidTasky'),
+    version: String(process.env.APP_VERSION || pkg?.version || 'unknown'),
+    gitSha: process.env.GIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || null,
+    buildTime: process.env.BUILD_TIME || null,
+    processStartedAt: buildStartedAt,
+    environment: process.env.NODE_ENV || 'development',
+  };
+}
+
+async function probeHttpDependency(name: string, url: string) {
+  const startedAt = Date.now();
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(1500) });
+    return {
+      name,
+      url,
+      ok: response.ok,
+      status: response.status,
+      latencyMs: Date.now() - startedAt,
+    };
+  } catch (error) {
+    return {
+      name,
+      url,
+      ok: false,
+      status: null,
+      latencyMs: Date.now() - startedAt,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
 
 router.get("/health", (req, res) => {
   res.json({ status: "ok" });
+});
+
+router.get('/health/memory', (req, res) => {
+  const memory = process.memoryUsage();
+
+  res.json({
+    status: 'ok',
+    runtime: {
+      pid: process.pid,
+      node: process.version,
+      uptimeSec: Math.round(process.uptime() * 100) / 100,
+    },
+    memory: {
+      rssBytes: memory.rss,
+      rssMb: toMb(memory.rss),
+      heapTotalBytes: memory.heapTotal,
+      heapTotalMb: toMb(memory.heapTotal),
+      heapUsedBytes: memory.heapUsed,
+      heapUsedMb: toMb(memory.heapUsed),
+      externalBytes: memory.external,
+      externalMb: toMb(memory.external),
+      arrayBuffersBytes: memory.arrayBuffers,
+      arrayBuffersMb: toMb(memory.arrayBuffers),
+    },
+    sockets: socketWrapper.getDiagnostics(),
+  });
+});
+
+router.get('/health/build', (req, res) => {
+  res.json({
+    status: 'ok',
+    build: getBuildInfo(),
+  });
+});
+
+router.get('/health/requests', (req, res) => {
+  const requestStats = (req.app.locals.requestStats || null) as
+    | {
+        startedAt: number;
+        inFlight: number;
+        total: number;
+        slowRequests: number;
+        byMethod: Record<string, number>;
+        byStatusClass: Record<string, number>;
+        recentSlowRequests: Array<{ method: string; path: string; status: number; durationMs: number; at: number }>;
+      }
+    | null;
+
+  res.json({
+    status: 'ok',
+    requests: requestStats,
+  });
+});
+
+router.get('/health/cache', (req, res) => {
+  res.json({
+    status: 'ok',
+    caches: getTTLCacheDiagnostics(),
+  });
+});
+
+router.get('/health/worker', (req, res) => {
+  res.json({
+    status: 'ok',
+    worker: getWorkerDiagnostics(),
+  });
+});
+
+router.get('/health/db', (req, res) => {
+  const startedAt = Date.now();
+  const selectOne = db.prepare('SELECT 1 as ok').get() as { ok: number };
+  const latencyMs = Date.now() - startedAt;
+  const journalMode = db.pragma('journal_mode', { simple: true });
+  const synchronous = db.pragma('synchronous', { simple: true });
+  const cacheSize = db.pragma('cache_size', { simple: true });
+  const busyTimeout = db.pragma('busy_timeout', { simple: true });
+  const pageCount = db.pragma('page_count', { simple: true });
+  const freelistCount = db.pragma('freelist_count', { simple: true });
+
+  const resolvedDbPath = dbPath === ':memory:' ? ':memory:' : path.resolve(process.cwd(), dbPath);
+  const dbFile = resolvedDbPath === ':memory:' || !fs.existsSync(resolvedDbPath) ? null : fs.statSync(resolvedDbPath);
+  const walPath = resolvedDbPath === ':memory:' ? null : `${resolvedDbPath}-wal`;
+  const shmPath = resolvedDbPath === ':memory:' ? null : `${resolvedDbPath}-shm`;
+
+  res.json({
+    status: 'ok',
+    db: {
+      ok: selectOne.ok === 1,
+      latencyMs,
+      path: resolvedDbPath,
+      journalMode,
+      synchronous,
+      cacheSize,
+      busyTimeout,
+      pageCount,
+      freelistCount,
+      files: {
+        mainBytes: dbFile?.size ?? null,
+        walBytes: walPath && fs.existsSync(walPath) ? fs.statSync(walPath).size : null,
+        shmBytes: shmPath && fs.existsSync(shmPath) ? fs.statSync(shmPath).size : null,
+      },
+    },
+  });
 });
 
 router.get('/health/perf', (req, res) => {
@@ -41,6 +199,28 @@ router.get('/health/perf', (req, res) => {
   }, {} as Record<string, { count: number; avgMs: number; maxMs: number; buckets: Record<string, number> }>);
 
   res.json({ routes: summary });
+});
+
+router.get('/health/deps', async (req, res) => {
+  const checks = await Promise.all([
+    probeHttpDependency('openMeteoPrimary', 'https://api.open-meteo.com/'),
+    probeHttpDependency('openMeteoEu', 'https://eu-api.open-meteo.com/'),
+    ...(process.env.GOOGLE_CLIENT_ID
+      ? [probeHttpDependency('googleApis', 'https://www.googleapis.com/')]
+      : []),
+  ]);
+
+  res.json({
+    status: 'ok',
+    dependencies: {
+      configured: {
+        googleCalendar: Boolean(process.env.GOOGLE_CLIENT_ID),
+        magicEmail: Boolean(process.env.MAILGUN_SIGNING_KEY),
+        gemini: Boolean(process.env.GEMINI_API_KEY),
+      },
+      checks,
+    },
+  });
 });
 
 // Generic stale-data broadcaster for all authenticated mutation routes

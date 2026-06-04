@@ -48,9 +48,9 @@ photosRouter.get('/photos/file/:filename', requireAuth, (req, res) => {
   res.sendFile(filePath);
 });
 
-const googleAlbumsCache = new TTLCache<any[]>(5 * 60 * 1000, 500);
-const googleMediaCache = new TTLCache<any[]>(2 * 60 * 1000, 2000);
-const googleAccessTokenCache = new TTLCache<string>(45 * 60 * 1000, 500);
+const googleAlbumsCache = new TTLCache<any[]>(5 * 60 * 1000, 500, 'google-photos-albums');
+const googleMediaCache = new TTLCache<any[]>(2 * 60 * 1000, 2000, 'google-photos-media');
+const googleAccessTokenCache = new TTLCache<string>(45 * 60 * 1000, 500, 'google-photos-access-token');
 const GOOGLE_PHOTOS_RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const GOOGLE_PHOTOS_PICKER_SCOPE = 'https://www.googleapis.com/auth/photospicker.mediaitems.readonly';
 

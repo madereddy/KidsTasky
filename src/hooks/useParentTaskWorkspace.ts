@@ -5,6 +5,7 @@ import { tasksClientService } from '../services/tasks';
 import { dashboardClientService } from '../services/dashboard';
 import { isAwardedTaskCompletion } from '../lib/completion-state';
 import { removeEntityById, upsertEntityByIdSorted } from '../lib/entity-list';
+import { useAsyncActionMap } from './useAsyncActionMap';
 
 export interface ParentCompletionSummary extends TaskCompletion {
   kidName: string;
@@ -21,6 +22,7 @@ export function useParentTaskWorkspace({ parentId, kids }: UseParentTaskWorkspac
   const [pendingCompletions, setPendingCompletions] = useState<ParentCompletionSummary[]>([]);
   const [todayApprovedCompletions, setTodayApprovedCompletions] = useState<ParentCompletionSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const completionActions = useAsyncActionMap();
   
   const memoKids = useMemo(() => JSON.stringify(kids), [kids]);
 
@@ -123,8 +125,10 @@ export function useParentTaskWorkspace({ parentId, kids }: UseParentTaskWorkspac
   };
 
   const undoCompletion = async (completion: ParentCompletionSummary) => {
-    await tasksClientService.uncompleteTask(completion.taskId, completion.dateString, completion.count ?? undefined);
-    setTodayApprovedCompletions((prev) => removeEntityById(prev, completion.id));
+    await completionActions.run(`undo:${completion.id}`, async () => {
+      await tasksClientService.uncompleteTask(completion.taskId, completion.dateString, completion.count ?? undefined);
+      setTodayApprovedCompletions((prev) => removeEntityById(prev, completion.id));
+    });
   };
 
   return {
@@ -138,6 +142,7 @@ export function useParentTaskWorkspace({ parentId, kids }: UseParentTaskWorkspac
     approveCompletion,
     rejectCompletion,
     undoCompletion,
+    isCompletionActionPending: completionActions.isPending,
     loading,
   };
 }

@@ -3,7 +3,7 @@ import { runMigrations } from "./migrate.js";
 import fs from "fs";
 import path from "path";
 
-const dbPath = process.env.DB_PATH || 'database.db';
+export const dbPath = process.env.DB_PATH || 'database.db';
 const isDevOrTest = process.env.VITEST || process.env.NODE_ENV === 'test';
 const sqlDebugEnabled = process.env.SQL_DEBUG === '1' || process.env.DB_VERBOSE === '1';
 

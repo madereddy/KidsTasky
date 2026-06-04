@@ -31,6 +31,15 @@ type PerfStats = {
   buckets: Record<PerfBucket, number>;
 };
 type PerfStore = Record<string, PerfStats>;
+type RequestStats = {
+  startedAt: number;
+  inFlight: number;
+  total: number;
+  slowRequests: number;
+  byMethod: Record<string, number>;
+  byStatusClass: Record<string, number>;
+  recentSlowRequests: Array<{ method: string; path: string; status: number; durationMs: number; at: number }>;
+};
 
 function createEmptyStats(): PerfStats {
   return {
@@ -64,6 +73,18 @@ function incrementPerfStats(store: PerfStore, routeKey: string, durationMs: numb
   else if (durationMs < 500) stats.buckets['<500ms'] += 1;
   else if (durationMs < 1000) stats.buckets['<1000ms'] += 1;
   else stats.buckets['>=1000ms'] += 1;
+}
+
+function createRequestStats(): RequestStats {
+  return {
+    startedAt: Date.now(),
+    inFlight: 0,
+    total: 0,
+    slowRequests: 0,
+    byMethod: {},
+    byStatusClass: {},
+    recentSlowRequests: [],
+  };
 }
 
 function parseCsvEnv(name: string): string[] {
@@ -190,16 +211,33 @@ app.use(pinoHttp({ logger }));
 
 const slowRequestThresholdMs = Number(process.env.SLOW_REQUEST_MS || 400);
 const perfStore: PerfStore = {};
+const requestStats = createRequestStats();
 app.locals.perfStore = perfStore;
+app.locals.requestStats = requestStats;
 app.use((req, res, next) => {
   const start = Date.now();
   const routeKey = resolvePerfRouteKey(req.method, req.path);
+  requestStats.inFlight += 1;
   res.on('finish', () => {
     const duration = Date.now() - start;
+    requestStats.inFlight = Math.max(0, requestStats.inFlight - 1);
+    requestStats.total += 1;
+    requestStats.byMethod[req.method] = (requestStats.byMethod[req.method] || 0) + 1;
+    const statusClass = `${Math.floor(res.statusCode / 100)}xx`;
+    requestStats.byStatusClass[statusClass] = (requestStats.byStatusClass[statusClass] || 0) + 1;
     if (routeKey) {
       incrementPerfStats(perfStore, routeKey, duration);
     }
     if (duration >= slowRequestThresholdMs) {
+      requestStats.slowRequests += 1;
+      requestStats.recentSlowRequests.unshift({
+        method: req.method,
+        path: req.originalUrl,
+        status: res.statusCode,
+        durationMs: duration,
+        at: Date.now(),
+      });
+      requestStats.recentSlowRequests = requestStats.recentSlowRequests.slice(0, 20);
       logger.warn({ method: req.method, path: req.originalUrl, status: res.statusCode, durationMs: duration }, 'slow_request');
     }
   });

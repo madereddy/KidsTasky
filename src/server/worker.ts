@@ -21,6 +21,117 @@ const intervalHandles: ReturnType<typeof setInterval>[] = [];
 const cronHandles: ScheduledTask[] = [];
 
 const syncBackoff = { failCount: 0, nextAllowedAt: 0 };
+const workerStartedAt = Date.now();
+let workerActive = false;
+
+type WorkerJobDiagnostics = {
+  name: string;
+  intervalType: 'interval' | 'cron';
+  schedule: string;
+  lastStartedAt: number | null;
+  lastFinishedAt: number | null;
+  lastSuccessAt: number | null;
+  lastFailureAt: number | null;
+  lastDurationMs: number | null;
+  successCount: number;
+  failureCount: number;
+  lastError: string | null;
+};
+
+const workerJobs: Record<string, WorkerJobDiagnostics> = {
+  eventReminders: {
+    name: 'eventReminders',
+    intervalType: 'interval',
+    schedule: '60000ms',
+    lastStartedAt: null,
+    lastFinishedAt: null,
+    lastSuccessAt: null,
+    lastFailureAt: null,
+    lastDurationMs: null,
+    successCount: 0,
+    failureCount: 0,
+    lastError: null,
+  },
+  overdueTasks: {
+    name: 'overdueTasks',
+    intervalType: 'interval',
+    schedule: '300000ms',
+    lastStartedAt: null,
+    lastFinishedAt: null,
+    lastSuccessAt: null,
+    lastFailureAt: null,
+    lastDurationMs: null,
+    successCount: 0,
+    failureCount: 0,
+    lastError: null,
+  },
+  photoCleanup: {
+    name: 'photoCleanup',
+    intervalType: 'interval',
+    schedule: '900000ms',
+    lastStartedAt: null,
+    lastFinishedAt: null,
+    lastSuccessAt: null,
+    lastFailureAt: null,
+    lastDurationMs: null,
+    successCount: 0,
+    failureCount: 0,
+    lastError: null,
+  },
+  dailyCleanup: {
+    name: 'dailyCleanup',
+    intervalType: 'cron',
+    schedule: '0 3 * * *',
+    lastStartedAt: null,
+    lastFinishedAt: null,
+    lastSuccessAt: null,
+    lastFailureAt: null,
+    lastDurationMs: null,
+    successCount: 0,
+    failureCount: 0,
+    lastError: null,
+  },
+  multiSourceSync: {
+    name: 'multiSourceSync',
+    intervalType: 'cron',
+    schedule: '*/5 * * * *',
+    lastStartedAt: null,
+    lastFinishedAt: null,
+    lastSuccessAt: null,
+    lastFailureAt: null,
+    lastDurationMs: null,
+    successCount: 0,
+    failureCount: 0,
+    lastError: null,
+  },
+};
+
+function markWorkerJobStart(jobName: keyof typeof workerJobs): number {
+  const startedAt = Date.now();
+  const job = workerJobs[jobName];
+  job.lastStartedAt = startedAt;
+  return startedAt;
+}
+
+function markWorkerJobSuccess(jobName: keyof typeof workerJobs, startedAt: number) {
+  const job = workerJobs[jobName];
+  const finishedAt = Date.now();
+  job.lastFinishedAt = finishedAt;
+  job.lastSuccessAt = finishedAt;
+  job.lastDurationMs = finishedAt - startedAt;
+  job.successCount += 1;
+  job.lastError = null;
+}
+
+function markWorkerJobFailure(jobName: keyof typeof workerJobs, startedAt: number, error: unknown) {
+  const job = workerJobs[jobName];
+  const finishedAt = Date.now();
+  job.lastFinishedAt = finishedAt;
+  job.lastFailureAt = finishedAt;
+  job.lastDurationMs = finishedAt - startedAt;
+  job.failureCount += 1;
+  job.lastError = error instanceof Error ? error.message : String(error);
+}
 
 function shouldSkipGoogleSync(): boolean {
   return Date.now() < syncBackoff.nextAllowedAt;
@@ -45,6 +156,7 @@ function onGoogleSyncFailure(err: any) {
 }
 
 export function startBackgroundWorker(io?: SocketServer) {
+  workerActive = true;
   const lastPhotoCleanupRun = new Map<string, number>();
   let photoSweepUploadsDirUnavailable = false;
   const REMINDER_WINDOW_MS = 60_000;
@@ -71,9 +183,12 @@ export function startBackgroundWorker(io?: SocketServer) {
   }
 
   intervalHandles.push(setInterval(async () => {
+    const startedAt = markWorkerJobStart('eventReminders');
     try {
       await sendEventReminders();
+      markWorkerJobSuccess('eventReminders', startedAt);
     } catch (e) {
+      markWorkerJobFailure('eventReminders', startedAt, e);
       console.error('[worker] reminder error:', e);
     }
   }, REMINDER_WINDOW_MS));
@@ -124,6 +239,7 @@ export function startBackgroundWorker(io?: SocketServer) {
   }
 
   intervalHandles.push(setInterval(() => {
+    const startedAt = markWorkerJobStart('overdueTasks');
     console.log("[Worker] Checking for overdue tasks...");
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
@@ -131,7 +247,10 @@ export function startBackgroundWorker(io?: SocketServer) {
       
       const tasks = db.prepare("SELECT * FROM tasks WHERE status = 'active'").all() as any[];
       const dueTasks = tasks.filter((task) => !!task.reminderTime);
-      if (dueTasks.length === 0) return;
+      if (dueTasks.length === 0) {
+        markWorkerJobSuccess('overdueTasks', startedAt);
+        return;
+      }
 
       const taskIdToTask = new Map<string, any>(tasks.map((t) => [t.id, t]));
       const kidIds = Array.from(new Set(dueTasks.map((t) => t.assignedKidId).filter(Boolean)));
@@ -209,10 +328,15 @@ export function startBackgroundWorker(io?: SocketServer) {
       for (const parentId of parentIdsWithNewNotifications) {
         io?.to(parentId).emit('stale-data', { type: 'notifications' });
       }
-    } catch (error) { console.error("[Worker Error]", error); }
+      markWorkerJobSuccess('overdueTasks', startedAt);
+    } catch (error) {
+      markWorkerJobFailure('overdueTasks', startedAt, error);
+      console.error("[Worker Error]", error);
+    }
   }, 5 * 60 * 1000));
 
   intervalHandles.push(setInterval(() => {
+    const startedAt = markWorkerJobStart('photoCleanup');
     try {
       const families = db.prepare(`
         SELECT parentId, photoCleanupEnabled, photoCleanupIntervalHours
@@ -264,7 +388,10 @@ export function startBackgroundWorker(io?: SocketServer) {
       }
 
       if (shouldRunGlobalOrphanSweep) {
-        if (photoSweepUploadsDirUnavailable) return;
+        if (photoSweepUploadsDirUnavailable) {
+          markWorkerJobSuccess('photoCleanup', startedAt);
+          return;
+        }
         let uploadsDir: string;
         try {
           uploadsDir = ensurePhotosUploadsDir();
@@ -284,13 +411,16 @@ export function startBackgroundWorker(io?: SocketServer) {
           }
         }
       }
+      markWorkerJobSuccess('photoCleanup', startedAt);
     } catch (error) {
+      markWorkerJobFailure('photoCleanup', startedAt, error);
       console.error('[worker] photo cleanup error:', error);
     }
   }, 15 * 60 * 1000));
 
   // Daily cleanup: prune unbounded tables that accumulate over time
   cronHandles.push(cron.schedule("0 3 * * *", () => {
+    const startedAt = markWorkerJobStart('dailyCleanup');
     try {
       const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
       const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
@@ -299,12 +429,16 @@ export function startBackgroundWorker(io?: SocketServer) {
       if (r1.changes > 0 || r2.changes > 0) {
         console.log(`[worker] daily cleanup: removed ${r1.changes} sent_reminders, ${r2.changes} old notifications`);
       }
+      markWorkerJobSuccess('dailyCleanup', startedAt);
     } catch (e) {
+      markWorkerJobFailure('dailyCleanup', startedAt, e);
       console.error('[worker] daily cleanup error:', e);
     }
   }));
 
   cronHandles.push(cron.schedule("*/5 * * * *", async () => {
+    const startedAt = markWorkerJobStart('multiSourceSync');
+    try {
     console.log("[Worker] Start Multi-Source Sync...");
     
     if (shouldSkipGoogleSync()) {
@@ -393,12 +527,31 @@ export function startBackgroundWorker(io?: SocketServer) {
         }
       } catch (err) { console.error("[Worker] IMAP Sync Error", err); }
     }
+      markWorkerJobSuccess('multiSourceSync', startedAt);
+    } catch (error) {
+      markWorkerJobFailure('multiSourceSync', startedAt, error);
+      console.error('[worker] multi-source sync error:', error);
+    }
   }));
 }
 
 export function stopWorker() {
+  workerActive = false;
   intervalHandles.forEach(h => clearInterval(h));
   cronHandles.forEach(h => h.stop());
   intervalHandles.length = 0;
   cronHandles.length = 0;
+}
+
+export function getWorkerDiagnostics() {
+  return {
+    active: workerActive,
+    startedAt: workerStartedAt,
+    googleSyncBackoff: {
+      failCount: syncBackoff.failCount,
+      nextAllowedAt: syncBackoff.nextAllowedAt,
+      nextAllowedInMs: Math.max(0, syncBackoff.nextAllowedAt - Date.now()),
+    },
+    jobs: workerJobs,
+  };
 }

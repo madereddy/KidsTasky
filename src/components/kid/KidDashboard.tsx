@@ -170,10 +170,6 @@ export function KidDashboard({
     }
   });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
   const isTaskLocked = (task: Task) => {
     if (!task.prerequisiteTaskIds || task.prerequisiteTaskIds.length === 0) return false;
     return task.prerequisiteTaskIds.some((prereqId: string) => {
