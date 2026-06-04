@@ -21,6 +21,7 @@ import { useProfileDataLoader } from './hooks/useProfileDataLoader';
 import { DisplayContext } from './contexts/DisplayContext';
 import { FamilyDataContext } from './contexts/FamilyDataContext';
 
+import { ShareTargetHandler } from './components/shared/ShareTargetHandler';
 import { ParentalLockOverlay } from './components/shared/ParentalLockOverlay';
 import { SleepModeOverlay } from './components/shared/SleepModeOverlay';
 import { PhotoScreensaver } from './components/shared/PhotoScreensaver';
@@ -215,6 +216,14 @@ export default function App() {
     initAuth();
   }, [loadProfileData, persistParentSession, warmProfile]);
 
+  useEffect(() => {
+    const handleShare = () => {
+      goToSection('manage');
+    };
+    window.addEventListener('kidstasty:share', handleShare);
+    return () => window.removeEventListener('kidstasty:share', handleShare);
+  }, [goToSection]);
+
   const handleLogout = async () => {
     await unsubscribeFromPush().catch(console.warn);
     localStorage.removeItem('kidtasker_token');
@@ -364,7 +373,7 @@ export default function App() {
     }, {} as Record<string, string>);
   }, [profile, kids]);
 
-  const currentThemeId = profile?.themeId || 'space';
+  const currentThemeId = profile?.themeId || 'space_commander';
   const currentTheme = THEMES.find(t => t.id === currentThemeId) || THEMES[0];
   const isDarkTheme = !!currentTheme.vocab?.darkMode;
   const familyParentId = profile?.parentId || profile?.uid || '';
@@ -489,6 +498,7 @@ export default function App() {
   return (
     <FamilyDataContext.Provider value={{ kids, categories, memberColorMap, refreshKids, refreshCategories }}>
     <DisplayContext.Provider value={{ isWallMode: isLocked, isSleepMode }}>
+    <ShareTargetHandler />
     <SleepModeOverlay isActive={isSleepMode} use24h={timeFormat === '24h'} onDismiss={() => setSleepDismissed(true)} />
     <div className={cn("min-h-screen selection:bg-sky-500/30 overflow-x-hidden pb-12 transition-colors duration-500", currentTheme.vocab?.darkMode ? "text-white theme-dark" : "text-ui-primary theme-light", isLocked && "wall-mode")} style={{ background: currentTheme.bg }}>
       <header className={cn("sticky top-0 z-40 backdrop-blur-xl border-b mx-4 mt-4 rounded-[2rem] px-6 py-3 mb-8 shadow-sm", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-ui")}>
@@ -794,6 +804,8 @@ export default function App() {
             setShowSettings(false);
           }}
           onPreviewScreensaver={() => setScreensaverPreview(true)}
+          currentThemeId={profile.themeId || 'space_commander'}
+          onThemeChange={(themeId) => setProfile(prev => prev ? { ...prev, themeId } : prev)}
         />
       )}
       {pendingKidSwitch && (

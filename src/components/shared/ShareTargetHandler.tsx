@@ -1,0 +1,20 @@
+import { useEffect } from 'react';
+
+export function ShareTargetHandler() {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const title = params.get('share_title') || '';
+    const text = params.get('share_text') || '';
+    const url = params.get('share_url') || '';
+
+    if (!title && !text && !url) return;
+
+    window.history.replaceState({}, '', window.location.pathname);
+
+    window.dispatchEvent(new CustomEvent('kidstasty:share', {
+      detail: { title, text, url },
+    }));
+  }, []);
+
+  return null;
+}

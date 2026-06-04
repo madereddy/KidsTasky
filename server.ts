@@ -10,6 +10,7 @@ import { rateLimit } from "express-rate-limit";
 import pinoHttp from "pino-http";
 import { db } from "./src/server/db.js";
 import { apiRouter } from "./src/server/routes.js";
+import shareRouter from "./src/server/modules/share/routes.js";
 import { startBackgroundWorker, stopWorker } from "./src/server/worker.js";
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -214,6 +215,9 @@ if (!process.env.VITEST && process.env.NODE_ENV !== 'test') {
 
 // API Routes
 app.use("/api", apiRouter);
+
+// Share Target Route (must be before SPA catch-all)
+app.use(shareRouter);
 
 // Server Initialization
 export async function startServer() {
