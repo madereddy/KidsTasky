@@ -1,20 +1,8 @@
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+// OTEL tracing stub. In ESM (tsx/ts-node), HTTP instrumentation requires
+// --import @opentelemetry/instrumentation/hook.mjs to patch before modules load.
+// The pino mixin in logger.ts already reads traceId/spanId from the active span
+// when a provider is registered via this mechanism.
+// Wire a real NodeTracerProvider here when deploying with the proper --import flag.
 
-let sdk: NodeSDK | null = null;
-
-export function startTracing() {
-  if (process.env.VITEST || process.env.NODE_ENV === 'test') return;
-  sdk = new NodeSDK({
-    instrumentations: [
-      getNodeAutoInstrumentations({
-        '@opentelemetry/instrumentation-fs': { enabled: false },
-      }),
-    ],
-  });
-  sdk.start();
-}
-
-export async function stopTracing() {
-  await sdk?.shutdown();
-}
+export function startTracing() {}
+export async function stopTracing() {}
