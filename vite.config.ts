@@ -53,8 +53,9 @@ export default defineConfig(({mode}) => {
       // worker ("Worker exited unexpectedly"). Cap concurrent forks to keep peak
       // memory bounded while preserving per-file DB isolation.
       pool: 'forks',
-      maxForks: 4,
-      minForks: 1,
+      maxWorkers: 4,
+      // Cap heap per fork — GC triggers before the OS 4 GB limit crashes the worker.
+      execArgv: ['--max-old-space-size=6144'],
     }
   };
 });
