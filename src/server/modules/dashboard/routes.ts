@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { param, query, validationResult } from 'express-validator';
 import { dashboardService } from './service.js';
 import { authenticateUser, assertParentScope } from '../../middleware/auth.js';
+import { logger } from '../../lib/logger.js';
 
 export const dashboardRouter = Router();
 
@@ -20,7 +21,7 @@ dashboardRouter.get("/parents/:parentId/family-dashboard-data", authenticateUser
     const data = dashboardService.getFamilyDashboardData(req.params.parentId as string, req.query.dateString as string);
     res.json(data);
   } catch (error: any) {
-    console.error('[dashboard:get_family_data]', error);
+    logger.error({ parentId: req.params.parentId, error: error.message }, 'dashboard_data_error');
     res.status(500).json({ error: error.message });
   }
 });

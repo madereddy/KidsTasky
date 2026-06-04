@@ -3,6 +3,7 @@ import { body, param, query, validationResult } from 'express-validator';
 import { taskServiceServer } from './service.js';
 import { userService } from '../users/service.js';
 import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
+import { logger } from '../../lib/logger.js';
 
 export const tasksRouter = Router();
 
@@ -26,7 +27,7 @@ tasksRouter.post("/tasks", authenticateUser, requireRole('parent'), enforceEditU
     const id = taskServiceServer.createTask({ ...req.body, parentId });
     res.json({ id });
   } catch (error: any) {
-    console.error('[tasks:create]', error);
+    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
     res.status(500).json({ error: error.message });
   }
 });
@@ -58,7 +59,7 @@ tasksRouter.get("/kids/:kidId/tasks", authenticateUser, [
       };
     }));
   } catch (error: any) {
-    console.error('[tasks:get_kids_tasks]', error);
+    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
     res.status(500).json({ error: error.message });
   }
 });
@@ -82,7 +83,7 @@ tasksRouter.get("/parents/:parentId/tasks", authenticateUser, assertParentScope,
       };
     }));
   } catch (error: any) {
-    console.error('[tasks:get_parents_tasks]', error);
+    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
     res.status(500).json({ error: error.message });
   }
 });
@@ -99,7 +100,7 @@ tasksRouter.put("/tasks/:taskId/archive", authenticateUser, enforceEditUnlocked,
     taskServiceServer.archiveTask(req.params.taskId as string);
     res.json({ success: true });
   } catch (error: any) {
-    console.error('[tasks:archive]', error);
+    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
     res.status(500).json({ error: error.message });
   }
 });
@@ -153,7 +154,7 @@ tasksRouter.post("/completions", authenticateUser, enforceEditUnlocked, [
     });
     res.json({ id: result.id, approvalStatus: result.approvalStatus, created: result.created });
   } catch (error: any) {
-    console.error('[tasks:complete]', error);
+    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
     res.status(500).json({ error: error.message });
   }
 });
@@ -240,10 +241,11 @@ tasksRouter.get("/kids/:kidId/completions", authenticateUser, [
       return { ...c, proofAnswers, completedAt: { seconds: c.completedAt / 1000 } };
     }));
   } catch (error: any) {
-    console.error('[tasks:get_completions]', error);
+    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
     res.status(500).json({ error: error.message });
   }
-});
+  });
+
 
 tasksRouter.get("/kids/:kidId/history", authenticateUser, [
   param('kidId').isString().notEmpty(),
@@ -267,10 +269,11 @@ tasksRouter.get("/kids/:kidId/history", authenticateUser, [
       return { ...c, proofAnswers, completedAt: { seconds: c.completedAt / 1000 } };
     }));
   } catch (error: any) {
-    console.error('[tasks:get_history]', error);
+    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
     res.status(500).json({ error: error.message });
   }
-});
+  });
+
 
 tasksRouter.get("/parents/:parentId/pending-completions", authenticateUser, assertParentScope, [
   param('parentId').isString().notEmpty(),
@@ -280,10 +283,11 @@ tasksRouter.get("/parents/:parentId/pending-completions", authenticateUser, asse
     const pending = taskServiceServer.getPendingCompletionsByParent(req.params.parentId as string);
     res.json(pending.map((c: any) => ({ ...c, completedAt: { seconds: c.completedAt / 1000 } })));
   } catch (error: any) {
-    console.error('[tasks:get_pending]', error);
+    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
     res.status(500).json({ error: error.message });
   }
-});
+  });
+
 
 tasksRouter.patch("/completions/:completionId/approve", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
   param('completionId').isString().notEmpty(),

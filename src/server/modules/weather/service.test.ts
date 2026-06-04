@@ -26,7 +26,8 @@ describe('Weather Service', () => {
 
     const forecast = await weatherService.getWeeklyForecast(40.7128, -74.0060);
     expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('open-meteo.com')
+      expect.stringContaining('open-meteo.com'),
+      expect.anything()
     );
     expect(forecast.daily.length).toBe(1);
     expect(forecast.daily[0].maxTemp).toBe(75);

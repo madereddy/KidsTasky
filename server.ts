@@ -62,6 +62,9 @@ function resolvePerfRouteKey(method: string, path: string): string | null {
   if (method !== 'GET') return null;
   if (path.startsWith('/api/settings/')) return 'GET /api/settings/*';
   if (path.startsWith('/api/parents/') && path.endsWith('/events')) return 'GET /api/parents/:parentId/events';
+  if (path.startsWith('/api/parents/') && path.includes('/family-dashboard-data')) return 'GET /api/parents/:parentId/family-dashboard-data';
+  if (path.startsWith('/api/parents/') && path.endsWith('/lists')) return 'GET /api/parents/:parentId/lists';
+  if (path.startsWith('/api/lists/') && path.endsWith('/items')) return 'GET /api/lists/:listId/items';
   return null;
 }
 

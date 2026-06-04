@@ -7,6 +7,14 @@
   --font-sans: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
+@utility hide-scrollbar {
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 :root {
   --background: #05070a;
   --foreground: #e2e8f0;
