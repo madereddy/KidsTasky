@@ -9,17 +9,21 @@ KidsTasky (KidTasker) — gamified family task manager. Parents assign missions,
 ## Commands
 
 ```bash
-npm run dev          # Start dev server (tsx + Vite middleware), http://localhost:3000
-npm run build        # Build frontend (Vite) + backend (esbuild → dist/server.js)
-npm run start        # Run production build (NODE_ENV=production)
-npm run test         # Run all tests (vitest)
-npm run lint         # Type-check only (tsc --noEmit)
+pnpm dev             # Start dev server (tsx + Vite middleware), http://localhost:3000
+pnpm build           # Build frontend (Vite) + backend (esbuild → dist/server.js)
+pnpm start           # Run production build (NODE_ENV=production)
+pnpm test            # Run all tests (vitest)
+pnpm lint            # Type-check only (tsc --noEmit)
+
+# Install packages (always use pnpm — npm is blocked by preinstall guard)
+pnpm add <package>
+pnpm add -D <package>
 
 # Single test file
-npx vitest run src/server/modules/events/api.test.ts
+pnpm vitest run src/server/modules/events/api.test.ts
 
 # Single test by name
-npx vitest run -t "should create an event"
+pnpm vitest run -t "should create an event"
 ```
 
 ## Architecture
@@ -67,7 +71,7 @@ npx vitest run -t "should create an event"
 - Requires Node 24+ (uses native features)
 - `.env.example` has all config vars — key ones: `JWT_SECRET`, `DB_PATH`, `GEMINI_API_KEY`, `GOOGLE_CLIENT_ID/SECRET`
 - Docker: multi-stage Chainguard build, SQLite at `/data/database.db` in container
-- Uses pnpm for Docker builds (lockfile: `pnpm-lock.yaml`), npm locally
+- Uses pnpm everywhere (local + Docker); `pnpm-lock.yaml` is the only lockfile
 
 ## Key Patterns
 

@@ -62,6 +62,6 @@ KidTasker's `sync_connections` database table maps Google OAuth tokens to a `par
 
 Once you have your `.env` file configured:
 
-1. Install dependencies: `npm install`
-2. Start the development server: `npm run dev`
+1. Install dependencies: `pnpm install`
+2. Start the development server: `pnpm dev`
 3. If using Docker, you can simply run: `docker-compose up -d`
