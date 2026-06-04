@@ -21,6 +21,7 @@ import { useSocketStaleData } from '../../hooks/useSocket';
 import { useFullscreen } from '../../hooks/useFullscreen';
 import { useWakeLock } from '../../hooks/useWakeLock';
 import { CalendarSkeleton } from '../shared/Skeleton';
+import { SleepModeOverlay } from '../shared/SleepModeOverlay';
 
 type ViewMode = 'month' | 'week' | 'day' | 'agenda';
 type WallFilter = 'today' | 'week' | 'allday';
@@ -119,12 +120,37 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
   const [showRoutinesModal, setShowRoutinesModal] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
   const [isKioskMode, setIsKioskMode] = useState(false);
+  const [isCalSleeping, setIsCalSleeping] = useState(false);
   const [loading, setLoading] = useState(true);
-  
+
+  const WALL_IDLE_MS = 5 * 60 * 1000;   // 5 min idle → wall mode
+  const SLEEP_IDLE_MS = 15 * 60 * 1000; // 15 min idle → sleep
+
+  const wallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sleepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wallRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const staleRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
   useWakeLock(isKioskMode);
+
+  const resetIdleTimers = useCallback(() => {
+    setIsCalSleeping(false);
+    if (wallTimerRef.current) clearTimeout(wallTimerRef.current);
+    if (sleepTimerRef.current) clearTimeout(sleepTimerRef.current);
+    wallTimerRef.current = setTimeout(() => setIsWallMode(true), WALL_IDLE_MS);
+    sleepTimerRef.current = setTimeout(() => setIsCalSleeping(true), SLEEP_IDLE_MS);
+  }, []); // stable — setters never change
+
+  useEffect(() => {
+    const evts = ['mousemove', 'mousedown', 'keydown', 'touchstart'] as const;
+    evts.forEach((e) => document.addEventListener(e, resetIdleTimers, { passive: true }));
+    resetIdleTimers();
+    return () => {
+      evts.forEach((e) => document.removeEventListener(e, resetIdleTimers));
+      if (wallTimerRef.current) clearTimeout(wallTimerRef.current);
+      if (sleepTimerRef.current) clearTimeout(sleepTimerRef.current);
+    };
+  }, [resetIdleTimers]);
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -470,12 +496,30 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
             </div>
           )}
 
-          <button
-            onClick={() => setIsWallMode(false)}
-            className="mt-auto flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold bg-blue-500 text-white hover:bg-blue-600 transition-colors"
-          >
-            <MonitorSmartphone size={16} /> Exit Wall
-          </button>
+          <div className="mt-auto flex flex-col gap-2">
+            <button
+              onClick={() => {
+                const entering = !isKioskMode;
+                setIsKioskMode(entering);
+                toggleFullscreen();
+              }}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-colors border',
+                isKioskMode
+                  ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
+                  : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-100'
+              )}
+            >
+              {isKioskMode ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              {isKioskMode ? 'Exit Kiosk' : 'Kiosk'}
+            </button>
+            <button
+              onClick={() => setIsWallMode(false)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+            >
+              <MonitorSmartphone size={16} /> Exit Wall
+            </button>
+          </div>
         </div>
 
         {/* Right panel — 5-day agenda */}
@@ -533,6 +577,7 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
             onUpdated={() => { setSelectedEvent(null); void fetchEvents(); }}
           />
         )}
+        <SleepModeOverlay isActive={isCalSleeping} use24h={timeFormat === '24h'} onDismiss={() => { setIsCalSleeping(false); resetIdleTimers(); }} />
       </div>
     );
   }
