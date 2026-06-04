@@ -84,6 +84,7 @@ export function KidDashboard({
     toggleTask,
     skipTask,
     executeCompletion,
+    setCompletions: syncControllerCompletions,
   } = useTaskCompletionController({
     profile,
     tasks,
@@ -148,6 +149,7 @@ export function KidDashboard({
       ]).then(([t, c]) => {
         setTasks(t || []);
         setCompletions(c || []);
+        syncControllerCompletions(c || []);
       });
     } catch (e) {
       console.error("Failed to fetch kid dashboard data", e);

@@ -5,9 +5,7 @@ import { useParentTaskWorkspace } from './useParentTaskWorkspace';
 
 vi.mock('../services/tasks', () => ({
   tasksClientService: {
-    getTasksForParent: vi.fn(),
     getPendingCompletions: vi.fn(),
-    getCompletionsForKid: vi.fn(),
     createTask: vi.fn(),
     archiveTask: vi.fn(),
     updateTask: vi.fn(),
@@ -17,7 +15,15 @@ vi.mock('../services/tasks', () => ({
   },
 }));
 
+vi.mock('../services/dashboard', () => ({
+  dashboardClientService: {
+    getFamilyDashboardData: vi.fn(),
+    clearCache: vi.fn(),
+  },
+}));
+
 import { tasksClientService } from '../services/tasks';
+import { dashboardClientService } from '../services/dashboard';
 
 describe('useParentTaskWorkspace', () => {
   const kids: any[] = [
@@ -27,15 +33,19 @@ describe('useParentTaskWorkspace', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(tasksClientService.getTasksForParent).mockResolvedValue([
-      { id: 't1', title: 'Brush teeth', assignedKidId: 'k1', parentId: 'p1', frequency: 'daily', status: 'active', createdAt: 1 },
-    ] as any);
+    vi.mocked(dashboardClientService.getFamilyDashboardData).mockResolvedValue({
+      tasks: [
+        { id: 't1', title: 'Brush teeth', assignedKidId: 'k1', parentId: 'p1', frequency: 'daily', status: 'active', createdAt: 1 },
+      ],
+      completions: [
+        { id: 'c1', taskId: 't1', kidId: 'k1', dateString: '2026-06-03', completedAt: { seconds: 20 } },
+      ],
+      events: [],
+      homework: [],
+    } as any);
     vi.mocked(tasksClientService.getPendingCompletions).mockResolvedValue([
       { id: 'pc1', taskId: 't1', kidName: 'Kid One', taskTitle: 'Brush teeth' },
     ] as any);
-    vi.mocked(tasksClientService.getCompletionsForKid)
-      .mockResolvedValueOnce([{ id: 'c1', taskId: 't1', kidId: 'k1', dateString: '2026-06-03', completedAt: { seconds: 20 } }] as any)
-      .mockResolvedValueOnce([] as any);
   });
 
   it('loads tasks, pending approvals, and completed-today summaries', async () => {

@@ -4,9 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ParentTasksWorkspace } from './ParentTasksWorkspace';
 
-const getTasksForParent = vi.fn();
 const getPendingCompletions = vi.fn();
-const getCompletionsForKid = vi.fn();
 const approveCompletion = vi.fn();
 const rejectCompletion = vi.fn();
 const uncompleteTask = vi.fn();
@@ -16,9 +14,7 @@ const updateTask = vi.fn();
 
 vi.mock('../../services/tasks', () => ({
   tasksClientService: {
-    getTasksForParent: (...args: any[]) => getTasksForParent(...args),
     getPendingCompletions: (...args: any[]) => getPendingCompletions(...args),
-    getCompletionsForKid: (...args: any[]) => getCompletionsForKid(...args),
     approveCompletion: (...args: any[]) => approveCompletion(...args),
     rejectCompletion: (...args: any[]) => rejectCompletion(...args),
     uncompleteTask: (...args: any[]) => uncompleteTask(...args),
@@ -27,6 +23,15 @@ vi.mock('../../services/tasks', () => ({
     updateTask: (...args: any[]) => updateTask(...args),
   },
 }));
+
+vi.mock('../../services/dashboard', () => ({
+  dashboardClientService: {
+    getFamilyDashboardData: vi.fn(),
+    clearCache: vi.fn(),
+  },
+}));
+
+import { dashboardClientService } from '../../services/dashboard';
 
 vi.mock('../../hooks/useSocket', () => ({
   useSocketStaleData: vi.fn(),
@@ -79,8 +84,13 @@ describe('ParentTasksWorkspace workflows', () => {
         approvalStatus: 'pending',
       },
     ];
-    let completionsByKid: Record<string, any[]> = {
-      k1: [
+
+    vi.mocked(dashboardClientService.getFamilyDashboardData).mockResolvedValue({
+      tasks: [
+        { id: 't-pending', title: 'Pack Lunch' },
+        { id: 't-approved', title: 'Brush Teeth' },
+      ],
+      completions: [
         {
           id: 'ac1',
           taskId: 't-approved',
@@ -90,27 +100,14 @@ describe('ParentTasksWorkspace workflows', () => {
           approvalStatus: 'approved',
         },
       ],
-    };
-
-    getTasksForParent.mockResolvedValue([
-      { id: 't-pending', title: 'Pack Lunch' },
-      { id: 't-approved', title: 'Brush Teeth' },
-    ]);
+      events: [],
+      homework: [],
+    } as any);
     getPendingCompletions.mockImplementation(async () => pendingRows);
-    getCompletionsForKid.mockImplementation(async (kidId: string) => completionsByKid[kidId] || []);
     approveCompletion.mockImplementation(async (completionId: string) => {
       pendingRows = pendingRows.filter((row) => row.id !== completionId);
     });
-    uncompleteTask.mockImplementation(async (taskId: string, dateString: string, count?: number) => {
-      completionsByKid = Object.fromEntries(
-        Object.entries(completionsByKid).map(([kidId, rows]) => [
-          kidId,
-          rows.filter(
-            (row) => !(row.taskId === taskId && row.dateString === dateString && (row.count ?? 1) === (count ?? 1)),
-          ),
-        ]),
-      );
-    });
+    uncompleteTask.mockResolvedValue(undefined);
 
     render(
       <ParentTasksWorkspace
@@ -122,7 +119,7 @@ describe('ParentTasksWorkspace workflows', () => {
       />,
     );
 
-    expect(await screen.findByText('Awaiting Approval')).toBeInTheDocument();
+    expect(await screen.findByText('Pending Approval')).toBeInTheDocument();
     expect(screen.getByText('Completed Today')).toBeInTheDocument();
     expect(screen.getByText('Pack Lunch')).toBeInTheDocument();
     expect(screen.getByText('Brush Teeth')).toBeInTheDocument();
