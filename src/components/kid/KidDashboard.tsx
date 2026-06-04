@@ -1,6 +1,6 @@
 import { userService } from '../../services/users';
 import { tasksClientService } from '../../services/tasks';
-import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense, startTransition } from 'react';
 import { Settings, Flame, Trophy, Zap, TrendingUp, Award, Clock, CalendarDays, History, Bell, Star, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, startOfToday, subDays } from 'date-fns';
@@ -67,7 +67,9 @@ export function KidDashboard({
   // See App.tsx goToSection: a 50ms follow-up re-render forces re-reconciliation
   // of the Suspense boundary after the lazy chunk resolves from cache.
   const goKidView = useCallback((view: 'tasks' | 'calendar' | 'homework' | 'shop') => {
-    setKidView(view);
+    startTransition(() => {
+      setKidView(view);
+    });
     setTimeout(() => setTabRetryTick(t => t + 1), 50);
   }, []);
   const [taskView, setTaskView] = useState<'all' | 'upforgrabs' | 'assigned'>('all');

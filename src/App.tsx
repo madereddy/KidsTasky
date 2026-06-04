@@ -8,7 +8,7 @@ import { homeworkClientService } from './services/homework';
 import { listsClientService } from './services/lists';
 import { mealsClientService } from './services/meals';
 import { subscribeToPush, unsubscribeFromPush } from './services/push';
-import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense, startTransition } from 'react';
 import { LogOut, Rocket, User as UserIcon, Activity, CalendarDays, List, UtensilsCrossed, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, Category, MissionItem } from './types';
@@ -143,7 +143,9 @@ export default function App() {
   // has the lazy module cached, so it commits the component without throwing.
   const [, setNavRetryTick] = useState(0);
   const goToSection = useCallback((section: 'home' | 'tasks' | 'calendar' | 'lists' | 'meals' | 'manage') => {
-    setActiveSection(section);
+    startTransition(() => {
+      setActiveSection(section);
+    });
     setTimeout(() => setNavRetryTick(t => t + 1), 50);
   }, []);
   const [kids, setKids] = useState<UserProfile[]>([]);
@@ -708,7 +710,9 @@ export default function App() {
                     setShowUnlockPrompt(true);
                     return;
                   }
-                  setShowSettings(true);
+                  startTransition(() => {
+                    setShowSettings(true);
+                  });
                 }}
                 onMouseEnter={prefetchSettings}
                 onFocus={prefetchSettings}
