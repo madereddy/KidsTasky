@@ -143,9 +143,9 @@ export default function App() {
   // has the lazy module cached, so it commits the component without throwing.
   const [, setNavRetryTick] = useState(0);
   const goToSection = useCallback((section: 'home' | 'tasks' | 'calendar' | 'lists' | 'meals' | 'manage') => {
-    startTransition(() => {
-      setActiveSection(section);
-    });
+    // Commit the section change immediately so the fallback UI can render even
+    // when the destination chunk is still loading.
+    setActiveSection(section);
     setTimeout(() => setNavRetryTick(t => t + 1), 50);
   }, []);
   const [kids, setKids] = useState<UserProfile[]>([]);
