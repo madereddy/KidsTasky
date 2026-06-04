@@ -4,6 +4,7 @@ import { getJwtSecret } from './config.js';
 
 let io: Server;
 const userSocketMap = new Map<string, Set<string>>();
+const socketToUid = new Map<string, string>(); // reverse map for O(1) disconnect
 const staleEmitTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const STALE_EMIT_COALESCE_MS = 200;
 
@@ -25,10 +26,10 @@ export const socketWrapper = {
           }
           socket.join(parentId);
 
-          // Track uid -> socket mapping
           const uid = payload.uid;
           if (!userSocketMap.has(uid)) userSocketMap.set(uid, new Set());
           userSocketMap.get(uid)!.add(socket.id);
+          socketToUid.set(socket.id, uid);
 
           console.log(`Socket ${socket.id} joined room for parent: ${parentId}`);
         } catch (err) {
@@ -37,11 +38,15 @@ export const socketWrapper = {
       });
 
       socket.on('disconnect', () => {
-        userSocketMap.forEach((ids, uid) => {
-          if (ids.delete(socket.id)) {
+        const uid = socketToUid.get(socket.id);
+        socketToUid.delete(socket.id);
+        if (uid) {
+          const ids = userSocketMap.get(uid);
+          if (ids) {
+            ids.delete(socket.id);
             if (ids.size === 0) userSocketMap.delete(uid);
           }
-        });
+        }
       });
     });
   },

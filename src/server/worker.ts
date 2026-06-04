@@ -289,6 +289,21 @@ export function startBackgroundWorker(io?: SocketServer) {
     }
   }, 15 * 60 * 1000));
 
+  // Daily cleanup: prune unbounded tables that accumulate over time
+  cronHandles.push(cron.schedule("0 3 * * *", () => {
+    try {
+      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      const r1 = db.prepare('DELETE FROM sent_reminders WHERE sentAt < ?').run(sevenDaysAgo);
+      const r2 = db.prepare("DELETE FROM notifications WHERE status = 'read' AND createdAt < ?").run(thirtyDaysAgo);
+      if (r1.changes > 0 || r2.changes > 0) {
+        console.log(`[worker] daily cleanup: removed ${r1.changes} sent_reminders, ${r2.changes} old notifications`);
+      }
+    } catch (e) {
+      console.error('[worker] daily cleanup error:', e);
+    }
+  }));
+
   cronHandles.push(cron.schedule("*/5 * * * *", async () => {
     console.log("[Worker] Start Multi-Source Sync...");
     

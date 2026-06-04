@@ -13,7 +13,9 @@ weatherRouter.get('/weather', async (req, res) => {
     }
     const forecast = await weatherService.getWeeklyForecast(lat, lon);
     res.json(forecast);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch {
+    // Graceful degradation: open-meteo unavailable or timed out — return empty rather than 500.
+    // 500s trigger client retries which compound slow-network conditions.
+    res.json({ daily: [], hourlyToday: [] });
   }
 });

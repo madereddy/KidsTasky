@@ -34,11 +34,16 @@ export const dashboardService = {
       return { ...c, proofAnswers, completedAt: { seconds: c.completedAt / 1000 } };
     });
 
-    // 3. Events
-    const events = eventsService.getEventsByParent(parentId);
+    // 3. Events — window: 14 days back to 90 days forward from requested date
+    const dateBase = new Date(`${dateString}T00:00:00`);
+    const fromMs = dateBase.getTime() - 14 * 24 * 60 * 60 * 1000;
+    const toMs = dateBase.getTime() + 90 * 24 * 60 * 60 * 1000;
+    const events = eventsService.getEventsByParentWindowed(parentId, fromMs, toMs);
 
-    // 4. Homework
-    const homework = homeworkService.getByParent(parentId);
+    // 4. Homework — window: past 7 days to 90 days forward (skip old completed items)
+    const hwFromDate = new Date(dateBase.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const hwToDate = new Date(dateBase.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const homework = homeworkService.getByParentWindowed(parentId, hwFromDate, hwToDate);
 
     return {
       tasks,

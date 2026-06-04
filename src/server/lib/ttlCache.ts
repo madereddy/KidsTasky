@@ -45,15 +45,26 @@ export class TTLCache<T> {
       }
       return entry.value;
     }
+
+    const staleEntry = entry ?? null;
     if (entry) this.store.delete(key);
 
     const existingLoad = this.inFlight.get(key);
     if (existingLoad) return existingLoad;
 
     const loadPromise = (async () => {
-      const value = await loader();
-      this.set(key, value);
-      return value;
+      try {
+        const value = await loader();
+        this.set(key, value);
+        return value;
+      } catch (err) {
+        if (staleEntry) {
+          // Serve stale data on load failure; short TTL so we retry soon
+          this.store.set(key, { value: staleEntry.value, expiresAt: Date.now() + Math.min(30_000, this.ttlMs / 4) });
+          return staleEntry.value;
+        }
+        throw err;
+      }
     })();
 
     this.inFlight.set(key, loadPromise);

@@ -27,9 +27,18 @@ export const weatherService = {
     const lonKey = lon.toFixed(3);
     const cacheKey = `${latKey},${lonKey}`;
     return weatherCache.getOrLoad(cacheKey, async () => {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min&hourly=weathercode,temperature_2m&timezone=auto`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Weather fetch failed');
+      const params = `latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min&hourly=weathercode,temperature_2m&timezone=auto`;
+      const hosts = ['https://api.open-meteo.com', 'https://eu-api.open-meteo.com'];
+      let res: Response | undefined;
+      for (const host of hosts) {
+        try {
+          res = await fetch(`${host}/v1/forecast?${params}`, { signal: AbortSignal.timeout(5000) });
+          if (res.ok) break;
+        } catch {
+          // try next host
+        }
+      }
+      if (!res?.ok) throw new Error('Weather fetch failed');
 
       const data = await res.json();
       const daily: DailyForecast[] = [];

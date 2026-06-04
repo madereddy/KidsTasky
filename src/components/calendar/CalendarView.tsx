@@ -8,7 +8,7 @@ import { listsClientService } from '../../services/lists';
 import { weatherClientService, DailyForecast } from '../../services/weather';
 import { routinesClientService } from '../../services/routines';
 import { AppList, AppListItem, CalendarEvent, RoutineTemplate, SyncCalendar, UserProfile } from '../../types';
-import { TemperatureUnitPref, TimeFormatPref } from '../../lib/dateTimePrefs';
+import { TemperatureUnitPref, TimeFormatPref, toDisplayTemp } from '../../lib/dateTimePrefs';
 import { cn } from '../../lib/utils';
 import { CalendarMonthView } from './CalendarMonthView';
 import { CalendarWeekView } from './CalendarWeekView';
@@ -515,7 +515,7 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
         </div>
       )}
 
-      {syncCalendars.length > 0 && (
+      {!isWallMode && syncCalendars.length > 0 && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-ui-soft bg-ui-soft shrink-0 flex-wrap">
           {syncCalendars
             .filter((cal) => Boolean(cal.enabled) && (calendarVisibility[cal.calendarId] ?? true))
@@ -598,7 +598,7 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
               <p className="text-xs font-bold text-ui-muted uppercase tracking-widest mb-1">Today Weather</p>
               {todaysWeather ? (
                 <p className="text-sm font-semibold text-ui-secondary">
-                  High {Math.round(todaysWeather.maxTemp)}° / Low {Math.round(todaysWeather.minTemp)}°
+                  High {Math.round(toDisplayTemp(todaysWeather.maxTemp, temperatureUnit))}° / Low {Math.round(toDisplayTemp(todaysWeather.minTemp, temperatureUnit))}°
                 </p>
               ) : <p className="text-sm text-ui-muted">No forecast available</p>}
             </div>
@@ -622,16 +622,16 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
           {filteredEvents.length > 0 && (
             <div className="px-4 pb-3">
               <p className="text-xs font-bold text-ui-muted uppercase tracking-widest mb-2">Next Up</p>
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {filteredEvents
                   .filter((e) => e.startTime >= Date.now())
                   .sort((a, b) => a.startTime - b.startTime)
-                  .slice(0, 5)
+                  .slice(0, 9)
                   .map((e) => (
                     <div
                       key={e.id}
                       onClick={() => setSelectedEvent(e)}
-                      className="flex-shrink-0 rounded-xl border border-ui bg-white px-4 py-2 min-w-[140px] sm:min-w-[160px] cursor-pointer"
+                      className="rounded-xl border border-ui bg-white px-4 py-2 cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: (e.assignedToId && memberColorMap[e.assignedToId]) || e.color || '#6366f1' }} />

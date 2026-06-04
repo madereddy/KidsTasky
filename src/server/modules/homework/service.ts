@@ -27,6 +27,12 @@ export const homeworkService = {
     return db.prepare('SELECT * FROM homework WHERE parentId = ? ORDER BY dueDate ASC, createdAt DESC').all(parentId) as Homework[];
   },
 
+  getByParentWindowed(parentId: string, fromDate: string, toDate: string): Homework[] {
+    return db.prepare(
+      'SELECT * FROM homework WHERE parentId = ? AND dueDate >= ? AND dueDate <= ? ORDER BY dueDate ASC, createdAt DESC'
+    ).all(parentId, fromDate, toDate) as Homework[];
+  },
+
   getById(id: string): Homework | undefined {
     return db.prepare('SELECT * FROM homework WHERE id = ?').get(id) as Homework | undefined;
   },

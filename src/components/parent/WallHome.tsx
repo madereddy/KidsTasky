@@ -178,7 +178,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
           {todayEvents.length === 0 && todayHomework.length === 0 ? (
             <p className={cn("text-ui-muted", isWallMode ? "text-base" : "text-sm")}>Nothing scheduled today.</p>
           ) : (
-            <div className="space-y-2 max-h-40 overflow-y-auto">
+            <div className={cn("space-y-2 overflow-y-auto", isWallMode ? "max-h-72" : "max-h-40")}>
               {todayEvents.map(event => {
                 const memberColor = event.assignedToId ? memberColorMap[event.assignedToId] : null;
                 const eventWeather = getEventWeather(event);
