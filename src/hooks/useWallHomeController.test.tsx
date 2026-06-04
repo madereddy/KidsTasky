@@ -55,4 +55,18 @@ describe('useWallHomeController', () => {
     expect(result.current.allTasks).toHaveLength(1);
     expect(result.current.allCompletions).toHaveLength(1);
   });
+
+  it('does not fetch when parentId is empty', async () => {
+    const { result } = renderHook(() => useWallHomeController({
+      parentId: '',
+      kids: [{ uid: 'k1', role: 'kid', name: 'Kid One', email: 'kid@test.com' }],
+    }));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(dashboardClientService.getFamilyDashboardData).not.toHaveBeenCalled();
+    expect(settingsClientService.getSettings).not.toHaveBeenCalled();
+    expect(weatherClientService.getForecastWithHourly).not.toHaveBeenCalled();
+    expect(result.current.events).toEqual([]);
+    expect(result.current.allTasks).toEqual([]);
+  });
 });

@@ -74,6 +74,14 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
   const [loadingItems, setLoadingItems] = useState(false);
 
   const loadLists = useCallback(async () => {
+    if (!parentId) {
+      setLists([]);
+      setSelectedListId(null);
+      setItems([]);
+      setLoadingLists(false);
+      return;
+    }
+
     setLoadingLists(true);
     try {
       const nextLists = (await listsClientService.getLists(parentId)) || [];

@@ -33,7 +33,22 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
   const today = format(new Date(), 'yyyy-MM-dd');
 
   const fetchFamilyData = useCallback(async () => {
+    if (!parentId) {
+      setEvents([]);
+      setTasksByKid({});
+      setCompletionsByKid({});
+      setHomework([]);
+      setLists([]);
+      setListItems([]);
+      setForecast([]);
+      setHourlyToday([]);
+      setLoadError('');
+      setLoading(false);
+      return;
+    }
+
     try {
+      setLoading(true);
       setLoadError('');
       
       const settings = initialSettings || await settingsClientService.getSettings(parentId).catch(() => null);

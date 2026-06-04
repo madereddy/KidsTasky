@@ -52,6 +52,15 @@ describe('useListsController', () => {
     expect(result.current.lists.map((list) => list.id)).toEqual(['l2']);
     expect(result.current.selectedListId).toBe('l2');
   });
+
+  it('does not fetch lists when parentId is empty', async () => {
+    const { result } = renderHook(() => useListsController({ parentId: '' }));
+
+    await waitFor(() => expect(result.current.loadingLists).toBe(false));
+    expect(listsClientService.getLists).not.toHaveBeenCalled();
+    expect(result.current.lists).toEqual([]);
+    expect(result.current.selectedListId).toBeNull();
+  });
 });
 
 describe('useListsController - Smart Metadata', () => {
