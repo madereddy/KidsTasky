@@ -9,18 +9,22 @@ export function ActionBolt({ onAction, profile }: { onAction: (type: string) => 
   const isKid = profile.role === 'kid';
 
   return (
-    <div className="fixed bottom-20 right-6 z-50">
+    <>
       <AnimatePresence>
         {isOpen && (
-          <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0 } }}
+            onClick={() => setIsOpen(false)}
+            className="fixed inset-0 bg-black/10 backdrop-blur-[1px] z-[48]"
+          />
+        )}
+      </AnimatePresence>
+      <div className="fixed bottom-20 right-6 z-[49]">
+        <AnimatePresence>
+          {isOpen && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsOpen(false)}
-              className="fixed inset-0 bg-black/10 backdrop-blur-[1px] z-[-1]"
-            />
-            <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
@@ -35,20 +39,20 @@ export function ActionBolt({ onAction, profile }: { onAction: (type: string) => 
                 </button>
               )}
             </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl hover:bg-blue-500 transition-colors"
-      >
-        <motion.div
-          animate={{ rotate: isOpen ? 45 : 0 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+          )}
+        </AnimatePresence>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl hover:bg-blue-500 transition-colors"
         >
-          <Zap size={32} />
-        </motion.div>
-      </button>
-    </div>
+          <motion.div
+            animate={{ rotate: isOpen ? 45 : 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+          >
+            <Zap size={32} />
+          </motion.div>
+        </button>
+      </div>
+    </>
   );
 }
