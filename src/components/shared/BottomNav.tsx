@@ -11,7 +11,7 @@ interface BottomNavProps {
 
 export function BottomNav({ activeTab, onTabSelect, kids = [] }: BottomNavProps) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-ui safe-area-pb z-50">
+    <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-ui safe-area-pb z-[52]">
       <div className="flex justify-around items-center h-16 max-w-md mx-auto px-2">
         <button 
           onClick={() => onTabSelect('home')}
