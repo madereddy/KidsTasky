@@ -48,6 +48,7 @@ describe('useProfileDataLoader', () => {
       setScreensaverShuffle: vi.fn(),
       setScreensaverDurationSec: vi.fn(),
       setScreensaverCaptions: vi.fn(),
+      setTimeFormat: vi.fn(),
     }));
 
     await result.current.loadProfileData(
@@ -87,6 +88,7 @@ describe('useProfileDataLoader', () => {
       setScreensaverShuffle,
       setScreensaverDurationSec,
       setScreensaverCaptions,
+      setTimeFormat: vi.fn(),
     }));
 
     await result.current.loadProfileData({ uid: 'p1', role: 'parent', name: 'Parent', email: 'parent@test.com' });

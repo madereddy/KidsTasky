@@ -114,8 +114,11 @@ export default function App() {
   const [screensaverShuffle, setScreensaverShuffle] = useState(false);
   const [screensaverDurationSec, setScreensaverDurationSec] = useState(10);
   const [screensaverCaptions, setScreensaverCaptions] = useState(true);
+  const [timeFormat, setTimeFormat] = useState<'12h' | '24h'>('12h');
   const { isSleeping: isSleepScheduled } = useSleepMode({ sleepStart, sleepEnd });
-  const isSleepMode = isSleepScheduled;
+  const [sleepDismissed, setSleepDismissed] = useState(false);
+  const isSleepMode = isSleepScheduled && !sleepDismissed;
+  useEffect(() => { if (!isSleepScheduled) setSleepDismissed(false); }, [isSleepScheduled]);
   const [showUnlockPrompt, setShowUnlockPrompt] = useState(false);
   const [initError, setInitError] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -146,6 +149,7 @@ export default function App() {
     setScreensaverShuffle,
     setScreensaverDurationSec,
     setScreensaverCaptions,
+    setTimeFormat,
   });
 
   const warmProfile = useCallback((u: UserProfile) => {
@@ -485,7 +489,7 @@ export default function App() {
   return (
     <FamilyDataContext.Provider value={{ kids, categories, memberColorMap, refreshKids, refreshCategories }}>
     <DisplayContext.Provider value={{ isWallMode: isLocked, isSleepMode }}>
-    <SleepModeOverlay isActive={isSleepMode} />
+    <SleepModeOverlay isActive={isSleepMode} use24h={timeFormat === '24h'} onDismiss={() => setSleepDismissed(true)} />
     <div className={cn("min-h-screen selection:bg-sky-500/30 overflow-x-hidden pb-12 transition-colors duration-500", currentTheme.vocab?.darkMode ? "text-white theme-dark" : "text-ui-primary theme-light", isLocked && "wall-mode")} style={{ background: currentTheme.bg }}>
       <header className={cn("sticky top-0 z-40 backdrop-blur-xl border-b mx-4 mt-4 rounded-[2rem] px-6 py-3 mb-8 shadow-sm", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-ui")}>
         <div className="max-w-7xl mx-auto flex justify-between items-center">

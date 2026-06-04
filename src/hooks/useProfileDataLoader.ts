@@ -15,6 +15,7 @@ interface UseProfileDataLoaderOptions {
   setScreensaverShuffle: (value: boolean) => void;
   setScreensaverDurationSec: (value: number) => void;
   setScreensaverCaptions: (value: boolean) => void;
+  setTimeFormat: (value: '12h' | '24h') => void;
 }
 
 export function useProfileDataLoader({
@@ -28,6 +29,7 @@ export function useProfileDataLoader({
   setScreensaverShuffle,
   setScreensaverDurationSec,
   setScreensaverCaptions,
+  setTimeFormat,
 }: UseProfileDataLoaderOptions) {
   const loadProfileData = useCallback(async (profile: UserProfile, options?: { fastKidSwitch?: boolean }) => {
     const parentId = profile.parentId || profile.uid;
@@ -54,6 +56,7 @@ export function useProfileDataLoader({
       if (settings.screensaverShuffle !== undefined) setScreensaverShuffle(Boolean(settings.screensaverShuffle));
       if (settings.screensaverDurationSec) setScreensaverDurationSec(settings.screensaverDurationSec);
       if (settings.screensaverCaptions !== undefined) setScreensaverCaptions(settings.screensaverCaptions !== false);
+      if (settings.timeFormat === '24h' || settings.timeFormat === '12h') setTimeFormat(settings.timeFormat);
     } else {
       setIsLocked(false);
     }
@@ -69,6 +72,7 @@ export function useProfileDataLoader({
     setScreensaverShuffle,
     setSleepEnd,
     setSleepStart,
+    setTimeFormat,
   ]);
 
   return { loadProfileData };
