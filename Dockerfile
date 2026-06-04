@@ -2,6 +2,8 @@
 FROM cgr.dev/chainguard/node:latest-dev AS builder
 
 ARG BUILD_VERSION=dev
+ARG BUILD_SHA=dev
+ARG BUILD_TIME=unknown
 ENV VITE_BUILD_VERSION=$BUILD_VERSION
 
 USER root
@@ -30,6 +32,13 @@ RUN pnpm prune --prod
 FROM cgr.dev/chainguard/node:latest
 
 WORKDIR /app
+
+ARG BUILD_VERSION=dev
+ARG BUILD_SHA=dev
+ARG BUILD_TIME=unknown
+ENV BUILD_VERSION=$BUILD_VERSION
+ENV BUILD_SHA=$BUILD_SHA
+ENV BUILD_TIME=$BUILD_TIME
 
 # Copy package configurations
 COPY --from=builder --chown=65532:65532 /app/package.json ./

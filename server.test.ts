@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import { app, db } from './server';
 import { Server } from 'socket.io';
@@ -53,39 +53,94 @@ describe('Backend API Tests', () => {
   });
 
   it('GET troubleshooting health endpoints should return diagnostics payloads', async () => {
-    const buildRes = await request(app).get('/api/health/build');
-    expect(buildRes.status).toBe(200);
-    expect(buildRes.body.status).toBe('ok');
-    expect(buildRes.body.build.version).toBeTypeOf('string');
-    expect(buildRes.body.build.processStartedAt).toBeTypeOf('number');
+    const prevBuildSha = process.env.BUILD_SHA;
+    const prevBuildTime = process.env.BUILD_TIME;
+    process.env.BUILD_SHA = 'deadbeefcafebabe';
+    process.env.BUILD_TIME = '2026-06-04T14:00:00Z';
 
-    const dbRes = await request(app).get('/api/health/db');
-    expect(dbRes.status).toBe(200);
-    expect(dbRes.body.status).toBe('ok');
-    expect(dbRes.body.db.ok).toBe(true);
-    expect(dbRes.body.db.latencyMs).toBeTypeOf('number');
+    try {
+      const buildRes = await request(app).get('/api/health/build');
+      expect(buildRes.status).toBe(200);
+      expect(buildRes.body.status).toBe('ok');
+      expect(buildRes.body.build.version).toBeTypeOf('string');
+      expect(buildRes.body.build.gitSha).toBe('deadbeefcafebabe');
+      expect(buildRes.body.build.buildTime).toBe('2026-06-04T14:00:00Z');
+      expect(buildRes.body.build.processStartedAt).toBeTypeOf('number');
 
-    const cacheRes = await request(app).get('/api/health/cache');
-    expect(cacheRes.status).toBe(200);
-    expect(cacheRes.body.status).toBe('ok');
-    expect(Array.isArray(cacheRes.body.caches)).toBe(true);
+      const dbRes = await request(app).get('/api/health/db');
+      expect(dbRes.status).toBe(200);
+      expect(dbRes.body.status).toBe('ok');
+      expect(dbRes.body.db.ok).toBe(true);
+      expect(dbRes.body.db.latencyMs).toBeTypeOf('number');
 
-    const workerRes = await request(app).get('/api/health/worker');
-    expect(workerRes.status).toBe(200);
-    expect(workerRes.body.status).toBe('ok');
-    expect(workerRes.body.worker.active).toBe(false);
-    expect(workerRes.body.worker.googleSyncBackoff.failCount).toBeTypeOf('number');
+      const cacheRes = await request(app).get('/api/health/cache');
+      expect(cacheRes.status).toBe(200);
+      expect(cacheRes.body.status).toBe('ok');
+      expect(Array.isArray(cacheRes.body.caches)).toBe(true);
 
-    const depsRes = await request(app).get('/api/health/deps');
-    expect(depsRes.status).toBe(200);
-    expect(depsRes.body.status).toBe('ok');
-    expect(Array.isArray(depsRes.body.dependencies.checks)).toBe(true);
+      const workerRes = await request(app).get('/api/health/worker');
+      expect(workerRes.status).toBe(200);
+      expect(workerRes.body.status).toBe('ok');
+      expect(workerRes.body.worker.active).toBe(false);
+      expect(workerRes.body.worker.googleSyncBackoff.failCount).toBeTypeOf('number');
 
-    const requestsRes = await request(app).get('/api/health/requests');
-    expect(requestsRes.status).toBe(200);
-    expect(requestsRes.body.status).toBe('ok');
-    expect(requestsRes.body.requests.total).toBeGreaterThan(0);
-    expect(requestsRes.body.requests.byMethod.GET).toBeGreaterThan(0);
+      const depsRes = await request(app).get('/api/health/deps');
+      expect(depsRes.status).toBe(200);
+      expect(depsRes.body.status).toBe('ok');
+      expect(Array.isArray(depsRes.body.dependencies.checks)).toBe(true);
+
+      const requestsRes = await request(app).get('/api/health/requests');
+      expect(requestsRes.status).toBe(200);
+      expect(requestsRes.body.status).toBe('ok');
+      expect(requestsRes.body.requests.total).toBeGreaterThan(0);
+      expect(requestsRes.body.requests.byMethod.GET).toBeGreaterThan(0);
+    } finally {
+      if (prevBuildSha === undefined) delete process.env.BUILD_SHA;
+      else process.env.BUILD_SHA = prevBuildSha;
+      if (prevBuildTime === undefined) delete process.env.BUILD_TIME;
+      else process.env.BUILD_TIME = prevBuildTime;
+    }
+  });
+
+  it('GET /api/health/deps should probe real endpoints and surface configured Google checks', async () => {
+    const prevGoogleClientId = process.env.GOOGLE_CLIENT_ID;
+    const prevGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    process.env.GOOGLE_CLIENT_ID = 'test-client-id';
+    process.env.GOOGLE_CLIENT_SECRET = 'test-client-secret';
+
+    const fetchMock = vi.spyOn(globalThis, 'fetch' as any).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('api.open-meteo.com/v1/forecast')) {
+        return new Response('', { status: 200 });
+      }
+      if (url.includes('eu-api.open-meteo.com/v1/forecast')) {
+        return new Response('', { status: 200 });
+      }
+      if (url.includes('googleapis.com/discovery/v1/apis/calendar/v3/rest')) {
+        return new Response('', { status: 200 });
+      }
+      return new Response('', { status: 500 });
+    });
+
+    try {
+      const res = await request(app).get('/api/health/deps');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('ok');
+      expect(res.body.dependencies.configured.googleCalendar).toBe(true);
+      expect(res.body.dependencies.checks).toHaveLength(3);
+      expect(res.body.dependencies.checks[0].name).toBe('openMeteoPrimary');
+      expect(res.body.dependencies.checks[0].ok).toBe(true);
+      expect(res.body.dependencies.checks[1].name).toBe('openMeteoEu');
+      expect(res.body.dependencies.checks[1].ok).toBe(true);
+      expect(res.body.dependencies.checks[2].name).toBe('googleApisDiscovery');
+      expect(res.body.dependencies.checks[2].ok).toBe(true);
+    } finally {
+      fetchMock.mockRestore();
+      if (prevGoogleClientId === undefined) delete process.env.GOOGLE_CLIENT_ID;
+      else process.env.GOOGLE_CLIENT_ID = prevGoogleClientId;
+      if (prevGoogleClientSecret === undefined) delete process.env.GOOGLE_CLIENT_SECRET;
+      else process.env.GOOGLE_CLIENT_SECRET = prevGoogleClientSecret;
+    }
   });
 
   it('POST /api/users (authenticated parent) creates a managed kid and GET retrieves them', async () => {

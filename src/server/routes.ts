@@ -49,8 +49,8 @@ function getBuildInfo() {
   return {
     appName: String(process.env.APP_NAME || metadata?.name || 'KidTasky'),
     version: String(process.env.APP_VERSION || pkg?.version || 'unknown'),
-    gitSha: process.env.GIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || null,
-    buildTime: process.env.BUILD_TIME || null,
+    gitSha: process.env.BUILD_SHA || process.env.GIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || null,
+    buildTime: process.env.BUILD_TIME || process.env.APP_BUILD_TIME || null,
     processStartedAt: buildStartedAt,
     environment: process.env.NODE_ENV || 'development',
   };
@@ -59,7 +59,7 @@ function getBuildInfo() {
 async function probeHttpDependency(name: string, url: string) {
   const startedAt = Date.now();
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(1500) });
+    const response = await fetch(url, { signal: AbortSignal.timeout(4000) });
     return {
       name,
       url,
@@ -77,6 +77,17 @@ async function probeHttpDependency(name: string, url: string) {
       error: error instanceof Error ? error.message : String(error),
     };
   }
+}
+
+function buildOpenMeteoForecastUrl(host: string, latitude: number, longitude: number) {
+  const params = new URLSearchParams({
+    latitude: String(latitude),
+    longitude: String(longitude),
+    daily: 'weathercode,temperature_2m_max,temperature_2m_min',
+    hourly: 'weathercode,temperature_2m',
+    timezone: 'auto',
+  });
+  return `${host}/v1/forecast?${params.toString()}`;
 }
 
 router.get("/health", (req, res) => {
@@ -202,11 +213,12 @@ router.get('/health/perf', (req, res) => {
 });
 
 router.get('/health/deps', async (req, res) => {
+  const hasGoogleCredentials = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
   const checks = await Promise.all([
-    probeHttpDependency('openMeteoPrimary', 'https://api.open-meteo.com/'),
-    probeHttpDependency('openMeteoEu', 'https://eu-api.open-meteo.com/'),
-    ...(process.env.GOOGLE_CLIENT_ID
-      ? [probeHttpDependency('googleApis', 'https://www.googleapis.com/')]
+    probeHttpDependency('openMeteoPrimary', buildOpenMeteoForecastUrl('https://api.open-meteo.com', 28.4418, -81.5642)),
+    probeHttpDependency('openMeteoEu', buildOpenMeteoForecastUrl('https://eu-api.open-meteo.com', 28.4418, -81.5642)),
+    ...(hasGoogleCredentials
+      ? [probeHttpDependency('googleApisDiscovery', 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest')]
       : []),
   ]);
 
@@ -214,7 +226,7 @@ router.get('/health/deps', async (req, res) => {
     status: 'ok',
     dependencies: {
       configured: {
-        googleCalendar: Boolean(process.env.GOOGLE_CLIENT_ID),
+        googleCalendar: hasGoogleCredentials,
         magicEmail: Boolean(process.env.MAILGUN_SIGNING_KEY),
         gemini: Boolean(process.env.GEMINI_API_KEY),
       },
