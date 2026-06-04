@@ -41,11 +41,11 @@ export function BottomNav({ activeTab, onTabSelect, kids = [] }: BottomNavProps)
         ))}
 
         <button 
-          onClick={() => onTabSelect('tasks')}
-          className={cn("flex flex-col items-center justify-center space-y-1 w-full min-h-[44px] transition-colors", activeTab === 'tasks' ? "text-sky-600" : "text-ui-muted")}
+          onClick={() => onTabSelect('manage')}
+          className={cn("flex flex-col items-center justify-center space-y-1 w-full min-h-[44px] transition-colors", activeTab === 'manage' ? "text-sky-600" : "text-ui-muted")}
         >
-          <ListTodo size={22} />
-          <span className="text-[10px] font-bold">Tasks</span>
+          <User size={22} />
+          <span className="text-[10px] font-bold">Settings</span>
         </button>
       </div>
     </div>

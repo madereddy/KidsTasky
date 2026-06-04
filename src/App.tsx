@@ -104,7 +104,7 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<'home' | 'tasks' | 'calendar' | 'lists' | 'meals' | 'manage'>('home');
+  const [activeSection, setActiveSection] = useState<'home' | 'tasks' | 'calendar' | 'lists' | 'meals' | 'manage' | string>('home');
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
   const [hiddenMissionIds, setHiddenMissionIds] = useState<Set<string>>(() => {
     const stored = localStorage.getItem('kidtasker_hidden_missions');
@@ -607,7 +607,7 @@ export default function App() {
     <ShareTargetHandler />
     <SleepModeOverlay isActive={isSleepMode} use24h={timeFormat === '24h'} onDismiss={() => setSleepDismissed(true)} />
     <div className={cn("min-h-screen selection:bg-sky-500/30 [overflow-x:clip] pb-12 transition-colors duration-500", currentTheme.vocab?.darkMode ? "text-white theme-dark" : "text-ui-primary theme-light", isLocked && "wall-mode")} style={{ background: currentTheme.bg }}>
-      <header className={cn("sticky top-0 z-50 backdrop-blur-xl border-b mx-4 mt-4 rounded-[2rem] px-6 py-3 mb-8 shadow-sm", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-ui")}>
+      <header className={cn("sticky top-0 z-[60] backdrop-blur-xl border-b mx-4 mt-4 rounded-[2rem] px-6 py-3 mb-8 shadow-sm", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-ui")}>
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3">
@@ -715,6 +715,7 @@ export default function App() {
             {profile?.role === 'parent' && (
               <button
                 onClick={() => {
+                  console.log('Settings button clicked, isLocked:', isLocked);
                   if (isLocked) {
                     setShowUnlockPrompt(true);
                     return;
@@ -727,14 +728,16 @@ export default function App() {
                 onFocus={prefetchSettings}
                 onTouchStart={prefetchSettings}
                 className={cn(
-                  "p-2 rounded-full border transition-colors",
+                  "p-2 rounded-xl border transition-colors flex items-center gap-2 z-[61]",
                   isDarkTheme
                     ? "text-ui-secondary border-ui-dark-3 hover:text-white hover:bg-ui-dark-2"
                     : "text-ui-muted-2 border-ui hover:text-ui-primary hover:bg-ui-soft"
                 )}
+                aria-label="Settings"
                 title="Settings"
               >
                 <Settings className="w-5 h-5" />
+                <span className="text-xs font-bold hidden xs:inline">Settings</span>
               </button>
             )}
             {profile?.role === 'parent' && isLocked && (
