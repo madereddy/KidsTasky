@@ -15,6 +15,7 @@ import { startBackgroundWorker, stopWorker } from "./src/server/worker.js";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { socketWrapper } from "./src/server/socket.js";
+import { serializeRequestForLogs, sanitizeLoggedUrl } from "./src/server/lib/httpLogging.js";
 import { logger } from "./src/server/lib/logger.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -207,7 +208,12 @@ app.use(express.json({ limit: jsonBodyLimit }));
 app.use(express.urlencoded({ extended: false, limit: jsonBodyLimit }));
 // /uploads static mount removed — photos served via authenticated /api/photos/file/:filename endpoint
 
-app.use(pinoHttp({ logger }));
+app.use(pinoHttp({
+  logger,
+  serializers: {
+    req: (req) => serializeRequestForLogs(req),
+  },
+}));
 
 const slowRequestThresholdMs = Number(process.env.SLOW_REQUEST_MS || 400);
 const perfStore: PerfStore = {};
@@ -232,13 +238,13 @@ app.use((req, res, next) => {
       requestStats.slowRequests += 1;
       requestStats.recentSlowRequests.unshift({
         method: req.method,
-        path: req.originalUrl,
+        path: sanitizeLoggedUrl(req.originalUrl),
         status: res.statusCode,
         durationMs: duration,
         at: Date.now(),
       });
       requestStats.recentSlowRequests = requestStats.recentSlowRequests.slice(0, 20);
-      logger.warn({ method: req.method, path: req.originalUrl, status: res.statusCode, durationMs: duration }, 'slow_request');
+      logger.warn({ method: req.method, path: sanitizeLoggedUrl(req.originalUrl), status: res.statusCode, durationMs: duration }, 'slow_request');
     }
   });
   next();
