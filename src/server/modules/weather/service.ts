@@ -19,7 +19,7 @@ export interface ForecastResponse {
   hourlyToday: HourlyForecastEntry[];
 }
 
-const weatherCache = new TTLCache<ForecastResponse>(10 * 60 * 1000, 1000);
+const weatherCache = new TTLCache<ForecastResponse>(10 * 60 * 1000, 50);
 
 export const weatherService = {
   getWeeklyForecast: async (lat: number, lon: number): Promise<ForecastResponse> => {
@@ -58,6 +58,6 @@ export const weatherService = {
       }
 
       return { daily, hourlyToday };
-    });
+    }, 60_000);
   }
 };

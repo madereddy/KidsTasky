@@ -36,9 +36,16 @@ export class TTLCache<T> {
     }
   }
 
-  async getOrLoad(key: string, loader: () => Promise<T>): Promise<T> {
-    const cached = this.get(key);
-    if (cached !== null) return cached;
+  async getOrLoad(key: string, loader: () => Promise<T>, backgroundRefreshBeforeMs = 0): Promise<T> {
+    const entry = this.store.get(key);
+    if (entry && Date.now() <= entry.expiresAt) {
+      if (backgroundRefreshBeforeMs > 0 && Date.now() > entry.expiresAt - backgroundRefreshBeforeMs && !this.inFlight.has(key)) {
+        const refresh = loader().then(v => { this.set(key, v); return v; }).catch(err => { console.error('[TTLCache] background refresh failed:', err); }).finally(() => this.inFlight.delete(key));
+        this.inFlight.set(key, refresh);
+      }
+      return entry.value;
+    }
+    if (entry) this.store.delete(key);
 
     const existingLoad = this.inFlight.get(key);
     if (existingLoad) return existingLoad;
