@@ -12,6 +12,7 @@ import { useSocketStaleData } from '../../hooks/useSocket';
 import { useDisplayMode } from '../../contexts/DisplayContext';
 import { cn } from '../../lib/utils';
 import { useWallHomeController } from '../../hooks/useWallHomeController';
+import { useWakeLock } from '../../hooks/useWakeLock';
 import { WallSkeleton } from '../shared/Skeleton';
 
 interface Props {
@@ -49,6 +50,7 @@ interface KidProgress {
 
 export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, onManage, settings }: Props) {
   const { isWallMode } = useDisplayMode();
+  useWakeLock(isWallMode);
   const {
     today,
     events,
@@ -164,7 +166,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
             <div className="mb-3 overflow-x-auto">
               <div className="flex items-center gap-2 min-w-max">
                 {remainingHourly.map((hour) => (
-                  <div key={hour.time} className="px-2 py-1 rounded-lg bg-ui-soft text-xs text-ui-secondary flex items-center gap-1.5">
+                  <div key={hour.time} className="px-2 py-1 rounded-lg bg-ui-soft-2 text-xs text-ui-secondary flex items-center gap-1.5">
                     <span>{format(new Date(hour.time), 'h a')}</span>
                     <span>{getWeatherInfo(hour.weatherCode).icon}</span>
                     <span>{Math.round(toDisplayTemp(hour.temp, tempUnit))}°</span>
