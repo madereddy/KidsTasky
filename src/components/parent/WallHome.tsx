@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { CalendarEvent, UserProfile } from '../../types';
+import { CalendarEvent, Homework, UserProfile } from '../../types';
 import { HourlyForecastEntry } from '../../services/weather';
 import { FamilyNote } from '../shared/FamilyNote';
 import { WeeklyWeather } from '../calendar/WeeklyWeather';
@@ -25,6 +25,7 @@ interface Props {
   settings?: any;
 }
 
+// Original clock used in non-wall mode
 function LiveClock() {
   const [now, setNow] = useState(new Date());
   const { isWallMode } = useDisplayMode();
@@ -38,6 +39,29 @@ function LiveClock() {
         {format(now, 'h:mm')}<span className={cn("ml-1", isWallMode ? "text-4xl" : "text-2xl")}>{format(now, 'a')}</span>
       </div>
       <div className={cn("text-ui-muted mt-1", isWallMode ? "text-base" : "text-sm")}>{format(now, 'EEEE, MMMM d')}</div>
+    </div>
+  );
+}
+
+// Skylight-style clock for wall mode — oversized, left-aligned
+function SkyLiveClock() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 15000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div data-testid="wall-clock">
+      <div className="text-7xl font-black tabular-nums leading-none text-gray-900 dark:text-white">
+        {format(now, 'h:mm')}
+        <span className="text-3xl font-semibold ml-2 text-gray-400 dark:text-gray-500">{format(now, 'a')}</span>
+      </div>
+      <div className="mt-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.15em]">
+        {format(now, 'EEEE')}
+      </div>
+      <div className="text-base font-semibold text-gray-600 dark:text-gray-300 mt-0.5">
+        {format(now, 'MMMM d, yyyy')}
+      </div>
     </div>
   );
 }
@@ -137,6 +161,220 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
     return <WallSkeleton />;
   }
 
+  // ── SKYLIGHT-INSPIRED WALL MODE ──────────────────────────────────────────
+  if (isWallMode) {
+    const nowMs = Date.now();
+    const nowDate = new Date();
+
+    // Build day groups: today through +4 days
+    type DayItem =
+      | { type: 'event'; data: CalendarEvent }
+      | { type: 'hw'; data: Homework };
+
+    const dayGroups: Array<{ label: string; items: DayItem[] }> = [];
+
+    for (let d = 0; d <= 4; d++) {
+      const dt = new Date(nowDate);
+      dt.setDate(dt.getDate() + d);
+      const dateStr = format(dt, 'yyyy-MM-dd');
+
+      const dayEvts = events
+        .filter(e => {
+          const evDate = format(new Date(e.startTime), 'yyyy-MM-dd');
+          return evDate === dateStr && (d === 0 ? (e.endTime || e.startTime) > nowMs : true);
+        })
+        .sort((a, b) => a.startTime - b.startTime);
+
+      const dayHw = homework.filter(h => h.status === 'pending' && h.dueDate === dateStr);
+
+      const items: DayItem[] = [
+        ...dayEvts.map(e => ({ type: 'event' as const, data: e })),
+        ...dayHw.map(h => ({ type: 'hw' as const, data: h })),
+      ];
+
+      if (items.length > 0 || d < 2) {
+        const label = d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : format(dt, 'EEE, MMM d');
+        dayGroups.push({ label, items });
+      }
+    }
+
+    return (
+      <div className="flex overflow-hidden bg-white dark:bg-gray-950" style={{ minHeight: 'calc(100vh - 80px)' }}>
+
+        {/* ── LEFT PANEL: Clock · Weather · Chores ── */}
+        <aside className="w-64 xl:w-72 shrink-0 flex flex-col border-r border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950">
+
+          {/* Clock + date */}
+          <div className="px-8 pt-8 pb-6">
+            <SkyLiveClock />
+          </div>
+
+          {/* Weather */}
+          {todayWeather && (
+            <>
+              <div className="mx-8 h-px bg-gray-100 dark:bg-gray-800" />
+              <div className="px-8 py-5 flex items-center gap-3">
+                <span className="text-4xl">{getWeatherInfo(todayWeather.weatherCode).icon}</span>
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-orange-500">
+                      {Math.round(toDisplayTemp(todayWeather.maxTemp, tempUnit))}°
+                    </span>
+                    <span className="text-xl font-semibold text-blue-400">
+                      {Math.round(toDisplayTemp(todayWeather.minTemp, tempUnit))}°
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                    {getWeatherInfo(todayWeather.weatherCode).label}
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Chores */}
+          {kids.length > 0 && (
+            <>
+              <div className="mx-8 h-px bg-gray-100 dark:bg-gray-800" />
+              <div className="px-8 py-5 flex-1 min-h-0 overflow-y-auto">
+                <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.15em] mb-4">
+                  Chores
+                </p>
+                <div className="space-y-4">
+                  {kidProgress.map(({ kid, total, done }) => {
+                    const pct = total === 0 ? 100 : Math.round((done / total) * 100);
+                    const color = memberColorMap[kid.uid] || '#6366f1';
+                    const allDone = total > 0 && done >= total;
+                    return (
+                      <div key={kid.uid}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                            <span className="text-sm font-semibold text-gray-900 dark:text-white">{kid.name}</span>
+                          </div>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {allDone ? '✓ Done' : `${done}/${total}`}
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800">
+                          <div
+                            className="h-2 rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%`, backgroundColor: allDone ? '#10b981' : color }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Manage link */}
+          <div className="px-8 pb-6 mt-auto pt-4">
+            <button
+              onClick={onManage}
+              className="text-xs text-gray-400 hover:text-gray-500 transition-colors"
+            >
+              Manage family →
+            </button>
+          </div>
+        </aside>
+
+        {/* ── RIGHT PANEL: Agenda ── */}
+        <main className="flex-1 overflow-y-auto px-8 xl:px-12 py-8 bg-white dark:bg-gray-950">
+          {loadError && (
+            <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 flex items-center justify-between">
+              <p className="text-sm text-rose-700">{loadError}</p>
+              <button
+                onClick={() => void fetchFamilyData()}
+                className="px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-rose-700 text-xs font-semibold"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {dayGroups.length === 0 ? (
+            <div className="flex items-center justify-center h-32">
+              <p className="text-lg text-gray-400">Nothing coming up</p>
+            </div>
+          ) : (
+            <div className="space-y-8 max-w-3xl">
+              {dayGroups.map(({ label, items }) => (
+                <section key={label}>
+                  {/* Day header + rule */}
+                  <div className="flex items-center gap-4 mb-3">
+                    <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.15em] shrink-0">
+                      {label}
+                    </span>
+                    <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
+                  </div>
+
+                  {items.length === 0 ? (
+                    <p className="text-sm text-gray-400 dark:text-gray-500 pl-2">Nothing scheduled</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {items.map(item => {
+                        if (item.type === 'event') {
+                          const evt = item.data;
+                          const memberColor = evt.assignedToId ? memberColorMap[evt.assignedToId] : null;
+                          const evtColor = evt.color || memberColor || '#6366f1';
+                          const assignedName = evt.assignedToId
+                            ? kids.find(k => k.uid === evt.assignedToId)?.name ?? null
+                            : null;
+                          return (
+                            <div key={evt.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50 dark:bg-white/5">
+                              <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: evtColor }} />
+                              <div className="w-[72px] shrink-0">
+                                <span className="text-sm font-medium text-gray-500 dark:text-gray-400 tabular-nums">
+                                  {evt.isAllDay ? 'All day' : format(new Date(evt.startTime), 'h:mm a')}
+                                </span>
+                              </div>
+                              <p className="flex-1 text-lg font-semibold text-gray-900 dark:text-white truncate">
+                                {evt.title}
+                              </p>
+                              {assignedName && (
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: evtColor }} />
+                                  <span className="text-sm text-gray-500 dark:text-gray-400">{assignedName}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        // homework item
+                        const hw = item.data;
+                        return (
+                          <div key={hw.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/10">
+                            <div className="w-1 self-stretch rounded-full shrink-0 bg-amber-400" />
+                            <div className="w-[72px] shrink-0">
+                              <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Due</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-lg font-semibold text-gray-900 dark:text-white truncate">
+                                📚 {hw.title}
+                              </p>
+                              {hw.subject && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{hw.subject}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
+    );
+  }
+  // ── END SKYLIGHT WALL MODE ──────────────────────────────────────────────
+
   return (
     <div className="space-y-6">
       {loadError && (
@@ -178,7 +416,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
           {todayEvents.length === 0 && todayHomework.length === 0 ? (
             <p className={cn("text-ui-muted", isWallMode ? "text-base" : "text-sm")}>Nothing scheduled today.</p>
           ) : (
-            <div className={cn("space-y-2 overflow-y-auto", isWallMode ? "max-h-72" : "max-h-40")}>
+            <div className="space-y-2 overflow-y-auto max-h-40">
               {todayEvents.map(event => {
                 const memberColor = event.assignedToId ? memberColorMap[event.assignedToId] : null;
                 const eventWeather = getEventWeather(event);
