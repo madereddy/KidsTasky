@@ -6,6 +6,7 @@ import path from 'path';
 const BASE_URL = process.env.E2E_BASE_URL || 'https://kids.madereddy.com';
 const EMAIL = process.env.E2E_PARENT_EMAIL;
 const PASSWORD = process.env.E2E_PARENT_PASSWORD;
+const KID_PIN = process.env.E2E_KID_PIN;
 
 if (!EMAIL || !PASSWORD) {
   console.error('Missing E2E credentials in .env');
@@ -57,7 +58,12 @@ async function auditSection(page, sectionName, navButtonSelector, contentSelecto
 }
 
 async function runAudit() {
-  const browser = await chromium.launch({ headless: true });
+  let browser;
+  try {
+    browser = await chromium.launch({ channel: 'chrome', headless: true });
+  } catch {
+    browser = await chromium.launch({ headless: true });
+  }
   const context = await browser.newContext({
     viewport: { width: 1280, height: 800 },
   });
@@ -101,7 +107,8 @@ async function runAudit() {
       page,
       'Tasks',
       `${navPrefix}button:has-text("Tasks")`,
-      'text="Tasks & Achievements"',
+      'text="Tasks & Achievements", button:has-text("New Objective"), text="Pending Approval"',
+      30000,
     ),
   });
 
@@ -135,6 +142,21 @@ async function runAudit() {
       60000,
     ),
   });
+
+  if (KID_PIN) {
+    console.log('Auditing profile switch to kid...');
+    await page.getByRole('button', { name: /switch profile/i }).click();
+    const kidButton = page.locator('button').filter({ hasText: /Kid$/i }).first();
+    await kidButton.waitFor({ timeout: 10000 });
+    await kidButton.click();
+    await page.getByText(/Enter kid Access Key/i).waitFor({ timeout: 10000 });
+    await page.getByPlaceholder('4-digit PIN').fill(KID_PIN);
+    await page.getByRole('button', { name: /^Switch$/i }).click();
+    await page.waitForLoadState('networkidle');
+    const kidBodyText = await page.innerText('body');
+    console.log(`Kid switch visible content: ${kidBodyText.slice(0, 300)}...`);
+    await page.screenshot({ path: path.join(REPORT_DIR, 'kid-switch-loaded.png'), fullPage: true });
+  }
 
   const buildInfo = await page.evaluate(async () => {
     const res = await fetch('/api/health/build');

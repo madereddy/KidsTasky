@@ -172,11 +172,15 @@ app.use(helmet({
   contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "https://static.cloudflareinsights.com",
+      ],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", 'data:', 'blob:'],
       connectSrc: ["'self'", 'ws:', 'wss:'],
-      fontSrc: ["'self'", 'data:'],
+      fontSrc: ["'self'", 'data:', "https://fonts.gstatic.com"],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
