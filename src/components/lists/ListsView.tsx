@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Clipboard, ClipboardCheck } from 'lucide-react';
 import { ListSidebar } from './ListSidebar';
+import { StoreFilterBar } from './StoreFilterBar';
 import { cn } from '../../lib/utils';
 import { useListsController } from '../../hooks/useListsController';
 
@@ -11,6 +12,7 @@ interface Props {
 export function ListsView({ parentId }: Props) {
   const [newListTitle, setNewListTitle] = useState('');
   const [copied, setCopied] = useState(false);
+  const [activeStoreFilter, setActiveStoreFilter] = useState<string | null>(null);
   const {
     lists,
     items,
@@ -55,6 +57,12 @@ export function ListsView({ parentId }: Props) {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // Filter items before passing to ListSidebar
+  const filteredItems = activeStoreFilter 
+    ? items.filter(i => i.completed === 1 || i.storeName === activeStoreFilter)
+    : items;
+
   return (
     <div className="flex h-[calc(100vh-200px)] bg-white rounded-2xl border border-ui overflow-hidden shadow-sm">
       <div className="w-64 shrink-0 border-r border-ui flex flex-col bg-ui-soft">
@@ -131,9 +139,10 @@ export function ListsView({ parentId }: Props) {
                 {copied ? "Copied!" : "Copy items"}
               </button>
             </div>
+            <StoreFilterBar items={items} activeStore={activeStoreFilter} onSelectStore={setActiveStoreFilter} />
             <ListSidebar
               listTitle={selectedList.title}
-              items={items}
+              items={filteredItems}
               isOpen={true}
               inline={true}
               onToggleItem={handleToggleItem}
