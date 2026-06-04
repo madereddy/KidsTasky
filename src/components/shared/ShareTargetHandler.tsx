@@ -11,9 +11,7 @@ export function ShareTargetHandler() {
 
     window.history.replaceState({}, '', window.location.pathname);
 
-    window.dispatchEvent(new CustomEvent('kidstasty:share', {
-      detail: { title, text, url },
-    }));
+    window.dispatchEvent(new CustomEvent('kidtasker:share'));
   }, []);
 
   return null;

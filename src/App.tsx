@@ -220,8 +220,8 @@ export default function App() {
     const handleShare = () => {
       goToSection('manage');
     };
-    window.addEventListener('kidstasty:share', handleShare);
-    return () => window.removeEventListener('kidstasty:share', handleShare);
+    window.addEventListener('kidtasker:share', handleShare);
+    return () => window.removeEventListener('kidtasker:share', handleShare);
   }, [goToSection]);
 
   const handleLogout = async () => {
