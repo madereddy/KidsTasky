@@ -19,6 +19,7 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
   const [forecast, setForecast] = useState<DailyForecast[]>([]);
   const [hourlyToday, setHourlyToday] = useState<HourlyForecastEntry[]>([]);
   const [tempUnit, setTempUnit] = useState<'celsius' | 'fahrenheit'>('celsius');
+  const [timeFormat, setTimeFormat] = useState<'12h' | '24h'>('12h');
   const [rotationEnabled, setRotationEnabled] = useState(false);
   const [rotationInterval, setRotationInterval] = useState(30);
   const [rotationOrder, setRotationOrder] = useState<string[]>(['chores', 'calendar', 'weather']);
@@ -36,6 +37,7 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
       const settings = initialSettings || await settingsClientService.getSettings(parentId).catch(() => null);
       
       if (settings?.temperatureUnit) setTempUnit(settings.temperatureUnit);
+      if (settings?.timeFormat) setTimeFormat(settings.timeFormat);
       if (settings?.displayRotationEnabled !== undefined) setRotationEnabled(Boolean(settings.displayRotationEnabled));
       if (settings?.displayRotationInterval) setRotationInterval(settings.displayRotationInterval);
       if (settings?.displayRotationOrder) {
@@ -112,6 +114,7 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
     forecast,
     hourlyToday,
     tempUnit,
+    timeFormat,
     rotationEnabled,
     rotationInterval,
     rotationOrder,

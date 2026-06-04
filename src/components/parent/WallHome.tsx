@@ -26,7 +26,7 @@ interface Props {
 }
 
 // Original clock used in non-wall mode
-function LiveClock() {
+function LiveClock({ use24h = false }: { use24h?: boolean }) {
   const [now, setNow] = useState(new Date());
   const { isWallMode } = useDisplayMode();
   useEffect(() => {
@@ -36,7 +36,8 @@ function LiveClock() {
   return (
     <div className="text-center" data-testid="wall-clock">
       <div className={cn("font-bold tabular-nums", isWallMode ? "text-7xl" : "text-4xl")}>
-        {format(now, 'h:mm')}<span className={cn("ml-1", isWallMode ? "text-4xl" : "text-2xl")}>{format(now, 'a')}</span>
+        {format(now, use24h ? 'H:mm' : 'h:mm')}
+        {!use24h && <span className={cn("ml-1", isWallMode ? "text-4xl" : "text-2xl")}>{format(now, 'a')}</span>}
       </div>
       <div className={cn("text-ui-muted mt-1", isWallMode ? "text-base" : "text-sm")}>{format(now, 'EEEE, MMMM d')}</div>
     </div>
@@ -44,7 +45,7 @@ function LiveClock() {
 }
 
 // Skylight-style clock for wall mode — oversized, left-aligned
-function SkyLiveClock() {
+function SkyLiveClock({ use24h = false }: { use24h?: boolean }) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 15000);
@@ -53,8 +54,8 @@ function SkyLiveClock() {
   return (
     <div data-testid="wall-clock">
       <div className="text-7xl font-black tabular-nums leading-none text-gray-900 dark:text-white">
-        {format(now, 'h:mm')}
-        <span className="text-3xl font-semibold ml-2 text-gray-400 dark:text-gray-500">{format(now, 'a')}</span>
+        {format(now, use24h ? 'H:mm' : 'h:mm')}
+        {!use24h && <span className="text-3xl font-semibold ml-2 text-gray-400 dark:text-gray-500">{format(now, 'a')}</span>}
       </div>
       <div className="mt-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.15em]">
         {format(now, 'EEEE')}
@@ -84,6 +85,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
     forecast,
     hourlyToday,
     tempUnit,
+    timeFormat,
     rotationEnabled,
     rotationInterval,
     rotationOrder,
@@ -206,7 +208,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
 
           {/* Clock + date */}
           <div className="px-8 pt-8 pb-6">
-            <SkyLiveClock />
+            <SkyLiveClock use24h={timeFormat === '24h'} />
           </div>
 
           {/* Weather */}
@@ -386,7 +388,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
       {/* Top strip: clock + weather today */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
         <div className="md:col-span-1 bg-white/80 dark:bg-white/5 rounded-2xl p-4 shadow-sm border border-ui flex flex-col items-center">
-          <LiveClock />
+          <LiveClock use24h={timeFormat === '24h'} />
           {todayWeather && (
             <div className={cn("mt-3 flex items-center gap-2 text-ui-muted", isWallMode ? "text-base" : "text-sm")}>
               <span className="text-lg">{getWeatherInfo(todayWeather.weatherCode).icon}</span>
