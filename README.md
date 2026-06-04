@@ -8,6 +8,7 @@ Local-first family planner and kid tasking app with parent controls, approvals, 
 - Multi-device convergence is improved through socket `stale-data` refetch behavior.
 - Reliability hardening includes a stabilized coverage E2E approval flow and refreshed dependency security updates (`nodemailer` patched line).
 - Security hardening includes auth attempt backoff/temporary lockout, structured security event logs, and image upload magic-byte validation with extension normalization.
+- Weather caching uses `TTLCache` with stale-while-revalidate: background refresh fires 60s before the 10-minute TTL expires, eliminating blocking API call spikes at cache expiry.
 
 ## Tech Stack
 - Frontend: React 19, TypeScript, Vite, Tailwind CSS 4
@@ -87,8 +88,8 @@ For internet exposure behind Caddy/TLS, set:
 Optional integrations include:
 - Google Calendar sync
 - Google Photos album display (via Google OAuth)
-- Weather provider
-- Magic email/webhook ingestion
+- Weather — via [open-meteo.com](https://open-meteo.com/), no API key required; lat/lon set in family Settings UI
+- Magic email/webhook ingestion (Mailgun + Gemini AI)
 - Push notifications / SMTP fallback
 
 Family photo controls now include:

@@ -52,6 +52,12 @@ KidTasker's `sync_connections` database table maps Google OAuth tokens to a `par
 
 ---
 
+## Weather Integration
+
+Weather is powered by [open-meteo.com](https://open-meteo.com/) — **no API key required**. Latitude and longitude are configured per family via the Settings UI in-app. Forecasts are cached server-side for 10 minutes with stale-while-revalidate background refresh. No `.env` variable needed.
+
+---
+
 ## Setting Up Gemini API
 
 1. Go to [Google AI Studio](https://aistudio.google.com/).

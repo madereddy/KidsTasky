@@ -62,11 +62,12 @@ This document reflects the current production behavior of the legacy-in-flight c
 - Contracts: one-reminder-per-event/reminder pairing.
 
 ### 9. External Integrations (confidence: medium)
-- Google Calendar sync (import/export), weather feeds, magic email ingestion.
+- Google Calendar sync (import/export), weather feeds (open-meteo.com — no API key required), magic email ingestion.
 - Inputs: provider credentials/webhooks.
 - Outputs: imported events/weather, parsed updates.
 - Side effects: network calls, sync metadata writes.
 - Contracts: integrations are optional and must fail safely without blocking core app flows.
+- Weather responses are cached via `TTLCache` (10-minute TTL, stale-while-revalidate at 60s before expiry). Background refresh errors are logged but non-fatal — stale data is served until the next successful fetch.
 
 ## Phase 2: Targeted Clarification
 Only low/medium-confidence and non-code constraints are listed here.
@@ -89,6 +90,7 @@ Only low/medium-confidence and non-code constraints are listed here.
 - Domain modules: `src/server/modules/*`
 - Cross-device updates: socket stale-data events and client refetch
 - Data layer: SQLite + migration files in `src/server/migrations`
+- Shared cache utility: `src/server/lib/ttlCache.ts` — generic `TTLCache<T>` with deduped in-flight loads, prefix-invalidation, and optional stale-while-revalidate via `backgroundRefreshBeforeMs`
 - Frontend services: `src/services/*`
 - Feature surfaces: `src/components/{parent,kid,calendar,shared,...}`
 
