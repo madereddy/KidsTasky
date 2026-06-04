@@ -69,7 +69,7 @@ export function WeeklyChoreGrid({ tasks, kids, completions, weekStart, compact =
                   </td>
                 </tr>
                 {kidTasks.map(task => (
-                  <tr key={task.id} className="hover:bg-ui-soft/50 transition-colors">
+                  <tr key={task.id} className="hover:bg-ui-soft transition-colors">
                     <td className="py-1 pr-3 text-ui-secondary truncate max-w-[8rem]">{task.title}</td>
                     {weekDays.map(d => {
                       const dateStr = format(d, 'yyyy-MM-dd');
@@ -81,7 +81,7 @@ export function WeeklyChoreGrid({ tasks, kids, completions, weekStart, compact =
                               "w-4 h-4 rounded-full mx-auto border-2 transition-colors",
                               done
                                 ? "bg-emerald-500 border-emerald-500"
-                                : "bg-transparent border-ui-muted"
+                                : "bg-transparent border-ui"
                             )}
                             data-testid={done ? 'chore-complete' : 'chore-pending'}
                           />

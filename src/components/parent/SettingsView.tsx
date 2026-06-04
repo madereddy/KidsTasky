@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, MapPin, Globe, Moon, Lock, RefreshCw, CheckCircle, AlertTriangle, Users, Trash2 } from 'lucide-react';
+import { X, MapPin, Globe, Moon, Lock, RefreshCw, CheckCircle, AlertTriangle, Users, Trash2, Palette } from 'lucide-react';
 import { settingsClientService } from '../../services/settings';
 import { syncClientService, SyncNowResult } from '../../services/sync';
 import { userService } from '../../services/users';
 import { inviteService } from '../../services/invites';
 import { photosClientService } from '../../services/photos';
 import { FamilySettings, SyncCalendar } from '../../types';
+import { THEMES } from '../../constants';
 import { useFamilyData } from '../../contexts/FamilyDataContext';
 import { PhotoManager } from './PhotoManager';
 
@@ -15,6 +16,8 @@ interface Props {
   onSaved?: (settings: FamilySettings) => void;
   onLockNow?: () => void;
   onPreviewScreensaver?: () => void;
+  currentThemeId?: string;
+  onThemeChange?: (themeId: string) => void;
 }
 
 const TIMEZONES = typeof Intl !== 'undefined' && (Intl as any).supportedValuesOf
@@ -42,8 +45,19 @@ function findPresetLocation(lat?: number, lon?: number) {
   return LOCATION_OPTIONS.find((option) => Math.abs(option.lat - lat) < 0.01 && Math.abs(option.lon - lon) < 0.01) || null;
 }
 
-export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewScreensaver }: Props) {
+export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewScreensaver, currentThemeId, onThemeChange }: Props) {
   const { kids, refreshKids: onKidsRefresh } = useFamilyData();
+  const [activeThemeId, setActiveThemeId] = React.useState(currentThemeId || 'space_commander');
+
+  const handleThemeChange = async (themeId: string) => {
+    setActiveThemeId(themeId);
+    try {
+      await userService.updateUserTheme(parentId, themeId);
+      onThemeChange?.(themeId);
+    } catch {
+      setActiveThemeId(activeThemeId);
+    }
+  };
   const [locationLat, setLocationLat] = useState<number>(DEFAULT_LOCATION.lat);
   const [locationLon, setLocationLon] = useState<number>(DEFAULT_LOCATION.lon);
   const [locationPreset, setLocationPreset] = useState<string>(DEFAULT_LOCATION.id);
@@ -455,6 +469,32 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
               >
                 24-hour
               </button>
+            </div>
+          </section>
+
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <Palette size={16} className="text-violet-500" />
+              <h3 className="font-bold text-ui-secondary">Theme</h3>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {THEMES.map(theme => {
+                const active = activeThemeId === theme.id;
+                return (
+                  <button
+                    key={theme.id}
+                    onClick={() => void handleThemeChange(theme.id)}
+                    className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 transition-all text-left ${active ? 'border-blue-500 bg-blue-50' : 'border-ui bg-white hover:border-blue-300'}`}
+                  >
+                    <div
+                      className="w-full h-8 rounded-lg border border-black/5"
+                      style={{ background: theme.bg }}
+                    />
+                    <span className="text-base leading-none">{theme.icon}</span>
+                    <span className={`text-[11px] font-semibold text-center leading-tight ${active ? 'text-blue-600' : 'text-ui-secondary'}`}>{theme.name}</span>
+                  </button>
+                );
+              })}
             </div>
           </section>
 

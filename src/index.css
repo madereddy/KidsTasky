@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,wght@0,400;0,600;0,700;0,900;1,900&display=swap');
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.theme-dark, .theme-dark *));
+
 @theme {
   --font-sans: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
 }
@@ -193,8 +195,13 @@ body {
 .theme-dark .border-ui { border-color: rgba(100, 116, 139, 0.6); }
 
 /* ---- Dark-mode surface bridge ---- */
-/* Remap bg-white to elevated dark surface so components don't render white boxes */
+/* Remap bg-white (and opacity variants) to elevated dark surface */
 .theme-dark .bg-white { background-color: rgba(15, 23, 42, 0.92) !important; }
+.theme-dark .bg-white\/90,
+.theme-dark .bg-white\/80,
+.theme-dark .bg-white\/70,
+.theme-dark .bg-white\/60,
+.theme-dark .bg-white\/50 { background-color: rgba(15, 23, 42, 0.92) !important; }
 
 /* Remap light accent tints to dark-safe equivalents */
 .theme-dark .bg-blue-50 { background-color: rgba(59, 130, 246, 0.1) !important; }
@@ -207,8 +214,8 @@ body {
 /* Light-accent text on dark */
 .theme-dark .text-amber-800 { color: #fbbf24 !important; }
 
-/* Shadow removal — drop shadows look wrong on dark glass surfaces */
-.theme-dark .shadow-sm { box-shadow: none !important; }
+/* Dark-safe shadows — replace baked-light shadows with dark-compatible versions */
+.theme-dark .shadow-sm { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4) !important; }
 .theme-dark .shadow-xl { box-shadow: 0 0 30px rgba(0, 0, 0, 0.4) !important; }
 .theme-dark .shadow-2xl { box-shadow: 0 0 40px rgba(0, 0, 0, 0.5) !important; }
 

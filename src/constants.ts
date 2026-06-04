@@ -129,8 +129,42 @@ export const THEMES = [
       panelBorder: 'border-amber-900/50'
     }
   },
-  { 
-    id: 'light_blue', 
+  {
+    id: 'family_hub_light',
+    name: 'Family Hub',
+    icon: '🏡',
+    primary: 'indigo-600',
+    accent: 'sky-500',
+    bg: '#f0f4ff',
+    border: 'border-indigo-100',
+    vocab: {
+      hub: 'Family Hub',
+      chores: 'My Chores',
+      level: 'Level',
+      streak: 'Streak',
+      points: 'XP',
+      allDone: 'All Done!',
+      allDoneDesc: 'Great job today!',
+      overdue: 'Chores Overdue',
+      overdueDesc: 'Some chores need your attention.',
+      badges: 'My Badges',
+      rewards: 'Rewards',
+      noTasks: "No chores right now. All caught up!",
+      verifyTitle: 'All Done?',
+      verifyDesc: 'Did you complete',
+      confirmYes: 'Yes!',
+      markDone: 'Mark Done',
+      locked: 'Locked',
+      completed: 'Completed!',
+      darkMode: false,
+      textPrimary: 'text-slate-900',
+      textSecondary: 'text-slate-500',
+      panelBg: 'bg-white shadow-sm',
+      panelBorder: 'border-slate-200'
+    }
+  },
+  {
+    id: 'light_blue',
     name: 'Sky Blue Helper', 
     icon: '🌤️', 
     primary: 'sky-500', 
