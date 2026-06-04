@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Plus, Trash2, Clipboard, ClipboardCheck } from 'lucide-react';
 import { ListSidebar } from './ListSidebar';
 import { StoreFilterBar } from './StoreFilterBar';
@@ -38,8 +38,8 @@ export function ListsView({ parentId }: Props) {
     await deleteList(id);
   };
 
-  const handleAddItem = async (text: string) => {
-    await addItem(text);
+  const handleAddItem = async (text: string, explicitStore?: string) => {
+    await addItem(text, explicitStore);
   };
 
   const handleToggleItem = async (itemId: string, completed: boolean) => {
@@ -59,9 +59,11 @@ export function ListsView({ parentId }: Props) {
   };
 
   // Filter items before passing to ListSidebar
-  const filteredItems = activeStoreFilter 
-    ? items.filter(i => i.completed === 1 || i.storeName === activeStoreFilter)
-    : items;
+  const filteredItems = useMemo(() => {
+    return activeStoreFilter 
+      ? items.filter(i => i.completed === 1 || i.storeName === activeStoreFilter)
+      : items;
+  }, [items, activeStoreFilter]);
 
   return (
     <div className="flex h-[calc(100vh-200px)] bg-white rounded-2xl border border-ui overflow-hidden shadow-sm">
