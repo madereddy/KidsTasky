@@ -20,14 +20,14 @@ export function getSafePhotoFilename(input: string): string | null {
   if (!trimmed) return null;
   const safeName = path.basename(trimmed);
   if (!safeName || safeName === "." || safeName === "..") return null;
+  if (safeName !== trimmed) return null;
+  if (safeName.includes("/") || safeName.includes("\\") || safeName.includes("\0")) return null;
   return safeName;
 }
 
 export function resolvePhotoUploadPath(filename: string, uploadsDir = getPhotosUploadsDir()): string | null {
   const safeName = getSafePhotoFilename(filename);
   if (!safeName) return null;
-  const root = path.resolve(uploadsDir);
-  const resolved = path.resolve(root, safeName);
-  if (!resolved.startsWith(root + path.sep)) return null;
-  return resolved;
+  const root = uploadsDir.endsWith(path.sep) ? uploadsDir.slice(0, -path.sep.length) : uploadsDir;
+  return `${root}${path.sep}${safeName}`;
 }
