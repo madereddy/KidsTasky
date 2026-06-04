@@ -1,5 +1,5 @@
 // src/components/lists/ListSidebar.tsx
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { X, Plus, Trash2, MapPin } from 'lucide-react';
 import { AppListItem } from '../../types';
 import { cn } from '../../lib/utils';
@@ -40,6 +40,15 @@ export function ListSidebar({ listTitle, items, frequentItems, isOpen, onToggleI
   const containerClass = inline
     ? "flex flex-col h-full"
     : "fixed inset-y-0 right-0 w-80 bg-white shadow-2xl border-l z-40 transform transition-transform duration-300 flex flex-col";
+
+  const suggestions = useMemo(() => {
+    if (!newItemText.trim() || !frequentItems) return [];
+    const search = newItemText.toLowerCase();
+    return frequentItems.filter(item => 
+      item.text.toLowerCase().includes(search) && 
+      item.text.toLowerCase() !== search
+    ).slice(0, 5);
+  }, [newItemText, frequentItems]);
 
   return (
     <div className={containerClass}>
@@ -147,20 +156,46 @@ export function ListSidebar({ listTitle, items, frequentItems, isOpen, onToggleI
               ))}
             </div>
           </div>
-          {frequentItems && frequentItems.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-              {frequentItems.map((item, idx) => (
+
+          {suggestions.length > 0 && (
+            <div className="bg-ui-soft rounded-lg border border-ui overflow-hidden mb-1">
+              {suggestions.map((item, idx) => (
                 <button
                   key={idx}
                   type="button"
-                  onClick={() => onAddItem(item.text, item.storeName, item.locationName)}
-                  className="px-2.5 py-1 rounded-md text-[10px] font-bold whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                  onClick={() => {
+                    onAddItem(item.text, item.storeName, item.locationName);
+                    setNewItemText('');
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs font-bold text-ui-primary hover:bg-white border-b border-ui last:border-0 flex items-center justify-between group"
                 >
-                  + {item.text}
+                  <span>{item.text}</span>
+                  <span className="text-[10px] text-ui-muted group-hover:text-blue-500">Quick Add +</span>
                 </button>
               ))}
             </div>
           )}
+
+          {frequentItems && frequentItems.length > 0 && !newItemText && (
+            <div className="space-y-1.5 mb-1">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[10px] font-black uppercase text-ui-muted tracking-wider">Frequent Items</span>
+              </div>
+              <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+                {frequentItems.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => onAddItem(item.text, item.storeName, item.locationName)}
+                    className="px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-all shadow-sm"
+                  >
+                    + {item.text}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleAddItem} className="flex gap-2">
             <input
               value={newItemText}

@@ -13,6 +13,13 @@ export const listsService = {
   getListItems: (listId: string): AppListItem[] => {
     return db.prepare('SELECT * FROM list_items WHERE listId = ?').all(listId) as AppListItem[];
   },
+  getAllParentItems: (parentId: string): AppListItem[] => {
+    return db.prepare(`
+      SELECT i.* FROM list_items i 
+      JOIN lists l ON i.listId = l.id 
+      WHERE l.parentId = ?
+    `).all(parentId) as AppListItem[];
+  },
   // Family that owns a given list item (via its parent list), or null if missing.
   getItemParentId: (itemId: string): string | null => {
     const row = db.prepare(

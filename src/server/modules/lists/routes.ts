@@ -15,6 +15,16 @@ listsRouter.get('/parents/:parentId/lists', authenticateUser, assertParentScope,
   }
 });
 
+listsRouter.get('/parents/:parentId/list-items', authenticateUser, assertParentScope, (req, res) => {
+  try {
+    const items = listsService.getAllParentItems(String(req.params.parentId));
+    res.json(items);
+  } catch (error: any) {
+    logger.error({ parentId: req.params.parentId, error: error.message }, 'get_parent_items_error');
+    res.status(500).json({ error: error.message });
+  }
+});
+
 listsRouter.get('/lists/:listId/items', authenticateUser, (req, res) => {
   try {
     const list = listsService.getListById(String(req.params.listId));

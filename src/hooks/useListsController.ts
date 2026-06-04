@@ -70,6 +70,7 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
   const [lists, setLists] = useState<AppList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [items, setItems] = useState<AppListItem[]>([]);
+  const [globalHistory, setGlobalHistory] = useState<AppListItem[]>([]);
   const [loadingLists, setLoadingLists] = useState(true);
   const [loadingItems, setLoadingItems] = useState(false);
 
@@ -78,14 +79,19 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
       setLists([]);
       setSelectedListId(null);
       setItems([]);
+      setGlobalHistory([]);
       setLoadingLists(false);
       return;
     }
 
     setLoadingLists(true);
     try {
-      const nextLists = (await listsClientService.getLists(parentId)) || [];
-      setLists(nextLists.map(parseListMetadata));
+      const [nextLists, nextGlobal] = await Promise.all([
+        listsClientService.getLists(parentId),
+        listsClientService.getParentItems(parentId)
+      ]);
+      setLists((nextLists || []).map(parseListMetadata));
+      setGlobalHistory((nextGlobal || []).map(parseItemMetadata));
       setSelectedListId((currentId) => {
         if (nextLists.length === 0) return null;
         if (currentId && nextLists.some((list) => list.id === currentId)) return currentId;
@@ -110,6 +116,12 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
       setLoadingItems(false);
     }
   }, [selectedListId]);
+
+  const refreshGlobalHistory = useCallback(async () => {
+    if (!parentId) return;
+    const nextGlobal = await listsClientService.getParentItems(parentId);
+    setGlobalHistory((nextGlobal || []).map(parseItemMetadata));
+  }, [parentId]);
 
   useEffect(() => {
     void loadLists();
@@ -150,6 +162,7 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
     if (selectedListId === id) {
       setItems([]);
     }
+    void refreshGlobalHistory();
   };
 
   const addItem = async (text: string, explicitStore?: string, explicitLocation?: string) => {
@@ -164,6 +177,7 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
 
     const parsedCreated = parseItemMetadata(created);
     setItems((prev) => [...prev, parsedCreated]);
+    void refreshGlobalHistory();
     return parsedCreated;
   };
 
@@ -191,11 +205,13 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
           }
         : i
     )));
+    void refreshGlobalHistory();
   };
 
   const deleteItem = async (itemId: string) => {
     await listsClientService.deleteItem(itemId);
     setItems((prev) => removeEntityById(prev, itemId));
+    void refreshGlobalHistory();
   };
 
   const frequentItems = useMemo(() => {
@@ -208,7 +224,7 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
 
     const counts = new Map<string, { count: number, storeName?: string, locationName?: string, text: string }>();
 
-    items.forEach(item => {
+    globalHistory.forEach(item => {
       if (item.completed === 1 && item.completedAt && (now - item.completedAt) <= THIRTY_DAYS_MS) {
         const textKey = item.text.toLowerCase();
         if (!activeTexts.has(textKey)) {
@@ -230,9 +246,9 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
 
     return Array.from(counts.values())
       .sort((a, b) => b.count - a.count)
-      .slice(0, 10)
+      .slice(0, 15)
       .map(entry => ({ text: entry.text, storeName: entry.storeName, locationName: entry.locationName }));
-  }, [items]);
+  }, [items, globalHistory]);
 
   const selectedList = useMemo(
     () => lists.find((list) => list.id === selectedListId) ?? null,

@@ -2,7 +2,7 @@
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { useMissionTodayController } from './useMissionTodayController';
-import { UserProfile, Task, CalendarEvent, AppListItem, Category, TaskCompletion } from '../types';
+import { UserProfile, Task, CalendarEvent, AppListItem, Category, TaskCompletion, AppList } from '../types';
 
 describe('useMissionTodayController', () => {
   beforeEach(() => {
@@ -85,6 +85,7 @@ describe('useMissionTodayController', () => {
       events: [],
       completions: [],
       listItems: [],
+      lists: [],
       kids: mockKids,
       categories: mockCategories
     }));
@@ -116,6 +117,7 @@ describe('useMissionTodayController', () => {
       events: [],
       completions,
       listItems: [],
+      lists: [],
       kids: mockKids,
       categories: mockCategories
     }));
@@ -141,6 +143,7 @@ describe('useMissionTodayController', () => {
       events: [],
       completions: [],
       listItems: [],
+      lists: [],
       kids: mockKids,
       categories: mockCategories
     }));
@@ -153,6 +156,7 @@ describe('useMissionTodayController', () => {
       events: [],
       completions: [{ id: 'c1', taskId: 'task_td', kidId: 'kid1', dateString: '2024-05-20', completedAt: Date.now(), count: 1 }],
       listItems: [],
+      lists: [],
       kids: mockKids,
       categories: mockCategories
     }));
@@ -168,6 +172,7 @@ describe('useMissionTodayController', () => {
         { id: 'c2', taskId: 'task_td', kidId: 'kid1', dateString: '2024-05-20', completedAt: Date.now(), count: 2 }
       ],
       listItems: [],
+      lists: [],
       kids: mockKids,
       categories: mockCategories
     }));
@@ -181,6 +186,7 @@ describe('useMissionTodayController', () => {
       events: getMockEvents(),
       completions: [],
       listItems: [],
+      lists: [],
       kids: mockKids,
       categories: mockCategories
     }));
@@ -202,6 +208,7 @@ describe('useMissionTodayController', () => {
       events: [],
       completions: [],
       listItems: listWithStores,
+      lists: [],
       kids: mockKids,
       categories: mockCategories
     }));
@@ -223,6 +230,7 @@ describe('useMissionTodayController', () => {
       events: [],
       completions: [],
       listItems: [],
+      lists: [],
       kids: mockKids,
       categories: mockCategories
     }));
@@ -266,6 +274,7 @@ describe('useMissionTodayController', () => {
       events: [morningEvent],
       completions: [],
       listItems: [],
+      lists: [],
       kids: mockKids,
       categories: mockCategories
     }));
@@ -304,6 +313,7 @@ describe('useMissionTodayController', () => {
       events: [],
       completions,
       listItems: [],
+      lists: [],
       kids: mockKids,
       categories: mockCategories
     }));
@@ -338,6 +348,7 @@ describe('useMissionTodayController', () => {
       events: [],
       completions,
       listItems: [],
+      lists: [],
       kids: mockKids,
       categories: mockCategories
     }));
@@ -364,6 +375,7 @@ describe('useMissionTodayController', () => {
       events: [],
       completions: [],
       listItems: [],
+      lists: [],
       kids: mockKids,
       categories: mockCategories
     }));

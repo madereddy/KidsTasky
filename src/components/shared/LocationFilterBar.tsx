@@ -26,7 +26,7 @@ export function LocationFilterBar({ activeLocation, onLocationSelect }: Location
       {COMMON_LOCATIONS.map((loc) => (
         <button
           key={loc.id}
-          onClick={() => onLocationSelect(prev => prev === loc.label ? null : loc.label)}
+          onClick={() => onLocationSelect(activeLocation === loc.label ? null : loc.label)}
           className={cn(
             "flex flex-col items-center gap-1 min-w-[70px] p-2 rounded-2xl border transition-all",
             activeLocation === loc.label 
