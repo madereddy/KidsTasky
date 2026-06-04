@@ -248,9 +248,10 @@ export interface AppListItem {
   id: string;
   listId: string;
   text: string;
-  completed: number; 
+  completed: number;
+  storeName?: string;
+  completedAt?: number;
 }
-
 export interface Recipe {
   id: string;
   parentId: string;
@@ -288,7 +289,7 @@ export interface MissionItem {
   time?: string;
   status: 'pending' | 'needs_approval' | 'completed';
   color?: string;
-  originalData: any;
+  originalData: Task | CalendarEvent | AppListItem;
   assignedToId?: string;
   storeName?: string; // For grocery items
 }

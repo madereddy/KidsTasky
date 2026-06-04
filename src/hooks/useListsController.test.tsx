@@ -53,3 +53,26 @@ describe('useListsController', () => {
     expect(result.current.selectedListId).toBe('l2');
   });
 });
+
+describe('useListsController - Smart Metadata', () => {
+  it('parses storeName and completedAt from text field', async () => {
+    vi.mocked(listsClientService.getLists).mockResolvedValue([{ id: 'list-1', parentId: 'parent-1', title: 'Groceries' }]);
+    vi.mocked(listsClientService.getItems).mockResolvedValue([
+      { id: 'item-1', listId: 'list-1', text: 'Milk |META:{"storeName":"Costco","completedAt":1700000000000}|', completed: 1 }
+    ]);
+
+    const { result } = renderHook(() => useListsController({ parentId: 'parent-1' }));
+    
+    await act(async () => {
+      await result.current.loadLists();
+    });
+    
+    await act(async () => {
+      await result.current.loadItems('list-1');
+    });
+
+    expect(result.current.items[0].text).toBe('Milk');
+    expect(result.current.items[0].storeName).toBe('Costco');
+    expect(result.current.items[0].completedAt).toBe(1700000000000);
+  });
+});

@@ -3,6 +3,29 @@ import { removeEntityById, upsertEntityById } from '../lib/entity-list';
 import { listsClientService } from '../services/lists';
 import { AppList, AppListItem } from '../types';
 
+function parseItemMetadata(item: AppListItem): AppListItem {
+  const match = item.text.match(/(.*?)\s*\|META:(.+?)\|$/);
+  if (match) {
+    try {
+      const meta = JSON.parse(match[2]);
+      return {
+        ...item,
+        text: match[1].trim(),
+        storeName: meta.storeName,
+        completedAt: meta.completedAt
+      };
+    } catch (e) {
+      return item;
+    }
+  }
+  return item;
+}
+
+function stringifyItemMetadata(text: string, storeName?: string, completedAt?: number): string {
+  if (!storeName && !completedAt) return text;
+  return `${text} |META:${JSON.stringify({ storeName, completedAt })}|`;
+}
+
 interface UseListsControllerOptions {
   parentId: string;
 }
@@ -38,7 +61,7 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
     setLoadingItems(true);
     try {
       const nextItems = await listsClientService.getItems(listId);
-      setItems(nextItems || []);
+      setItems((nextItems || []).map(parseItemMetadata));
     } finally {
       setLoadingItems(false);
     }
@@ -83,9 +106,15 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
   };
 
   const toggleItem = async (itemId: string, completed: boolean) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+
+    const completedAt = completed ? Date.now() : undefined;
+    const rawText = stringifyItemMetadata(item.text, item.storeName, completedAt);
+
     await listsClientService.toggleItem(itemId, completed);
-    setItems((prev) => prev.map((item) => (
-      item.id === itemId ? { ...item, completed: completed ? 1 : 0 } : item
+    setItems((prev) => prev.map((i) => (
+      i.id === itemId ? { ...i, completed: completed ? 1 : 0, completedAt } : i
     )));
   };
 
