@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import { requireAuth, assertParentScope, getParentId, requireRole } from '../../middleware/auth.js';
 import { settingsService } from './service.js';
 import { syncService } from '../sync/service.js';
+import { authService } from '../auth/service.js';
 
 /** Strip raw PIN hash from settings before sending to client. */
 function scrubSettings(settings: Record<string, any>) {
@@ -106,28 +107,35 @@ settingsRouter.post("/settings/:parentId/unlock", requireAuth, requireRole('pare
     const userParentId = getParentId(req);
     if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
     const settings = settingsService.getSettings(String(req.params.parentId));
+    const callerUid = String((req as any).user?.uid || '');
+    const inputSecret = String(req.body?.pin ?? "");
     if (!settings.pin || String(settings.pin).trim() === "") {
+      const passwordMatch = callerUid ? await authService.verifyParentPassword(callerUid, inputSecret) : false;
+      if (!passwordMatch) return res.status(403).json({ error: "Incorrect PIN or password" });
       settingsService.setLocked(String(req.params.parentId), false);
       return res.json({ success: true });
     }
 
-    const inputPin = String(req.body?.pin ?? "");
     const stored = String(settings.pin);
 
     let match: boolean;
     if (stored.startsWith('$2')) {
       // bcrypt hash — use secure compare
-      match = await bcrypt.compare(inputPin, stored);
+      match = await bcrypt.compare(inputSecret, stored);
     } else {
       // Legacy plaintext PIN — accept and upgrade to hash
-      match = inputPin === stored;
+      match = inputSecret === stored;
       if (match) {
-        const hash = await bcrypt.hash(inputPin, 10);
+        const hash = await bcrypt.hash(inputSecret, 10);
         settingsService.saveSettings(String(req.params.parentId), { pin: hash });
       }
     }
 
-    if (!match) return res.status(403).json({ error: "Incorrect PIN" });
+    if (!match && callerUid) {
+      match = await authService.verifyParentPassword(callerUid, inputSecret);
+    }
+
+    if (!match) return res.status(403).json({ error: "Incorrect PIN or password" });
     settingsService.setLocked(String(req.params.parentId), false);
     return res.json({ success: true });
   } catch (error: any) {

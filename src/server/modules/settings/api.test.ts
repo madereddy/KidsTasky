@@ -6,6 +6,7 @@ import { app } from '../../../../server.js';
 import { db } from '../../db.js';
 import jwt from 'jsonwebtoken';
 import { getJwtSecret } from '../../config.js';
+import { settingsService } from './service.js';
 
 import { randomBytes } from 'crypto';
 
@@ -83,6 +84,61 @@ describe('Settings lock API', () => {
     expect(goodUnlock.status).toBe(200);
 
     row = db.prepare('SELECT isLocked FROM family_settings WHERE parentId = ?').get(parentId) as { isLocked: number };
+    expect(row.isLocked).toBe(0);
+
+    db.prepare('DELETE FROM users WHERE email = ?').run(email);
+  });
+
+  it('allows a parent password to unlock even when a family PIN is set', async () => {
+    const { token, parentId, email } = await createParentAuth();
+
+    const saveRes = await request(app)
+      .put(`/api/settings/${parentId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ locationLat: 1, locationLon: 2, timezone: 'UTC', pin: '1234', sleepStart: '21:00', sleepEnd: '07:00' });
+
+    expect(saveRes.status).toBe(200);
+
+    const lockRes = await request(app)
+      .post(`/api/settings/${parentId}/lock`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(lockRes.status).toBe(200);
+
+    const unlockRes = await request(app)
+      .post(`/api/settings/${parentId}/unlock`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ pin: 'pass1234' });
+    expect(unlockRes.status).toBe(200);
+
+    const row = db.prepare('SELECT isLocked FROM family_settings WHERE parentId = ?').get(parentId) as { isLocked: number };
+    expect(row.isLocked).toBe(0);
+
+    db.prepare('DELETE FROM users WHERE email = ?').run(email);
+  });
+
+  it('allows a parent password to unlock when no family PIN is set', async () => {
+    const { token, parentId, email } = await createParentAuth();
+
+    settingsService.saveSettings(parentId, {
+      locationLat: 1,
+      locationLon: 2,
+      timezone: 'UTC',
+      sleepStart: '21:00',
+      sleepEnd: '07:00',
+    });
+
+    const lockRes = await request(app)
+      .post(`/api/settings/${parentId}/lock`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(lockRes.status).toBe(200);
+
+    const unlockRes = await request(app)
+      .post(`/api/settings/${parentId}/unlock`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ pin: 'pass1234' });
+    expect(unlockRes.status).toBe(200);
+
+    const row = db.prepare('SELECT isLocked FROM family_settings WHERE parentId = ?').get(parentId) as { isLocked: number };
     expect(row.isLocked).toBe(0);
 
     db.prepare('DELETE FROM users WHERE email = ?').run(email);

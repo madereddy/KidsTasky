@@ -1009,24 +1009,24 @@ export default function App() {
       {showParentSwitchPin && (
         <div className="fixed inset-0 z-[210] bg-black/60 flex items-center justify-center p-4">
           <div className={cn("w-full max-w-sm rounded-2xl p-5 border", isDarkTheme ? "bg-ui-deep border-ui-dark text-white" : "bg-white border-ui")}>
-            <h3 className="text-lg font-bold mb-1">Parent PIN Required</h3>
-            <p className="text-sm text-ui-muted mb-3">Enter family PIN to switch to parent</p>
+            <h3 className="text-lg font-bold mb-1">Parent Unlock Required</h3>
+            <p className="text-sm text-ui-muted mb-3">Enter family PIN or parent password to switch to parent</p>
             <input
               type="password"
               value={parentSwitchPin}
-              onChange={(e) => setParentSwitchPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+              onChange={(e) => setParentSwitchPin(e.target.value.slice(0, 64))}
               onKeyDown={async (e) => {
                 if (e.key !== 'Enter' || parentSwitchPin.length < 4) return;
                 e.preventDefault();
                 try {
                   await switchToParentProfile(parentSwitchPin);
                 } catch {
-                  setSwitchError('Incorrect PIN');
+                  setSwitchError('Incorrect PIN or password');
                 } finally {
                   setSwitchingProfileLabel('');
                 }
               }}
-              placeholder="PIN"
+              placeholder="PIN or password"
               className="w-full px-3 py-2 rounded-xl border border-ui bg-white text-ui-primary"
             />
             {switchError && <p className="text-sm text-rose-500 mt-2">{switchError}</p>}
@@ -1042,7 +1042,7 @@ export default function App() {
                   try {
                     await switchToParentProfile(parentSwitchPin);
                   } catch {
-                    setSwitchError('Incorrect PIN');
+                    setSwitchError('Incorrect PIN or password');
                   } finally {
                     setSwitchingProfileLabel('');
                   }
