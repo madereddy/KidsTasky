@@ -11,6 +11,7 @@ import { syncService } from '../sync/service.js';
 import { db } from '../../db.js';
 import { TTLCache } from '../../lib/ttlCache.js';
 import { logSecurityEvent } from '../../lib/securityLog.js';
+import { logger } from '../../lib/logger.js';
 
 import { randomUUID } from 'crypto';
 
@@ -75,12 +76,12 @@ async function fetchGooglePhotosJson<T>(url: string, init: RequestInit, retries 
 
     lastStatus = response.status;
     lastBody = await response.text();
-    console.error('[photos:google_api_error]', {
+    logger.error({
       url,
       status: response.status,
       attempt,
       bodySnippet: String(lastBody || '').slice(0, 500),
-    });
+    }, 'photos_google_api_error');
 
     if (!GOOGLE_PHOTOS_RETRYABLE_STATUS.has(response.status) || attempt === retries) {
       break;
@@ -178,21 +179,21 @@ async function getGoogleAccessToken(parentId: string): Promise<string | null> {
       db.prepare('UPDATE sync_connections SET accessToken = ?, refreshToken = ? WHERE id = ?')
         .run(accessToken || null, refreshToken, conn.id);
     }
-    console.log('[photos:token_refresh_ok]', {
+    logger.info({
       parentId,
       connectionId: conn.id,
       hasAccessToken: Boolean(accessToken),
       hasRefreshToken: Boolean(refreshToken),
-    });
+    }, 'photos_token_refresh_ok');
     if (accessToken) googleAccessTokenCache.set(parentId, accessToken);
     return accessToken || null;
   } catch (error: any) {
     const message = String(error?.message || '');
-    console.error('[photos:token_refresh_failed]', {
+    logger.error({
       parentId,
       connectionId: conn.id,
       message,
-    });
+    }, 'photos_token_refresh_failed');
     if (message.toLowerCase().includes('invalid_grant')) {
       return null;
     }
@@ -330,14 +331,14 @@ photosRouter.delete("/photos/:id", requireAuth, (req, res) => {
 });
 
 photosRouter.get('/parents/:parentId/google-photos/albums', requireAuth, assertParentScope, async (req, res) => {
-  console.warn('[photos:legacy_library_api_disabled]', { parentId: req.params.parentId, endpoint: 'albums' });
+  logger.warn({ parentId: req.params.parentId, endpoint: 'albums' }, 'photos_legacy_library_api_disabled');
   return res.status(410).json({
     error: 'Google Photos library album browsing is no longer supported by Google Photos Library API (March 31, 2025). Use local uploads for now; Picker API migration required.'
   });
 });
 
 photosRouter.get('/parents/:parentId/google-photos/albums/:albumId/media', requireAuth, assertParentScope, async (req, res) => {
-  console.warn('[photos:legacy_library_api_disabled]', { parentId: req.params.parentId, endpoint: 'media', albumId: req.params.albumId });
+  logger.warn({ parentId: req.params.parentId, endpoint: 'media', albumId: req.params.albumId }, 'photos_legacy_library_api_disabled');
   return res.status(410).json({
     error: 'Google Photos library media browsing is no longer supported by Google Photos Library API (March 31, 2025). Use local uploads for now; Picker API migration required.'
   });
@@ -390,12 +391,12 @@ photosRouter.get('/parents/:parentId/google-photos/picker/sessions/:sessionId/me
       headers: { Authorization: `Bearer ${token}` },
     });
     const rawItems = (data?.mediaItems || []);
-    console.log('[photos:picker_media_items]', {
+    logger.info({
       parentId: req.params.parentId,
       sessionId: req.params.sessionId,
       count: rawItems.length,
       firstKeys: rawItems[0] ? Object.keys(rawItems[0]) : [],
-    });
+    }, 'photos_picker_media_items');
     const items = rawItems.map((m: any) => ({
       id: m.id,
       baseUrl: m.baseUrl || m.mediaFile?.baseUrl || '',
@@ -419,7 +420,7 @@ photosRouter.post('/parents/:parentId/google-photos/picker/import', requireAuth,
   let imported = 0;
   let skipped = 0;
   let unresolved = 0;
-  console.log('[photos:picker_import_start]', { parentId, sessionId, incoming: items.length });
+  logger.info({ parentId, sessionId, incoming: items.length }, 'photos_picker_import_start');
   const normalizedUrls: string[] = [];
   for (const item of items) {
     let baseUrl = String(item?.baseUrl || '').trim();
@@ -439,7 +440,7 @@ photosRouter.post('/parents/:parentId/google-photos/picker/import', requireAuth,
   const uniqueUrls = Array.from(new Set(normalizedUrls));
   if (uniqueUrls.length === 0) {
     googleMediaCache.clearPrefix(`${parentId}:`);
-    console.log('[photos:picker_import_done]', { parentId, imported, skipped, unresolved });
+    logger.info({ parentId, imported, skipped, unresolved }, 'photos_picker_import_done');
     return res.json({ success: true, imported, skipped, unresolved });
   }
 
@@ -457,6 +458,6 @@ photosRouter.post('/parents/:parentId/google-photos/picker/import', requireAuth,
     imported += 1;
   }
   googleMediaCache.clearPrefix(`${parentId}:`);
-  console.log('[photos:picker_import_done]', { parentId, imported, skipped, unresolved });
+  logger.info({ parentId, imported, skipped, unresolved }, 'photos_picker_import_done');
   return res.json({ success: true, imported, skipped, unresolved });
 });

@@ -21,6 +21,7 @@ import { useKidProgress } from '../../hooks/useKidProgress';
 import { useKidMilestones } from '../../hooks/useKidMilestones';
 import { useKidRewardsController } from '../../hooks/useKidRewardsController';
 import { KidDashboardSkeleton } from '../shared/Skeleton';
+import { clientLogger } from '../../services/clientLogger';
 const CalendarView = lazy(() => import('../calendar/CalendarView').then(m => ({ default: m.CalendarView })));
 const HomeworkView = lazy(() => import('../homework/HomeworkView').then(m => ({ default: m.HomeworkView })));
 
@@ -166,7 +167,7 @@ export function KidDashboard({
         syncControllerCompletions(c || []);
       });
     } catch (e) {
-      console.error("Failed to fetch kid dashboard data", e);
+      clientLogger.errorWithException('kid_dashboard_fetch_failed', e, { kidId: profile.uid });
     } finally {
       setLoading(false);
     }
@@ -180,7 +181,7 @@ export function KidDashboard({
     fetchData();
     const signal = data.type || data.entity;
     if (signal === 'rewards' || signal === 'users') {
-      loadRewards().catch((e) => console.error('Failed refreshing rewards:', e));
+      loadRewards().catch((e) => clientLogger.errorWithException('kid_dashboard_rewards_refresh_failed', e, { kidId: profile.uid }));
     }
   });
 

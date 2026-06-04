@@ -6,6 +6,7 @@ import { dashboardClientService } from '../services/dashboard';
 import { isAwardedTaskCompletion } from '../lib/completion-state';
 import { removeEntityById, upsertEntityByIdSorted } from '../lib/entity-list';
 import { useAsyncActionMap } from './useAsyncActionMap';
+import { clientLogger } from '../services/clientLogger';
 
 export interface ParentCompletionSummary extends TaskCompletion {
   kidName: string;
@@ -60,7 +61,7 @@ export function useParentTaskWorkspace({ parentId, kids }: UseParentTaskWorkspac
       setPendingCompletions((pendingRows || []) as ParentCompletionSummary[]);
       setTodayApprovedCompletions(completedToday);
     } catch (err) {
-      console.error('[useParentTaskWorkspace] loadWorkspace caught error:', err);
+      clientLogger.errorWithException('parent_task_workspace_load_failed', err, { parentId });
       throw err;
     } finally {
       setLoading(false);

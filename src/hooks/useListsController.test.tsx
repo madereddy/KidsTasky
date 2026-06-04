@@ -105,4 +105,36 @@ describe('useListsController - Smart Metadata', () => {
     expect(result.current.items[0].text).toBe('Eggs');
     expect(result.current.items[0].storeName).toBe('Costco');
   });
+
+  it('keeps metadata out of visible text after checking an item', async () => {
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1780588800000);
+    vi.mocked(listsClientService.getLists).mockResolvedValue([{ id: 'list-1', parentId: 'parent-1', title: 'Groceries' }]);
+    vi.mocked(listsClientService.getItems).mockResolvedValue([
+      { id: 'item-1', listId: 'list-1', text: 'Milk |META:{"storeName":"Costco"}|', completed: 0 }
+    ]);
+    vi.mocked(listsClientService.toggleItem).mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useListsController({ parentId: 'parent-1' }));
+
+    await waitFor(() => expect(result.current.selectedListId).toBe('list-1'));
+    await waitFor(() => expect(result.current.items[0]?.text).toBe('Milk'));
+
+    await act(async () => {
+      await result.current.toggleItem('item-1', true);
+    });
+
+    expect(listsClientService.toggleItem).toHaveBeenCalledWith(
+      'item-1',
+      true,
+      'Milk |META:{"storeName":"Costco","completedAt":1780588800000}|'
+    );
+    expect(result.current.items[0]).toMatchObject({
+      id: 'item-1',
+      text: 'Milk',
+      storeName: 'Costco',
+      completed: 1,
+      completedAt: 1780588800000,
+    });
+    nowSpy.mockRestore();
+  });
 });

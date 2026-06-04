@@ -1,3 +1,5 @@
+import { logger } from './logger.js';
+
 type CacheEntry<T> = {
   value: T;
   createdAt: number;
@@ -80,7 +82,13 @@ export class TTLCache<T> {
     if (entry && Date.now() <= entry.expiresAt) {
       this.hits += 1;
       if (backgroundRefreshBeforeMs > 0 && Date.now() > entry.expiresAt - backgroundRefreshBeforeMs && !this.inFlight.has(key)) {
-        const refresh = loader().then(v => { this.set(key, v); return v; }).catch(err => { console.error('[TTLCache] background refresh failed:', err); return entry.value; }).finally(() => this.inFlight.delete(key));
+        const refresh = loader()
+          .then(v => { this.set(key, v); return v; })
+          .catch(err => {
+            logger.warn({ cache: this.name, key, error: err }, 'ttl_cache_background_refresh_failed');
+            return entry.value;
+          })
+          .finally(() => this.inFlight.delete(key));
         this.inFlight.set(key, refresh);
       }
       return entry.value;

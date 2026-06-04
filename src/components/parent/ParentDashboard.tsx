@@ -15,6 +15,7 @@ import { StaleDataEvent, useSocketStaleData } from '../../hooks/useSocket';
 import { FamilyNote } from '../shared/FamilyNote';
 import { AvatarDisplay, AvatarPicker } from '../shared/AvatarPicker';
 import { useParentDashboardController } from '../../hooks/useParentDashboardController';
+import { clientLogger } from '../../services/clientLogger';
 
 export function ParentDashboard({
   profile,
@@ -54,26 +55,26 @@ export function ParentDashboard({
   useSocketStaleData(['all'], (data: StaleDataEvent) => {
     const signal = data.type || data.entity;
     if (signal === 'notifications') {
-      refreshNotifications().catch((e) => console.error('Failed to refresh notifications:', e));
+      refreshNotifications().catch((e) => clientLogger.errorWithException('parent_dashboard_refresh_notifications_failed', e, { familyId }));
       return;
     }
     if (signal === 'users' || signal === 'kids') {
-      refreshKids().catch((e) => console.error('Failed to refresh kids:', e));
+      refreshKids().catch((e) => clientLogger.errorWithException('parent_dashboard_refresh_kids_failed', e, { familyId }));
       return;
     }
     if (signal === 'sync' || signal === 'calendars' || signal === 'connections') {
-      refreshConnectionsAndCalendars().catch((e) => console.error('Failed to refresh sync settings:', e));
+      refreshConnectionsAndCalendars().catch((e) => clientLogger.errorWithException('parent_dashboard_refresh_sync_failed', e, { familyId }));
       return;
     }
     if (signal === 'rewards') {
-      refreshRewards().catch((e) => console.error('Failed to refresh rewards:', e));
+      refreshRewards().catch((e) => clientLogger.errorWithException('parent_dashboard_refresh_rewards_failed', e, { familyId }));
       return;
     }
     if (signal === 'tasks' || signal === 'completions' || signal === 'events' || signal === 'homework') {
-      refreshTodaySummary().catch((e) => console.error('Failed to refresh today summary:', e));
+      refreshTodaySummary().catch((e) => clientLogger.errorWithException('parent_dashboard_refresh_today_summary_failed', e, { familyId, signal }));
       return;
     }
-    fetchData().catch((e) => console.error('Failed full dashboard refresh:', e));
+    fetchData().catch((e) => clientLogger.errorWithException('parent_dashboard_full_refresh_failed', e, { familyId, signal }));
   });
 
   const handleCopy = () => {

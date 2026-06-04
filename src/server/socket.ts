@@ -1,6 +1,7 @@
 import { Server } from "socket.io";
 import jwt from 'jsonwebtoken';
 import { getJwtSecret } from './config.js';
+import { logger } from './lib/logger.js';
 
 let io: Server;
 const userSocketMap = new Map<string, Set<string>>();
@@ -15,13 +16,13 @@ export const socketWrapper = {
       socket.on('join-room', (parentId: string, token?: string) => {
         try {
           if (!token) {
-            console.warn(`Socket ${socket.id} join-room rejected: no token`);
+            logger.warn({ socketId: socket.id }, 'socket_join_room_rejected_no_token');
             return;
           }
           const payload = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as { uid: string; role: string; parentId: string };
           const expectedParentId = payload.parentId || payload.uid;
           if (expectedParentId !== parentId) {
-            console.warn(`Socket ${socket.id} join-room rejected: parentId mismatch`);
+            logger.warn({ socketId: socket.id, requestedParentId: parentId, expectedParentId }, 'socket_join_room_rejected_parent_mismatch');
             return;
           }
           socket.join(parentId);
@@ -31,9 +32,9 @@ export const socketWrapper = {
           userSocketMap.get(uid)!.add(socket.id);
           socketToUid.set(socket.id, uid);
 
-          console.log(`Socket ${socket.id} joined room for parent: ${parentId}`);
+          logger.info({ socketId: socket.id, parentId, uid }, 'socket_join_room_accepted');
         } catch (err) {
-          console.warn(`Socket ${socket.id} join-room rejected: invalid token`);
+          logger.warn({ socketId: socket.id, error: err }, 'socket_join_room_rejected_invalid_token');
         }
       });
 

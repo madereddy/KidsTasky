@@ -4,6 +4,7 @@ import { CalendarEvent, Homework, Task, TaskCompletion, UserProfile } from '../t
 import { dashboardClientService } from '../services/dashboard';
 import { weatherClientService, DailyForecast, HourlyForecastEntry } from '../services/weather';
 import { settingsClientService } from '../services/settings';
+import { clientLogger } from '../services/clientLogger';
 
 interface UseWallHomeControllerOptions {
   parentId: string;
@@ -110,7 +111,7 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
         setHourlyToday(wx.hourlyToday || []);
       }
     } catch (error) {
-      console.error('[WallHome] fetchFamilyData error', error);
+      clientLogger.errorWithException('wall_home_fetch_family_data_failed', error, { parentId });
       setLoadError('Could not load home data.');
     } finally {
       setLoading(false);

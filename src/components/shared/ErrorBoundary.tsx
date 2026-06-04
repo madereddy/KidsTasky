@@ -1,4 +1,5 @@
 import React from 'react';
+import { clientLogger } from '../../services/clientLogger';
 
 interface State {
   hasError: boolean;
@@ -19,7 +20,9 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[ErrorBoundary] Render error caught:', error, info.componentStack);
+    clientLogger.errorWithException('react_error_boundary_caught', error, {
+      componentStack: info.componentStack,
+    });
   }
 
   componentDidUpdate(_: unknown, prev: State) {

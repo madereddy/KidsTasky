@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { notesClientService } from '../../services/notes';
+import { clientLogger } from '../../services/clientLogger';
 
 interface Props {
   parentId: string;
@@ -30,7 +31,9 @@ export function FamilyNote({ parentId, readOnly = false }: Props) {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       setSaving(true);
-      await notesClientService.saveNote(parentId, val).catch(console.warn);
+      await notesClientService.saveNote(parentId, val).catch((error) => {
+        clientLogger.warn('family_note_save_failed', { parentId, error });
+      });
       setUpdatedAt(Date.now());
       setSaving(false);
     }, 1000);

@@ -303,7 +303,7 @@ export async function startServer() {
   
   if (!process.env.VITEST && process.env.NODE_ENV !== "test") {
     httpServer.listen(PORT, HOST, () => {
-      console.log(`Server running on http://${HOST}:${PORT}`);
+      logger.info({ host: HOST, port: PORT }, 'server_listening');
     });
   }
 }

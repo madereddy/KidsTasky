@@ -26,6 +26,7 @@ import { notesRouter } from './modules/notes/routes.js';
 import { homeworkRouter } from './modules/homework/routes.js';
 import { proofTemplatesRouter } from './modules/proofTemplates/routes.js';
 import { dashboardRouter } from './modules/dashboard/routes.js';
+import { logger } from './lib/logger.js';
 
 const router = Router();
 const buildStartedAt = Date.now();
@@ -92,6 +93,29 @@ function buildOpenMeteoForecastUrl(host: string, latitude: number, longitude: nu
 
 router.get("/health", (req, res) => {
   res.json({ status: "ok" });
+});
+
+router.post('/client-logs', (req, res) => {
+  const body = req.body as {
+    level?: 'info' | 'warn' | 'error';
+    message?: string;
+    context?: Record<string, unknown>;
+    url?: string;
+    userAgent?: string;
+    timestamp?: string;
+  };
+  const level = body?.level === 'warn' || body?.level === 'error' ? body.level : 'info';
+  const message = String(body?.message || 'client_log');
+  const payload = {
+    source: 'browser',
+    message,
+    context: body?.context || {},
+    pageUrl: body?.url || null,
+    userAgent: body?.userAgent || null,
+    clientTimestamp: body?.timestamp || null,
+  };
+  logger[level](payload, 'client_log');
+  res.status(202).json({ accepted: true });
 });
 
 router.get('/health/memory', (req, res) => {

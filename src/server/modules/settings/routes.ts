@@ -4,6 +4,7 @@ import { requireAuth, assertParentScope, getParentId, requireRole } from '../../
 import { settingsService } from './service.js';
 import { syncService } from '../sync/service.js';
 import { authService } from '../auth/service.js';
+import { logger } from '../../lib/logger.js';
 
 /** Strip raw PIN hash from settings before sending to client. */
 function scrubSettings(settings: Record<string, any>) {
@@ -29,7 +30,7 @@ settingsRouter.get('/settings/:parentId/bootstrap', requireAuth, assertParentSco
       connections,
     });
   } catch (error: any) {
-    console.error('[settings:bootstrap]', error);
+    logger.error({ error: error.message, params: req.params }, 'settings_bootstrap_error');
     res.status(500).json({ error: error.message });
   }
 });
@@ -40,7 +41,7 @@ settingsRouter.get('/settings/visibility', requireAuth, (req, res) => {
     const visibility = settingsService.getCalendarVisibility(userId);
     res.json(visibility);
   } catch (error: any) {
-    console.error('[settings:get-visibility]', error);
+    logger.error({ error: error.message, userId: (req as any).user?.uid }, 'settings_get_visibility_error');
     res.status(500).json({ error: error.message });
   }
 });
@@ -54,7 +55,7 @@ settingsRouter.post('/settings/visibility', requireAuth, (req, res) => {
     settingsService.setCalendarVisibility(userId, calendarId, !!isVisible);
     res.json({ success: true });
   } catch (error: any) {
-    console.error('[settings:post-visibility]', error);
+    logger.error({ error: error.message, body: req.body, userId: (req as any).user?.uid }, 'settings_post_visibility_error');
     res.status(500).json({ error: error.message });
   }
 });
@@ -66,7 +67,7 @@ settingsRouter.get('/settings/:parentId', requireAuth, (req, res) => {
     const settings = settingsService.getSettings(String(req.params.parentId));
     res.json(scrubSettings(settings as any));
   } catch (error: any) {
-    console.error('[settings:get]', error);
+    logger.error({ error: error.message, params: req.params }, 'settings_get_error');
     res.status(500).json({ error: error.message });
   }
 });
@@ -86,7 +87,7 @@ settingsRouter.put('/settings/:parentId', requireAuth, requireRole('parent'), as
     settingsService.saveSettings(String(req.params.parentId), data);
     res.json({ success: true });
   } catch (error: any) {
-    console.error('[settings:save]', error);
+    logger.error({ error: error.message, params: req.params, body: req.body }, 'settings_save_error');
     res.status(500).json({ error: error.message });
   }
 });
@@ -98,6 +99,7 @@ settingsRouter.post("/settings/:parentId/lock", requireAuth, requireRole('parent
     settingsService.setLocked(String(req.params.parentId), true);
     res.json({ success: true });
   } catch (error: any) {
+    logger.error({ error: error.message, params: req.params }, 'settings_lock_error');
     res.status(500).json({ error: error.message });
   }
 });
@@ -139,6 +141,7 @@ settingsRouter.post("/settings/:parentId/unlock", requireAuth, requireRole('pare
     settingsService.setLocked(String(req.params.parentId), false);
     return res.json({ success: true });
   } catch (error: any) {
+    logger.error({ error: error.message, params: req.params }, 'settings_unlock_error');
     return res.status(500).json({ error: error.message });
   }
 });

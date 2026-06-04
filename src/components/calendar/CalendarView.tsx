@@ -25,6 +25,7 @@ import { useWakeLock } from '../../hooks/useWakeLock';
 import { CalendarSkeleton } from '../shared/Skeleton';
 import { PhotoScreensaver } from '../shared/PhotoScreensaver';
 import { ParentalLockOverlay } from '../shared/ParentalLockOverlay';
+import { clientLogger } from '../../services/clientLogger';
 
 type ViewMode = 'month' | 'week' | 'day' | 'agenda';
 type WallFilter = 'today' | 'week' | 'allday';
@@ -51,7 +52,7 @@ class CalendarErrorBoundary extends React.Component<{ children: React.ReactNode 
   }
   static getDerivedStateFromError() { return { hasError: true }; }
   componentDidCatch(error: any, errorInfo: any) { 
-    console.error('[CalendarErrorBoundary] CRASH:', error, errorInfo); 
+    clientLogger.errorWithException('calendar_error_boundary_crash', error, { errorInfo });
   }
   render() {
     if (this.state.hasError) {
@@ -165,7 +166,7 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
       setEvents(ev || []);
       setLastRefreshedAt(new Date());
     } catch (err) {
-      console.error('[CalendarView] fetchEvents error', err);
+      clientLogger.errorWithException('calendar_fetch_events_failed', err, { parentId });
     }
   }, [parentId]);
 
@@ -205,7 +206,7 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
                 const wx = await weatherClientService.getForecast(settings.locationLat, settings.locationLon);
                 setForecast(wx || []);
               } catch (wxErr) {
-                console.error('[CalendarView] weather error', wxErr);
+                clientLogger.errorWithException('calendar_weather_fetch_failed', wxErr, { parentId });
               }
             }
           })
@@ -244,7 +245,7 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
         }
 
       } catch (err) {
-        console.error('[CalendarView] initialization error', err);
+        clientLogger.errorWithException('calendar_initialization_failed', err, { parentId, isWallMode });
       } finally {
         clearTimeout(timer);
         setLoading(false);

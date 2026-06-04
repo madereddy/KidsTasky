@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { userService } from '../../services/users';
 import { AuthImage } from './AuthImage';
+import { clientLogger } from '../../services/clientLogger';
 
 const PRESET_AVATARS = [
   ':)', ':D', ':P', ';)', 'B)', ':3',
@@ -87,7 +88,7 @@ export function AvatarPicker({ uid, current, onUpdated }: PickerProps) {
       body: formData,
     });
     if (!res.ok) {
-      console.error('Photo upload failed');
+      clientLogger.error('avatar_photo_upload_failed', { uid, status: res.status });
       return;
     }
     const data = await res.json();

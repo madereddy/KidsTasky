@@ -172,16 +172,24 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
     if (!item) return;
 
     const completedAt = completed ? Date.now() : undefined;
-    const newText = stringifyItemMetadata(
-      item.text.replace(/\s*\|META:.*?\|$/, ''),
+    const displayText = item.text.replace(/\s*\|META:.*?\|$/, '');
+    const serializedText = stringifyItemMetadata(
+      displayText,
       item.storeName,
       completedAt,
       item.locationName
     );
 
-    await listsClientService.toggleItem(itemId, completed, newText);
+    await listsClientService.toggleItem(itemId, completed, serializedText);
     setItems((prev) => prev.map((i) => (
-      i.id === itemId ? { ...i, completed: completed ? 1 : 0, completedAt, text: newText } : i
+      i.id === itemId
+        ? {
+            ...i,
+            completed: completed ? 1 : 0,
+            completedAt,
+            text: displayText,
+          }
+        : i
     )));
   };
 

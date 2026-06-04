@@ -10,6 +10,7 @@ import { FamilySettings, SyncCalendar } from '../../types';
 import { THEMES } from '../../constants';
 import { useFamilyData } from '../../contexts/FamilyDataContext';
 import { PhotoManager } from './PhotoManager';
+import { clientLogger } from '../../services/clientLogger';
 
 interface Props {
   parentId: string;
@@ -755,7 +756,7 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
                     const res = await inviteService.createCoParentInvite(parentId, 'Family');
                     setCoParentInvite({ id: res });
                   } catch (e) {
-                    console.error("Failed to generate invite", e);
+                    clientLogger.errorWithException('settings_generate_coparent_invite_failed', e, { parentId });
                   } finally {
                     setGeneratingCoInvite(false);
                   }

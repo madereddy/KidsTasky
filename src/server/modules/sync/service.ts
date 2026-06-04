@@ -4,6 +4,7 @@ import { google } from 'googleapis';
 import { CalendarEvent, SyncConnection } from '../../../types.js';
 import { encryptField, decryptField } from '../../lib/crypto.js';
 import { getSecretKey } from '../../config.js';
+import { logger } from '../../lib/logger.js';
 
 export type SyncCalendarError = {
   calendarId: string;
@@ -184,7 +185,10 @@ export const syncService = {
         requestBody: toGoogleEvent(event),
       });
       return res.data.id ?? null;
-    }).catch((e) => { console.error('[sync:push_failed]', e); return null; });
+    }).catch((e) => {
+      logger.error({ parentId, eventId: event.id, error: e }, 'sync_push_failed');
+      return null;
+    });
   },
 
   updateEventInGoogle: async (parentId: string, event: CalendarEvent): Promise<void> => {
@@ -198,7 +202,9 @@ export const syncService = {
         eventId: event.externalId!,
         requestBody: toGoogleEvent(event),
       });
-    }).catch((e) => { console.error('[sync:update_failed]', e); });
+    }).catch((e) => {
+      logger.error({ parentId, eventId: event.id, externalId: event.externalId, error: e }, 'sync_update_failed');
+    });
   },
 
   getSyncCalendars: (connectionId: string) => {
@@ -259,7 +265,9 @@ export const syncService = {
         calendarId: 'primary',
         eventId: externalId,
       });
-    }).catch((e) => { console.error('[sync:delete_failed]', e); });
+    }).catch((e) => {
+      logger.error({ parentId, externalId, error: e }, 'sync_delete_failed');
+    });
   },
 
   syncGoogleConnectionNow: async (connection: SyncConnection): Promise<SyncNowResult> => {
@@ -404,7 +412,7 @@ export const syncService = {
             failureCount += 1;
             const msg = calErr instanceof Error ? calErr.message : String(calErr);
             errors.push({ calendarId: calId, message: msg });
-            console.error('[sync:calendar_failed]', { connectionId: conn.id, calendarId: calId, error: msg });
+            logger.error({ connectionId: conn.id, calendarId: calId, error: msg }, 'sync_calendar_failed');
           }
         }
       });
@@ -412,7 +420,7 @@ export const syncService = {
       failureCount += 1;
       const msg = e instanceof Error ? e.message : String(e);
       errors.push({ calendarId: 'connection', message: msg });
-      console.error('[sync:connection_failed]', { connectionId: connection.id, error: msg });
+      logger.error({ connectionId: connection.id, error: msg }, 'sync_connection_failed');
     }
 
     const finishedAt = Date.now();

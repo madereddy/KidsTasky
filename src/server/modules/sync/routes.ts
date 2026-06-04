@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { getJwtSecret } from '../../config.js';
 import { syncService } from './service.js';
 import { socketWrapper } from '../../socket.js';
+import { logger } from '../../lib/logger.js';
 
 export const syncRouter = Router();
 
@@ -13,6 +14,7 @@ syncRouter.get('/settings/:parentId/connections', authenticateUser, assertParent
     const list = syncService.getConnections(req.params.parentId as string);
     res.json(list);
   } catch (err) {
+    logger.error({ error: err, params: req.params }, 'sync_connections_list_error');
     res.status(500).json({ error: "Failed to load connections" });
   }
 });
@@ -28,6 +30,7 @@ syncRouter.delete('/settings/connections/:id', authenticateUser, requireRole('pa
     syncService.deleteConnection(id);
     res.json({ success: true });
   } catch (err) {
+    logger.error({ error: err, connectionId: id }, 'sync_connection_delete_error');
     res.status(500).json({ error: "Failed to delete connection" });
   }
 });
@@ -102,11 +105,11 @@ syncRouter.get('/sync/callback/google', async (req, res) => {
     const missingPickerScope = !hasScope(tokens.scope, GOOGLE_PHOTOS_PICKER_SCOPE);
     if (missingPhotosScope || missingPickerScope) {
       const grantedScopes = formatScopes(tokens.scope);
-      console.error('[sync:google_scope_missing]', {
+      logger.error({
         parentId: parentId as string,
         requiredScope: [GOOGLE_PHOTOS_SCOPE, GOOGLE_PHOTOS_PICKER_SCOPE].join(', '),
         grantedScopes,
-      });
+      }, 'sync_google_scope_missing');
       return res.status(400).send(
         `Required Google Photos scopes were not granted. Required: ${GOOGLE_PHOTOS_SCOPE}, ${GOOGLE_PHOTOS_PICKER_SCOPE}. Granted: ${grantedScopes}. Remove this app in Google Account permissions, then reconnect and grant Calendar + Photos access.`
       );
@@ -117,6 +120,7 @@ syncRouter.get('/sync/callback/google', async (req, res) => {
     
     res.send("Successfully connected! You can close this window.");
   } catch (err) {
+    logger.error({ error: err, parentId }, 'sync_google_callback_error');
     res.status(500).send("Failed to connect");
   }
 });
@@ -127,6 +131,7 @@ syncRouter.get('/settings/:parentId/calendars', authenticateUser, assertParentSc
     const calendars = syncService.getSyncCalendarsByParent(req.params.parentId as string);
     res.json(calendars);
   } catch (err) {
+    logger.error({ error: err, params: req.params }, 'sync_calendars_list_error');
     res.status(500).json({ error: "Failed to load calendars" });
   }
 });
@@ -145,6 +150,7 @@ syncRouter.patch('/settings/calendars/:id', authenticateUser, requireRole('paren
     syncService.toggleSyncCalendar(id, enabled);
     res.json({ success: true });
   } catch (err) {
+    logger.error({ error: err, calendarId: id, body: req.body }, 'sync_calendar_toggle_error');
     res.status(500).json({ error: "Failed to update calendar" });
   }
 });
@@ -158,6 +164,7 @@ syncRouter.post('/sync/connect/manual', authenticateUser, requireRole('parent'),
     syncService.saveManualConnection(parentId, email, appPassword);
     res.json({ success: true });
   } catch (err) {
+    logger.error({ error: err, userId: (req as any).user?.uid }, 'sync_manual_connection_save_error');
     res.status(500).json({ error: "Failed to save connection" });
   }
 });
@@ -172,6 +179,7 @@ syncRouter.post('/sync/:id/now', authenticateUser, requireRole('parent'), async 
     const result = await syncService.syncGoogleConnectionNow(connection as any);
     res.json(result);
   } catch (error: any) {
+    logger.error({ error: error.message, connectionId: req.params.id }, 'sync_run_now_error');
     res.status(500).json({ error: error.message });
   }
 });
@@ -218,7 +226,7 @@ syncRouter.post('/settings/:parentId/sync-now', authenticateUser, requireRole('p
       finishedAt,
     });
   } catch (err) {
-    console.error('[sync:sync_now_failed]', err);
+    logger.error({ error: err, parentId }, 'sync_parent_run_now_error');
     const message = err instanceof Error ? err.message : 'Failed to sync calendars now';
     return res.status(500).json({ error: message });
   }

@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Database } from 'better-sqlite3';
+import { logger } from './lib/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -30,7 +31,7 @@ export function runMigrations(db: Database) {
   for (const file of migrationFiles) {
     const version = parseInt(file.split('_')[0], 10);
     if (version > currentVersion) {
-      console.log(`Running migration: ${file}`);
+      logger.info({ file, version }, 'migration_running');
       let sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
       
       // Strip manual schema_version updates from SQL to avoid UNIQUE constraint conflicts
@@ -41,7 +42,7 @@ export function runMigrations(db: Database) {
         db.exec(sql);
       } catch (err: any) {
         if (err.message.includes('duplicate column name')) {
-          console.warn(`Ignoring duplicate column in ${file}`);
+          logger.warn({ file, error: err.message }, 'migration_duplicate_column_ignored');
         } else {
           throw err;
         }

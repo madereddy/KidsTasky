@@ -13,6 +13,7 @@ import { syncService } from './modules/sync/service.js';
 import { sendPushToUser } from './modules/notifications/pushService.js';
 import { sendEmail } from './modules/notifications/emailService.js';
 import { ensurePhotosUploadsDir, getSafePhotoFilename, resolvePhotoUploadPath } from './modules/photos/storage.js';
+import { logger } from './lib/logger.js';
 
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
@@ -151,7 +152,7 @@ function onGoogleSyncFailure(err: any) {
     // Exponential backoff: 1min, 2min, 4min, 8min, 16min — max 30min
     const delayMs = Math.min(Math.pow(2, syncBackoff.failCount) * 60_000, 30 * 60_000);
     syncBackoff.nextAllowedAt = Date.now() + delayMs;
-    console.warn(`[worker] Google sync rate-limited (429). Backoff: ${delayMs / 60_000}min (fail #${syncBackoff.failCount})`);
+    logger.warn({ delayMinutes: delayMs / 60_000, failCount: syncBackoff.failCount }, 'worker_google_sync_rate_limited');
   }
 }
 
@@ -175,7 +176,7 @@ export function startBackgroundWorker(io?: SocketServer) {
         try {
           await workerFn(item);
         } catch (e) {
-          console.error('[worker] async worker item failed:', e);
+          logger.error({ error: e }, 'worker_async_item_failed');
         }
       }
     });
@@ -189,7 +190,7 @@ export function startBackgroundWorker(io?: SocketServer) {
       markWorkerJobSuccess('eventReminders', startedAt);
     } catch (e) {
       markWorkerJobFailure('eventReminders', startedAt, e);
-      console.error('[worker] reminder error:', e);
+      logger.error({ error: e }, 'worker_event_reminder_error');
     }
   }, REMINDER_WINDOW_MS));
 
@@ -240,7 +241,7 @@ export function startBackgroundWorker(io?: SocketServer) {
 
   intervalHandles.push(setInterval(() => {
     const startedAt = markWorkerJobStart('overdueTasks');
-    console.log("[Worker] Checking for overdue tasks...");
+    logger.info({}, 'worker_overdue_tasks_start');
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
       const now = new Date();
@@ -331,7 +332,7 @@ export function startBackgroundWorker(io?: SocketServer) {
       markWorkerJobSuccess('overdueTasks', startedAt);
     } catch (error) {
       markWorkerJobFailure('overdueTasks', startedAt, error);
-      console.error("[Worker Error]", error);
+      logger.error({ error }, 'worker_overdue_tasks_error');
     }
   }, 5 * 60 * 1000));
 
@@ -399,7 +400,7 @@ export function startBackgroundWorker(io?: SocketServer) {
           uploadsDir = ensurePhotosUploadsDir();
         } catch (err) {
           photoSweepUploadsDirUnavailable = true;
-          console.error('[worker] uploads dir unavailable for photo sweep; disabling orphan file sweep:', err);
+          logger.error({ error: err }, 'worker_photo_sweep_uploads_dir_unavailable');
           return;
         }
         const trackedFiles = new Set(
@@ -420,7 +421,7 @@ export function startBackgroundWorker(io?: SocketServer) {
       markWorkerJobSuccess('photoCleanup', startedAt);
     } catch (error) {
       markWorkerJobFailure('photoCleanup', startedAt, error);
-      console.error('[worker] photo cleanup error:', error);
+      logger.error({ error }, 'worker_photo_cleanup_error');
     }
   }, 15 * 60 * 1000));
 
@@ -433,22 +434,22 @@ export function startBackgroundWorker(io?: SocketServer) {
       const r1 = db.prepare('DELETE FROM sent_reminders WHERE sentAt < ?').run(sevenDaysAgo);
       const r2 = db.prepare("DELETE FROM notifications WHERE status = 'read' AND createdAt < ?").run(thirtyDaysAgo);
       if (r1.changes > 0 || r2.changes > 0) {
-        console.log(`[worker] daily cleanup: removed ${r1.changes} sent_reminders, ${r2.changes} old notifications`);
+        logger.info({ sentRemindersRemoved: r1.changes, notificationsRemoved: r2.changes }, 'worker_daily_cleanup_removed_rows');
       }
       markWorkerJobSuccess('dailyCleanup', startedAt);
     } catch (e) {
       markWorkerJobFailure('dailyCleanup', startedAt, e);
-      console.error('[worker] daily cleanup error:', e);
+      logger.error({ error: e }, 'worker_daily_cleanup_error');
     }
   }));
 
   cronHandles.push(cron.schedule("*/5 * * * *", async () => {
     const startedAt = markWorkerJobStart('multiSourceSync');
     try {
-    console.log("[Worker] Start Multi-Source Sync...");
+    logger.info({}, 'worker_multi_source_sync_start');
     
     if (shouldSkipGoogleSync()) {
-      console.log(`[worker] Google sync skipped — in backoff until ${new Date(syncBackoff.nextAllowedAt).toISOString()}`);
+      logger.info({ nextAllowedAt: new Date(syncBackoff.nextAllowedAt).toISOString() }, 'worker_google_sync_skipped_backoff');
     } else {
       try {
         const connections = db.prepare("SELECT * FROM sync_connections WHERE provider = 'google' AND refreshToken IS NOT NULL").all() as any[];
@@ -457,23 +458,23 @@ export function startBackgroundWorker(io?: SocketServer) {
           try {
             const result = await syncService.syncGoogleConnectionNow(conn);
             if (result.errors.some(e => e.message.includes('invalid_grant'))) {
-              console.error('[worker:invalid_grant]', { connectionId: conn.id });
+              logger.error({ connectionId: conn.id }, 'worker_google_invalid_grant');
               db.prepare('DELETE FROM sync_connections WHERE id = ?').run(conn.id);
             } else if (result.imported > 0) {
               io?.to(conn.parentId).emit('stale-data', { type: 'events' });
             }
             if (result.failureCount > 0) {
-              console.error('[worker:sync_partial]', { connectionId: conn.id, errors: result.errors });
+              logger.error({ connectionId: conn.id, errors: result.errors }, 'worker_google_sync_partial');
             }
           } catch (err: any) {
-            console.error('[worker:sync_connection_error]', { connectionId: conn.id, error: err?.message });
+            logger.error({ connectionId: conn.id, error: err?.message }, 'worker_google_sync_connection_error');
             onGoogleSyncFailure(err);
             anyRateLimit = true;
           }
         }
         if (!anyRateLimit) onGoogleSyncSuccess();
       } catch (err: any) {
-        console.error('[worker:sync_global_error]', err);
+        logger.error({ error: err }, 'worker_google_sync_global_error');
         onGoogleSyncFailure(err);
       }
     }
@@ -501,7 +502,7 @@ export function startBackgroundWorker(io?: SocketServer) {
         }
         if (changes) io?.to(conn.parentId).emit('stale-data', { type: 'events' });
       }
-    } catch (err) { console.error("[Worker] iCal Sync Error", err); }
+    } catch (err) { logger.error({ error: err }, 'worker_ical_sync_error'); }
 
     if (GEMINI_API_KEY) {
       try {
@@ -526,17 +527,17 @@ export function startBackgroundWorker(io?: SocketServer) {
               }
             }
           } catch (connErr) {
-            console.error('[Worker] IMAP error for', conn.email, ':', connErr);
+            logger.error({ email: conn.email, error: connErr }, 'worker_imap_connection_error');
           } finally {
             try { connection?.end(); } catch {}
           }
         }
-      } catch (err) { console.error("[Worker] IMAP Sync Error", err); }
+      } catch (err) { logger.error({ error: err }, 'worker_imap_sync_error'); }
     }
       markWorkerJobSuccess('multiSourceSync', startedAt);
     } catch (error) {
       markWorkerJobFailure('multiSourceSync', startedAt, error);
-      console.error('[worker] multi-source sync error:', error);
+      logger.error({ error }, 'worker_multi_source_sync_error');
     }
   }));
 }

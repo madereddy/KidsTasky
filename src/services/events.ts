@@ -1,5 +1,6 @@
 import { CalendarEvent } from '../types';
 import { fetchAPI } from './http';
+import { clientLogger } from './clientLogger';
 
 const EVENTS_TTL_MS = 10_000;
 const eventsCache = new Map<string, { value: CalendarEvent[]; expiresAt: number }>();
@@ -22,7 +23,7 @@ export const eventsClientService = {
     // fetchAPI has its own 15s timeout, so this is just extra defense
     const safetyTimeout = setTimeout(() => {
       if (eventsInflight.get(parentId) === req) {
-        console.warn('[eventsClientService] Safety timeout triggered for inflight request');
+        clientLogger.warn('events_inflight_safety_timeout_triggered', { parentId });
         eventsInflight.delete(parentId);
       }
     }, 20000);

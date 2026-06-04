@@ -8,6 +8,7 @@ import { homeworkClientService } from './services/homework';
 import { listsClientService } from './services/lists';
 import { mealsClientService } from './services/meals';
 import { subscribeToPush, unsubscribeFromPush } from './services/push';
+import { clientLogger } from './services/clientLogger';
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense, startTransition } from 'react';
 import { LogOut, Rocket, User as UserIcon, Activity, CalendarDays, List, UtensilsCrossed, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -247,7 +248,7 @@ export default function App() {
             localStorage.removeItem('kidtasker_token');
           }
         } catch (e) {
-          console.error("Auth initialization failed (network or server error)", e);
+          clientLogger.errorWithException('auth_initialization_failed', e);
           setInitError(true);
         }
       }
@@ -265,7 +266,9 @@ export default function App() {
   }, [goToSection]);
 
   const handleLogout = async () => {
-    await unsubscribeFromPush().catch(console.warn);
+    await unsubscribeFromPush().catch((error) => {
+      clientLogger.warn('push_unsubscribe_failed', { error });
+    });
     localStorage.removeItem('kidtasker_token');
     persistParentSession(null);
     setUser(null);
@@ -317,10 +320,10 @@ export default function App() {
     if (!parentId) return;
     const nextKids = await userService.getKidsForParent(parentId);
     if (nextKids && JSON.stringify(nextKids) !== JSON.stringify(kidsRef.current)) {
-      console.log('[App] refreshKids: Updating kids state');
+      clientLogger.info('app_refresh_kids_updated', { count: nextKids.length });
       setKids(nextKids);
     } else {
-      console.log('[App] refreshKids: Kids data unchanged');
+      clientLogger.info('app_refresh_kids_unchanged', { count: kidsRef.current.length });
     }
   }, [profile]);
 
@@ -550,7 +553,9 @@ export default function App() {
                 }
                 warmProfile(u);
               }
-              subscribeToPush().catch(console.warn);
+              subscribeToPush().catch((error) => {
+                clientLogger.warn('push_subscribe_failed_after_parent_login', { error });
+              });
             } else {
               alert('Invalid credentials or registration error');
             }
@@ -566,7 +571,9 @@ export default function App() {
                 void loadProfileData(u, { fastKidSwitch: true });
                 warmProfile(u);
               }
-              subscribeToPush().catch(console.warn);
+              subscribeToPush().catch((error) => {
+                clientLogger.warn('push_subscribe_failed_after_kid_login', { error });
+              });
             } else {
               alert('Invalid Access Key');
             }
@@ -585,7 +592,9 @@ export default function App() {
             setProfile(p);
             await loadProfileData(p);
             warmProfile(p);
-            subscribeToPush().catch(console.warn);
+            subscribeToPush().catch((error) => {
+              clientLogger.warn('push_subscribe_failed_after_onboarding', { error });
+            });
           }} 
         />
       </div>

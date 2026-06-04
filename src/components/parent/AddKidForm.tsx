@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { UserPlus } from 'lucide-react';
 import { userService } from '../../services/users';
 import { AvatarPicker } from '../shared/AvatarPicker';
+import { clientLogger } from '../../services/clientLogger';
 
 export function AddKidForm({ parentId, onAdded }: { parentId: string, onAdded: () => void }) {
   const [name, setName] = useState('');
@@ -25,14 +26,16 @@ export function AddKidForm({ parentId, onAdded }: { parentId: string, onAdded: (
         pin
       });
       if (kidAvatar.preset || kidAvatar.url) {
-        await userService.updateAvatar(uid, kidAvatar.preset, kidAvatar.url).catch(console.warn);
+        await userService.updateAvatar(uid, kidAvatar.preset, kidAvatar.url).catch((error) => {
+          clientLogger.warn('add_kid_avatar_update_failed', { parentId, uid, error });
+        });
       }
       setName('');
       setPin('');
       setKidAvatar({ preset: null, url: null });
       onAdded();
     } catch (err) {
-      console.error(err);
+      clientLogger.errorWithException('add_kid_failed', err, { parentId, name });
       alert('Failed to add cadet');
     } finally {
       setLoading(false);

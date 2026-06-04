@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { runMigrations } from "./migrate.js";
 import fs from "fs";
 import path from "path";
+import { logger } from "./lib/logger.js";
 
 export const dbPath = process.env.DB_PATH || 'database.db';
 const isDevOrTest = process.env.VITEST || process.env.NODE_ENV === 'test';
@@ -11,18 +12,21 @@ if (!isDevOrTest) {
   try {
     const dir = path.dirname(dbPath);
     if (!fs.existsSync(dir)) {
-      console.log(`[DB] Creating directory: ${dir}`);
+      logger.info({ dir }, 'db_create_directory');
       fs.mkdirSync(dir, { recursive: true });
     }
-    console.log(`[DB] Initializing database at ${dbPath}`);
-    console.log(`[DB] Current User: ${process.getuid?.()}:${process.getgid?.()}`);
+    logger.info({
+      dbPath,
+      uid: process.getuid?.(),
+      gid: process.getgid?.(),
+    }, 'db_initializing');
   } catch (err) {
-    console.error(`[DB] Pre-init check failed:`, err);
+    logger.error({ error: err }, 'db_preinit_failed');
   }
 }
 
 export const db = new Database(isDevOrTest ? ':memory:' : dbPath, { 
-  verbose: isDevOrTest || !sqlDebugEnabled ? undefined : console.log
+  verbose: isDevOrTest || !sqlDebugEnabled ? undefined : ((sql) => logger.debug({ sql }, 'sql_statement'))
 });
 
 db.pragma('journal_mode = WAL');

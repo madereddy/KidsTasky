@@ -12,6 +12,7 @@ import {
 } from '../lib/completion-state';
 import { useAsyncActionMap } from './useAsyncActionMap';
 import { useCelebration } from './useCelebration';
+import { clientLogger } from '../services/clientLogger';
 
 export interface ConfirmTaskState {
   taskId: string;
@@ -98,7 +99,7 @@ export function useTaskCompletionController({
 
       onProfileUpdate();
     }).catch((error) => {
-      console.error('Failed to complete task', error);
+      clientLogger.errorWithException('task_completion_failed', error, { taskId, kidId: profile.uid, count });
       setXpAnimation({ amount: 0, active: false });
       alert('Could not save completion. Please try again.');
     }).finally(() => {
@@ -171,7 +172,7 @@ export function useTaskCompletionController({
         }));
       });
     } catch (error) {
-      console.error('Failed to skip task', error);
+      clientLogger.errorWithException('task_skip_failed', error, { taskId, kidId: profile.uid, count });
       alert('Could not skip task. Please try again.');
     }
   };

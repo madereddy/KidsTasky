@@ -7,6 +7,7 @@ import { listsClientService } from '../../services/lists';
 import { UserProfile, AppList } from '../../types';
 import { cn } from '../../lib/utils';
 import { useDialogA11y } from '../../hooks/useDialogA11y';
+import { clientLogger } from '../../services/clientLogger';
 
 const PRESET_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#f97316'];
 
@@ -47,7 +48,9 @@ export function QuickAddModal({ onClose, onSubmit, kids, parentId, defaultDate, 
 
   useEffect(() => {
     if (activeTab === 'list' && lists.length === 0) {
-      listsClientService.getLists(parentId).then(setLists).catch(console.error);
+      listsClientService.getLists(parentId).then(setLists).catch((error) => {
+        clientLogger.errorWithException('quick_add_lists_load_failed', error, { parentId });
+      });
     }
   }, [activeTab, parentId, lists.length]);
 
@@ -73,7 +76,7 @@ export function QuickAddModal({ onClose, onSubmit, kids, parentId, defaultDate, 
       onSubmit();
       onClose();
     } catch (error) {
-      console.error('Failed to add event:', error);
+      clientLogger.errorWithException('quick_add_event_failed', error, { parentId, eventTitle });
     } finally {
       setSaving(false);
     }
@@ -95,7 +98,7 @@ export function QuickAddModal({ onClose, onSubmit, kids, parentId, defaultDate, 
       onSubmit();
       onClose();
     } catch (error) {
-      console.error('Failed to add task:', error);
+      clientLogger.errorWithException('quick_add_task_failed', error, { parentId, taskTitle });
     } finally {
       setSaving(false);
     }
@@ -110,7 +113,7 @@ export function QuickAddModal({ onClose, onSubmit, kids, parentId, defaultDate, 
       onSubmit();
       onClose();
     } catch (error) {
-      console.error('Failed to add list item:', error);
+      clientLogger.errorWithException('quick_add_list_item_failed', error, { parentId, listId });
     } finally {
       setSaving(false);
     }

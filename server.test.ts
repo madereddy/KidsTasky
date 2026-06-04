@@ -37,6 +37,22 @@ describe('Backend API Tests', () => {
     expect(res.body.status).toBe('ok');
   });
 
+  it('POST /api/client-logs should accept structured browser log payloads', async () => {
+    const res = await request(app)
+      .post('/api/client-logs')
+      .send({
+        level: 'error',
+        message: 'browser crash',
+        context: { section: 'calendar' },
+        url: 'https://kids.madereddy.com/calendar',
+        userAgent: 'Vitest',
+        timestamp: '2026-06-04T23:30:00.000Z',
+      });
+
+    expect(res.status).toBe(202);
+    expect(res.body.accepted).toBe(true);
+  });
+
   it('GET /api/health/memory should return runtime and memory diagnostics', async () => {
     const res = await request(app).get('/api/health/memory');
     expect(res.status).toBe(200);

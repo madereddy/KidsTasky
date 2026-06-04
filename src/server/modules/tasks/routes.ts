@@ -120,7 +120,7 @@ tasksRouter.patch("/tasks/:taskId", authenticateUser, enforceEditUnlocked, [
     if (!ok) return res.status(400).json({ error: 'No valid task fields to update' });
     res.json({ success: true });
   } catch (error: any) {
-    console.error('[tasks:update]', error);
+    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_update_error');
     res.status(500).json({ error: error.message });
   }
 });
@@ -176,7 +176,7 @@ tasksRouter.delete("/completions/:completionId", authenticateUser, enforceEditUn
     taskServiceServer.deleteCompletion(req.params.completionId as string);
     res.json({ success: true });
   } catch (error: any) {
-    console.error('[tasks:delete_completion]', error);
+    logger.error({ error: error.message, params: req.params }, 'tasks_delete_completion_error');
     res.status(500).json({ error: error.message });
   }
 });
@@ -204,7 +204,7 @@ tasksRouter.post("/tasks/:taskId/skip", authenticateUser, enforceEditUnlocked, [
     });
     res.json(result);
   } catch (error: any) {
-    console.error('[tasks:skip]', error);
+    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_skip_error');
     res.status(500).json({ error: error.message });
   }
 });
@@ -302,6 +302,7 @@ tasksRouter.patch("/completions/:completionId/approve", authenticateUser, requir
     taskServiceServer.approveCompletion(req.params.completionId as string);
     res.json({ success: true });
   } catch (err: any) {
+    logger.error({ error: err.message, params: req.params }, 'tasks_approve_completion_error');
     res.status(400).json({ error: err.message });
   }
 });
@@ -319,7 +320,7 @@ tasksRouter.patch("/completions/:completionId/reject", authenticateUser, require
     taskServiceServer.rejectCompletion(req.params.completionId as string);
     res.json({ success: true });
   } catch (error: any) {
-    console.error('[tasks:reject]', error);
+    logger.error({ error: error.message, params: req.params }, 'tasks_reject_completion_error');
     res.status(500).json({ error: error.message });
   }
 });
