@@ -11,15 +11,15 @@ To run KidTasker, you need to configure the following environment variables (whi
 *   **`DB_PATH`**: The path to your SQLite database file (defaults to `database.db`).
 *   **`JWT_SECRET`**: A strong, random string used to sign JSON Web Tokens for user authentication. You must change this in production!
 *   **`GEMINI_API_KEY`**: Your Google Gemini API key. This is used to power the "Magic Add via Email Webhooks" feature, parsing natural language emails into actionable tasks or events.
-*   **`GOOGLE_CLIENT_ID`** & **`GOOGLE_CLIENT_SECRET`**: Credentials you get from the Google Cloud Console. Used to enable Google Calendar sync and Google Photos album display.
+*   **`GOOGLE_CLIENT_ID`** & **`GOOGLE_CLIENT_SECRET`**: Credentials you get from the Google Cloud Console. Used to enable Google Calendar sync and Google Photos Picker import.
 *   **`GOOGLE_REDIRECT_URI`**: The callback URL configured in Google Cloud Console. It must match exactly. Typically: `<APP_URL>/api/sync/callback/google`
 *   **`MAILGUN_SIGNING_KEY`**: If you are using Mailgun to forward emails to your app for the "Magic Add" feature, this key verifies that the webhook payload is authentically coming from Mailgun.
 
 ---
 
-## Setting Up Google OAuth (For Calendar + Google Photos)
+## Setting Up Google OAuth (For Calendar + Google Photos Picker)
 
-KidTasker allows families to connect Google so that calendar events sync to the Family Dashboard and Google Photos albums can be displayed in-app. The backend gracefully handles multiple OAuth tokens linked to your Family's `parentId`, meaning different parents or members can connect their individual Google accounts.
+KidTasker allows families to connect Google so that calendar events sync to the Family Dashboard and Google Photos can be imported through the Picker flow. The backend gracefully handles multiple OAuth tokens linked to your Family's `parentId`, meaning different parents or members can connect their individual Google accounts.
 
 Here's how to create your Google OAuth credentials:
 
@@ -35,7 +35,7 @@ Here's how to create your Google OAuth credentials:
     *   Fill out the required fields (App name, User support email, Developer contact information).
     *   Add the scopes needed:
         * `https://www.googleapis.com/auth/calendar.readonly`
-        * `https://www.googleapis.com/auth/photoslibrary.readonly`
+        * `https://www.googleapis.com/auth/photospicker.mediaitems.readonly`
     *   Add yourself as a Test User if your app is in testing mode.
 4.  **Create Credentials:**
     *   Go to **APIs & Services > Credentials**.
@@ -46,6 +46,12 @@ Here's how to create your Google OAuth credentials:
 5.  **Copy the Keys:**
     *   You will receive a **Client ID** and a **Client Secret**.
     *   Place these into your `.env` file for `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+
+### Scope Notes
+
+- `photoslibrary.readonly` is no longer required by KidTasker and should not be treated as a blocking scope during setup.
+- Photo import now uses the Google Photos Picker scope: `https://www.googleapis.com/auth/photospicker.mediaitems.readonly`.
+- If a reconnect fails, remove the app from your Google Account permissions and reconnect so Google prompts for the current scopes again.
 
 ### How Multiple Google Accounts Work
 KidTasker's `sync_connections` database table maps Google OAuth tokens to a `parentId`. When a parent connects a calendar from the settings dashboard, the app stores the credentials. If mom and dad both connect their separate Google accounts, the backend stores both connections under the same family. The backend worker runs a routine that iterates through every connection in the database, fetches the latest calendar events for each, and maps them directly into the family's shared calendar view seamlessly.

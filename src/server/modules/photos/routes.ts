@@ -192,6 +192,7 @@ async function getGoogleAccessToken(parentId: string): Promise<string | null> {
     logger.error({
       parentId,
       connectionId: conn.id,
+      status: error?.response?.status ?? error?.code ?? null,
       message,
     }, 'photos_token_refresh_failed');
     if (message.toLowerCase().includes('invalid_grant')) {

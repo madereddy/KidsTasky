@@ -144,4 +144,18 @@ describe('Sync API', () => {
     expect(db.prepare('SELECT enabled FROM sync_calendars WHERE id = ?').get('cal_test_2')).toEqual({ enabled: 0 });
     expect(db.prepare('SELECT id FROM events WHERE id = ?').get('event_from_disabled_calendar')).toBeUndefined();
   });
+
+  it('google callback accepts calendar plus picker scopes and stores the connection', async () => {
+    const res = await request(app)
+      .get('/api/sync/callback/google')
+      .query({ code: 'test_mock_code', state: parentId });
+
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('Successfully connected');
+
+    const row = db.prepare(
+      "SELECT provider FROM sync_connections WHERE parentId = ? AND provider = 'google'"
+    ).get(parentId) as { provider: string } | undefined;
+    expect(row).toEqual({ provider: 'google' });
+  });
 });

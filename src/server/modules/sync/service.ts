@@ -89,16 +89,37 @@ async function withTokenRefresh<T>(
     const status = e?.response?.status ?? e?.code;
     const isTransient = status === 401 || (typeof status === 'number' && status >= 500 && status < 600);
     if (isTransient && connection.refreshToken) {
+      logger.warn({
+        connectionId: connection.id,
+        status,
+        hasRefreshToken: Boolean(connection.refreshToken),
+        provider: connection.provider,
+      }, 'sync_token_refresh_attempt');
       const oauth2 = new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_CLIENT_SECRET,
       );
       oauth2.setCredentials({ refresh_token: connection.refreshToken });
-      const { credentials } = await oauth2.refreshAccessToken();
-      const newAccessToken = credentials.access_token!;
-      db.prepare('UPDATE sync_connections SET accessToken = ? WHERE id = ?').run(encryptField(newAccessToken, getSecretKey()), connection.id);
-      const refreshed: SyncConnection = { ...connection, accessToken: newAccessToken };
-      return await fn(refreshed);
+      try {
+        const { credentials } = await oauth2.refreshAccessToken();
+        const newAccessToken = credentials.access_token!;
+        db.prepare('UPDATE sync_connections SET accessToken = ? WHERE id = ?').run(encryptField(newAccessToken, getSecretKey()), connection.id);
+        logger.info({
+          connectionId: connection.id,
+          hasAccessToken: Boolean(newAccessToken),
+          hasRefreshToken: Boolean(credentials.refresh_token || connection.refreshToken),
+        }, 'sync_token_refresh_ok');
+        const refreshed: SyncConnection = { ...connection, accessToken: newAccessToken };
+        return await fn(refreshed);
+      } catch (refreshError: any) {
+        logger.error({
+          connectionId: connection.id,
+          provider: connection.provider,
+          status: refreshError?.response?.status ?? refreshError?.code ?? null,
+          message: String(refreshError?.message || refreshError),
+        }, 'sync_token_refresh_failed');
+        throw refreshError;
+      }
     }
     throw e;
   }

@@ -41,7 +41,6 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/sync/callback/google'
 );
 const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
-const GOOGLE_PHOTOS_SCOPE = 'https://www.googleapis.com/auth/photoslibrary.readonly';
 const GOOGLE_PHOTOS_PICKER_SCOPE = 'https://www.googleapis.com/auth/photospicker.mediaitems.readonly';
 
 function hasScope(scopeText: string | undefined, required: string): boolean {
@@ -70,11 +69,11 @@ syncRouter.get('/sync/connect/google', (req, res) => {
     return res.status(401).send("Unauthorized");
   }
 
+  logger.info({ parentId, scopes: [GOOGLE_CALENDAR_SCOPE, GOOGLE_PHOTOS_PICKER_SCOPE] }, 'sync_google_connect_start');
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: [
       GOOGLE_CALENDAR_SCOPE,
-      GOOGLE_PHOTOS_SCOPE,
       GOOGLE_PHOTOS_PICKER_SCOPE,
     ],
     state: parentId, // pass parentId in state securely
@@ -87,37 +86,52 @@ syncRouter.get('/sync/connect/google', (req, res) => {
 syncRouter.get('/sync/callback/google', async (req, res) => {
   const { code, state: parentId } = req.query;
   if (!code || typeof code !== 'string') return res.status(400).send("No code");
-  
+
+  logger.info({
+    parentId: parentId as string,
+    codeLength: code.length,
+    hasState: Boolean(parentId),
+  }, 'sync_google_callback_start');
+
   try {
     let tokens;
     if (process.env.NODE_ENV === 'test' || code === 'test_mock_code') {
       tokens = {
         access_token: 'mock_access',
         refresh_token: 'mock_refresh',
-        scope: `${GOOGLE_CALENDAR_SCOPE} ${GOOGLE_PHOTOS_SCOPE} ${GOOGLE_PHOTOS_PICKER_SCOPE}`,
+        scope: `${GOOGLE_CALENDAR_SCOPE} ${GOOGLE_PHOTOS_PICKER_SCOPE}`,
       };
     } else {
       const { tokens: t } = await oauth2Client.getToken(code);
       tokens = t;
     }
 
-    const missingPhotosScope = !hasScope(tokens.scope, GOOGLE_PHOTOS_SCOPE);
     const missingPickerScope = !hasScope(tokens.scope, GOOGLE_PHOTOS_PICKER_SCOPE);
-    if (missingPhotosScope || missingPickerScope) {
+    logger.info({
+      parentId: parentId as string,
+      hasAccessToken: Boolean(tokens.access_token),
+      hasRefreshToken: Boolean(tokens.refresh_token),
+      grantedScopes: formatScopes(tokens.scope),
+    }, 'sync_google_callback_tokens_received');
+
+    if (missingPickerScope) {
       const grantedScopes = formatScopes(tokens.scope);
       logger.error({
         parentId: parentId as string,
-        requiredScope: [GOOGLE_PHOTOS_SCOPE, GOOGLE_PHOTOS_PICKER_SCOPE].join(', '),
+        requiredScope: GOOGLE_PHOTOS_PICKER_SCOPE,
         grantedScopes,
       }, 'sync_google_scope_missing');
       return res.status(400).send(
-        `Required Google Photos scopes were not granted. Required: ${GOOGLE_PHOTOS_SCOPE}, ${GOOGLE_PHOTOS_PICKER_SCOPE}. Granted: ${grantedScopes}. Remove this app in Google Account permissions, then reconnect and grant Calendar + Photos access.`
+        `Required Google Photos Picker scope was not granted. Required: ${GOOGLE_PHOTOS_PICKER_SCOPE}. Granted: ${grantedScopes}. Remove this app in Google Account permissions, then reconnect and grant Calendar + Photos access.`
       );
     }
-    
+
     // Store in DB
     syncService.saveGoogleTokens(parentId as string, tokens.access_token || '', tokens.refresh_token);
-    
+    logger.info({
+      parentId: parentId as string,
+      hasRefreshToken: Boolean(tokens.refresh_token),
+    }, 'sync_google_callback_connected');
     res.send("Successfully connected! You can close this window.");
   } catch (err) {
     logger.error({ error: err, parentId }, 'sync_google_callback_error');
