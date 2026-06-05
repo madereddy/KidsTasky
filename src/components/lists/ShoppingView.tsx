@@ -9,6 +9,9 @@ import { useQuickItemTemplates } from '../../hooks/useQuickItemTemplates';
 import { QuickItemTemplatesPanel } from './QuickItemTemplatesPanel';
 import { useHouseholdListPreferences } from '../../hooks/useHouseholdListPreferences';
 import { HouseholdTagManager } from '../shared/HouseholdTagManager';
+import { getQuickEntrySuggestions } from '../../lib/suggestions';
+import { SuggestionBar } from '../shared/SuggestionBar';
+import { useFamilyData } from '../../contexts/FamilyDataContext';
 
 interface Props {
   parentId: string;
@@ -49,6 +52,9 @@ export function ShoppingView({ parentId }: Props) {
     saveLocationNames,
     saving: savingPreferences,
   } = useHouseholdListPreferences(parentId);
+
+  const { kids } = useFamilyData();
+  const suggestions = useMemo(() => getQuickEntrySuggestions(newItemText, kids), [newItemText, kids]);
 
   useEffect(() => {
     if (!selectedListId && shoppingLists.length > 0) {
@@ -304,6 +310,16 @@ export function ShoppingView({ parentId }: Props) {
                 {quickInputAnalysis.inferredLocationName && <span className="ml-2">location {quickInputAnalysis.inferredLocationName}</span>}
               </div>
             )}
+
+            <SuggestionBar 
+              suggestions={suggestions} 
+              onSelect={(s) => {
+                setNewItemText(prev => {
+                  const trimmed = prev.trim();
+                  return (trimmed ? trimmed + ' ' : '') + s.value;
+                });
+              }} 
+            />
 
             <form onSubmit={handleAddItem} className="flex flex-col gap-3 sm:flex-row">
               <input

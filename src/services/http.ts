@@ -9,7 +9,11 @@ export class HttpError extends Error {
   }
 }
 
-export async function fetchAPI(endpoint: string, options?: RequestInit, retries = 2) {
+export interface FetchOptions extends RequestInit {
+  skipQueue?: boolean;
+}
+
+export async function fetchAPI(endpoint: string, options?: FetchOptions, retries = 2) {
   const token = localStorage.getItem('kidtasker_token');
   const headers = new Headers(options?.headers);
   headers.set('Content-Type', 'application/json');
@@ -109,7 +113,7 @@ export async function fetchAPI(endpoint: string, options?: RequestInit, retries 
       );
 
       // Intercept network failures and queue mutation requests
-      if (options?.method && options.method !== 'GET') {
+      if (!options?.skipQueue && options?.method && options.method !== 'GET') {
         pushOfflineAction({
           type: options.method === 'POST' ? 'CREATE' : (options.method === 'DELETE' ? 'DELETE' : 'UPDATE'),
           entity: endpoint.includes('tasks') ? 'task' : (endpoint.includes('completions') ? 'completion' : 'list_item'),

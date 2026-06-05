@@ -1,3 +1,5 @@
+import { fetchAPI } from './services/http';
+import { getOfflineQueue, popOfflineAction } from './lib/offline-queue';
 import { authService } from './services/auth';
 import { userService } from './services/users';
 import { categoryService } from './services/categories';
@@ -169,6 +171,57 @@ export default function App() {
   const [initError, setInitError] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [screensaverPreview, setScreensaverPreview] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const flushQueue = useCallback(async () => {
+    if (syncing || isOffline) return;
+    const queue = getOfflineQueue();
+    if (queue.length === 0) return;
+
+    setSyncing(true);
+    try {
+      while (getOfflineQueue().length > 0) {
+        const action = popOfflineAction();
+        if (!action) break;
+        try {
+          await fetchAPI(action.endpoint, {
+            method: action.method,
+            body: action.body,
+            skipQueue: true
+          }, 0); 
+        } catch (e: any) {
+          if (e.status === 0) {
+            // Re-queue at the front if it's a network error during sync
+            const currentQueue = getOfflineQueue();
+            localStorage.setItem('kidtasker_offline_queue', JSON.stringify([action, ...currentQueue]));
+            break; // Stop flushing if network is still failing
+          }
+          console.warn('Sync conflict or error, skipping action:', action.description, e);
+        }
+      }
+    } finally {
+      setSyncing(false);
+    }
+  }, [syncing, isOffline]);
+
+  useEffect(() => {
+    if (!isOffline) {
+      void flushQueue();
+    }
+  }, [isOffline, flushQueue]);
+
   const kidsRef = useRef<UserProfile[]>([]);
 
   useEffect(() => {
@@ -622,6 +675,17 @@ export default function App() {
               <h1 className={cn("text-xl font-bold tracking-tight hidden sm:block", currentTheme.vocab?.textPrimary || "text-ui-primary")}>
                 {profile.role === 'parent' ? 'Family Hub' : currentTheme.vocab?.hub || 'My Chores'}
               </h1>
+              {isOffline && (
+                <div className="flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full animate-pulse ml-2 whitespace-nowrap">
+                  <span>☁️ Offline</span>
+                </div>
+              )}
+              {syncing && (
+                <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-[10px] font-bold rounded-full ml-2 whitespace-nowrap">
+                  <Activity className="w-3 h-3 animate-spin" />
+                  <span>Syncing...</span>
+                </div>
+              )}
             </div>
             
             <div className="h-8 w-[1px] bg-ui-soft-3 hidden sm:block" />
