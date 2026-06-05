@@ -11,11 +11,35 @@ const SECRET = getJwtSecret();
 
 vi.mock('./service.js', () => ({
   listsService: {
-    getLists: vi.fn().mockReturnValue([{ id: 'list_xyz', parentId: 'parent_qwe', title: 'Todos' }]),
+    getLists: vi.fn().mockReturnValue([{
+      id: 'list_xyz',
+      parentId: 'parent_qwe',
+      title: 'Todos',
+      category: 'routine',
+      isRoutine: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }]),
     getListItems: vi.fn().mockReturnValue([{ id: 'item_abc', listId: 'list_xyz', text: 'Clean room', completed: 0 }]),
-    getListById: vi.fn().mockReturnValue({ id: 'list_xyz', parentId: 'parent_qwe', title: 'Todos' }),
+    getListById: vi.fn().mockReturnValue({
+      id: 'list_xyz',
+      parentId: 'parent_qwe',
+      title: 'Todos',
+      category: 'routine',
+      isRoutine: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }),
     getItemParentId: vi.fn().mockReturnValue('parent_qwe'),
-    createList: vi.fn().mockReturnValue({ id: 'new_list', parentId: 'parent_qwe', title: 'New' }),
+    createList: vi.fn().mockReturnValue({
+      id: 'new_list',
+      parentId: 'parent_qwe',
+      title: 'New',
+      category: 'routine',
+      isRoutine: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }),
     deleteList: vi.fn(),
     addItem: vi.fn().mockReturnValue({ id: 'new_item', listId: 'list_xyz', text: 'x', completed: 0 }),
     toggleItem: vi.fn(),

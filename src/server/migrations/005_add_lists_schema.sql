@@ -2,7 +2,12 @@
 CREATE TABLE IF NOT EXISTS lists (
   id TEXT PRIMARY KEY,
   parentId TEXT,
-  title TEXT
+  title TEXT,
+  locationName TEXT,
+  isRoutine INTEGER DEFAULT 0,
+  category TEXT DEFAULT 'routine',
+  createdAt TEXT,
+  updatedAt TEXT
 );
 
 CREATE TABLE IF NOT EXISTS list_items (

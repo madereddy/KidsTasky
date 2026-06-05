@@ -42,10 +42,13 @@ listsRouter.get('/lists/:listId/items', authenticateUser, (req, res) => {
 
 listsRouter.post('/lists', requireAuth, enforceEditUnlocked, (req, res) => {
   try {
-    const { title } = req.body;
+    const { title, category, isRoutine, locationName } = req.body;
+    if (!title || typeof title !== 'string') {
+      return res.status(400).json({ error: 'Title is required' });
+    }
     // Scope to the family, not the individual uid — a kid/co-parent uid is not
     // the family key and would orphan the list from the rest of the household.
-    const list = listsService.createList(getParentId(req), title);
+    const list = listsService.createList(getParentId(req), title, category, isRoutine, locationName);
     res.status(201).json(list);
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'lists_mutation_error');
@@ -59,12 +62,8 @@ listsRouter.put('/lists/:id', requireAuth, enforceEditUnlocked, (req, res) => {
     if (!list) return res.status(404).json({ error: 'Not found' });
     if (list.parentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
 
-    const title = req.body.title;
-    if (!title || typeof title !== 'string') {
-      return res.status(400).json({ error: 'Title is required' });
-    }
-
-    const updated = listsService.updateList(String(req.params.id), title);
+    const { title, category, isRoutine, locationName } = req.body;
+    const updated = listsService.updateList(String(req.params.id), title, category, isRoutine, locationName);
     res.json(updated);
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'lists_mutation_error');

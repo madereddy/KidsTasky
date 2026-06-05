@@ -243,7 +243,10 @@ export interface AppList {
   parentId: string;
   title: string;
   locationName?: string; // e.g. 'Home', 'Car', 'School'
-  isRoutine?: number;    // 0 or 1
+  isRoutine: number;    // 0 or 1
+  category: 'shopping' | 'routine';
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AppListItem {

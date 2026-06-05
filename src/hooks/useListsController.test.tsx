@@ -22,8 +22,8 @@ describe('useListsController', () => {
 
   it('selects the first list on initial load', async () => {
     vi.mocked(listsClientService.getLists).mockResolvedValueOnce([
-      { id: 'l1', parentId: 'p1', title: 'Groceries' },
-      { id: 'l2', parentId: 'p1', title: 'Hardware' },
+      { id: 'l1', parentId: 'p1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
+      { id: 'l2', parentId: 'p1', title: 'Hardware', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
     ]);
     vi.mocked(listsClientService.getItems).mockResolvedValueOnce([{ id: 'i1', listId: 'l1', text: 'Milk', completed: 0 }]);
 
@@ -35,8 +35,8 @@ describe('useListsController', () => {
 
   it('deleting the selected list moves selection to the next list', async () => {
     vi.mocked(listsClientService.getLists).mockResolvedValueOnce([
-      { id: 'l1', parentId: 'p1', title: 'Groceries' },
-      { id: 'l2', parentId: 'p1', title: 'Hardware' },
+      { id: 'l1', parentId: 'p1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
+      { id: 'l2', parentId: 'p1', title: 'Hardware', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
     ]);
     vi.mocked(listsClientService.getItems).mockResolvedValueOnce([]);
     vi.mocked(listsClientService.deleteList).mockResolvedValueOnce(undefined);
@@ -65,7 +65,7 @@ describe('useListsController', () => {
 
 describe('useListsController - Smart Metadata', () => {
   it('parses storeName and completedAt from text field', async () => {
-    vi.mocked(listsClientService.getLists).mockResolvedValue([{ id: 'list-1', parentId: 'parent-1', title: 'Groceries' }]);
+    vi.mocked(listsClientService.getLists).mockResolvedValue([{ id: 'list-1', parentId: 'parent-1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' }]);
     vi.mocked(listsClientService.getItems).mockResolvedValue([
       { id: 'item-1', listId: 'list-1', text: 'Milk |META:{"storeName":"Costco","completedAt":1700000000000}|', completed: 1 }
     ]);
@@ -86,7 +86,7 @@ describe('useListsController - Smart Metadata', () => {
   });
 
   it('adds item with explicit store parsing', async () => {
-    vi.mocked(listsClientService.getLists).mockResolvedValue([{ id: 'list-1', parentId: 'parent-1', title: 'Groceries' }]);
+    vi.mocked(listsClientService.getLists).mockResolvedValue([{ id: 'list-1', parentId: 'parent-1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' }]);
     vi.mocked(listsClientService.getItems).mockResolvedValue([]);
     vi.mocked(listsClientService.addItem).mockResolvedValue({
       id: 'item-2', listId: 'list-1', text: 'Eggs |META:{"storeName":"Costco"}|', completed: 0
@@ -108,7 +108,7 @@ describe('useListsController - Smart Metadata', () => {
 
   it('keeps metadata out of visible text after checking an item', async () => {
     const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1780588800000);
-    vi.mocked(listsClientService.getLists).mockResolvedValue([{ id: 'list-1', parentId: 'parent-1', title: 'Groceries' }]);
+    vi.mocked(listsClientService.getLists).mockResolvedValue([{ id: 'list-1', parentId: 'parent-1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' }]);
     vi.mocked(listsClientService.getItems).mockResolvedValue([
       { id: 'item-1', listId: 'list-1', text: 'Milk |META:{"storeName":"Costco"}|', completed: 0 }
     ]);

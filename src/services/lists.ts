@@ -6,12 +6,12 @@ export const listsClientService = {
     fetchAPI(`/parents/${parentId}/lists`),
   getParentItems: (parentId: string): Promise<AppListItem[]> =>
     fetchAPI(`/parents/${parentId}/list-items`),
-  createList: (title: string): Promise<AppList> =>
-    fetchAPI('/lists', { method: 'POST', body: JSON.stringify({ title }) }),
+  createList: (title: string, category?: 'shopping' | 'routine', isRoutine?: number, locationName?: string): Promise<AppList> =>
+    fetchAPI('/lists', { method: 'POST', body: JSON.stringify({ title, category, isRoutine, locationName }) }),
   deleteList: (id: string): Promise<void> =>
     fetchAPI(`/lists/${id}`, { method: 'DELETE' }),
-  updateList: (id: string, title: string): Promise<AppList> =>
-    fetchAPI(`/lists/${id}`, { method: 'PUT', body: JSON.stringify({ title }) }),
+  updateList: (id: string, title?: string, category?: 'shopping' | 'routine', isRoutine?: number, locationName?: string): Promise<AppList> =>
+    fetchAPI(`/lists/${id}`, { method: 'PUT', body: JSON.stringify({ title, category, isRoutine, locationName }) }),
   getItems: (listId: string): Promise<AppListItem[]> =>
     fetchAPI(`/lists/${listId}/items`),
   addItem: (listId: string, text: string): Promise<AppListItem> =>

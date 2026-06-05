@@ -1,0 +1,76 @@
+<h2>Separate Shopping from Lists?</h2>
+<p class="subtitle">The current combined view is becoming cluttered. Let's look at separating them.</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Current: Combined "Lists"</div>
+    <div class="mockup-body">
+      <div class="mock-nav">🏠 Home | 📅 Calendar | 📝 Lists</div>
+      <div style="display: flex; height: 150px;">
+        <div class="mock-sidebar" style="width: 30%;">
+          <div style="padding: 4px; font-weight: bold; font-size: 10px;">My Lists</div>
+          <div style="background: #3b82f6; color: white; padding: 4px; font-size: 10px;">🛒 Groceries</div>
+          <div style="padding: 4px; font-size: 10px;">📝 Packing List</div>
+          <div style="padding: 4px; font-size: 10px;">🔄 Morning Routine</div>
+        </div>
+        <div class="mock-content" style="flex: 1; padding: 10px;">
+          <div style="font-weight: bold;">Groceries</div>
+          <div style="margin-top: 10px; font-size: 12px;">
+            ☐ Milk<br>
+            ☐ Bread<br>
+            ☐ Eggs
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="mockup">
+    <div class="mockup-header">Proposed: Separate Tabs</div>
+    <div class="mockup-body">
+      <div class="mock-nav">🏠 Home | 📅 Cal | 🛒 Shopping | 📝 Lists</div>
+      <div style="display: flex; height: 150px;">
+        <div class="mock-content" style="flex: 1; padding: 10px;">
+          <div style="font-weight: bold; display: flex; justify-content: space-between;">
+            Shopping
+            <span style="font-size: 10px; color: #666;">Top 15 Items ↑</span>
+          </div>
+          <div style="margin-top: 5px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+            <div style="background: #f3f4f6; padding: 3px; border-radius: 4px; font-size: 10px;">+ Milk</div>
+            <div style="background: #f3f4f6; padding: 3px; border-radius: 4px; font-size: 10px;">+ Bread</div>
+          </div>
+          <div style="margin-top: 10px; font-size: 12px;">
+            ☐ Cheese<br>
+            ☐ Apples
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Why separate?</h3>
+  <ul>
+    <li><strong>Shopping needs speed:</strong> Quick-add suggestions and store-based filtering.</li>
+    <li><strong>Lists need structure:</strong> Nested items, routine pinning, and specific categories.</li>
+    <li><strong>Mobile space:</strong> Dedicated "Shopping" tab is easier to hit when you're actually at the store.</li>
+  </ul>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="separate" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Separate Tabs</h3>
+      <p>Give Shopping its own primary spot in the nav.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="keep_combined" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Keep Combined</h3>
+      <p>Refine the sidebar but keep them under one "Lists" tab.</p>
+    </div>
+  </div>
+</div>

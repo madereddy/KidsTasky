@@ -27,15 +27,52 @@ export const listsService = {
     ).get(itemId) as { parentId: string } | undefined;
     return row?.parentId ?? null;
   },
-  createList: (parentId: string, title: string): AppList => {
+  createList: (parentId: string, title: string, category: 'shopping' | 'routine' = 'routine', isRoutine: number = 0, locationName?: string): AppList => {
     const id = randomUUID();
-    db.prepare('INSERT INTO lists (id, parentId, title) VALUES (?, ?, ?)').run(id, parentId, title);
-    return { id, parentId, title };
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO lists (id, parentId, title, category, isRoutine, locationName, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, parentId, title, category, isRoutine, locationName || null, now, now);
+    
+    return {
+      id,
+      parentId,
+      title,
+      category,
+      isRoutine,
+      locationName,
+      createdAt: now,
+      updatedAt: now
+    };
   },
-  updateList: (id: string, title: string): AppList => {
-    db.prepare('UPDATE lists SET title = ? WHERE id = ?').run(title, id);
+  updateList: (id: string, title?: string, category?: 'shopping' | 'routine', isRoutine?: number, locationName?: string): AppList => {
+    const now = new Date().toISOString();
+    const current = db.prepare('SELECT * FROM lists WHERE id = ?').get(id) as any;
+    if (!current) throw new Error('List not found');
+
+    const newTitle = title !== undefined ? title : current.title;
+    const newCategory = category !== undefined ? category : current.category;
+    const newIsRoutine = isRoutine !== undefined ? isRoutine : current.isRoutine;
+    const newLocationName = locationName !== undefined ? locationName : current.locationName;
+
+    db.prepare(`
+      UPDATE lists 
+      SET title = ?, category = ?, isRoutine = ?, locationName = ?, updatedAt = ?
+      WHERE id = ?
+    `).run(newTitle, newCategory, newIsRoutine, newLocationName || null, now, id);
+
     const updated = db.prepare('SELECT * FROM lists WHERE id = ?').get(id) as any;
-    return { id: updated.id, parentId: updated.parentId, title: updated.title };
+    return {
+      id: updated.id,
+      parentId: updated.parentId,
+      title: updated.title,
+      category: updated.category as 'shopping' | 'routine',
+      isRoutine: updated.isRoutine,
+      locationName: updated.locationName,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt
+    };
   },
   deleteList: (id: string) => {
     db.prepare('DELETE FROM list_items WHERE listId = ?').run(id);

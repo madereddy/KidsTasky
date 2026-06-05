@@ -50,4 +50,23 @@ export function runMigrations(db: Database) {
       db.prepare('UPDATE schema_version SET version = ?').run(version);
     }
   }
+
+  // Task 1: Add missing columns to lists if not exists
+  const listColumns = [
+    { name: 'category', type: "TEXT DEFAULT 'routine'" },
+    { name: 'isRoutine', type: 'INTEGER DEFAULT 0' },
+    { name: 'locationName', type: 'TEXT' },
+    { name: 'createdAt', type: 'TEXT' },
+    { name: 'updatedAt', type: 'TEXT' }
+  ];
+
+  for (const col of listColumns) {
+    try {
+      db.exec(`ALTER TABLE lists ADD COLUMN ${col.name} ${col.type}`);
+    } catch (err: any) {
+      if (!err.message.includes('duplicate column name') && !err.message.includes('no such table')) {
+        throw err;
+      }
+    }
+  }
 }
