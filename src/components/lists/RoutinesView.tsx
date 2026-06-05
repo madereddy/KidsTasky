@@ -289,7 +289,6 @@ export function RoutinesView({ parentId }: Props) {
               </div>
             )}
 
-            <StoreFilterBar items={items} activeStore={activeStoreFilter} onSelectStore={setActiveStoreFilter} />
             <div className="flex-1 overflow-hidden">
               <ListSidebar
                 listTitle={selectedList.title}
@@ -302,6 +301,7 @@ export function RoutinesView({ parentId }: Props) {
                 templateKind="routine"
                 storeNames={storeNames}
                 locationOptions={locationOptions}
+                hideShoppingElements={true}
                 onToggleItem={(itemId, completed) => void toggleItem(itemId, completed)}
                 onAddItem={handleAddItem}
                 onAddItemToLists={(listIds, text, store, location) => void addItemToLists(listIds, text, store, location)}

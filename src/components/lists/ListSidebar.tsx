@@ -28,6 +28,7 @@ interface Props {
   templateKind?: ProofTemplateKind;
   storeNames?: string[];
   locationOptions?: HouseholdLocationOption[];
+  hideShoppingElements?: boolean;
 }
 
 export function ListSidebar({
@@ -49,6 +50,7 @@ export function ListSidebar({
   templateKind = 'routine',
   storeNames = getDefaultStoreNames(),
   locationOptions = getDefaultLocationOptions(),
+  hideShoppingElements = false,
 }: Props) {
   const [newItemText, setNewItemText] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -288,24 +290,26 @@ export function ListSidebar({
           )}
 
           <div className="flex flex-col gap-1.5">
-            <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-              {storeNames.map((store) => (
-                <button
-                  key={store}
-                  type="button"
-                  onClick={() => {
-                    setSelectedStoreChip((prev) => prev === store ? null : store);
-                    setSelectedLocationChip(null);
-                  }}
-                  className={cn(
-                    'px-2.5 py-1 rounded-md text-[10px] font-bold whitespace-nowrap transition-all border flex items-center gap-1',
-                    selectedStoreChip === store ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-ui-soft text-ui-muted border-transparent hover:bg-ui-soft-2',
-                  )}
-                >
-                  Store {store}
-                </button>
-              ))}
-            </div>
+            {!hideShoppingElements && (
+              <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+                {storeNames.map((store) => (
+                  <button
+                    key={store}
+                    type="button"
+                    onClick={() => {
+                      setSelectedStoreChip((prev) => prev === store ? null : store);
+                      setSelectedLocationChip(null);
+                    }}
+                    className={cn(
+                      'px-2.5 py-1 rounded-md text-[10px] font-bold whitespace-nowrap transition-all border flex items-center gap-1',
+                      selectedStoreChip === store ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-ui-soft text-ui-muted border-transparent hover:bg-ui-soft-2',
+                    )}
+                  >
+                    Store {store}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
               {locationOptions.map((loc) => (
                 <button
@@ -342,7 +346,7 @@ export function ListSidebar({
             </div>
           )}
 
-          {frequentItems && frequentItems.length > 0 && !newItemText && (
+          {!hideShoppingElements && frequentItems && frequentItems.length > 0 && !newItemText && (
             <div className="space-y-1.5 mb-1">
               <div className="flex items-center justify-between px-1">
                 <span className="text-[10px] font-black uppercase text-ui-muted tracking-wider">Frequent Items</span>
