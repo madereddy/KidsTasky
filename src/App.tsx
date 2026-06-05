@@ -83,6 +83,7 @@ interface AppUser {
 
 const PARENT_SESSION_KEY = 'kidtasker_parent_session';
 const KID_IDLE_RETURN_MS = 5 * 60 * 1000;
+const isParentRole = (role?: UserProfile['role']) => role === 'parent' || role === 'coparent';
 
 const prefetchParentTasks = () => { import('./components/parent/ParentTasksWorkspace'); };
 const prefetchCalendar = () => { import('./components/calendar/CalendarView'); };
@@ -261,7 +262,7 @@ export default function App() {
       prefetchRoutines();
       prefetchMeals();
       prefetchSettings();
-      if (u.role === 'parent') {
+      if (isParentRole(u.role)) {
         void Promise.allSettled([
           tasksClientService.getTasksForParent(parentId),
           eventsClientService.getEvents(parentId),
@@ -298,7 +299,7 @@ export default function App() {
               const settings = await loadProfileData(u);
               setFamilySettings(settings);
             }
-            if (u.role === 'parent') {
+            if (isParentRole(u.role)) {
               persistParentSession({ token: storedToken, user: { uid: u.uid, name: u.name, email: u.email }, profile: u });
             }
             warmProfile(u);
@@ -373,7 +374,7 @@ export default function App() {
   }, [profile]);
 
   const refreshKids = useCallback(async () => {
-    if (!profile || profile.role !== 'parent') return;
+    if (!profile || !isParentRole(profile.role)) return;
     const parentId = profile.parentId || profile.uid;
     if (!parentId) return;
     const nextKids = await userService.getKidsForParent(parentId);
@@ -433,7 +434,7 @@ export default function App() {
           const parentId = parent.parentId || parent.uid;
           localStorage.setItem('kidtasker_token', parentSession.token);
           const refreshed = await authService.getMe(parentSession.token);
-          const next = refreshed && refreshed.role === 'parent' ? refreshed : parent;
+          const next = refreshed && isParentRole(refreshed.role) ? refreshed : parent;
           setUser({ uid: next.uid, name: next.name, email: next.email });
           setProfile(next);
           setActiveSection('home');
@@ -533,7 +534,7 @@ export default function App() {
   }, [profile, refreshWallData, toggleListItem]);
 
   useEffect(() => {
-    if (!profile || profile.role !== 'parent' || isLocked) return;
+    if (!profile || !isParentRole(profile.role) || isLocked) return;
     let timer: ReturnType<typeof setTimeout>;
     const resetIdle = () => {
       clearTimeout(timer);
@@ -764,7 +765,7 @@ export default function App() {
               </nav>
             )}
 
-            {profile?.role !== 'parent' && (
+            {!isParentRole(profile?.role) && (
               <nav className={cn("hidden md:flex gap-1 p-1 rounded-2xl", isDarkTheme ? "bg-ui-dark-50" : "bg-ui-soft-2")}>
                  <button
                    onClick={() => setSelectedCategoryId(null)}
@@ -994,7 +995,7 @@ export default function App() {
                 <RoutinesView parentId={familyParentId} />
               </Suspense>
             )}
-            {profile.role !== 'parent' && !['shopping', 'routines'].includes(activeSection) && (
+            {!isParentRole(profile.role) && !['shopping', 'routines'].includes(activeSection) && (
               <Suspense fallback={<SectionSkeleton role="kid" activeSection="home" />}>
                 <KidDashboard
                   profile={profile}
@@ -1052,7 +1053,7 @@ export default function App() {
           }}
         />
       )}
-      {profile.role === "parent" && showUnlockPrompt && (
+      {isParentRole(profile.role) && showUnlockPrompt && (
         <ParentalLockOverlay
           parentId={familyParentId}
           onUnlock={() => {
@@ -1062,7 +1063,7 @@ export default function App() {
           onCancel={() => setShowUnlockPrompt(false)}
         />
       )}
-      {profile.role === "parent" && showSettings && (
+      {isParentRole(profile.role) && showSettings && (
         <Suspense fallback={<div className="fixed inset-0 z-[150] bg-white/80 backdrop-blur-md flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="w-12 h-12 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin" />

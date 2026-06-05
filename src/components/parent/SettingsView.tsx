@@ -103,61 +103,99 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
   const [customStoreNames, setCustomStoreNames] = useState<string[]>([]);
   const [customLocationNames, setCustomLocationNames] = useState<string[]>([]);
 
-  useEffect(() => {
-    Promise.all([
+  const loadBootstrapData = React.useCallback(async () => {
+    const [cp, cpi, bootstrap] = await Promise.all([
       userService.getCoParents(parentId).catch(() => []),
       inviteService.getActiveCoParentInvite(parentId).catch(() => null),
       settingsClientService.getBootstrap(parentId).catch(() => null),
-    ]).then(([cp, cpi, bootstrap]) => {
-      setCoParents(cp || []);
-      setCoParentInvite(cpi || null);
-      if (!bootstrap) return;
+    ]);
 
-      const s = bootstrap.settings;
-      const matched = findPresetLocation(s.locationLat, s.locationLon);
-      if (matched) {
-        setLocationPreset(matched.id);
-        setLocationLat(matched.lat);
-        setLocationLon(matched.lon);
-      } else {
-        setLocationPreset('custom');
-        setLocationLat(typeof s.locationLat === 'number' ? s.locationLat : DEFAULT_LOCATION.lat);
-        setLocationLon(typeof s.locationLon === 'number' ? s.locationLon : DEFAULT_LOCATION.lon);
-      }
-      setTimezone(s.timezone || 'America/Chicago');
-      setTemperatureUnit((s.temperatureUnit as 'celsius' | 'fahrenheit') || 'celsius');
-      setTimeFormat((s.timeFormat as '12h' | '24h') || '12h');
-      setSleepStart(s.sleepStart || '21:00');
-      setSleepEnd(s.sleepEnd || '07:00');
-      setHasPIN(!!s.hasPIN);
-      setDisplayRotationEnabled(Boolean(s.displayRotationEnabled));
-      setDisplayRotationInterval(s.displayRotationInterval ?? 30);
-      setScreensaverShuffle(Boolean(s.screensaverShuffle));
-      setScreensaverDurationSec(s.screensaverDurationSec ?? 10);
-      setScreensaverCaptions(s.screensaverCaptions !== false);
-      setPhotoCleanupEnabled(s.photoCleanupEnabled ?? true);
-      setPhotoCleanupIntervalHours(s.photoCleanupIntervalHours ?? 24);
-      setGooglePhotosEnabled(Boolean(s.googlePhotosEnabled));
-      setCustomStoreNames(s.customStoreNames || []);
-      setCustomLocationNames(s.customLocationNames || []);
+    setCoParents(cp || []);
+    setCoParentInvite(cpi || null);
+    if (!bootstrap) return;
 
-      setCalendars((bootstrap.calendars || []) as SyncCalendar[]);
-      const visMap: Record<string, boolean> = {};
-      (bootstrap.calendarVisibility || []).forEach((v: any) => {
-        visMap[v.calendarId] = Number(v.isVisible) === 1;
-      });
-      setCalendarVisibility(visMap);
+    const s = bootstrap.settings;
+    const matched = findPresetLocation(s.locationLat, s.locationLon);
+    if (matched) {
+      setLocationPreset(matched.id);
+      setLocationLat(matched.lat);
+      setLocationLon(matched.lon);
+    } else {
+      setLocationPreset('custom');
+      setLocationLat(typeof s.locationLat === 'number' ? s.locationLat : DEFAULT_LOCATION.lat);
+      setLocationLon(typeof s.locationLon === 'number' ? s.locationLon : DEFAULT_LOCATION.lon);
+    }
+    setTimezone(s.timezone || 'America/Chicago');
+    setTemperatureUnit((s.temperatureUnit as 'celsius' | 'fahrenheit') || 'celsius');
+    setTimeFormat((s.timeFormat as '12h' | '24h') || '12h');
+    setSleepStart(s.sleepStart || '21:00');
+    setSleepEnd(s.sleepEnd || '07:00');
+    setHasPIN(!!s.hasPIN);
+    setDisplayRotationEnabled(Boolean(s.displayRotationEnabled));
+    setDisplayRotationInterval(s.displayRotationInterval ?? 30);
+    setScreensaverShuffle(Boolean(s.screensaverShuffle));
+    setScreensaverDurationSec(s.screensaverDurationSec ?? 10);
+    setScreensaverCaptions(s.screensaverCaptions !== false);
+    setPhotoCleanupEnabled(s.photoCleanupEnabled ?? true);
+    setPhotoCleanupIntervalHours(s.photoCleanupIntervalHours ?? 24);
+    setGooglePhotosEnabled(Boolean(s.googlePhotosEnabled));
+    setCustomStoreNames(s.customStoreNames || []);
+    setCustomLocationNames(s.customLocationNames || []);
 
-      const conns = bootstrap.connections || [];
-      if (conns.length > 0) setConnectionId(conns[0].id);
-      const withSync = conns.filter((c: any) => c.lastSyncAt);
-      if (withSync.length > 0) {
-        const latest = withSync.reduce((a: any, b: any) => (a.lastSyncAt! > b.lastSyncAt! ? a : b));
-        setLastSyncAt(latest.lastSyncAt ?? null);
-        setLastSyncStatus(latest.lastSyncStatus ?? null);
-      }
+    setCalendars((bootstrap.calendars || []) as SyncCalendar[]);
+    const visMap: Record<string, boolean> = {};
+    (bootstrap.calendarVisibility || []).forEach((v: any) => {
+      visMap[v.calendarId] = Number(v.isVisible) === 1;
     });
+    setCalendarVisibility(visMap);
+
+    const conns = bootstrap.connections || [];
+    setConnectionId(conns[0]?.id || null);
+    const withSync = conns.filter((c: any) => c.lastSyncAt);
+    if (withSync.length > 0) {
+      const latest = withSync.reduce((a: any, b: any) => (a.lastSyncAt! > b.lastSyncAt! ? a : b));
+      setLastSyncAt(latest.lastSyncAt ?? null);
+      setLastSyncStatus(latest.lastSyncStatus ?? null);
+    } else {
+      setLastSyncAt(null);
+      setLastSyncStatus(null);
+    }
   }, [parentId]);
+
+  useEffect(() => {
+    void loadBootstrapData();
+  }, [loadBootstrapData]);
+
+  useEffect(() => {
+    const refreshAfterReturn = () => {
+      void loadBootstrapData();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void loadBootstrapData();
+      }
+    };
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== 'kidtasker:google-sync-connected') return;
+      if (event.data?.parentId && event.data.parentId !== parentId) return;
+      setSyncStatus('Google connected. Refreshing settings...');
+      void loadBootstrapData().then(() => {
+        setSyncStatus('Google connected.');
+      });
+    };
+
+    window.addEventListener('focus', refreshAfterReturn);
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('focus', refreshAfterReturn);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [loadBootstrapData, parentId]);
 
   useEffect(() => {
     if (!googlePhotosEnabled) setGoogleAlbumsError('');
@@ -725,7 +763,10 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
               {googlePhotosEnabled && (
                 <div className="space-y-2">
                   <button
-                    onClick={() => window.open('/api/sync/connect/google?token=' + encodeURIComponent(localStorage.getItem('kidtasker_token') || ''), '_blank')}
+                    onClick={() => {
+                      setSyncStatus('Waiting for Google connection…');
+                      window.open('/api/sync/connect/google?token=' + encodeURIComponent(localStorage.getItem('kidtasker_token') || ''), '_blank');
+                    }}
                     className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-semibold hover:bg-blue-600"
                   >
                     Reconnect Google (Calendar + Photos scopes)
