@@ -1,7 +1,10 @@
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
+import { logger } from './lib/logger.js';
 
 let devSecret: string | undefined;
 let devSecretKey: Buffer | undefined;
+let derivedProdSecretKey: Buffer | undefined;
+let warnedDerivedProdSecretKey = false;
 
 export function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -21,7 +24,18 @@ export function getSecretKey(): Buffer {
   const raw = process.env.SECRET_KEY;
   if (!raw) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('SECRET_KEY environment variable is required in production (32-byte hex, 64 chars)');
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        throw new Error('SECRET_KEY environment variable is required in production (32-byte hex, 64 chars)');
+      }
+      if (!derivedProdSecretKey) {
+        derivedProdSecretKey = createHash('sha256').update(jwtSecret, 'utf8').digest();
+      }
+      if (!warnedDerivedProdSecretKey) {
+        warnedDerivedProdSecretKey = true;
+        logger.warn('secret_key_missing_using_jwt_secret_fallback');
+      }
+      return derivedProdSecretKey;
     }
     if (!devSecretKey) {
       devSecretKey = randomBytes(32);
