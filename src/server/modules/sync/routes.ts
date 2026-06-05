@@ -134,7 +134,13 @@ syncRouter.get('/sync/callback/google', async (req, res) => {
     }, 'sync_google_callback_connected');
     res.send("Successfully connected! You can close this window.");
   } catch (err) {
-    logger.error({ error: err, parentId }, 'sync_google_callback_error');
+    logger.error({
+      parentId,
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      code: (err as any)?.code ?? (err as any)?.response?.status ?? null,
+      responseData: (err as any)?.response?.data ?? null,
+    }, 'sync_google_callback_error');
     res.status(500).send("Failed to connect");
   }
 });

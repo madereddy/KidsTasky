@@ -21,6 +21,28 @@ export type SyncNowResult = {
   updated: number;
 };
 
+type SyncConnectionColumns = {
+  hasCreatedAt: boolean;
+  hasLastSyncAt: boolean;
+  hasLastSyncStatus: boolean;
+};
+
+function getSyncConnectionColumns(): SyncConnectionColumns {
+  const rows = db.prepare("PRAGMA table_info('sync_connections')").all() as Array<{ name: string }>;
+  const names = new Set(rows.map((row) => row.name));
+  return {
+    hasCreatedAt: names.has('createdAt'),
+    hasLastSyncAt: names.has('lastSyncAt'),
+    hasLastSyncStatus: names.has('lastSyncStatus'),
+  };
+}
+
+function buildGoogleConnectionOrderBy(columns: SyncConnectionColumns): string {
+  return columns.hasCreatedAt
+    ? 'ORDER BY COALESCE(createdAt, 0) DESC, rowid DESC'
+    : 'ORDER BY rowid DESC';
+}
+
 export function decryptConnection(conn: SyncConnection): SyncConnection {
   const key = getSecretKey();
   return {
@@ -126,6 +148,10 @@ async function withTokenRefresh<T>(
 }
 
 function persistSyncStatus(connectionId: string, status: 'ok' | 'partial' | 'error') {
+  const columns = getSyncConnectionColumns();
+  if (!columns.hasLastSyncAt || !columns.hasLastSyncStatus) {
+    return;
+  }
   db.prepare('UPDATE sync_connections SET lastSyncAt = ?, lastSyncStatus = ? WHERE id = ?').run(
     Date.now(),
     status,
@@ -135,7 +161,15 @@ function persistSyncStatus(connectionId: string, status: 'ok' | 'partial' | 'err
 
 export const syncService = {
   getConnections: (parentId: string) => {
-    return db.prepare('SELECT id, provider, createdAt, lastSyncAt, lastSyncStatus FROM sync_connections WHERE parentId = ?').all(parentId);
+    const columns = getSyncConnectionColumns();
+    const createdAtSelect = columns.hasCreatedAt ? 'createdAt' : 'NULL AS createdAt';
+    const lastSyncAtSelect = columns.hasLastSyncAt ? 'lastSyncAt' : 'NULL AS lastSyncAt';
+    const lastSyncStatusSelect = columns.hasLastSyncStatus ? 'lastSyncStatus' : 'NULL AS lastSyncStatus';
+    return db.prepare(`
+      SELECT id, provider, ${createdAtSelect}, ${lastSyncAtSelect}, ${lastSyncStatusSelect}
+      FROM sync_connections
+      WHERE parentId = ?
+    `).all(parentId);
   },
 
   getConnectionById: (id: string): SyncConnection | null => {
@@ -149,8 +183,16 @@ export const syncService = {
   },
 
   saveGoogleTokens: (parentId: string, accessToken: string, refreshToken?: string | null) => {
+    if (!parentId) {
+      throw new Error('parentId is required to save Google tokens');
+    }
+    if (!accessToken) {
+      throw new Error('accessToken is required to save Google tokens');
+    }
+
+    const columns = getSyncConnectionColumns();
     const existing = db.prepare(
-      "SELECT id, refreshToken FROM sync_connections WHERE parentId = ? AND provider = 'google' ORDER BY COALESCE(createdAt, 0) DESC, rowid DESC LIMIT 1"
+      `SELECT id, refreshToken FROM sync_connections WHERE parentId = ? AND provider = 'google' ${buildGoogleConnectionOrderBy(columns)} LIMIT 1`
     ).get(parentId) as { id: string; refreshToken?: string | null } | undefined;
 
     const now = Date.now();
@@ -161,25 +203,58 @@ export const syncService = {
       ? encryptField(refreshToken, key)
       : (existing?.refreshToken ?? null);
 
-    if (existing?.id) {
-      db.prepare(`
-        UPDATE sync_connections
-        SET accessToken = ?, refreshToken = ?, createdAt = ?
-        WHERE id = ?
-      `).run(encryptedAccessToken, nextRefreshToken, now, existing.id);
+    logger.info({
+      parentId,
+      hasExistingConnection: Boolean(existing?.id),
+      hasRefreshToken: Boolean(refreshToken),
+      preservedRefreshToken: !refreshToken && Boolean(existing?.refreshToken),
+      schema: columns,
+    }, 'sync_google_tokens_save_start');
 
-      // Keep only one active Google connection per parent to prevent duplicate calendar ingestion.
-      db.prepare(
-        "DELETE FROM sync_connections WHERE parentId = ? AND provider = 'google' AND id != ?"
-      ).run(parentId, existing.id);
-      return;
-    }
+    const save = db.transaction(() => {
+      if (existing?.id) {
+        if (columns.hasCreatedAt) {
+          db.prepare(`
+            UPDATE sync_connections
+            SET accessToken = ?, refreshToken = ?, createdAt = ?
+            WHERE id = ?
+          `).run(encryptedAccessToken, nextRefreshToken, now, existing.id);
+        } else {
+          db.prepare(`
+            UPDATE sync_connections
+            SET accessToken = ?, refreshToken = ?
+            WHERE id = ?
+          `).run(encryptedAccessToken, nextRefreshToken, existing.id);
+        }
 
-    const connId = 'sync_' + now;
-    db.prepare(`
-      INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(connId, parentId, 'google', encryptedAccessToken, nextRefreshToken, now);
+        // Keep only one active Google connection per parent to prevent duplicate calendar ingestion.
+        db.prepare(
+          "DELETE FROM sync_connections WHERE parentId = ? AND provider = 'google' AND id != ?"
+        ).run(parentId, existing.id);
+        return existing.id;
+      }
+
+      const connId = `sync_${now}_${Math.random().toString(36).slice(2, 8)}`;
+      if (columns.hasCreatedAt) {
+        db.prepare(`
+          INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken, createdAt)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).run(connId, parentId, 'google', encryptedAccessToken, nextRefreshToken, now);
+      } else {
+        db.prepare(`
+          INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(connId, parentId, 'google', encryptedAccessToken, nextRefreshToken);
+      }
+      return connId;
+    });
+
+    const savedConnectionId = save();
+    logger.info({
+      parentId,
+      connectionId: savedConnectionId,
+      schema: columns,
+    }, 'sync_google_tokens_save_ok');
   },
 
   saveManualConnection: (parentId: string, email: string, appPassword: string) => {
@@ -191,8 +266,9 @@ export const syncService = {
   },
 
   getActiveGoogleConnection: (parentId: string): SyncConnection | null => {
+    const columns = getSyncConnectionColumns();
     const row = db.prepare(
-      "SELECT * FROM sync_connections WHERE parentId = ? AND provider = 'google' ORDER BY COALESCE(createdAt, 0) DESC, rowid DESC LIMIT 1"
+      `SELECT * FROM sync_connections WHERE parentId = ? AND provider = 'google' ${buildGoogleConnectionOrderBy(columns)} LIMIT 1`
     ).get(parentId) as SyncConnection | null;
     return row ? decryptConnection(row) : null;
   },

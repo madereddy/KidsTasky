@@ -121,6 +121,48 @@ describe('Sync Service', () => {
     expect(db.prepare('SELECT enabled FROM sync_calendars WHERE id = ?').get(calendar.id)).toEqual({ enabled: 0 });
     expect(db.prepare('SELECT id FROM events WHERE id = ?').get('evt_shared_calendar')).toBeUndefined();
   });
+
+  it('saves google tokens against a legacy sync_connections table without createdAt', () => {
+    db.exec('DROP TABLE IF EXISTS sync_calendars');
+    db.exec('DROP TABLE IF EXISTS sync_connections');
+    db.exec(`
+      CREATE TABLE sync_connections (
+        id TEXT PRIMARY KEY,
+        parentId TEXT,
+        provider TEXT,
+        accessToken TEXT,
+        refreshToken TEXT
+      );
+    `);
+    db.exec(`
+      CREATE TABLE sync_calendars (
+        id TEXT PRIMARY KEY,
+        connectionId TEXT,
+        parentId TEXT,
+        calendarId TEXT,
+        name TEXT,
+        enabled INTEGER DEFAULT 1,
+        color TEXT,
+        isSharedCalendar INTEGER DEFAULT 0,
+        FOREIGN KEY (connectionId) REFERENCES sync_connections(id) ON DELETE CASCADE
+      );
+    `);
+
+    syncService.saveGoogleTokens('test_parent', 'legacy_access', 'legacy_refresh');
+
+    const row = db.prepare(
+      "SELECT provider, parentId FROM sync_connections WHERE parentId = ? AND provider = 'google'"
+    ).get('test_parent') as { provider: string; parentId: string } | undefined;
+    expect(row).toEqual({ provider: 'google', parentId: 'test_parent' });
+    expect(syncService.getConnections('test_parent')).toEqual([
+      expect.objectContaining({
+        provider: 'google',
+        createdAt: null,
+        lastSyncAt: null,
+        lastSyncStatus: null,
+      }),
+    ]);
+  });
 });
 
 describe('resolveEventColor — color precedence regression', () => {
