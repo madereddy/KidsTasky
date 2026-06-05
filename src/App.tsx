@@ -10,7 +10,7 @@ import { mealsClientService } from './services/meals';
 import { subscribeToPush, unsubscribeFromPush } from './services/push';
 import { clientLogger } from './services/clientLogger';
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense, startTransition } from 'react';
-import { LogOut, Rocket, User as UserIcon, Activity, CalendarDays, List, UtensilsCrossed, Settings } from 'lucide-react';
+import { LogOut, Rocket, User as UserIcon, Activity, CalendarDays, List, UtensilsCrossed, Settings, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, Category, MissionItem } from './types';
 import { cn } from './lib/utils';
@@ -729,10 +729,25 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
+            {profile?.role === 'parent' && isLocked && (
+              <button
+                onClick={() => setShowUnlockPrompt(true)}
+                className={cn(
+                  "hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors z-[61]",
+                  isDarkTheme
+                    ? "bg-amber-500/10 text-amber-200 border-amber-400/50 hover:bg-amber-500/20"
+                    : "bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100"
+                )}
+                aria-label="Display locked. Unlock parent controls"
+                title="Display locked. Unlock parent controls"
+              >
+                <Lock className="w-4 h-4" />
+                <span className="text-xs font-black uppercase tracking-[0.18em]">Locked</span>
+              </button>
+            )}
             {profile?.role === 'parent' && (
               <button
                 onClick={() => {
-                  console.log('Settings button clicked, isLocked:', isLocked);
                   if (isLocked) {
                     setShowUnlockPrompt(true);
                     return;
@@ -746,24 +761,19 @@ export default function App() {
                 onTouchStart={prefetchSettings}
                 className={cn(
                   "p-2 rounded-xl border transition-colors flex items-center gap-2 z-[61]",
-                  isDarkTheme
-                    ? "text-ui-secondary border-ui-dark-3 hover:text-white hover:bg-ui-dark-2"
-                    : "text-ui-muted-2 border-ui hover:text-ui-primary hover:bg-ui-soft"
+                  isLocked
+                    ? (isDarkTheme
+                      ? "text-amber-200 border-amber-400/50 bg-amber-500/10 hover:bg-amber-500/20"
+                      : "text-amber-900 border-amber-300 bg-amber-50 hover:bg-amber-100")
+                    : (isDarkTheme
+                      ? "text-ui-secondary border-ui-dark-3 hover:text-white hover:bg-ui-dark-2"
+                      : "text-ui-muted-2 border-ui hover:text-ui-primary hover:bg-ui-soft")
                 )}
-                aria-label="Settings"
-                title="Settings"
+                aria-label={isLocked ? "Display locked. Unlock to open settings" : "Settings"}
+                title={isLocked ? "Display locked. Unlock to open settings" : "Settings"}
               >
-                <Settings className="w-5 h-5" />
-                <span className="text-xs font-bold hidden xs:inline">Settings</span>
-              </button>
-            )}
-            {profile?.role === 'parent' && isLocked && (
-              <button
-                onClick={() => setShowUnlockPrompt(true)}
-                className="px-3 py-1.5 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold border border-amber-300 hover:bg-amber-200 transition-colors"
-                title="Unlock parent controls"
-              >
-                Unlock
+                {isLocked ? <Lock className="w-5 h-5" /> : <Settings className="w-5 h-5" />}
+                <span className="text-xs font-bold hidden xs:inline">{isLocked ? 'Unlock' : 'Settings'}</span>
               </button>
             )}
             <div className="relative group">
