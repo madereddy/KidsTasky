@@ -1,5 +1,5 @@
 import { db } from '../../db.js';
-import bcrypt from 'bcrypt';
+import { hashSecret } from '../../lib/hashing.js';
 import { levelForXp } from '../../../lib/xp.js';
 
 export const userService = {
@@ -15,7 +15,7 @@ export const userService = {
 
     let passwordHash = data.passwordHash || null;
     if (data.pin && !passwordHash) {
-       passwordHash = await bcrypt.hash(data.pin, 10);
+       passwordHash = await hashSecret(data.pin);
     }
 
     db.prepare(`
@@ -79,7 +79,7 @@ export const userService = {
   },
 
   createCoParent: async (data: { uid: string; name: string; email: string; password: string; parentId: string }) => {
-    const passwordHash = await bcrypt.hash(data.password, 10);
+    const passwordHash = await hashSecret(data.password);
     db.prepare(`
       INSERT INTO users (uid, role, name, email, parentId, passwordHash)
       VALUES (?, 'parent', ?, ?, ?, ?)

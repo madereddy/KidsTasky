@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import bcrypt from 'bcrypt';
+import { hashSecret, verifyAndUpgrade, verifySecret } from '../../lib/hashing.js';
 import { requireAuth, assertParentScope, getParentId, requireRole } from '../../middleware/auth.js';
 import { settingsService } from './service.js';
 import { syncService } from '../sync/service.js';
@@ -79,7 +79,7 @@ settingsRouter.put('/settings/:parentId', requireAuth, requireRole('parent'), as
     const data = { ...req.body };
     if (data.pin && String(data.pin).trim() !== '') {
       // Hash the plaintext PIN before storing
-      data.pin = await bcrypt.hash(String(data.pin).trim(), 10);
+      data.pin = await hashSecret(String(data.pin).trim());
     } else {
       // Empty/null PIN — don't overwrite existing PIN; service will preserve via merge
       delete data.pin;
@@ -112,17 +112,10 @@ settingsRouter.post("/settings/:parentId/unlock", requireAuth, assertParentScope
     
     let match = false;
     if (settings.pin && String(settings.pin).trim() !== "") {
-      const stored = String(settings.pin);
-      if (stored.startsWith('$2')) {
-        // bcrypt hash — use secure compare
-        match = await bcrypt.compare(inputSecret, stored);
-      } else {
-        // Legacy plaintext PIN — accept and upgrade to hash
-        match = inputSecret === stored;
-        if (match) {
-          const hash = await bcrypt.hash(inputSecret, 10);
-          settingsService.saveSettings(parentId, { pin: hash });
-        }
+      const { match: pinMatch, newHash } = await verifyAndUpgrade(inputSecret, String(settings.pin));
+      match = pinMatch;
+      if (match && newHash) {
+        settingsService.saveSettings(parentId, { pin: newHash });
       }
     }
 

@@ -23,6 +23,7 @@
     "@opentelemetry/auto-instrumentations-node": "^0.76.0",
     "@opentelemetry/sdk-node": "^0.218.0",
     "@xmldom/xmldom": "^0.9.10",
+    "argon2": "^0.44.0",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.10.0",
     "clsx": "^2.1.1",
