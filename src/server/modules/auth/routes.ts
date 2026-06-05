@@ -5,6 +5,8 @@ import { authService } from './service.js';
 import { authenticateUser, requireRole } from '../../middleware/auth.js';
 import { logSecurityEvent } from '../../lib/securityLog.js';
 
+import { getLockoutState, recordFailedAttempt, resetLockout } from '../../lib/lockout.js';
+
 export const authRouter = Router();
 const authLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -28,11 +30,6 @@ const passwordChangeLimiter = rateLimit({
   message: { error: 'Too many password change attempts. Please try again later.' },
 });
 
-type AttemptState = { failures: number; lockUntil: number };
-const authAttempts = new Map<string, AttemptState>();
-const AUTH_MAX_BACKOFF_MS = 15 * 60 * 1000;
-const AUTH_FAILURE_TTL_MS = 60 * 60 * 1000;
-
 function getClientIp(req: Request): string {
   const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
   return (forwarded || req.ip || '').replace(/^::ffff:/, '') || 'unknown';
@@ -43,32 +40,18 @@ function getAttemptKey(kind: string, identifier: string, ip: string): string {
 }
 
 function getRetryAfterMs(key: string): number {
-  const attempt = authAttempts.get(key);
-  if (!attempt) return 0;
-  const retryAfterMs = attempt.lockUntil - Date.now();
-  if (retryAfterMs <= 0) return 0;
-  return retryAfterMs;
+  const state = getLockoutState(key);
+  return state.remainingMs;
 }
 
 function recordAuthFailure(key: string): number {
-  const now = Date.now();
-  const prev = authAttempts.get(key);
-  const failures = (prev?.failures || 0) + 1;
-  const backoffMs = Math.min(AUTH_MAX_BACKOFF_MS, 1000 * Math.pow(2, Math.min(failures - 1, 10)));
-  authAttempts.set(key, { failures, lockUntil: now + backoffMs });
-  return backoffMs;
+  const state = recordFailedAttempt(key);
+  return state.remainingMs;
 }
 
 function clearAuthFailure(key: string) {
-  authAttempts.delete(key);
+  resetLockout(key);
 }
-
-setInterval(() => {
-  const cutoff = Date.now() - AUTH_FAILURE_TTL_MS;
-  for (const [key, value] of authAttempts) {
-    if (value.lockUntil < cutoff) authAttempts.delete(key);
-  }
-}, 5 * 60 * 1000).unref?.();
 
 const validate = (req: Request, res: Response, next: any) => {
   const errors = validationResult(req);

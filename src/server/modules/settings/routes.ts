@@ -6,6 +6,8 @@ import { syncService } from '../sync/service.js';
 import { authService } from '../auth/service.js';
 import { logger } from '../../lib/logger.js';
 
+import { getLockoutState, recordFailedAttempt, resetLockout } from '../../lib/lockout.js';
+
 /** Strip raw PIN hash from settings before sending to client. */
 function scrubSettings(settings: Record<string, any>) {
   const { pin, ...rest } = settings;
@@ -18,13 +20,17 @@ settingsRouter.get('/settings/:parentId/bootstrap', requireAuth, assertParentSco
   try {
     const userId = (req as any).user.uid as string;
     const parentId = String(req.params.parentId);
+    const lockout = getLockoutState(`unlock:${parentId}`);
     const settings = settingsService.getSettings(parentId);
     const calendars = syncService.getSyncCalendarsByParent(parentId);
     const calendarVisibility = settingsService.getCalendarVisibility(userId);
     const connections = syncService.getConnections(parentId);
 
     res.json({
-      settings: scrubSettings(settings as any),
+      settings: {
+        ...scrubSettings(settings as any),
+        lockout: lockout.locked ? { remainingSec: Math.ceil(lockout.remainingMs / 1000) } : null
+      },
       calendars,
       calendarVisibility,
       connections,
@@ -65,7 +71,13 @@ settingsRouter.get('/settings/:parentId', requireAuth, (req, res) => {
     const userParentId = getParentId(req);
     if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
     const settings = settingsService.getSettings(String(req.params.parentId));
-    res.json(scrubSettings(settings as any));
+    const parentId = String(req.params.parentId);
+    const lockout = getLockoutState(`unlock:${parentId}`);
+    
+    res.json({
+      ...scrubSettings(settings as any),
+      lockout: lockout.locked ? { remainingSec: Math.ceil(lockout.remainingMs / 1000) } : null
+    });
   } catch (error: any) {
     logger.error({ error: error.message, params: req.params }, 'settings_get_error');
     res.status(500).json({ error: error.message });
@@ -107,6 +119,16 @@ settingsRouter.post("/settings/:parentId/lock", requireAuth, requireRole('parent
 settingsRouter.post("/settings/:parentId/unlock", requireAuth, assertParentScope, async (req, res) => {
   try {
     const parentId = String(req.params.parentId);
+    const lockoutTarget = `unlock:${parentId}`;
+    const lockout = getLockoutState(lockoutTarget);
+    
+    if (lockout.locked) {
+      return res.status(429).json({ 
+        error: "Too many failed attempts", 
+        remainingSec: Math.ceil(lockout.remainingMs / 1000) 
+      });
+    }
+
     const settings = settingsService.getSettings(parentId);
     const inputSecret = String(req.body?.pin ?? "");
     
@@ -124,8 +146,15 @@ settingsRouter.post("/settings/:parentId/unlock", requireAuth, assertParentScope
       match = await authService.verifyParentPassword(parentId, inputSecret);
     }
 
-    if (!match) return res.status(403).json({ error: "Incorrect PIN or password" });
+    if (!match) {
+      const nextLockout = recordFailedAttempt(lockoutTarget);
+      return res.status(403).json({ 
+        error: "Incorrect PIN or password",
+        remainingSec: nextLockout.locked ? Math.ceil(nextLockout.remainingMs / 1000) : undefined
+      });
+    }
     
+    resetLockout(lockoutTarget);
     settingsService.setLocked(parentId, false);
     return res.json({ success: true });
   } catch (error: any) {
