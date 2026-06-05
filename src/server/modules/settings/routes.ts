@@ -104,41 +104,36 @@ settingsRouter.post("/settings/:parentId/lock", requireAuth, requireRole('parent
   }
 });
 
-settingsRouter.post("/settings/:parentId/unlock", requireAuth, requireRole('parent'), async (req, res) => {
+settingsRouter.post("/settings/:parentId/unlock", requireAuth, assertParentScope, async (req, res) => {
   try {
-    const userParentId = getParentId(req);
-    if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
-    const settings = settingsService.getSettings(String(req.params.parentId));
-    const callerUid = String((req as any).user?.uid || '');
+    const parentId = String(req.params.parentId);
+    const settings = settingsService.getSettings(parentId);
     const inputSecret = String(req.body?.pin ?? "");
-    if (!settings.pin || String(settings.pin).trim() === "") {
-      const passwordMatch = callerUid ? await authService.verifyParentPassword(callerUid, inputSecret) : false;
-      if (!passwordMatch) return res.status(403).json({ error: "Incorrect PIN or password" });
-      settingsService.setLocked(String(req.params.parentId), false);
-      return res.json({ success: true });
-    }
-
-    const stored = String(settings.pin);
-
-    let match: boolean;
-    if (stored.startsWith('$2')) {
-      // bcrypt hash — use secure compare
-      match = await bcrypt.compare(inputSecret, stored);
-    } else {
-      // Legacy plaintext PIN — accept and upgrade to hash
-      match = inputSecret === stored;
-      if (match) {
-        const hash = await bcrypt.hash(inputSecret, 10);
-        settingsService.saveSettings(String(req.params.parentId), { pin: hash });
+    
+    let match = false;
+    if (settings.pin && String(settings.pin).trim() !== "") {
+      const stored = String(settings.pin);
+      if (stored.startsWith('$2')) {
+        // bcrypt hash — use secure compare
+        match = await bcrypt.compare(inputSecret, stored);
+      } else {
+        // Legacy plaintext PIN — accept and upgrade to hash
+        match = inputSecret === stored;
+        if (match) {
+          const hash = await bcrypt.hash(inputSecret, 10);
+          settingsService.saveSettings(parentId, { pin: hash });
+        }
       }
     }
 
-    if (!match && callerUid) {
-      match = await authService.verifyParentPassword(callerUid, inputSecret);
+    if (!match) {
+      // Fallback: Verify against parent's main account password
+      match = await authService.verifyParentPassword(parentId, inputSecret);
     }
 
     if (!match) return res.status(403).json({ error: "Incorrect PIN or password" });
-    settingsService.setLocked(String(req.params.parentId), false);
+    
+    settingsService.setLocked(parentId, false);
     return res.json({ success: true });
   } catch (error: any) {
     logger.error({ error: error.message, params: req.params }, 'settings_unlock_error');
