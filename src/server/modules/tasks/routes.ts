@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import { taskServiceServer } from './service.js';
+import { mapTaskRow, mapCompletionRow } from './mappers.js';
 import { userService } from '../users/service.js';
 import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
 import { logger } from '../../lib/logger.js';
@@ -46,18 +47,7 @@ tasksRouter.get("/kids/:kidId/tasks", authenticateUser, [
     if (kidParentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
 
     const tasks = taskServiceServer.getKidsTasks(targetKidId);
-    res.json(tasks.map((t: any) => {
-      let parsedPrereqs = [];
-      let completionQuestions: string[] = [];
-      try { parsedPrereqs = JSON.parse(t.prerequisiteTaskIds || "[]"); } catch (e) {}
-      try { completionQuestions = JSON.parse(t.completionQuestions || "[]"); } catch (e) {}
-      return {
-        ...t,
-        createdAt: { seconds: t.createdAt / 1000 },
-        prerequisiteTaskIds: parsedPrereqs,
-        completionQuestions
-      };
-    }));
+    res.json(tasks.map(mapTaskRow));
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
     res.status(500).json({ error: error.message });
@@ -70,18 +60,7 @@ tasksRouter.get("/parents/:parentId/tasks", authenticateUser, assertParentScope,
 ], (req: Request, res: Response) => {
   try {
     const tasks = taskServiceServer.getParentsTasks(req.params.parentId as string);
-    res.json(tasks.map((t: any) => {
-      let parsedPrereqs = [];
-      let completionQuestions: string[] = [];
-      try { parsedPrereqs = JSON.parse(t.prerequisiteTaskIds || "[]"); } catch (e) {}
-      try { completionQuestions = JSON.parse(t.completionQuestions || "[]"); } catch (e) {}
-      return {
-        ...t,
-        createdAt: { seconds: t.createdAt / 1000 },
-        prerequisiteTaskIds: parsedPrereqs,
-        completionQuestions
-      };
-    }));
+    res.json(tasks.map(mapTaskRow));
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
     res.status(500).json({ error: error.message });
@@ -235,11 +214,7 @@ tasksRouter.get("/kids/:kidId/completions", authenticateUser, [
       res.status(400).json({ error: "Missing date query params" });
       return;
     }
-    res.json(completions.map((c: any) => {
-      let proofAnswers: Array<{ question: string; answer: string }> = [];
-      try { proofAnswers = JSON.parse(c.proofAnswers || '[]'); } catch {}
-      return { ...c, proofAnswers, completedAt: { seconds: c.completedAt / 1000 } };
-    }));
+    res.json(completions.map(mapCompletionRow));
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
     res.status(500).json({ error: error.message });
@@ -263,11 +238,7 @@ tasksRouter.get("/kids/:kidId/history", authenticateUser, [
 
     const limit = parseInt(req.query.limit as string) || 50;
     const history = taskServiceServer.getCompletionHistory(kidId, limit);
-    res.json(history.map((c: any) => {
-      let proofAnswers: Array<{ question: string; answer: string }> = [];
-      try { proofAnswers = JSON.parse(c.proofAnswers || '[]'); } catch {}
-      return { ...c, proofAnswers, completedAt: { seconds: c.completedAt / 1000 } };
-    }));
+    res.json(history.map(mapCompletionRow));
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
     res.status(500).json({ error: error.message });
@@ -281,7 +252,7 @@ tasksRouter.get("/parents/:parentId/pending-completions", authenticateUser, asse
 ], (req: Request, res: Response) => {
   try {
     const pending = taskServiceServer.getPendingCompletionsByParent(req.params.parentId as string);
-    res.json(pending.map((c: any) => ({ ...c, completedAt: { seconds: c.completedAt / 1000 } })));
+    res.json(pending.map(mapCompletionRow));
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
     res.status(500).json({ error: error.message });
