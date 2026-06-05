@@ -26,7 +26,7 @@ usersRouter.get("/users/:uid", authenticateUser, [
   if (!user) return res.status(404).json({ error: "Not found" });
 
   const isSelf = caller.uid === targetUid;
-  const isParentOfTarget = caller.role === 'parent' && (user.parentId === caller.uid || user.parentId === caller.parentId);
+  const isParentOfTarget = (caller.role === 'parent' || caller.role === 'coparent') && (user.parentId === caller.uid || user.parentId === caller.parentId);
   
   if (!isSelf && !isParentOfTarget) return res.status(403).json({ error: 'Forbidden' });
 
@@ -149,7 +149,7 @@ usersRouter.post("/users/:uid/badge", authenticateUser, [
   if (!target) return res.status(404).json({ error: 'User not found' });
   const targetFamily = target.parentId ?? target.uid;
   const isSelf = caller.uid === req.params.uid;
-  const isParentOf = caller.role === 'parent' && targetFamily === getParentId(req);
+  const isParentOf = (caller.role === 'parent' || caller.role === 'coparent') && targetFamily === getParentId(req);
   if (!isSelf && !isParentOf) return res.status(403).json({ error: 'Forbidden' });
   userService.addBadge(req.params.uid as string, req.body.badgeId);
   res.json({ success: true });

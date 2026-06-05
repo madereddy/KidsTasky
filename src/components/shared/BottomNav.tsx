@@ -6,11 +6,12 @@ import { cn } from '../../lib/utils';
 interface BottomNavProps {
   activeTab: string;
   onTabSelect: (tab: string) => void;
-  role: 'parent' | 'kid';
+  role: 'parent' | 'kid' | 'coparent';
 }
 
 export function BottomNav({ activeTab, onTabSelect, role }: BottomNavProps) {
-  const tabs = role === 'parent'
+  const isParental = role === 'parent' || role === 'coparent';
+  const tabs = isParental
     ? [
         { id: 'home', label: 'Home', icon: Home },
         { id: 'calendar', label: 'Cal', icon: Calendar },

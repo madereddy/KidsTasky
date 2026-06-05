@@ -12,8 +12,10 @@ describe('CalendarMonthView', () => {
         events={[]}
         currentMonth={new Date('2026-04-01')}
         onDayClick={() => {}}
+        onEventClick={() => {}}
         memberColorMap={{}}
         forecast={[]}
+        temperatureUnit="celsius"
       />
     );
     expect(screen.getByText('Sun')).toBeInTheDocument();
@@ -31,8 +33,10 @@ describe('CalendarMonthView', () => {
         events={events as any}
         currentMonth={new Date('2026-04-15T12:00:00')}
         onDayClick={() => {}}
+        onEventClick={() => {}}
         memberColorMap={{ kid1: '#ff0000' }}
         forecast={[]}
+        temperatureUnit="celsius"
       />
     );
     const chip = screen.getByText('Soccer');

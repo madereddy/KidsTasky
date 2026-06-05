@@ -9,14 +9,15 @@ import { TemperatureUnitPref, TimeFormatPref, formatTimeWithPrefs, toDisplayTemp
 interface Props {
   events: CalendarEvent[];
   day: Date;
-  onEventClick?: (event: CalendarEvent) => void;
+  onEventClick: (event: CalendarEvent) => void;
   memberColorMap: Record<string, string>;
-  onTimeSlotClick?: (time: string) => void;
+  onTimeSlotClick: (time: string) => void;
   dayMeals?: MealPlanWithRecipe[];
   weatherEntry?: DailyForecast;
-  temperatureUnit?: TemperatureUnitPref;
+  temperatureUnit: TemperatureUnitPref;
   timeFormat?: TimeFormatPref;
   timezone?: string;
+  userRole?: 'parent' | 'kid' | 'coparent';
 }
 
 const GRID_HEIGHT = 960;

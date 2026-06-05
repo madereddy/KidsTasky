@@ -32,10 +32,10 @@ type WallFilter = 'today' | 'week' | 'allday';
 
 interface Props {
   parentId: string;
-  kids: UserProfile[];
-  memberColorMap: Record<string, string>;
+  kids?: UserProfile[];
+  memberColorMap?: Record<string, string>;
   isLocked?: boolean;
-  userRole?: 'parent' | 'kid';
+  userRole?: 'parent' | 'kid' | 'coparent';
 }
 
 const VIEW_LABELS: { mode: ViewMode; label: string }[] = [
@@ -98,7 +98,7 @@ export function CalendarView(props: Props) {
   );
 }
 
-function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, userRole = 'parent' }: Props) {
+function CalendarViewInner({ parentId, kids = [], memberColorMap = {}, isLocked = false, userRole = 'parent' }: Props) {
   const calendarSelectionStorageKey = `kidtasker:calendar:selected:${parentId}`;
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -188,14 +188,18 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
       try {
         await Promise.allSettled([
           fetchEvents(),
-          settingsClientService.getCalendars(parentId).then(c => setSyncCalendars(c || [])),
-          settingsClientService.getCalendarVisibility().then(rows => {
-            const map: Record<string, boolean> = {};
-            if (Array.isArray(rows)) {
-              rows.forEach(r => map[r.calendarId] = Number(r.isVisible) === 1);
-            }
-            setCalendarVisibility(map);
-          }),
+          settingsClientService.getCalendars(parentId)
+            .then(c => setSyncCalendars(c || []))
+            .catch(err => clientLogger.errorWithException('calendar_fetch_calendars_failed', err, { parentId })),
+          settingsClientService.getCalendarVisibility()
+            .then(rows => {
+              const map: Record<string, boolean> = {};
+              if (Array.isArray(rows)) {
+                rows.forEach(r => map[r.calendarId] = Number(r.isVisible) === 1);
+              }
+              setCalendarVisibility(map);
+            })
+            .catch(err => clientLogger.errorWithException('calendar_fetch_visibility_failed', err, { parentId })),
           settingsClientService.getSettings(parentId).then(async (settings) => {
             if (!settings) return;
             setTimezone(settings.timezone || 'America/Chicago');
@@ -209,7 +213,7 @@ function CalendarViewInner({ parentId, kids, memberColorMap, isLocked = false, u
                 clientLogger.errorWithException('calendar_weather_fetch_failed', wxErr, { parentId });
               }
             }
-          })
+          }).catch(err => clientLogger.errorWithException('calendar_fetch_settings_failed', err, { parentId }))
         ]);
         
         // Secondary data for Wall Mode

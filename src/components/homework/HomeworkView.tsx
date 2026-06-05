@@ -9,7 +9,7 @@ import { useHomeworkController } from '../../hooks/useHomeworkController';
 interface Props {
   parentId: string;
   kids: UserProfile[];
-  userRole: 'parent' | 'kid';
+  userRole: 'parent' | 'kid' | 'coparent';
   currentUserId?: string;
 }
 
@@ -51,7 +51,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
           <h2 className="text-lg font-bold text-ui-primary">Homework</h2>
           {userRole === 'kid' && <p className="text-xs text-ui-muted">Quick Update</p>}
         </div>
-        {userRole === 'parent' && (
+        {(userRole === 'parent' || userRole === 'coparent') && (
           <button onClick={() => setShowAdd(true)} className="px-3 py-2 rounded-xl bg-blue-500 text-white text-sm font-semibold flex items-center gap-1.5">
             <Plus size={14} /> Add
           </button>
@@ -96,7 +96,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
                 >
                   {isHomeworkPending(item.id) ? 'Saving...' : (completionState === 'done' ? 'Undo Completion' : 'Mark Done')}
                 </button>
-                {userRole === 'parent' && (
+                {(userRole === 'parent' || userRole === 'coparent') && (
                   <>
                     <button
                       onClick={() => setEditingHomework(item)}
@@ -144,7 +144,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
         )}
         {visibleHomework.length === 0 && <p className="text-sm text-ui-muted">No homework yet.</p>}
       </div>
-      {showAdd && userRole === 'parent' && (
+      {showAdd && (userRole === 'parent' || userRole === 'coparent') && (
         <AddHomeworkModal
           kids={kids}
           onClose={() => setShowAdd(false)}
@@ -154,7 +154,7 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
           }}
         />
       )}
-      {editingHomework && userRole === 'parent' && (
+      {editingHomework && (userRole === 'parent' || userRole === 'coparent') && (
         <AddHomeworkModal
           kids={kids}
           titleLabel="Edit Homework"

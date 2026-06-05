@@ -49,7 +49,7 @@ export function useProfileSwitchController({
   const switchToKidProfile = useCallback(async (kid: UserProfile, pin: string) => {
     if (!profile || !user) return;
     const parentToken = localStorage.getItem('kidtasker_token') || '';
-    if (profile.role === 'parent' && parentToken) {
+    if ((profile.role === 'parent' || profile.role === 'coparent') && parentToken) {
       persistParentSession({ token: parentToken, user, profile });
     }
     setSwitchingProfileLabel(`Switching to ${kid.name}...`);
@@ -76,7 +76,7 @@ export function useProfileSwitchController({
     await settingsClientService.unlockDisplay(parentId, pin);
     localStorage.setItem('kidtasker_token', parentSession.token);
     const refreshed = await authService.getMe(parentSession.token);
-    const next = refreshed && refreshed.role === 'parent' ? refreshed : parentSession.profile;
+    const next = refreshed && (refreshed.role === 'parent' || refreshed.role === 'coparent') ? refreshed : parentSession.profile;
     setUser({ uid: next.uid, name: next.name, email: next.email });
     setProfile(next);
     setShowParentSwitchPin(false);

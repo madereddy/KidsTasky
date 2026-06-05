@@ -21,7 +21,7 @@ export type SyncNowResult = {
   updated: number;
 };
 
-function decryptConnection(conn: SyncConnection): SyncConnection {
+export function decryptConnection(conn: SyncConnection): SyncConnection {
   const key = getSecretKey();
   return {
     ...conn,
@@ -117,8 +117,9 @@ export const syncService = {
     return db.prepare('SELECT id, provider, createdAt, lastSyncAt, lastSyncStatus FROM sync_connections WHERE parentId = ?').all(parentId);
   },
 
-  getConnectionById: (id: string) => {
-    return db.prepare('SELECT * FROM sync_connections WHERE id = ?').get(id) as { parentId: string } | undefined;
+  getConnectionById: (id: string): SyncConnection | null => {
+    const row = db.prepare('SELECT * FROM sync_connections WHERE id = ?').get(id) as SyncConnection | undefined;
+    return row ? decryptConnection(row) : null;
   },
 
   deleteConnection: (id: string) => {

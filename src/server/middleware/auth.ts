@@ -34,7 +34,10 @@ export function getParentId(req: Request): string {
 export function requireRole(role: string) {
   return (req: Request, res: Response, next: NextFunction) => {
     const user = (req as any).user as { role?: string } | undefined;
-    if (!user || user.role !== role) {
+    const isParental = user?.role === 'parent' || user?.role === 'coparent';
+    const effectiveRole = isParental ? 'parent' : user?.role;
+
+    if (!user || (role === 'parent' ? !isParental : user.role !== role)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     next();

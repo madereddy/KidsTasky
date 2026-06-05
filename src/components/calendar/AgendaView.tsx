@@ -7,11 +7,12 @@ import { AvatarDisplay } from '../shared/AvatarPicker';
 interface Props {
   events: CalendarEvent[];
   startDate: Date;
-  onEventClick?: (event: CalendarEvent) => void;
+  onEventClick: (event: CalendarEvent) => void;
   memberColorMap: Record<string, string>;
-  members?: UserProfile[];
+  members: UserProfile[];
   timeFormat?: TimeFormatPref;
   timezone?: string;
+  userRole?: 'parent' | 'kid' | 'coparent';
 }
 
 export function AgendaView({

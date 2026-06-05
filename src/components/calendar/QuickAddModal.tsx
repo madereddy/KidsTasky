@@ -18,6 +18,7 @@ interface Props {
   parentId: string;
   defaultDate?: Date;
   defaultStartTime?: string;
+  userRole?: 'parent' | 'kid' | 'coparent';
 }
 
 type TabType = 'event' | 'task' | 'list';

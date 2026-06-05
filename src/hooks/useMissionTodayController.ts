@@ -34,7 +34,7 @@ export function useMissionTodayController({
 
     // 1. Process Tasks
     tasks.forEach(task => {
-      const isAssigned = task.assignedKidId === profile.uid || profile.role === 'parent';
+      const isAssigned = task.assignedKidId === profile.uid || (profile.role === 'parent' || profile.role === 'coparent');
       if (!isAssigned || task.status === 'archived') return;
 
       const taskCompletions = completions.filter(c => c.taskId === task.id && c.approvalStatus !== 'rejected');

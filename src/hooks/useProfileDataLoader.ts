@@ -41,7 +41,7 @@ export function useProfileDataLoader({
       options?.fastKidSwitch && profile.role === 'kid'
         ? Promise.resolve(kidsRef.current)
         : userService.getKidsForParent(parentId).catch(() => []),
-      profile.role === 'parent'
+      (profile.role === 'parent' || profile.role === 'coparent')
         ? settingsClientService.getSettings(parentId).catch(() => null)
         : Promise.resolve(null),
     ]);
@@ -49,7 +49,7 @@ export function useProfileDataLoader({
     setCategories(cats || []);
     if (familyKids && familyKids.length > 0) setKids(familyKids || []);
 
-    if (profile.role === 'parent' && settings) {
+    if ((profile.role === 'parent' || profile.role === 'coparent') && settings) {
       setIsLocked(Boolean(settings.isLocked));
       setSleepStart(settings.sleepStart);
       setSleepEnd(settings.sleepEnd);

@@ -267,7 +267,7 @@ router.use((req, res, next) => {
       if (res.statusCode >= 200 && res.statusCode < 300) {
         const user = (req as any).user;
         if (user) {
-          const parentId = user.role === 'parent' ? user.uid : user.parentId;
+          const parentId = (user.role === 'parent' || user.role === 'coparent') ? (user.parentId || user.uid) : user.parentId;
           if (parentId) {
             // Safely compute an entity hint from the path (e.g., '/tasks/' -> 'tasks')
             const pathParts = req.path.split('/').filter(Boolean);

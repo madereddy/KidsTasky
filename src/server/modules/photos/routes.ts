@@ -21,7 +21,7 @@ export const photosRouter = Router();
 photosRouter.get('/photos/file/:filename', requireAuth, (req, res) => {
   const filename = req.params.filename as string;
   const caller = (req as any).user as { uid: string; role: string; parentId: string };
-  const userParentId = caller.role === 'parent' ? caller.uid : caller.parentId;
+  const userParentId = (caller.role === 'parent' || caller.role === 'coparent') ? (caller.parentId || caller.uid) : caller.parentId;
 
   // Find photo by filename to verify family ownership
   const apiUrl = `/api/photos/file/${filename}`;

@@ -10,10 +10,11 @@ interface Props {
   events: CalendarEvent[];
   currentMonth: Date;
   onDayClick: (date: Date) => void;
-  onEventClick?: (event: CalendarEvent) => void;
+  onEventClick: (event: CalendarEvent) => void;
   memberColorMap: Record<string, string>;
-  forecast?: DailyForecast[];
-  temperatureUnit?: TemperatureUnitPref;
+  forecast: DailyForecast[];
+  temperatureUnit: TemperatureUnitPref;
+  userRole?: 'parent' | 'kid' | 'coparent';
 }
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

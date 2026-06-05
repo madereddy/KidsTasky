@@ -14,7 +14,7 @@ export interface HomeworkProofPrompt {
 interface UseHomeworkControllerOptions {
   parentId: string;
   kids: UserProfile[];
-  userRole: 'parent' | 'kid';
+  userRole: 'parent' | 'kid' | 'coparent';
   currentUserId?: string;
 }
 
@@ -56,7 +56,7 @@ export function useHomeworkController({
   }, [load]);
 
   const visibleHomework = useMemo(() => {
-    if (userRole === 'parent') return homework;
+    if (userRole === 'parent' || userRole === 'coparent') return homework;
     return homework.filter((item) => !item.assignedToId || item.assignedToId === currentUserId);
   }, [currentUserId, homework, userRole]);
 

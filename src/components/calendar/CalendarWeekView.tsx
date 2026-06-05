@@ -9,12 +9,13 @@ import { TemperatureUnitPref, TimeFormatPref, formatTimeWithPrefs, formatDateTim
 interface Props {
   events: CalendarEvent[];
   weekStart: Date;
-  onEventClick?: (event: CalendarEvent) => void;
+  onEventClick: (event: CalendarEvent) => void;
   memberColorMap: Record<string, string>;
-  forecast?: DailyForecast[];
-  temperatureUnit?: TemperatureUnitPref;
+  forecast: DailyForecast[];
+  temperatureUnit: TemperatureUnitPref;
   timeFormat?: TimeFormatPref;
   timezone?: string;
+  userRole?: 'parent' | 'kid' | 'coparent';
 }
 
 const GRID_HEIGHT = 960;

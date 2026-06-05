@@ -1,0 +1,79 @@
+<h2>Making KidsTasky Easier to Use</h2>
+<p class="subtitle">Focusing on Frictionless Entry and Offline Reliability</p>
+
+<div class="section">
+  <h3>1. Frictionless Entry: "Tap-to-Refine"</h3>
+  <p>Instead of typing everything, the app suggests who, when, and where as you type.</p>
+  
+  <div class="mockup">
+    <div class="mockup-header">New Task: "Clean room"</div>
+    <div class="mockup-body" style="padding: 20px; background: #f8fafc;">
+      <div style="background: white; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 1.1rem; color: #1e293b;">Clean room</span>
+        <span style="border-left: 2px solid #3b82f6; height: 24px; animation: pulse 1s infinite;"></span>
+      </div>
+      
+      <div style="margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px;">
+        <span class="label">Assign to:</span>
+        <button class="mock-button" style="border-radius: 20px; background: #dbeafe; color: #1e40af; border: none; padding: 4px 12px;">👤 Jimmy</button>
+        <button class="mock-button" style="border-radius: 20px; background: #fef3c7; color: #92400e; border: none; padding: 4px 12px;">👤 Sarah</button>
+      </div>
+      
+      <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px;">
+        <span class="label">Time:</span>
+        <button class="mock-button" style="border-radius: 20px; background: #f1f5f9; border: 1px solid #e2e8f0; padding: 4px 12px;">⏰ 6:00 PM</button>
+        <button class="mock-button" style="border-radius: 20px; background: #f1f5f9; border: 1px solid #e2e8f0; padding: 4px 12px;">⏰ Tomorrow</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>2. Offline Reliability: "Full Interaction"</h3>
+  <p>Check off items in the store without signal. They sync automatically when you're back online.</p>
+
+  <div class="mockup">
+    <div class="mockup-header">Shopping List (Offline Mode)</div>
+    <div class="mockup-body" style="padding: 20px; background: #f8fafc;">
+      <div style="background: #34d399; color: white; padding: 4px 12px; border-radius: 4px; font-size: 0.8rem; display: inline-block; margin-bottom: 12px;">
+        ✓ Offline Changes (2)
+      </div>
+      
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 8px; background: white; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); opacity: 0.6;">
+          <input type="checkbox" checked disabled>
+          <span style="text-decoration: line-through;">Milk</span>
+          <span class="label" style="margin-left: auto; color: #10b981;">SYNCING...</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 8px; background: white; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+          <input type="checkbox">
+          <span>Eggs</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="entry" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Prioritize Smart Entry</h3>
+      <p>Build the "Tap-to-Refine" system first to make adding tasks faster.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="offline" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Prioritize Offline Sync</h3>
+      <p>Ensure checking items off works anywhere, even in the "Milk Aisle Dead Zone."</p>
+    </div>
+  </div>
+  <div class="option" data-choice="both" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Do Both!</h3>
+      <p>These features together make the app feel way more professional.</p>
+    </div>
+  </div>
+</div>

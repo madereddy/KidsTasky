@@ -12,7 +12,7 @@ const REMINDER_LABELS: Record<number, string> = { 0: 'At time', 5: '5 min before
 interface Props {
   event: CalendarEvent;
   kids: UserProfile[];
-  userRole: 'parent' | 'kid';
+  userRole: 'parent' | 'kid' | 'coparent';
   onClose: () => void;
   onUpdated: () => void;
 }

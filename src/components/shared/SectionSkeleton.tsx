@@ -10,7 +10,7 @@ import {
 } from './Skeleton';
 
 interface SectionSkeletonProps {
-  role: 'parent' | 'kid';
+  role: 'parent' | 'kid' | 'coparent';
   activeSection: string;
 }
 

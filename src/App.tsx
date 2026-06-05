@@ -673,7 +673,7 @@ export default function App() {
                 <Rocket className={cn("w-6 h-6", currentTheme.vocab?.darkMode ? "text-white" : "text-white")} />
               </div>
               <h1 className={cn("text-xl font-bold tracking-tight hidden sm:block", currentTheme.vocab?.textPrimary || "text-ui-primary")}>
-                {profile.role === 'parent' ? 'Family Hub' : currentTheme.vocab?.hub || 'My Chores'}
+                {(profile.role === 'parent' || profile.role === 'coparent') ? 'Family Hub' : currentTheme.vocab?.hub || 'My Chores'}
               </h1>
               {isOffline && (
                 <div className="flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full animate-pulse ml-2 whitespace-nowrap">
@@ -690,7 +690,7 @@ export default function App() {
             
             <div className="h-8 w-[1px] bg-ui-soft-3 hidden sm:block" />
 
-            {profile?.role === 'parent' && (
+            {(profile?.role === 'parent' || profile?.role === 'coparent') && (
               <nav className={cn("hidden md:flex gap-1 p-1 rounded-2xl", isDarkTheme ? "bg-ui-dark-50" : "bg-ui-soft-2")}>
                 <button
                   onClick={() => goToSection('home')}
@@ -793,7 +793,7 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            {profile?.role === 'parent' && isLocked && (
+            {(profile?.role === 'parent' || profile?.role === 'coparent') && isLocked && (
               <button
                 onClick={() => setShowUnlockPrompt(true)}
                 className={cn(
@@ -809,7 +809,7 @@ export default function App() {
                 <span className="text-xs font-black uppercase tracking-[0.18em]">Locked</span>
               </button>
             )}
-            {profile?.role === 'parent' && (
+            {(profile?.role === 'parent' || profile?.role === 'coparent') && (
               <button
                 onClick={() => {
                   if (isLocked) {
@@ -902,7 +902,7 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6">
-        {profile.role === 'parent' && isLocked && (
+        {(profile.role === 'parent' || profile.role === 'coparent') && isLocked && (
           <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
             Display is locked in read-only mode. Calendar and profiles stay visible, but parent edits are disabled until unlock.
           </div>
@@ -924,7 +924,7 @@ export default function App() {
           </Suspense>
         ) : (
           <>
-            {profile.role === 'parent' && activeSection === 'home' && (
+            {(profile.role === 'parent' || profile.role === 'coparent') && activeSection === 'home' && (
               <Suspense fallback={<SectionSkeleton role={(profile.role as string) === 'kid' ? 'kid' : 'parent'} activeSection="home" />}>
                 <WallHome
                   parentId={familyParentId}
@@ -937,7 +937,7 @@ export default function App() {
                 />
               </Suspense>
             )}
-            {profile.role === 'parent' && activeSection === 'manage' && (
+            {(profile.role === 'parent' || profile.role === 'coparent') && activeSection === 'manage' && (
               <div className="space-y-4">
                 <div className="mb-4">
                   <button
@@ -955,7 +955,7 @@ export default function App() {
                 </Suspense>
               </div>
             )}
-            {profile.role === 'parent' && activeSection === 'calendar' && (
+            {(profile.role === 'parent' || profile.role === 'coparent') && activeSection === 'calendar' && (
               <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="calendar" />}>
                 <CalendarView 
                   parentId={familyParentId} 
@@ -966,7 +966,7 @@ export default function App() {
                 />
               </Suspense>
             )}
-            {profile.role === 'parent' && activeSection === 'tasks' && (
+            {(profile.role === 'parent' || profile.role === 'coparent') && activeSection === 'tasks' && (
               <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="tasks" />}>
                 <ParentTasksWorkspace
                   parentId={familyParentId}
@@ -979,17 +979,17 @@ export default function App() {
                 />
               </Suspense>
             )}
-            {profile.role === 'parent' && activeSection === 'meals' && (
+            {(profile.role === 'parent' || profile.role === 'coparent') && activeSection === 'meals' && (
               <Suspense fallback={<SectionSkeleton role="parent" activeSection="meals" />}>
                 <MealPlanView parentId={familyParentId} />
               </Suspense>
             )}
-            {profile.role === 'parent' && activeSection === 'shopping' && (
+            {(profile.role === 'parent' || profile.role === 'coparent') && activeSection === 'shopping' && (
               <Suspense fallback={<SectionSkeleton role="parent" activeSection="shopping" />}>
                 <ShoppingView parentId={familyParentId} />
               </Suspense>
             )}
-            {profile.role === 'parent' && activeSection === 'routines' && (
+            {(profile.role === 'parent' || profile.role === 'coparent') && activeSection === 'routines' && (
               <Suspense fallback={<SectionSkeleton role="parent" activeSection="routines" />}>
                 <RoutinesView parentId={familyParentId} />
               </Suspense>
@@ -1041,7 +1041,7 @@ export default function App() {
           }}
         />
       )}
-      {profile.role === 'parent' && (
+      {(profile.role === 'parent' || profile.role === 'coparent') && (
         <ToolsMenu
           activeSection={activeSection}
           isOpen={showToolsMenu}
@@ -1063,18 +1063,25 @@ export default function App() {
         />
       )}
       {profile.role === "parent" && showSettings && (
-        <SettingsView
-          parentId={familyParentId}
-          onClose={() => setShowSettings(false)}
-          onLockNow={async () => {
-            await settingsClientService.lockDisplay(familyParentId);
-            setIsLocked(true);
-            setShowSettings(false);
-          }}
-          onPreviewScreensaver={() => setScreensaverPreview(true)}
-          currentThemeId={profile.themeId || 'space_commander'}
-          onThemeChange={(themeId) => setProfile(prev => prev ? { ...prev, themeId } : prev)}
-        />
+        <Suspense fallback={<div className="fixed inset-0 z-[150] bg-white/80 backdrop-blur-md flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin" />
+            <p className="text-sm font-bold text-sky-600 animate-pulse uppercase tracking-widest">Loading Settings...</p>
+          </div>
+        </div>}>
+          <SettingsView
+            parentId={familyParentId}
+            onClose={() => setShowSettings(false)}
+            onLockNow={async () => {
+              await settingsClientService.lockDisplay(familyParentId);
+              setIsLocked(true);
+              setShowSettings(false);
+            }}
+            onPreviewScreensaver={() => setScreensaverPreview(true)}
+            currentThemeId={profile.themeId || 'space_commander'}
+            onThemeChange={(themeId) => setProfile(prev => prev ? { ...prev, themeId } : prev)}
+          />
+        </Suspense>
       )}
       {pendingKidSwitch && (
         <div className="fixed inset-0 z-[210] bg-black/60 flex items-center justify-center p-4">

@@ -18,6 +18,7 @@ interface Props {
   onClose: () => void;
   onApply: (template: RoutineTemplate) => void;
   onRefresh: () => void;
+  userRole?: 'parent' | 'kid' | 'coparent';
 }
 
 export function RoutineTemplatesModal({ parentId, kids, templates, onClose, onApply, onRefresh }: Props) {

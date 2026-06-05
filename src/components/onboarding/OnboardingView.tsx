@@ -117,7 +117,7 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
             onClick={() => setRole('parent')}
             className={cn(
               "p-4 rounded-3xl border-2 transition-all text-left flex flex-col gap-3",
-              role === 'parent' ? "border-blue-500 bg-blue-500/10 glow-blue" : "border-ui-dark bg-ui-dark-50"
+              (role === 'parent' || role === 'coparent') ? "border-blue-500 bg-blue-500/10 glow-blue" : "border-ui-dark bg-ui-dark-50"
             )}
           >
             <div className={cn("p-2 rounded-xl w-fit", role === 'parent' ? "bg-blue-500 text-white" : "bg-ui-dark-2 text-ui-muted")}>

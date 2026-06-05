@@ -9,11 +9,12 @@ import imaps from 'imap-simple';
 import { simpleParser } from 'mailparser';
 import ical from 'node-ical';
 import { magicService } from './modules/magic/service.js';
-import { syncService } from './modules/sync/service.js';
+import { syncService, decryptConnection } from './modules/sync/service.js';
 import { sendPushToUser } from './modules/notifications/pushService.js';
 import { sendEmail } from './modules/notifications/emailService.js';
 import { ensurePhotosUploadsDir, getSafePhotoFilename, resolvePhotoUploadPath } from './modules/photos/storage.js';
 import { logger } from './lib/logger.js';
+import { SyncConnection } from '../types.js';
 
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
@@ -452,7 +453,8 @@ export function startBackgroundWorker(io?: SocketServer) {
       logger.info({ nextAllowedAt: new Date(syncBackoff.nextAllowedAt).toISOString() }, 'worker_google_sync_skipped_backoff');
     } else {
       try {
-        const connections = db.prepare("SELECT * FROM sync_connections WHERE provider = 'google' AND refreshToken IS NOT NULL").all() as any[];
+        const rows = db.prepare("SELECT * FROM sync_connections WHERE provider = 'google' AND refreshToken IS NOT NULL").all() as SyncConnection[];
+        const connections = rows.map(decryptConnection);
         let anyRateLimit = false;
         for (const conn of connections) {
           try {
