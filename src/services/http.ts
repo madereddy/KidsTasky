@@ -1,5 +1,6 @@
 export const API_BASE = '/api';
 const REQUEST_TIMEOUT_MS = 15000;
+import { pushOfflineAction } from '../lib/offline-queue';
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) {
@@ -94,14 +95,32 @@ export async function fetchAPI(endpoint: string, options?: RequestInit, retries 
     } catch (err: any) {
       if (timeout) clearTimeout(timeout);
       if (err instanceof HttpError) throw err;
-      if (err?.name === 'AbortError' && attempt >= retries) {
-        throw new HttpError(0, `Network timeout after ${REQUEST_TIMEOUT_MS / 1000}s`);
-      }
+
       if (attempt < retries) {
         await new Promise((r) => setTimeout(r, 500 * Math.pow(2, attempt)));
         continue;
       }
-      throw new HttpError(0, 'Network error: unable to reach server');
+
+      const httpErr = new HttpError(
+        0,
+        err?.name === 'AbortError'
+          ? `Network timeout after ${REQUEST_TIMEOUT_MS / 1000}s`
+          : 'Network error: unable to reach server'
+      );
+
+      // Intercept network failures and queue mutation requests
+      if (options?.method && options.method !== 'GET') {
+        pushOfflineAction({
+          type: options.method === 'POST' ? 'CREATE' : (options.method === 'DELETE' ? 'DELETE' : 'UPDATE'),
+          entity: endpoint.includes('tasks') ? 'task' : (endpoint.includes('completions') ? 'completion' : 'list_item'),
+          endpoint,
+          method: options.method,
+          body: options.body as string || '',
+          description: `Auto-queued ${options.method} to ${endpoint}`
+        });
+      }
+
+      throw httpErr;
     }
   }
 }
