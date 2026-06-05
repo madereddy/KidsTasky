@@ -5,6 +5,8 @@ type QuickListInputAnalysis = {
   cleanText: string;
   inferredStoreName?: string;
   inferredLocationName?: string;
+  inferredStoreNames: string[];
+  inferredLocationNames: string[];
   inferredExtraListIds: string[];
 };
 
@@ -52,7 +54,7 @@ export function analyzeQuickListInput(
 ): QuickListInputAnalysis {
   const trimmed = rawText.trim();
   if (!trimmed) {
-    return { cleanText: '', inferredExtraListIds: [] };
+    return { cleanText: '', inferredExtraListIds: [], inferredStoreNames: [], inferredLocationNames: [] };
   }
 
   const storeNames = options?.storeNames?.length ? options.storeNames : getDefaultStoreNames();
@@ -67,43 +69,73 @@ export function analyzeQuickListInput(
     const pTokens = tokenize(phrase);
     if (pTokens.length === 0) return false;
     
-    for (let i = 0; i <= currentIndices.length - pTokens.length; i++) {
+    let matchedAny = false;
+    // Keep checking for the same phrase multiple times if it exists (e.g. "Costco Costco")
+    let searchStart = 0;
+    while (searchStart <= currentIndices.length - pTokens.length) {
       let matches = true;
       for (let j = 0; j < pTokens.length; j++) {
-        if (normalizedTokens[currentIndices[i + j]] !== pTokens[j]) {
+        if (normalizedTokens[currentIndices[searchStart + j]] !== pTokens[j]) {
           matches = false;
           break;
         }
       }
       if (matches) {
-        currentIndices.splice(i, pTokens.length);
-        return true;
+        currentIndices.splice(searchStart, pTokens.length);
+        matchedAny = true;
+        // Don't increment searchStart, the next items have shifted down
+      } else {
+        searchStart++;
       }
     }
-    return false;
+    return matchedAny;
   };
 
-  let inferredStoreName: string | undefined;
-  for (const store of [...storeNames].sort((a, b) => b.length - a.length)) {
-    if (strip(store)) {
-      inferredStoreName = store;
-      break;
-    }
-  }
+  // To avoid shorter names matching parts of longer names incorrectly, 
+  // we must process ALL candidates (stores, locations, and list titles) 
+  // in descending order of their token count/length.
+  
+  // Combine all candidates into a unified list to process by longest match first.
+  // This prevents a shorter location (e.g., "School") from stealing tokens 
+  // from a longer list title (e.g., "School Bus").
+  type Candidate = {
+    type: 'store' | 'location' | 'list';
+    value: string;
+    id?: string;
+  };
 
-  let inferredLocationName: string | undefined;
-  for (const location of [...locationNames].sort((a, b) => b.length - a.length)) {
-    if (strip(location)) {
-      inferredLocationName = location;
-      break;
-    }
-  }
+  const candidates: Candidate[] = [
+    ...storeNames.map(s => ({ type: 'store', value: s } as Candidate)),
+    ...locationNames.map(l => ({ type: 'location', value: l } as Candidate)),
+    ...availableLists
+      .filter(l => l.id !== primaryListId)
+      .map(l => ({ type: 'list', value: l.title, id: l.id } as Candidate))
+  ];
 
+  // Sort by token count DESC, then length DESC
+  candidates.sort((a, b) => {
+    const aTokens = tokenize(a.value).length;
+    const bTokens = tokenize(b.value).length;
+    if (aTokens !== bTokens) return bTokens - aTokens;
+    return b.value.length - a.value.length;
+  });
+
+  const inferredStoreNames: string[] = [];
+  const inferredLocationNames: string[] = [];
   const inferredExtraListIds: string[] = [];
-  for (const list of [...availableLists].sort((a, b) => b.title.length - a.title.length)) {
-    if (list.id === primaryListId) continue;
-    if (strip(list.title)) {
-      inferredExtraListIds.push(list.id);
+
+  // 1. Always strip the primary list title first if it exists (highest priority)
+  const primaryList = availableLists.find(l => l.id === primaryListId);
+  if (primaryList) {
+    strip(primaryList.title);
+  }
+
+  // 2. Process all other candidates in sorted order
+  for (const candidate of candidates) {
+    if (strip(candidate.value)) {
+      if (candidate.type === 'store') inferredStoreNames.push(candidate.value);
+      if (candidate.type === 'location') inferredLocationNames.push(candidate.value);
+      if (candidate.type === 'list' && candidate.id) inferredExtraListIds.push(candidate.id);
     }
   }
 
@@ -111,8 +143,10 @@ export function analyzeQuickListInput(
 
   return {
     cleanText,
-    inferredStoreName,
-    inferredLocationName,
+    inferredStoreNames,
+    inferredLocationNames,
     inferredExtraListIds: Array.from(new Set(inferredExtraListIds)),
+    inferredStoreName: inferredStoreNames[0],
+    inferredLocationName: inferredLocationNames[0],
   };
 }

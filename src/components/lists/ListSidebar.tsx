@@ -88,10 +88,28 @@ export function ListSidebar({
     [availableLists, primaryListId],
   );
 
-  const resolvedExtraListIds = useMemo(
-    () => Array.from(new Set([...extraTargetListIds, ...quickInputAnalysis.inferredExtraListIds])),
-    [extraTargetListIds, quickInputAnalysis.inferredExtraListIds],
-  );
+  const resolvedExtraListIds = useMemo(() => {
+    const listNamesAsLocations = new Set(
+      quickInputAnalysis.inferredLocationNames.map((n) => n.toLowerCase())
+    );
+    const matchedListIdsFromLocations = availableLists
+      .filter((list) => listNamesAsLocations.has(list.title.toLowerCase()))
+      .map((list) => list.id);
+
+    return Array.from(
+      new Set([
+        ...extraTargetListIds,
+        ...quickInputAnalysis.inferredExtraListIds,
+        ...matchedListIdsFromLocations,
+      ])
+    ).filter((id) => id !== primaryListId);
+  }, [
+    extraTargetListIds,
+    quickInputAnalysis.inferredExtraListIds,
+    quickInputAnalysis.inferredLocationNames,
+    availableLists,
+    primaryListId,
+  ]);
 
   const getTransferOptions = (itemListId?: string) => (
     availableLists.filter((list) => list.id !== (itemListId ?? primaryListId))
@@ -118,8 +136,12 @@ export function ListSidebar({
     const targetListIds = primaryListId
       ? [primaryListId, ...resolvedExtraListIds]
       : resolvedExtraListIds;
-    const finalStore = selectedStoreChip || quickInputAnalysis.inferredStoreName;
-    const finalLocation = selectedLocationChip || quickInputAnalysis.inferredLocationName;
+    
+    const inferredStore = quickInputAnalysis.inferredStoreNames[quickInputAnalysis.inferredStoreNames.length - 1];
+    const inferredLocation = quickInputAnalysis.inferredLocationNames[quickInputAnalysis.inferredLocationNames.length - 1];
+    
+    const finalStore = selectedStoreChip || inferredStore;
+    const finalLocation = selectedLocationChip || inferredLocation;
 
     if (onAddItemToLists && targetListIds.length > 1) {
       onAddItemToLists(targetListIds, quickInputAnalysis.cleanText, finalStore || undefined, finalLocation || undefined);
@@ -278,14 +300,20 @@ export function ListSidebar({
             </div>
           )}
 
-          {(quickInputAnalysis.inferredExtraListIds.length > 0 || quickInputAnalysis.inferredStoreName || quickInputAnalysis.inferredLocationName) && (
+          {(quickInputAnalysis.inferredExtraListIds.length > 0 || 
+            quickInputAnalysis.inferredStoreNames.length > 0 || 
+            quickInputAnalysis.inferredLocationNames.length > 0) && (
             <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-semibold text-sky-800">
               <span>Quick match:</span>
               {quickInputAnalysis.inferredExtraListIds.length > 0 && (
                 <span className="ml-2">lists {availableLists.filter((list) => quickInputAnalysis.inferredExtraListIds.includes(list.id)).map((list) => list.title).join(', ')}</span>
               )}
-              {quickInputAnalysis.inferredStoreName && <span className="ml-2">store {quickInputAnalysis.inferredStoreName}</span>}
-              {quickInputAnalysis.inferredLocationName && <span className="ml-2">location {quickInputAnalysis.inferredLocationName}</span>}
+              {quickInputAnalysis.inferredStoreNames.length > 0 && (
+                <span className="ml-2">stores {quickInputAnalysis.inferredStoreNames.join(', ')}</span>
+              )}
+              {quickInputAnalysis.inferredLocationNames.length > 0 && (
+                <span className="ml-2">locations {quickInputAnalysis.inferredLocationNames.join(', ')}</span>
+              )}
             </div>
           )}
 
