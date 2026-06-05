@@ -7,6 +7,8 @@ import { StoreFilterBar } from './StoreFilterBar';
 import { analyzeQuickListInput } from '../../lib/quickListInput';
 import { useQuickItemTemplates } from '../../hooks/useQuickItemTemplates';
 import { QuickItemTemplatesPanel } from './QuickItemTemplatesPanel';
+import { useHouseholdListPreferences } from '../../hooks/useHouseholdListPreferences';
+import { HouseholdTagManager } from '../shared/HouseholdTagManager';
 
 interface Props {
   parentId: string;
@@ -22,7 +24,6 @@ export function ShoppingView({ parentId }: Props) {
   const [runMode, setRunMode] = useState<'queue' | 'run'>('queue');
   const [editingListTitle, setEditingListTitle] = useState('');
   const {
-    lists,
     shoppingLists,
     shoppingItems,
     selectedListId,
@@ -38,7 +39,16 @@ export function ShoppingView({ parentId }: Props) {
     deleteItem,
     frequentItems,
   } = useListsController({ parentId, preferredCategory: 'shopping' });
-  const { templates, saveTemplate, removeTemplate, pinTemplate } = useQuickItemTemplates();
+  const { templates, saveTemplate, removeTemplate, pinTemplate } = useQuickItemTemplates('shopping');
+  const {
+    storeNames,
+    customStoreNames,
+    locationOptions,
+    customLocationNames,
+    saveStoreNames,
+    saveLocationNames,
+    saving: savingPreferences,
+  } = useHouseholdListPreferences(parentId);
 
   useEffect(() => {
     if (!selectedListId && shoppingLists.length > 0) {
@@ -72,8 +82,11 @@ export function ShoppingView({ parentId }: Props) {
   }, [activeStoreFilter, shoppingItems]);
 
   const quickInputAnalysis = useMemo(
-    () => analyzeQuickListInput(newItemText, lists, selectedListId),
-    [newItemText, lists, selectedListId],
+    () => analyzeQuickListInput(newItemText, shoppingLists, selectedListId, {
+      storeNames,
+      locationNames: locationOptions.map((option) => option.label),
+    }),
+    [newItemText, shoppingLists, selectedListId, storeNames, locationOptions],
   );
 
   const resolvedExtraListIds = useMemo(
@@ -92,7 +105,7 @@ export function ShoppingView({ parentId }: Props) {
     return Array.from(groups.entries());
   }, [filteredItems, listTitlesById]);
 
-  const getTransferOptions = (itemListId: string) => lists.filter((list) => list.id !== itemListId);
+  const getTransferOptions = (itemListId: string) => shoppingLists.filter((list) => list.id !== itemListId);
 
   const handleCreateList = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,15 +174,6 @@ export function ShoppingView({ parentId }: Props) {
               {copied ? <ClipboardCheck size={16} /> : <Clipboard size={16} />}
               {copied ? 'Copied' : 'Copy queue'}
             </button>
-            {selectedList && (
-              <button
-                type="button"
-                onClick={() => void updateList(selectedList.id, selectedList.title, 'routine', 0, selectedList.locationName)}
-                className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 transition-colors hover:bg-sky-100"
-              >
-                Move to routines
-              </button>
-            )}
             {selectedList && (
               <button
                 type="button"
@@ -294,7 +298,7 @@ export function ShoppingView({ parentId }: Props) {
               <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-semibold text-sky-800">
                 <span>Quick match:</span>
                 {quickInputAnalysis.inferredExtraListIds.length > 0 && (
-                  <span className="ml-2">lists {lists.filter((list) => quickInputAnalysis.inferredExtraListIds.includes(list.id)).map((list) => list.title).join(', ')}</span>
+                  <span className="ml-2">lists {shoppingLists.filter((list) => quickInputAnalysis.inferredExtraListIds.includes(list.id)).map((list) => list.title).join(', ')}</span>
                 )}
                 {quickInputAnalysis.inferredStoreName && <span className="ml-2">store {quickInputAnalysis.inferredStoreName}</span>}
                 {quickInputAnalysis.inferredLocationName && <span className="ml-2">location {quickInputAnalysis.inferredLocationName}</span>}
@@ -318,6 +322,27 @@ export function ShoppingView({ parentId }: Props) {
                 Add item
               </button>
             </form>
+
+            <div className="grid gap-3 lg:grid-cols-2">
+              <HouseholdTagManager
+                title="Shopping stores"
+                helperText="Add household stores for quick parsing and filtering."
+                values={customStoreNames}
+                placeholder="Publix"
+                addLabel="Add store"
+                disabled={savingPreferences}
+                onChange={saveStoreNames}
+              />
+              <HouseholdTagManager
+                title="Quick locations"
+                helperText="Optional tags for where shopping items belong after the run."
+                values={customLocationNames}
+                placeholder="Garage"
+                addLabel="Add location"
+                disabled={savingPreferences}
+                onChange={saveLocationNames}
+              />
+            </div>
           </div>
 
           <div className="rounded-[1.5rem] border border-ui bg-white p-4">

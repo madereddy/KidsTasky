@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { db } from '../../db.js';
 
-export type ProofTemplateKind = 'task' | 'homework' | 'list';
+export type ProofTemplateKind = 'task' | 'homework' | 'list' | 'shopping' | 'routine';
 export type ProofTemplate = {
   id: string;
   parentId: string;

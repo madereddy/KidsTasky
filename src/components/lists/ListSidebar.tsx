@@ -3,10 +3,11 @@ import React, { useMemo, useState } from 'react';
 import { X, Plus, Trash2, MapPin } from 'lucide-react';
 import { AppList, AppListItem } from '../../types';
 import { cn } from '../../lib/utils';
-import { COMMON_LOCATIONS, COMMON_STORES } from '../../constants';
+import { getDefaultLocationOptions, getDefaultStoreNames, HouseholdLocationOption } from '../../lib/householdListPreferences';
 import { analyzeQuickListInput } from '../../lib/quickListInput';
 import { useQuickItemTemplates } from '../../hooks/useQuickItemTemplates';
 import { QuickItemTemplatesPanel } from './QuickItemTemplatesPanel';
+import { ProofTemplateKind } from '../../services/proofTemplates';
 
 interface Props {
   listTitle: string;
@@ -24,6 +25,9 @@ interface Props {
   onDeleteItem?: (id: string) => void;
   onDeleteList?: () => void;
   inline?: boolean;
+  templateKind?: ProofTemplateKind;
+  storeNames?: string[];
+  locationOptions?: HouseholdLocationOption[];
 }
 
 export function ListSidebar({
@@ -42,6 +46,9 @@ export function ListSidebar({
   onDeleteItem,
   onDeleteList,
   inline,
+  templateKind = 'routine',
+  storeNames = getDefaultStoreNames(),
+  locationOptions = getDefaultLocationOptions(),
 }: Props) {
   const [newItemText, setNewItemText] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -49,7 +56,7 @@ export function ListSidebar({
   const [selectedLocationChip, setSelectedLocationChip] = useState<string | null>(null);
   const [extraTargetListIds, setExtraTargetListIds] = useState<string[]>([]);
   const [transferTargets, setTransferTargets] = useState<Record<string, string>>({});
-  const { templates, saveTemplate, removeTemplate, pinTemplate } = useQuickItemTemplates();
+  const { templates, saveTemplate, removeTemplate, pinTemplate } = useQuickItemTemplates(templateKind);
 
   if (!isOpen) return null;
 
@@ -58,8 +65,11 @@ export function ListSidebar({
     : 'fixed inset-y-0 right-0 w-80 bg-white shadow-2xl border-l z-40 transform transition-transform duration-300 flex flex-col';
 
   const quickInputAnalysis = useMemo(
-    () => analyzeQuickListInput(newItemText, availableLists as AppList[], primaryListId),
-    [newItemText, availableLists, primaryListId],
+    () => analyzeQuickListInput(newItemText, availableLists as AppList[], primaryListId, {
+      storeNames,
+      locationNames: locationOptions.map((option) => option.label),
+    }),
+    [newItemText, availableLists, primaryListId, storeNames, locationOptions],
   );
 
   const suggestions = useMemo(() => {
@@ -279,7 +289,7 @@ export function ListSidebar({
 
           <div className="flex flex-col gap-1.5">
             <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-              {COMMON_STORES.map((store) => (
+              {storeNames.map((store) => (
                 <button
                   key={store}
                   type="button"
@@ -297,7 +307,7 @@ export function ListSidebar({
               ))}
             </div>
             <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-              {COMMON_LOCATIONS.map((loc) => (
+              {locationOptions.map((loc) => (
                 <button
                   key={loc.id}
                   type="button"

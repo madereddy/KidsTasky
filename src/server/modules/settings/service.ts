@@ -1,5 +1,6 @@
 import { db } from '../../db.js';
 import { FamilySettings } from '../../../types.js';
+import { sanitizeLocationNames, sanitizeStoreNames } from '../../../lib/householdListPreferences.js';
 
 const DEFAULTS: Partial<FamilySettings> = {
   locationLat: 37.7749,
@@ -20,7 +21,22 @@ const DEFAULTS: Partial<FamilySettings> = {
   screensaverShuffle: false,
   screensaverDurationSec: 10,
   screensaverCaptions: true,
+  customStoreNames: [],
+  customLocationNames: [],
 };
+
+function parseJsonArray(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.filter((entry): entry is string => typeof entry === 'string');
+  }
+  if (typeof value !== 'string' || !value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === 'string') : [];
+  } catch {
+    return [];
+  }
+}
 
 export const settingsService = {
   getSettings: (parentId: string): FamilySettings => {
@@ -32,12 +48,18 @@ export const settingsService = {
       photoCleanupEnabled: Boolean((row as any).photoCleanupEnabled),
       googlePhotosEnabled: Boolean((row as any).googlePhotosEnabled),
       displayRotationEnabled: Boolean((row as any).displayRotationEnabled),
+      displayRotationInterval: Number((row as any).displayRotationInterval ?? DEFAULTS.displayRotationInterval),
+      displayRotationOrder: String((row as any).displayRotationOrder ?? DEFAULTS.displayRotationOrder),
       screensaverShuffle: Boolean((row as any).screensaverShuffle),
+      screensaverDurationSec: Number((row as any).screensaverDurationSec ?? DEFAULTS.screensaverDurationSec),
       screensaverCaptions: (row as any).screensaverCaptions !== undefined ? Boolean((row as any).screensaverCaptions) : true,
+      customStoreNames: sanitizeStoreNames(parseJsonArray((row as any).customStoreNames)),
+      customLocationNames: sanitizeLocationNames(parseJsonArray((row as any).customLocationNames)),
     };
   },
   saveSettings: (parentId: string, data: Partial<FamilySettings>) => {
-    const existing = db.prepare('SELECT * FROM family_settings WHERE parentId = ?').get(parentId) as FamilySettings | undefined;
+    const existingRow = db.prepare('SELECT parentId FROM family_settings WHERE parentId = ?').get(parentId) as { parentId?: string } | undefined;
+    const existing = existingRow ? settingsService.getSettings(parentId) : undefined;
     const merged = { ...DEFAULTS, ...(existing ?? {}), ...data, parentId };
     const payload = {
       parentId: merged.parentId,
@@ -54,15 +76,29 @@ export const settingsService = {
       photoCleanupIntervalHours: Math.max(1, Number(merged.photoCleanupIntervalHours ?? DEFAULTS.photoCleanupIntervalHours)),
       googlePhotosEnabled: merged.googlePhotosEnabled ? 1 : 0,
       googlePhotosAlbumId: merged.googlePhotosAlbumId ?? null,
+      displayRotationEnabled: merged.displayRotationEnabled ? 1 : 0,
+      displayRotationInterval: Math.max(5, Number(merged.displayRotationInterval ?? DEFAULTS.displayRotationInterval)),
+      displayRotationOrder: merged.displayRotationOrder ?? DEFAULTS.displayRotationOrder,
+      screensaverShuffle: merged.screensaverShuffle ? 1 : 0,
+      screensaverDurationSec: Math.max(5, Number(merged.screensaverDurationSec ?? DEFAULTS.screensaverDurationSec)),
+      screensaverCaptions: merged.screensaverCaptions === false ? 0 : 1,
+      customStoreNames: JSON.stringify(sanitizeStoreNames(merged.customStoreNames ?? [])),
+      customLocationNames: JSON.stringify(sanitizeLocationNames(merged.customLocationNames ?? [])),
     };
     db.prepare(`
       INSERT INTO family_settings (
         parentId, locationLat, locationLon, timezone, temperatureUnit, timeFormat, pin, sleepStart, sleepEnd, isLocked,
-        photoCleanupEnabled, photoCleanupIntervalHours, googlePhotosEnabled, googlePhotosAlbumId
+        photoCleanupEnabled, photoCleanupIntervalHours, googlePhotosEnabled, googlePhotosAlbumId,
+        displayRotationEnabled, displayRotationInterval, displayRotationOrder,
+        screensaverShuffle, screensaverDurationSec, screensaverCaptions,
+        customStoreNames, customLocationNames
       )
       VALUES (
         @parentId, @locationLat, @locationLon, @timezone, @temperatureUnit, @timeFormat, @pin, @sleepStart, @sleepEnd, @isLocked,
-        @photoCleanupEnabled, @photoCleanupIntervalHours, @googlePhotosEnabled, @googlePhotosAlbumId
+        @photoCleanupEnabled, @photoCleanupIntervalHours, @googlePhotosEnabled, @googlePhotosAlbumId,
+        @displayRotationEnabled, @displayRotationInterval, @displayRotationOrder,
+        @screensaverShuffle, @screensaverDurationSec, @screensaverCaptions,
+        @customStoreNames, @customLocationNames
       )
       ON CONFLICT(parentId) DO UPDATE SET
         locationLat = excluded.locationLat,
@@ -77,7 +113,15 @@ export const settingsService = {
         photoCleanupEnabled = excluded.photoCleanupEnabled,
         photoCleanupIntervalHours = excluded.photoCleanupIntervalHours,
         googlePhotosEnabled = excluded.googlePhotosEnabled,
-        googlePhotosAlbumId = excluded.googlePhotosAlbumId
+        googlePhotosAlbumId = excluded.googlePhotosAlbumId,
+        displayRotationEnabled = excluded.displayRotationEnabled,
+        displayRotationInterval = excluded.displayRotationInterval,
+        displayRotationOrder = excluded.displayRotationOrder,
+        screensaverShuffle = excluded.screensaverShuffle,
+        screensaverDurationSec = excluded.screensaverDurationSec,
+        screensaverCaptions = excluded.screensaverCaptions,
+        customStoreNames = excluded.customStoreNames,
+        customLocationNames = excluded.customLocationNames
     `).run(payload);
   },
   setLocked: (parentId: string, isLocked: boolean) => {

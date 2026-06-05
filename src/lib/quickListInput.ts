@@ -1,5 +1,5 @@
-import { COMMON_LOCATIONS, COMMON_STORES } from '../constants';
 import { AppList } from '../types';
+import { getDefaultLocationOptions, getDefaultStoreNames } from './householdListPreferences';
 
 type QuickListInputAnalysis = {
   cleanText: string;
@@ -48,30 +48,53 @@ export function analyzeQuickListInput(
   rawText: string,
   availableLists: AppList[],
   primaryListId?: string | null,
+  options?: { storeNames?: string[]; locationNames?: string[] },
 ): QuickListInputAnalysis {
   const trimmed = rawText.trim();
   if (!trimmed) {
     return { cleanText: '', inferredExtraListIds: [] };
   }
 
-  let workingTokens = tokenize(trimmed);
+  const storeNames = options?.storeNames?.length ? options.storeNames : getDefaultStoreNames();
+  const locationNames = options?.locationNames?.length ? options.locationNames : getDefaultLocationOptions().map((option) => option.label);
+
+  const rawTokens = trimmed.split(/\s+/).filter(Boolean);
+  const normalizedTokens = rawTokens.map(t => t.toLowerCase());
+
+  let currentIndices = Array.from(rawTokens.keys());
+
+  const strip = (phrase: string) => {
+    const pTokens = tokenize(phrase);
+    if (pTokens.length === 0) return false;
+    
+    for (let i = 0; i <= currentIndices.length - pTokens.length; i++) {
+      let matches = true;
+      for (let j = 0; j < pTokens.length; j++) {
+        if (normalizedTokens[currentIndices[i + j]] !== pTokens[j]) {
+          matches = false;
+          break;
+        }
+      }
+      if (matches) {
+        currentIndices.splice(i, pTokens.length);
+        return true;
+      }
+    }
+    return false;
+  };
 
   let inferredStoreName: string | undefined;
-  for (const store of [...COMMON_STORES].sort((a, b) => b.length - a.length)) {
-    const { matched, nextTokens } = stripPhrase(workingTokens, store);
-    if (matched) {
+  for (const store of [...storeNames].sort((a, b) => b.length - a.length)) {
+    if (strip(store)) {
       inferredStoreName = store;
-      workingTokens = nextTokens;
       break;
     }
   }
 
   let inferredLocationName: string | undefined;
-  for (const location of [...COMMON_LOCATIONS].sort((a, b) => b.label.length - a.label.length)) {
-    const { matched, nextTokens } = stripPhrase(workingTokens, location.label);
-    if (matched) {
-      inferredLocationName = location.label;
-      workingTokens = nextTokens;
+  for (const location of [...locationNames].sort((a, b) => b.length - a.length)) {
+    if (strip(location)) {
+      inferredLocationName = location;
       break;
     }
   }
@@ -79,14 +102,12 @@ export function analyzeQuickListInput(
   const inferredExtraListIds: string[] = [];
   for (const list of [...availableLists].sort((a, b) => b.title.length - a.title.length)) {
     if (list.id === primaryListId) continue;
-    const { matched, nextTokens } = stripPhrase(workingTokens, list.title);
-    if (matched) {
+    if (strip(list.title)) {
       inferredExtraListIds.push(list.id);
-      workingTokens = nextTokens;
     }
   }
 
-  const cleanText = workingTokens.join(' ').trim() || trimmed;
+  const cleanText = currentIndices.map(i => rawTokens[i]).join(' ').trim() || trimmed;
 
   return {
     cleanText,

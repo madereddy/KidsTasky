@@ -38,4 +38,29 @@ describe('Settings lock + sleep behavior', () => {
     expect(settings.sleepStart).toBe('22:00');
     expect(settings.sleepEnd).toBe('06:00');
   });
+
+  it('round-trips household quick tags and display settings', () => {
+    const parentId = 'parent_settings_quick_tags_test';
+    db.prepare('DELETE FROM family_settings WHERE parentId = ?').run(parentId);
+
+    settingsService.saveSettings(parentId, {
+      customStoreNames: ['Publix', 'Costco', 'Publix'],
+      customLocationNames: ['Baseball', 'Garage', 'Baseball'],
+      displayRotationEnabled: true,
+      displayRotationInterval: 45,
+      screensaverShuffle: true,
+      screensaverDurationSec: 20,
+      screensaverCaptions: false,
+    });
+
+    const settings = settingsService.getSettings(parentId);
+
+    expect(settings.customStoreNames).toEqual(['Publix', 'Costco']);
+    expect(settings.customLocationNames).toEqual(['Baseball', 'Garage']);
+    expect(settings.displayRotationEnabled).toBe(true);
+    expect(settings.displayRotationInterval).toBe(45);
+    expect(settings.screensaverShuffle).toBe(true);
+    expect(settings.screensaverDurationSec).toBe(20);
+    expect(settings.screensaverCaptions).toBe(false);
+  });
 });

@@ -26,6 +26,10 @@ async function createParentAuth() {
 describe('Settings lock API', () => {
   it('returns settings bootstrap payload in one call', async () => {
     const { token, parentId, email } = await createParentAuth();
+    settingsService.saveSettings(parentId, {
+      customStoreNames: ['Publix'],
+      customLocationNames: ['Baseball'],
+    });
 
     db.prepare(`
       INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken, createdAt, lastSyncAt, lastSyncStatus)
@@ -42,6 +46,8 @@ describe('Settings lock API', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.settings.parentId).toBe(parentId);
+    expect(res.body.settings.customStoreNames).toEqual(['Publix']);
+    expect(res.body.settings.customLocationNames).toEqual(['Baseball']);
     expect(Array.isArray(res.body.calendars)).toBe(true);
     expect(Array.isArray(res.body.calendarVisibility)).toBe(true);
     expect(Array.isArray(res.body.connections)).toBe(true);

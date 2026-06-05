@@ -1,6 +1,6 @@
-// src/components/shared/MissionTodayView.tsx
 import React, { useState, useMemo } from 'react';
 import { useMissionTodayController } from '../../hooks/useMissionTodayController';
+import { useHouseholdListPreferences } from '../../hooks/useHouseholdListPreferences';
 import { SwipeableRow } from './SwipeableRow';
 import { LocationFilterBar } from './LocationFilterBar';
 import { MissionItem, UserProfile, Task, CalendarEvent, AppListItem, Category, TaskCompletion, AppList } from '../../types';
@@ -19,7 +19,21 @@ interface MissionTodayViewProps {
 }
 
 export function MissionTodayView({ profile, tasks, events, completions, listItems, lists, kids, categories, onAction }: MissionTodayViewProps) {
-  const { missionItems } = useMissionTodayController({ profile, tasks, events, completions, listItems, lists, kids, categories });
+  const familyParentId = profile.parentId || profile.uid;
+  const { storeNames, locationOptions } = useHouseholdListPreferences(familyParentId);
+
+  const { missionItems } = useMissionTodayController({ 
+    profile, 
+    tasks, 
+    events, 
+    completions, 
+    listItems, 
+    lists, 
+    kids, 
+    categories,
+    storeNames,
+    locationOptions
+  });
   const [activeLocation, setActiveLocation] = useState<string | null>(null);
 
   const filteredItems = useMemo(() => {
@@ -43,6 +57,7 @@ export function MissionTodayView({ profile, tasks, events, completions, listItem
       <LocationFilterBar 
         activeLocation={activeLocation} 
         onLocationSelect={setActiveLocation} 
+        locationOptions={locationOptions}
       />
 
       {filteredItems.map(item => {

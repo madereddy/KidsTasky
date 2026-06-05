@@ -211,6 +211,8 @@ export interface FamilySettings {
   screensaverShuffle?: boolean;
   screensaverDurationSec?: number;
   screensaverCaptions?: boolean;
+  customStoreNames?: string[];
+  customLocationNames?: string[];
 }
 
 export interface SyncConnection {

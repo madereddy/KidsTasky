@@ -11,7 +11,7 @@ const validate = (req: any, res: any, next: any) => {
   next();
 };
 
-const kindValidation = param('kind').isIn(['task', 'homework', 'list']);
+const kindValidation = param('kind').isIn(['task', 'homework', 'list', 'shopping', 'routine']);
 
 proofTemplatesRouter.get('/proof-templates/:kind', authenticateUser, [kindValidation, validate], (req: Request, res: Response) => {
   const parentId = getParentId(req);

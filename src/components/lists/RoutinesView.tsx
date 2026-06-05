@@ -4,7 +4,8 @@ import { ListSidebar } from './ListSidebar';
 import { StoreFilterBar } from './StoreFilterBar';
 import { cn } from '../../lib/utils';
 import { useListsController } from '../../hooks/useListsController';
-import { COMMON_LOCATIONS } from '../../constants';
+import { useHouseholdListPreferences } from '../../hooks/useHouseholdListPreferences';
+import { HouseholdTagManager } from '../shared/HouseholdTagManager';
 
 interface Props {
   parentId: string;
@@ -18,7 +19,6 @@ export function RoutinesView({ parentId }: Props) {
   const [editingListTitle, setEditingListTitle] = useState('');
 
   const {
-    lists,
     routineLists,
     items,
     selectedList,
@@ -35,6 +35,13 @@ export function RoutinesView({ parentId }: Props) {
     deleteItem,
     frequentItems,
   } = useListsController({ parentId, preferredCategory: 'routine' });
+  const {
+    storeNames,
+    locationOptions,
+    customLocationNames,
+    saveLocationNames,
+    saving: savingPreferences,
+  } = useHouseholdListPreferences(parentId);
 
   const handleCreateList = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,12 +220,6 @@ export function RoutinesView({ parentId }: Props) {
                     >
                       Routines
                     </button>
-                    <button
-                      onClick={() => void updateList(selectedList.id, selectedList.title, 'shopping', 0, selectedList.locationName)}
-                      className="rounded-full border border-ui bg-white px-3 py-1.5 text-xs font-bold text-ui-muted transition-all hover:bg-ui-soft"
-                    >
-                      Move to Shopping
-                    </button>
                   </div>
                 </div>
                 <div>
@@ -233,7 +234,7 @@ export function RoutinesView({ parentId }: Props) {
                     >
                       None
                     </button>
-                    {COMMON_LOCATIONS.map((loc) => (
+                    {locationOptions.map((loc) => (
                       <button
                         key={loc.id}
                         onClick={() => void updateList(selectedList.id, selectedList.title, 'routine', selectedList.isRoutine, loc.label)}
@@ -242,10 +243,22 @@ export function RoutinesView({ parentId }: Props) {
                           selectedList.locationName === loc.label ? "border-sky-600 bg-sky-500 text-white shadow-sm" : "border-ui bg-white text-ui-muted",
                         )}
                       >
-                        {loc.icon} {loc.label}
+                        {loc.label}
                       </button>
                     ))}
                   </div>
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase text-ui-muted">Quick Locations</label>
+                  <HouseholdTagManager
+                    title="Routine location chips"
+                    helperText="Add custom grouping tags like Baseball, Pool, or Church."
+                    values={customLocationNames}
+                    placeholder="Baseball"
+                    addLabel="Add location"
+                    disabled={savingPreferences}
+                    onChange={saveLocationNames}
+                  />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col">
@@ -282,10 +295,13 @@ export function RoutinesView({ parentId }: Props) {
                 listTitle={selectedList.title}
                 items={filteredItems}
                 frequentItems={frequentItems}
-                availableLists={lists.map((list) => ({ id: list.id, title: list.title, category: list.category }))}
+                availableLists={routineLists.map((list) => ({ id: list.id, title: list.title, category: list.category }))}
                 primaryListId={selectedList.id}
                 isOpen={true}
                 inline={true}
+                templateKind="routine"
+                storeNames={storeNames}
+                locationOptions={locationOptions}
                 onToggleItem={(itemId, completed) => void toggleItem(itemId, completed)}
                 onAddItem={handleAddItem}
                 onAddItemToLists={(listIds, text, store, location) => void addItemToLists(listIds, text, store, location)}

@@ -11,6 +11,7 @@ import { THEMES } from '../../constants';
 import { useFamilyData } from '../../contexts/FamilyDataContext';
 import { PhotoManager } from './PhotoManager';
 import { clientLogger } from '../../services/clientLogger';
+import { HouseholdTagManager } from '../shared/HouseholdTagManager';
 
 interface Props {
   parentId: string;
@@ -107,6 +108,8 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
   const [pickerPolling, setPickerPolling] = useState(false);
   const [photoRefreshToken, setPhotoRefreshToken] = useState(0);
   const [previewMessage, setPreviewMessage] = useState('');
+  const [customStoreNames, setCustomStoreNames] = useState<string[]>([]);
+  const [customLocationNames, setCustomLocationNames] = useState<string[]>([]);
 
   useEffect(() => {
     Promise.all([
@@ -143,6 +146,8 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
       setPhotoCleanupEnabled(s.photoCleanupEnabled ?? true);
       setPhotoCleanupIntervalHours(s.photoCleanupIntervalHours ?? 24);
       setGooglePhotosEnabled(Boolean(s.googlePhotosEnabled));
+      setCustomStoreNames(s.customStoreNames || []);
+      setCustomLocationNames(s.customLocationNames || []);
 
       setCalendars((bootstrap.calendars || []) as SyncCalendar[]);
       const visMap: Record<string, boolean> = {};
@@ -312,6 +317,8 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
         screensaverShuffle,
         screensaverDurationSec,
         screensaverCaptions,
+        customStoreNames,
+        customLocationNames,
         photoCleanupEnabled,
         photoCleanupIntervalHours: Math.max(1, photoCleanupIntervalHours),
         googlePhotosEnabled,
@@ -706,6 +713,31 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
                   {passwordChangeMessage}
                 </p>
               )}
+            </div>
+          </section>
+
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <Globe size={16} className="text-sky-500" />
+              <h3 className="font-bold text-ui-secondary">Quick Tags</h3>
+            </div>
+            <div className="space-y-3">
+              <HouseholdTagManager
+                title="Shopping stores"
+                helperText="Used by shopping quick-add matching and filters."
+                values={customStoreNames}
+                placeholder="Publix"
+                addLabel="Add store"
+                onChange={setCustomStoreNames}
+              />
+              <HouseholdTagManager
+                title="Routine locations"
+                helperText="Used by routine location chips and quick-add matching."
+                values={customLocationNames}
+                placeholder="Baseball"
+                addLabel="Add location"
+                onChange={setCustomLocationNames}
+              />
             </div>
           </section>
 

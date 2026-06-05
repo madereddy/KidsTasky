@@ -2,7 +2,7 @@
 import { useMemo } from 'react';
 import { isToday } from 'date-fns';
 import { MissionItem, UserProfile, Task, CalendarEvent, AppListItem, Category, TaskCompletion, AppList } from '../types';
-import { COMMON_STORES, COMMON_LOCATIONS } from '../constants';
+import { HouseholdLocationOption } from '../lib/householdListPreferences';
 
 interface UseMissionTodayOptions {
   profile: UserProfile;
@@ -13,6 +13,8 @@ interface UseMissionTodayOptions {
   lists: AppList[];
   kids: UserProfile[];
   categories: Category[];
+  storeNames?: string[];
+  locationOptions?: HouseholdLocationOption[];
 }
 
 export function useMissionTodayController({ 
@@ -23,13 +25,12 @@ export function useMissionTodayController({
   listItems = [], 
   lists = [], 
   kids = [], 
-  categories = [] 
+  categories = [],
+  storeNames = [],
+  locationOptions = []
 }: UseMissionTodayOptions) {
   const missionItems = useMemo(() => {
     const items: MissionItem[] = [];
-
-    // ... (Tasks and Events logic same, omitted for brevity but I will include in replacement)
-    // Actually I must include everything in replacement.
 
     // 1. Process Tasks
     tasks.forEach(task => {
@@ -80,13 +81,14 @@ export function useMissionTodayController({
       if (item.completed) return;
       
       const parentList = lists.find(l => l.id === item.listId);
+      if (!parentList || parentList.category !== 'routine' || !parentList.isRoutine) return;
       
       // Extract store/location from text or parent list
-      const storeName = COMMON_STORES.find(store => 
+      const storeName = storeNames.find(store => 
         item.text.toLowerCase().includes(store.toLowerCase())
       ) || parentList?.locationName;
 
-      const locationName = COMMON_LOCATIONS.find(loc => 
+      const locationName = locationOptions.find(loc => 
         item.text.toLowerCase().includes(loc.label.toLowerCase())
       )?.label || item.locationName || parentList?.locationName;
 
@@ -104,7 +106,7 @@ export function useMissionTodayController({
 
     // 4. Process Routines themselves (as summaries)
     lists.forEach(list => {
-      if (!list.isRoutine) return;
+      if (!list.isRoutine || list.category !== 'routine') return;
       
       const routineItems = listItems.filter(i => i.listId === list.id && !i.completed);
       if (routineItems.length === 0) return;
@@ -130,7 +132,7 @@ export function useMissionTodayController({
       if (b.time) return 1;
       return 0;
     });
-  }, [profile, tasks, events, completions, listItems, lists, categories]);
+  }, [profile, tasks, events, completions, listItems, lists, categories, storeNames, locationOptions]);
 
   return { missionItems };
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { removeEntityById, upsertEntityById } from '../lib/entity-list';
+import { extractHouseholdTagFromText, getDefaultLocationOptions, getDefaultStoreNames } from '../lib/householdListPreferences';
 import { listsClientService } from '../services/lists';
 import { AppList, AppListItem } from '../types';
 
@@ -50,17 +51,8 @@ function stringifyItemMetadata(text: string, storeName?: string, completedAt?: n
   return `${text} |META:${JSON.stringify({ storeName, completedAt, locationName })}|`;
 }
 
-function extractStoreFromText(rawText: string): { cleanText: string, storeName?: string, locationName?: string } {
-  const storeMatch = rawText.match(/(.+?)(?:\s+@\s+|\s+at\s+)(Costco|Walmart|Target|Trader Joe's|Aldi|Whole Foods)$/i);
-  if (storeMatch) {
-    return { cleanText: storeMatch[1].trim(), storeName: storeMatch[2].trim() };
-  }
-  const locMatch = rawText.match(/(.+?)(?:\s+@\s+|\s+at\s+)(Home|Car|School|Soccer Field)$/i);
-  if (locMatch) {
-    return { cleanText: locMatch[1].trim(), locationName: locMatch[2].trim() };
-  }
-  return { cleanText: rawText.trim() };
-}
+const defaultStoreNames = getDefaultStoreNames();
+const defaultLocationNames = getDefaultLocationOptions().map((option) => option.label);
 
 interface UseListsControllerOptions {
   parentId: string;
@@ -213,7 +205,11 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
   const addItem = async (text: string, explicitStore?: string, explicitLocation?: string) => {
     if (!selectedListId) return null;
 
-    const { cleanText, storeName: parsedStore, locationName: parsedLocation } = extractStoreFromText(text);
+    const { cleanText, storeName: parsedStore, locationName: parsedLocation } = extractHouseholdTagFromText(
+      text,
+      defaultStoreNames,
+      defaultLocationNames,
+    );
     const finalStore = explicitStore || parsedStore;
     const finalLocation = explicitLocation || parsedLocation;
 
@@ -235,7 +231,11 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     const uniqueListIds = Array.from(new Set(listIds.filter(Boolean)));
     if (uniqueListIds.length === 0) return [];
 
-    const { cleanText, storeName: parsedStore, locationName: parsedLocation } = extractStoreFromText(text);
+    const { cleanText, storeName: parsedStore, locationName: parsedLocation } = extractHouseholdTagFromText(
+      text,
+      defaultStoreNames,
+      defaultLocationNames,
+    );
     const finalStore = explicitStore || parsedStore;
     const finalLocation = explicitLocation || parsedLocation;
 

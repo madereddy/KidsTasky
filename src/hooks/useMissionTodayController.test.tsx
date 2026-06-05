@@ -202,24 +202,36 @@ describe('useMissionTodayController', () => {
       { id: 'l2', listId: 'list1', text: 'Walmart Bread', completed: 0 },
       { id: 'l3', listId: 'list1', text: 'Regular Item', completed: 0 },
     ];
+    const lists: AppList[] = [
+      { id: 'list1', parentId: 'parent1', title: 'Morning Routine', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
+    ];
     const { result } = renderHook(() => useMissionTodayController({
       profile: mockProfile,
       tasks: [],
       events: [],
       completions: [],
       listItems: listWithStores,
-      lists: [],
+      lists,
       kids: mockKids,
-      categories: mockCategories
+      categories: mockCategories,
+      storeNames: ['Costco', 'Walmart', 'Target', 'Whole Foods'],
+      locationOptions: [
+        { id: 'home', label: 'Home' },
+        { id: 'car', label: 'Car' },
+        { id: 'school', label: 'School' },
+        { id: 'soccer', label: 'Soccer' },
+        { id: 'stores', label: 'Stores' },
+      ]
     }));
 
-    expect(result.current.missionItems).toHaveLength(3);
+    expect(result.current.missionItems).toHaveLength(4);
     expect(result.current.missionItems.find(i => i.id === 'list_l1')?.storeName).toBe('Costco');
     expect(result.current.missionItems.find(i => i.id === 'list_l2')?.storeName).toBe('Walmart');
     expect(result.current.missionItems.find(i => i.id === 'list_l3')?.storeName).toBeUndefined();
+    expect(result.current.missionItems.find(i => i.id === 'routine_list1')?.type).toBe('routine');
   });
 
-  it('tags list items with the parent list category so routine items do not render like shopping', () => {
+  it('tags routine list items with the parent list category and excludes shopping items', () => {
     const lists: AppList[] = [
       { id: 'routine-list', parentId: 'parent1', title: 'Morning Routine', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
       { id: 'shopping-list', parentId: 'parent1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
@@ -241,7 +253,59 @@ describe('useMissionTodayController', () => {
     }));
 
     expect(result.current.missionItems.find(i => i.id === 'list_routine-item')?.listCategory).toBe('routine');
-    expect(result.current.missionItems.find(i => i.id === 'list_shopping-item')?.listCategory).toBe('shopping');
+    expect(result.current.missionItems.find(i => i.id === 'list_shopping-item')).toBeUndefined();
+  });
+
+  it('excludes shopping list items from Mission Today', () => {
+    const lists: AppList[] = [
+      { id: 'routine-list', parentId: 'parent1', title: 'Morning Routine', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
+      { id: 'shopping-list', parentId: 'parent1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
+    ];
+    const listItems: AppListItem[] = [
+      { id: 'routine-item', listId: 'routine-list', text: 'Fill water bottle', completed: 0 },
+      { id: 'shopping-item', listId: 'shopping-list', text: 'Milk', completed: 0 },
+    ];
+
+    const { result } = renderHook(() => useMissionTodayController({
+      profile: mockProfile,
+      tasks: [],
+      events: [],
+      completions: [],
+      listItems,
+      lists,
+      kids: mockKids,
+      categories: mockCategories
+    }));
+
+    expect(result.current.missionItems.map((item) => item.id)).toContain('list_routine-item');
+    expect(result.current.missionItems.map((item) => item.id)).not.toContain('list_shopping-item');
+  });
+
+  it('excludes non-daily routine lists from Mission Today', () => {
+    const lists: AppList[] = [
+      { id: 'daily-routine', parentId: 'parent1', title: 'Morning Routine', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
+      { id: 'library-routine', parentId: 'parent1', title: 'Library Bag', category: 'routine', isRoutine: 0, createdAt: '', updatedAt: '' },
+    ];
+    const listItems: AppListItem[] = [
+      { id: 'daily-item', listId: 'daily-routine', text: 'Fill water bottle', completed: 0 },
+      { id: 'library-item', listId: 'library-routine', text: 'Pack books', completed: 0 },
+    ];
+
+    const { result } = renderHook(() => useMissionTodayController({
+      profile: mockProfile,
+      tasks: [],
+      events: [],
+      completions: [],
+      listItems,
+      lists,
+      kids: mockKids,
+      categories: mockCategories
+    }));
+
+    expect(result.current.missionItems.map((item) => item.id)).toContain('list_daily-item');
+    expect(result.current.missionItems.map((item) => item.id)).toContain('routine_daily-routine');
+    expect(result.current.missionItems.map((item) => item.id)).not.toContain('list_library-item');
+    expect(result.current.missionItems.map((item) => item.id)).not.toContain('routine_library-routine');
   });
 
   it('populates time for tasks with reminderTime', () => {

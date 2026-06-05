@@ -23,16 +23,6 @@ export const MEMBER_COLORS = [
   '#ec4899',
 ];
 
-export const COMMON_STORES = ['Costco', 'Walmart', 'Target', 'Whole Foods'];
-
-export const COMMON_LOCATIONS = [
-  { id: 'home', label: 'Home', icon: '🏠' },
-  { id: 'car', label: 'Car', icon: '🚗' },
-  { id: 'school', label: 'School', icon: '🏫' },
-  { id: 'soccer', label: 'Soccer', icon: '⚽' },
-  { id: 'stores', label: 'Stores', icon: '🛒' },
-];
-
 export const XP_REWARDS: Record<TaskDifficulty, number> = {
   easy: 10,
   medium: 25,
