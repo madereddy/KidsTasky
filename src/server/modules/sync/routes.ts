@@ -132,7 +132,6 @@ syncRouter.get('/sync/callback/google', async (req, res) => {
       parentId: parentId as string,
       hasRefreshToken: Boolean(tokens.refresh_token),
     }, 'sync_google_callback_connected');
-    const safeParentId = JSON.stringify(String(parentId));
     res.type('html').send(`<!doctype html>
 <html lang="en">
   <head>
@@ -143,8 +142,10 @@ syncRouter.get('/sync/callback/google', async (req, res) => {
     <p>Successfully connected! You can close this window.</p>
     <script>
       try {
+        const params = new URLSearchParams(window.location.search);
+        const parentId = params.get('state') || '';
         if (window.opener && !window.opener.closed) {
-          window.opener.postMessage({ type: 'kidtasker:google-sync-connected', parentId: ${safeParentId} }, window.location.origin);
+          window.opener.postMessage({ type: 'kidtasker:google-sync-connected', parentId }, window.location.origin);
         }
       } catch {}
       setTimeout(() => window.close(), 250);
