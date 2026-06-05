@@ -12,12 +12,57 @@ vi.mock('../services/lists', () => ({
     addItem: vi.fn(),
     toggleItem: vi.fn(),
     deleteItem: vi.fn(),
+    getParentItems: vi.fn(),
   },
 }));
 
 describe('useListsController', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('provides routineLists and shoppingLists correctly', async () => {
+    vi.mocked(listsClientService.getLists).mockResolvedValueOnce([
+      { id: 'l1', parentId: 'p1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
+      { id: 'l2', parentId: 'p1', title: 'Hardware', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
+      { id: 'l3', parentId: 'p1', title: 'Morning Routine', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
+    ]);
+    vi.mocked(listsClientService.getItems).mockResolvedValueOnce([]);
+
+    const { result } = renderHook(() => useListsController({ parentId: 'p1' }));
+
+    await waitFor(() => expect(result.current.loadingLists).toBe(false));
+    
+    expect(result.current.shoppingLists).toHaveLength(2);
+    expect(result.current.routineLists).toHaveLength(1);
+    expect(result.current.routineLists[0].id).toBe('l3');
+  });
+
+  it('provides shoppingItems aggregate using globalHistory', async () => {
+    vi.mocked(listsClientService.getLists).mockResolvedValueOnce([
+      { id: 'l1', parentId: 'p1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
+      { id: 'l2', parentId: 'p1', title: 'Hardware', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
+      { id: 'l3', parentId: 'p1', title: 'Morning', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
+    ]);
+    // selected list items
+    vi.mocked(listsClientService.getItems).mockResolvedValueOnce([]);
+    // getParentItems for globalHistory
+    vi.mocked(listsClientService.getParentItems).mockResolvedValueOnce([
+      { id: 'i1', listId: 'l1', text: 'Milk', completed: 0 },
+      { id: 'i2', listId: 'l1', text: 'Eggs', completed: 1 },
+      { id: 'i3', listId: 'l2', text: 'Nails', completed: 0 },
+      { id: 'i4', listId: 'l3', text: 'Brush Teeth', completed: 0 },
+    ]);
+
+    const { result } = renderHook(() => useListsController({ parentId: 'p1' }));
+
+    await waitFor(() => expect(result.current.loadingLists).toBe(false));
+
+    // Should include items from l1 and l2, but only uncompleted ones? Or all? 
+    // Usually aggregates are active items. Let's assume uncompleted items.
+    expect(result.current.shoppingItems).toHaveLength(2);
+    expect(result.current.shoppingItems.map(i => i.text)).toContain('Milk');
+    expect(result.current.shoppingItems.map(i => i.text)).toContain('Nails');
   });
 
   it('selects the first list on initial load', async () => {

@@ -131,9 +131,9 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
     void loadItems();
   }, [loadItems]);
 
-  const createList = async (title: string, locationName?: string, isRoutine?: number) => {
+  const createList = async (title: string, category: 'shopping' | 'routine' = 'shopping', locationName?: string, isRoutine?: number) => {
     const rawTitle = stringifyListMetadata(title, locationName, isRoutine);
-    const created = await listsClientService.createList(rawTitle);
+    const created = await listsClientService.createList(rawTitle, category, isRoutine, locationName);
     const parsed = parseListMetadata(created);
     setLists((prev) => [...prev, parsed]);
     setSelectedListId(parsed.id);
@@ -141,9 +141,9 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
     return parsed;
   };
 
-  const updateList = async (id: string, title: string, locationName?: string, isRoutine?: number) => {
+  const updateList = async (id: string, title: string, category: 'shopping' | 'routine' = 'shopping', locationName?: string, isRoutine?: number) => {
     const rawTitle = stringifyListMetadata(title, locationName, isRoutine);
-    const updated = await listsClientService.updateList(id, rawTitle);
+    const updated = await listsClientService.updateList(id, rawTitle, category, isRoutine, locationName);
     const parsed = parseListMetadata(updated);
     setLists((prev) => prev.map(l => l.id === id ? parsed : l));
     return parsed;
@@ -255,12 +255,23 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
     [lists, selectedListId],
   );
 
+  const shoppingLists = useMemo(() => lists.filter(l => l.category === 'shopping'), [lists]);
+  const routineLists = useMemo(() => lists.filter(l => l.category === 'routine'), [lists]);
+
+  const shoppingItems = useMemo(() => {
+    const shoppingListIds = new Set(shoppingLists.map(l => l.id));
+    return globalHistory.filter(item => shoppingListIds.has(item.listId) && item.completed === 0);
+  }, [globalHistory, shoppingLists]);
+
   const updateSelectedList = useCallback((listId: string) => {
     setSelectedListId(listId);
   }, []);
 
   return {
     lists,
+    routineLists,
+    shoppingLists,
+    shoppingItems,
     items,
     selectedList,
     selectedListId,
