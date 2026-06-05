@@ -1,7 +1,7 @@
 import { fetchAPI } from '../../services/http';
 import { userService } from '../../services/users';
 import React, { useState } from 'react';
-import { ShieldCheck, Bell, Send, CheckCircle2, Copy, Plus } from 'lucide-react';
+import { ShieldCheck, Bell, Send, CheckCircle2, Copy, Plus, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { UserProfile, Notification as AppNotification } from '../../types';
@@ -19,8 +19,10 @@ import { clientLogger } from '../../services/clientLogger';
 
 export function ParentDashboard({
   profile,
+  onOpenSettings,
 }: {
-  profile: UserProfile
+  profile: UserProfile,
+  onOpenSettings?: () => void,
 }) {
   const isDarkMode = !!profile.themeId && profile.themeId !== 'light_blue' && profile.themeId !== 'light_green' && profile.themeId !== 'light_rose';
   const toneSecondary = isDarkMode ? 'text-ui-muted-2' : 'text-ui-muted';
@@ -118,6 +120,16 @@ export function ParentDashboard({
                 <p className="text-xs text-ui-muted font-black uppercase tracking-widest leading-none mb-1">Sector Commander</p>
                 <p className="font-bold text-ui-primary leading-none">{profile.name}</p>
               </div>
+              {onOpenSettings && (
+                <button
+                  onClick={onOpenSettings}
+                  className="ml-2 p-2.5 bg-ui-soft border border-ui rounded-xl text-ui-muted hover:text-sky-500 hover:border-sky-300 transition-all flex items-center gap-2 group"
+                  title="App & Display Settings"
+                >
+                  <Settings className="w-4 h-4 group-hover:rotate-45 transition-transform" />
+                  <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">System Settings</span>
+                </button>
+              )}
             </div>
 
             <AnimatePresence>

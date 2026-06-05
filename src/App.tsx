@@ -859,6 +859,7 @@ export default function App() {
                 <Suspense fallback={<SectionSkeleton role={profile.role} activeSection="manage" />}>
                   <ParentDashboard
                     profile={profile}
+                    onOpenSettings={() => setShowSettings(true)}
                   />
                 </Suspense>
               </div>
