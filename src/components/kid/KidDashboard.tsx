@@ -1,18 +1,18 @@
 import { userService } from '../../services/users';
 import { tasksClientService } from '../../services/tasks';
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense, startTransition } from 'react';
-import { Settings, Flame, Trophy, Zap, TrendingUp, Award, Clock, CalendarDays, History, Bell, Star, CheckCircle2 } from 'lucide-react';
+import { Trophy, Award, Clock, CalendarDays, History, Bell, Star, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, startOfToday, subDays } from 'date-fns';
 import { Task, TaskCompletion, UserProfile, Category, BadgeDef } from '../../types';
 import { cn } from '../../lib/utils';
 import { THEMES, XP_REWARDS, BADGE_DEFS } from '../../constants';
-import { xpProgress } from '../../lib/xp';
 import { KidTaskBoard } from './KidTaskBoard';
+import { KidHeader } from './dashboard/KidHeader';
 import { MissionHistoryModal } from './MissionHistoryModal';
 import { ThemeSelectorModal } from './ThemeSelectorModal';
 import { useSocketStaleData } from '../../hooks/useSocket';
-import { AvatarDisplay, AvatarPicker } from '../shared/AvatarPicker';
+import { AvatarPicker } from '../shared/AvatarPicker';
 import { FamilyNote } from '../shared/FamilyNote';
 import { WeeklyChoreGrid } from '../shared/WeeklyChoreGrid';
 import { RewardsShop } from './RewardsShop';
@@ -216,7 +216,6 @@ export function KidDashboard({
 
   // RuneScape-style level/progress derived from current XP (not the stored,
   // possibly-stale level column). Harder to level the higher you climb.
-  const xpStats = xpProgress(localXp);
 
   useEffect(() => {
     onProgressChange(progressPercent);
@@ -238,90 +237,18 @@ export function KidDashboard({
           background-image: ${currentTheme.bg} !important;
         }
       `}</style>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className={cn(
-          "md:col-span-2 shadow-sm p-6 rounded-[2rem] border flex justify-between items-center relative overflow-hidden",
-          currentTheme.vocab?.panelBg || "bg-white",
-          currentTheme.vocab?.panelBorder || "border-ui-soft"
-        )}>
-          <div className="relative z-10">
-            <h3 className={cn("text-2xl font-bold mb-1", currentTheme.vocab?.textPrimary || "text-ui-primary")}>{currentTheme.vocab?.chores || 'My Chores'}</h3>
-            <p className={cn("text-sm font-medium", toneSecondary)}>{currentTheme.vocab?.level || 'Level'} {xpStats.level}</p>
-          </div>
-          <div className="flex gap-4 items-center relative z-10">
-            <button onClick={() => setEditingAvatar(true)}>
-              <AvatarDisplay
-                avatarPreset={localAvatar.preset ?? profile.avatarPreset}
-                avatarUrl={localAvatar.url ?? profile.avatarUrl}
-                name={profile.name}
-                size={48}
-              />
-            </button>
-            <button 
-              onClick={() => setShowThemeSelector(true)}
-              aria-label="Open theme settings"
-              className={cn("w-12 h-12 rounded-full flex items-center justify-center transition-colors border", currentTheme.vocab?.darkMode ? "bg-ui-dark-2 border-ui-dark-2 text-ui-muted-2 hover:text-white" : "bg-ui-soft border-ui-soft text-ui-muted-2 hover:text-ui-primary hover:bg-ui-soft-2")}
-            >
-              <Settings className="w-6 h-6" />
-            </button>
-            <div className="text-right ml-4">
-              <p className={cn("text-xs uppercase font-bold", toneSecondary)}>{currentTheme.vocab?.streak || 'Streak'}</p>
-              <p className={cn("text-3xl font-black leading-none", `text-${currentTheme.primary}`)}>{streak}</p>
-            </div>
-            <div className={cn(
-              "w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all",
-              streak > 0 ? `bg-${currentTheme.primary}/20 text-${currentTheme.primary}` : "bg-ui-soft text-ui-muted-2"
-            )}>
-              <Flame className={cn("w-8 h-8", streak > 0 && `fill-${currentTheme.primary}`)} />
-            </div>
-          </div>
-        </div>
-
-        <div className={cn(
-          "shadow-sm p-6 rounded-[2rem] border flex flex-col justify-center relative overflow-hidden group",
-          currentTheme.vocab?.panelBg || "bg-white",
-          currentTheme.vocab?.panelBorder || "border-ui-soft"
-        )}>
-          <div className="flex justify-between items-end mb-3">
-            <div>
-              <p className={cn("text-xs uppercase font-bold mb-1", toneSecondary)}>Progress</p>
-              <div className="flex items-baseline gap-1">
-                <span className={cn("text-3xl font-black leading-none", currentTheme.vocab?.textPrimary || "text-ui-primary")}>{xpStats.xpIntoLevel}</span>
-                <span className={cn("text-sm font-bold uppercase", isDarkMode ? "text-ui-muted-2" : "text-ui-muted-2")}>/ {xpStats.xpForLevelSpan} {currentTheme.vocab?.points || 'XP'}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1">
-                <span className="text-amber-400 text-lg">⭐</span>
-                <span className={cn("font-bold text-lg", currentTheme.vocab?.textPrimary || "text-ui-primary")}>
-                  {availableStars}
-                </span>
-                <span className={cn("text-xs", isDarkMode ? "text-ui-muted-2" : "text-ui-muted-2")}>stars</span>
-              </div>
-              <div className="text-right">
-                <p className={cn("text-[10px] uppercase font-bold mb-1", isDarkMode ? "text-ui-muted-2" : "text-ui-muted-2")}>Total</p>
-                <p className={cn("text-base font-bold leading-none", currentTheme.vocab?.textPrimary || "text-ui-primary")}>{localXp} {currentTheme.vocab?.points || 'XP'}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="w-full h-6 bg-ui-soft-2 rounded-full overflow-hidden mb-3 shadow-inner">
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: `${xpStats.percent}%` }}
-              transition={{ duration: 1, ease: "easeOut" }}
-              className={cn("h-full rounded-full relative", `bg-${currentTheme.primary}`)}
-            >
-            </motion.div>
-          </div>
-          
-          <div className="flex justify-between items-center mt-2">
-            <p className={cn("text-xs font-bold flex items-center gap-1", toneSecondary)}>
-              <TrendingUp className="w-4 h-4" /> {xpStats.xpToNext} {currentTheme.vocab?.points || 'XP'} to Next {currentTheme.vocab?.level || 'Level'}
-            </p>
-          </div>
-        </div>
-      </div>
+      <KidHeader
+        profile={profile}
+        streak={streak}
+        localXp={localXp}
+        availableStars={availableStars}
+        localAvatar={localAvatar}
+        currentTheme={currentTheme}
+        isDarkMode={isDarkMode}
+        toneSecondary={toneSecondary}
+        onSetEditingAvatar={setEditingAvatar}
+        onSetShowThemeSelector={setShowThemeSelector}
+      />
       <FamilyNote parentId={profile.parentId || profile.uid} readOnly={true} />
 
       <div className={cn("flex justify-between items-center shadow-sm p-3 rounded-[2rem] border", currentTheme.vocab?.panelBg || "bg-white", currentTheme.vocab?.panelBorder || "border-ui-soft")}>
