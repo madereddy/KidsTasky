@@ -62,7 +62,7 @@ export function KidDashboard({
     if (activeSection === 'home' || activeSection === 'tasks') setKidView('tasks');
     else if (activeSection === 'calendar') setKidView('calendar');
     else if (activeSection === 'manage') setKidView('shop');
-    else if (activeSection === 'lists') setKidView('tasks'); // Default back to tasks if lists selected (since KidDashboard doesn't have lists yet)
+    else if (activeSection === 'lists' || activeSection === 'shopping' || activeSection === 'routines') setKidView('tasks');
   }, [activeSection]);
 
   // See App.tsx goToSection: a 50ms follow-up re-render forces re-reconciliation

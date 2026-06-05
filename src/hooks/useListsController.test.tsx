@@ -78,6 +78,19 @@ describe('useListsController', () => {
     await waitFor(() => expect(result.current.items).toHaveLength(1));
   });
 
+  it('prefers the requested category when choosing the initial list', async () => {
+    vi.mocked(listsClientService.getLists).mockResolvedValueOnce([
+      { id: 'routine-1', parentId: 'p1', title: 'Morning', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
+      { id: 'shop-1', parentId: 'p1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
+    ]);
+    vi.mocked(listsClientService.getParentItems).mockResolvedValueOnce([]);
+    vi.mocked(listsClientService.getItems).mockResolvedValueOnce([]);
+
+    const { result } = renderHook(() => useListsController({ parentId: 'p1', preferredCategory: 'shopping' }));
+
+    await waitFor(() => expect(result.current.selectedListId).toBe('shop-1'));
+  });
+
   it('deleting the selected list moves selection to the next list', async () => {
     vi.mocked(listsClientService.getLists).mockResolvedValueOnce([
       { id: 'l1', parentId: 'p1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
@@ -180,6 +193,35 @@ describe('useListsController - Smart Metadata', () => {
       completed: 1,
       completedAt: 1780588800000,
     });
+    nowSpy.mockRestore();
+  });
+
+  it('can toggle an aggregated shopping item that is not in the selected list items', async () => {
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1780588800000);
+    vi.mocked(listsClientService.getLists).mockResolvedValueOnce([
+      { id: 'list-1', parentId: 'parent-1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
+      { id: 'list-2', parentId: 'parent-1', title: 'Hardware', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
+    ]);
+    vi.mocked(listsClientService.getParentItems).mockResolvedValueOnce([
+      { id: 'item-2', listId: 'list-2', text: 'Batteries |META:{"storeName":"Target"}|', completed: 0 },
+    ]);
+    vi.mocked(listsClientService.getItems).mockResolvedValueOnce([]);
+    vi.mocked(listsClientService.toggleItem).mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useListsController({ parentId: 'parent-1', preferredCategory: 'shopping' }));
+
+    await waitFor(() => expect(result.current.shoppingItems[0]?.text).toBe('Batteries'));
+
+    await act(async () => {
+      await result.current.toggleItem('item-2', true);
+    });
+
+    expect(listsClientService.toggleItem).toHaveBeenCalledWith(
+      'item-2',
+      true,
+      'Batteries |META:{"storeName":"Target","completedAt":1780588800000}|'
+    );
+    expect(result.current.shoppingItems).toHaveLength(0);
     nowSpy.mockRestore();
   });
 });

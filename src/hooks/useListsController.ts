@@ -64,9 +64,29 @@ function extractStoreFromText(rawText: string): { cleanText: string, storeName?:
 
 interface UseListsControllerOptions {
   parentId: string;
+  preferredCategory?: 'shopping' | 'routine';
 }
 
-export function useListsController({ parentId }: UseListsControllerOptions) {
+function chooseInitialListId(
+  nextLists: AppList[],
+  currentId: string | null,
+  preferredCategory?: 'shopping' | 'routine',
+) {
+  if (nextLists.length === 0) return null;
+
+  const current = currentId ? nextLists.find((list) => list.id === currentId) : null;
+  if (current && (!preferredCategory || current.category === preferredCategory)) {
+    return current.id;
+  }
+
+  if (preferredCategory) {
+    return nextLists.find((list) => list.category === preferredCategory)?.id ?? null;
+  }
+
+  return nextLists[0].id;
+}
+
+export function useListsController({ parentId, preferredCategory }: UseListsControllerOptions) {
   const [lists, setLists] = useState<AppList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [items, setItems] = useState<AppListItem[]>([]);
@@ -93,14 +113,12 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
       setLists((nextLists || []).map(parseListMetadata));
       setGlobalHistory((nextGlobal || []).map(parseItemMetadata));
       setSelectedListId((currentId) => {
-        if (nextLists.length === 0) return null;
-        if (currentId && nextLists.some((list) => list.id === currentId)) return currentId;
-        return nextLists[0].id;
+        return chooseInitialListId(nextLists, currentId, preferredCategory);
       });
     } finally {
       setLoadingLists(false);
     }
-  }, [parentId]);
+  }, [parentId, preferredCategory]);
 
   const loadItems = useCallback(async (listId: string | null = selectedListId) => {
     if (!listId) {
@@ -131,7 +149,12 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
     void loadItems();
   }, [loadItems]);
 
-  const createList = async (title: string, category: 'shopping' | 'routine' = 'shopping', locationName?: string, isRoutine?: number) => {
+  const createList = async (
+    title: string,
+    category: 'shopping' | 'routine' = preferredCategory ?? 'shopping',
+    isRoutine?: number,
+    locationName?: string,
+  ) => {
     const rawTitle = stringifyListMetadata(title, locationName, isRoutine);
     const created = await listsClientService.createList(rawTitle, category, isRoutine, locationName);
     const parsed = parseListMetadata(created);
@@ -141,7 +164,13 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
     return parsed;
   };
 
-  const updateList = async (id: string, title: string, category: 'shopping' | 'routine' = 'shopping', locationName?: string, isRoutine?: number) => {
+  const updateList = async (
+    id: string,
+    title: string,
+    category: 'shopping' | 'routine' = preferredCategory ?? 'shopping',
+    isRoutine?: number,
+    locationName?: string,
+  ) => {
     const rawTitle = stringifyListMetadata(title, locationName, isRoutine);
     const updated = await listsClientService.updateList(id, rawTitle, category, isRoutine, locationName);
     const parsed = parseListMetadata(updated);
@@ -155,7 +184,7 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
       const remaining = removeEntityById(prev, id);
       setSelectedListId((currentId) => {
         if (currentId !== id) return currentId;
-        return remaining[0]?.id ?? null;
+        return chooseInitialListId(remaining, null, preferredCategory);
       });
       return remaining;
     });
@@ -182,7 +211,7 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
   };
 
   const toggleItem = async (itemId: string, completed: boolean) => {
-    const item = items.find(i => i.id === itemId);
+    const item = items.find(i => i.id === itemId) ?? globalHistory.find(i => i.id === itemId);
     if (!item) return;
 
     const completedAt = completed ? Date.now() : undefined;
@@ -205,12 +234,23 @@ export function useListsController({ parentId }: UseListsControllerOptions) {
           }
         : i
     )));
+    setGlobalHistory((prev) => prev.map((i) => (
+      i.id === itemId
+        ? {
+            ...i,
+            completed: completed ? 1 : 0,
+            completedAt,
+            text: displayText,
+          }
+        : i
+    )));
     void refreshGlobalHistory();
   };
 
   const deleteItem = async (itemId: string) => {
     await listsClientService.deleteItem(itemId);
     setItems((prev) => removeEntityById(prev, itemId));
+    setGlobalHistory((prev) => removeEntityById(prev, itemId));
     void refreshGlobalHistory();
   };
 

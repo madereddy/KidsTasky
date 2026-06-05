@@ -342,7 +342,7 @@ export function QuickAddModal({ onClose, onSubmit, kids, parentId, defaultDate, 
                   {lists.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
                 </select>
                 {lists.length === 0 && (
-                   <p className="text-xs text-ui-muted mt-2">No lists found. Create one in the Lists tab.</p>
+                   <p className="text-xs text-ui-muted mt-2">No lists found. Create one in Shopping or Routines.</p>
                 )}
               </div>
 

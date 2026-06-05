@@ -35,6 +35,7 @@ import { SectionSkeleton } from './components/shared/SectionSkeleton';
 import { MissionTodayView } from './components/shared/MissionTodayView';
 import { ActionBolt } from './components/shared/ActionBolt';
 import { BottomNav } from './components/shared/BottomNav';
+import { ToolsMenu } from './components/shared/ToolsMenu';
 import { useWallHomeController } from './hooks/useWallHomeController';
 import { useListsController } from './hooks/useListsController';
 import { format } from 'date-fns';
@@ -66,7 +67,8 @@ const lazyWithRetry = <T extends React.ComponentType<any>>(
 const ParentDashboard = lazyWithRetry(() => import('./components/parent/ParentDashboard').then(m => ({ default: m.ParentDashboard })), 'parent-dashboard');
 const ParentTasksWorkspace = lazyWithRetry(() => import('./components/parent/ParentTasksWorkspace').then(m => ({ default: m.ParentTasksWorkspace })), 'parent-tasks');
 const CalendarView = lazyWithRetry(() => import('./components/calendar/CalendarView').then(m => ({ default: m.CalendarView })), 'calendar');
-const ListsView = lazyWithRetry(() => import('./components/lists/ListsView').then(m => ({ default: m.ListsView })), 'lists');
+const ShoppingView = lazyWithRetry(() => import('./components/lists/ShoppingView').then(m => ({ default: m.ShoppingView })), 'shopping');
+const RoutinesView = lazyWithRetry(() => import('./components/lists/RoutinesView').then(m => ({ default: m.RoutinesView })), 'routines');
 const MealPlanView = lazyWithRetry(() => import('./components/parent/MealPlanView').then(m => ({ default: m.MealPlanView })), 'meals');
 const SettingsView = lazyWithRetry(() => import('./components/parent/SettingsView').then(m => ({ default: m.SettingsView })), 'settings');
 
@@ -82,7 +84,8 @@ const KID_IDLE_RETURN_MS = 5 * 60 * 1000;
 
 const prefetchParentTasks = () => { import('./components/parent/ParentTasksWorkspace'); };
 const prefetchCalendar = () => { import('./components/calendar/CalendarView'); };
-const prefetchLists = () => { import('./components/lists/ListsView'); };
+const prefetchShopping = () => { import('./components/lists/ShoppingView'); };
+const prefetchRoutines = () => { import('./components/lists/RoutinesView'); };
 const prefetchMeals = () => { import('./components/parent/MealPlanView'); };
 const prefetchSettings = () => { import('./components/parent/SettingsView'); };
 
@@ -104,7 +107,8 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<'home' | 'tasks' | 'calendar' | 'lists' | 'meals' | 'manage' | string>('home');
+  const [activeSection, setActiveSection] = useState<'home' | 'tasks' | 'calendar' | 'shopping' | 'routines' | 'meals' | 'manage' | string>('home');
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
   const [hiddenMissionIds, setHiddenMissionIds] = useState<Set<string>>(() => {
     const stored = localStorage.getItem('kidtasker_hidden_missions');
@@ -143,7 +147,7 @@ export default function App() {
   // after the section switch re-reconciles the Suspense boundary, which by then
   // has the lazy module cached, so it commits the component without throwing.
   const [, setNavRetryTick] = useState(0);
-  const goToSection = useCallback((section: 'home' | 'tasks' | 'calendar' | 'lists' | 'meals' | 'manage') => {
+  const goToSection = useCallback((section: 'home' | 'tasks' | 'calendar' | 'shopping' | 'routines' | 'meals' | 'manage') => {
     // Commit the section change immediately so the fallback UI can render even
     // when the destination chunk is still loading.
     setActiveSection(section);
@@ -200,7 +204,8 @@ export default function App() {
     runIdle(() => {
       prefetchParentTasks();
       prefetchCalendar();
-      prefetchLists();
+      prefetchShopping();
+      prefetchRoutines();
       prefetchMeals();
       prefetchSettings();
       if (u.role === 'parent') {
@@ -657,16 +662,28 @@ export default function App() {
                   <CalendarDays className="w-4 h-4" /> Calendar
                 </button>
                 <button
-                  onClick={() => goToSection('lists')}
-                  onMouseEnter={prefetchLists}
-                  onFocus={prefetchLists}
-                  onTouchStart={prefetchLists}
+                  onClick={() => goToSection('shopping')}
+                  onMouseEnter={prefetchShopping}
+                  onFocus={prefetchShopping}
+                  onTouchStart={prefetchShopping}
                   className={cn(
                     "px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5",
-                    activeSection === 'lists' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary")
+                    activeSection === 'shopping' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary")
                   )}
                 >
-                  <List className="w-4 h-4" /> Lists
+                  <List className="w-4 h-4" /> Shopping
+                </button>
+                <button
+                  onClick={() => goToSection('routines')}
+                  onMouseEnter={prefetchRoutines}
+                  onFocus={prefetchRoutines}
+                  onTouchStart={prefetchRoutines}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5",
+                    activeSection === 'routines' ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary")
+                  )}
+                >
+                  <Rocket className="w-4 h-4" /> Routines
                 </button>
                 <button
                   onClick={() => goToSection('meals')}
@@ -893,12 +910,17 @@ export default function App() {
                 <MealPlanView parentId={familyParentId} />
               </Suspense>
             )}
-            {activeSection === 'lists' && (
-              <Suspense fallback={<SectionSkeleton role={profile.role === 'kid' ? 'kid' : 'parent'} activeSection="lists" />}>
-                <ListsView parentId={familyParentId} />
+            {profile.role === 'parent' && activeSection === 'shopping' && (
+              <Suspense fallback={<SectionSkeleton role="parent" activeSection="shopping" />}>
+                <ShoppingView parentId={familyParentId} />
               </Suspense>
             )}
-            {profile.role !== 'parent' && activeSection !== 'lists' && (
+            {profile.role === 'parent' && activeSection === 'routines' && (
+              <Suspense fallback={<SectionSkeleton role="parent" activeSection="routines" />}>
+                <RoutinesView parentId={familyParentId} />
+              </Suspense>
+            )}
+            {profile.role !== 'parent' && !['shopping', 'routines'].includes(activeSection) && (
               <Suspense fallback={<SectionSkeleton role="kid" activeSection="home" />}>
                 <KidDashboard
                   profile={profile}
@@ -921,30 +943,39 @@ export default function App() {
           profile={profile}
           onAction={(type) => {
             if (type === 'task') goToSection('tasks');
-            else if (type === 'grocery') goToSection('lists');
+            else if (type === 'grocery') goToSection('shopping');
           }} 
         />
       )}
       {isMobile && (
         <BottomNav
           activeTab={activeSection}
+          role={profile.role}
           onTabSelect={(tab) => {
-            if (tab.startsWith('kid_')) {
-              const kidId = tab.replace('kid_', '');
-              if (kidId === profile?.uid) {
-                goToSection('home');
-                return;
-              }
-              const kid = kids.find(k => k.uid === kidId);
-              if (kid) {
-                setPendingKidSwitch(kid);
-                setShowParentSwitchPin(false);
-              }
+            if (tab === 'tools') {
+              setShowToolsMenu(true);
+              return;
+            }
+            if (tab === 'switch') {
+              setShowProfileSwitcher((value) => !value);
+              setShowToolsMenu(false);
+              return;
             } else {
+              setShowToolsMenu(false);
               goToSection(tab as any);
             }
           }}
-          kids={kids}
+        />
+      )}
+      {profile.role === 'parent' && (
+        <ToolsMenu
+          activeSection={activeSection}
+          isOpen={showToolsMenu}
+          onClose={() => setShowToolsMenu(false)}
+          onSelect={(section) => {
+            setShowToolsMenu(false);
+            goToSection(section);
+          }}
         />
       )}
       {profile.role === "parent" && showUnlockPrompt && (

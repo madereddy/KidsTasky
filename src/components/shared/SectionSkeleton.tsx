@@ -25,6 +25,8 @@ export function SectionSkeleton({ role, activeSection }: SectionSkeletonProps) {
     case 'calendar':
       return <CalendarSkeleton />;
     case 'lists':
+    case 'shopping':
+    case 'routines':
       return <ListsSkeleton />;
     case 'meals':
       return <MealsSkeleton />;
