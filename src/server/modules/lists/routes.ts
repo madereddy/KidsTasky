@@ -97,6 +97,33 @@ listsRouter.post('/lists/:listId/items', requireAuth, enforceEditUnlocked, (req,
   }
 });
 
+listsRouter.post('/list-items/batch', requireAuth, enforceEditUnlocked, (req, res) => {
+  try {
+    const { listIds, text } = req.body as { listIds?: string[]; text?: string };
+    if (!Array.isArray(listIds) || listIds.length === 0) {
+      return res.status(400).json({ error: 'listIds is required' });
+    }
+    if (!text || typeof text !== 'string') {
+      return res.status(400).json({ error: 'Text is required' });
+    }
+
+    const uniqueListIds = Array.from(new Set(listIds.map(String)));
+    const lists = listsService.getListsByIds(uniqueListIds);
+    if (lists.length !== uniqueListIds.length) {
+      return res.status(404).json({ error: 'One or more lists were not found' });
+    }
+    if (lists.some((list) => list.parentId !== getParentId(req))) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const items = listsService.addItemsToLists(uniqueListIds, text);
+    res.status(201).json(items);
+  } catch (error: any) {
+    logger.error({ error: error.message, body: req.body, params: req.params }, 'lists_mutation_error');
+    res.status(500).json({ error: error.message });
+  }
+});
+
 listsRouter.put('/list-items/:itemId', requireAuth, enforceEditUnlocked, (req, res) => {
   try {
     const ownerParentId = listsService.getItemParentId(String(req.params.itemId));
@@ -104,6 +131,57 @@ listsRouter.put('/list-items/:itemId', requireAuth, enforceEditUnlocked, (req, r
     if (ownerParentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
     listsService.toggleItem(String(req.params.itemId), req.body.completed, req.body.text);
     res.json({ success: true });
+  } catch (error: any) {
+    logger.error({ error: error.message, body: req.body, params: req.params }, 'lists_mutation_error');
+    res.status(500).json({ error: error.message });
+  }
+});
+
+listsRouter.post('/list-items/:itemId/copy', requireAuth, enforceEditUnlocked, (req, res) => {
+  try {
+    const ownerParentId = listsService.getItemParentId(String(req.params.itemId));
+    if (!ownerParentId) return res.status(404).json({ error: 'Not found' });
+    if (ownerParentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const { listIds } = req.body as { listIds?: string[] };
+    if (!Array.isArray(listIds) || listIds.length === 0) {
+      return res.status(400).json({ error: 'listIds is required' });
+    }
+
+    const uniqueListIds = Array.from(new Set(listIds.map(String)));
+    const lists = listsService.getListsByIds(uniqueListIds);
+    if (lists.length !== uniqueListIds.length) {
+      return res.status(404).json({ error: 'One or more lists were not found' });
+    }
+    if (lists.some((list) => list.parentId !== getParentId(req))) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const items = listsService.copyItemToLists(String(req.params.itemId), uniqueListIds);
+    res.status(201).json(items);
+  } catch (error: any) {
+    logger.error({ error: error.message, body: req.body, params: req.params }, 'lists_mutation_error');
+    res.status(500).json({ error: error.message });
+  }
+});
+
+listsRouter.post('/list-items/:itemId/move', requireAuth, enforceEditUnlocked, (req, res) => {
+  try {
+    const ownerParentId = listsService.getItemParentId(String(req.params.itemId));
+    if (!ownerParentId) return res.status(404).json({ error: 'Not found' });
+    if (ownerParentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const { targetListId } = req.body as { targetListId?: string };
+    if (!targetListId || typeof targetListId !== 'string') {
+      return res.status(400).json({ error: 'targetListId is required' });
+    }
+
+    const targetList = listsService.getListById(targetListId);
+    if (!targetList) return res.status(404).json({ error: 'Target list not found' });
+    if (targetList.parentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const updated = listsService.moveItemToList(String(req.params.itemId), targetListId);
+    res.json(updated);
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'lists_mutation_error');
     res.status(500).json({ error: error.message });

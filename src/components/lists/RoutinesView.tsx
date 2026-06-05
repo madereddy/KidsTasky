@@ -15,8 +15,10 @@ export function RoutinesView({ parentId }: Props) {
   const [copied, setCopied] = useState(false);
   const [activeStoreFilter, setActiveStoreFilter] = useState<string | null>(null);
   const [showListSettings, setShowListSettings] = useState(false);
+  const [editingListTitle, setEditingListTitle] = useState('');
 
   const {
+    lists,
     routineLists,
     items,
     selectedList,
@@ -26,6 +28,9 @@ export function RoutinesView({ parentId }: Props) {
     updateList,
     deleteList,
     addItem,
+    addItemToLists,
+    copyItemToLists,
+    moveItemToList,
     toggleItem,
     deleteItem,
     frequentItems,
@@ -47,6 +52,11 @@ export function RoutinesView({ parentId }: Props) {
     await addItem(text, explicitStore, explicitLocation);
   };
 
+  const handleRenameSelectedList = async () => {
+    if (!selectedList || !editingListTitle.trim() || editingListTitle.trim() === selectedList.title) return;
+    await updateList(selectedList.id, editingListTitle.trim(), selectedList.category, selectedList.isRoutine, selectedList.locationName);
+  };
+
   const handleCopyItems = () => {
     const unchecked = items.filter((it) => it.completed === 0).map((it) => it.text).join('\n');
     navigator.clipboard.writeText(unchecked);
@@ -62,6 +72,10 @@ export function RoutinesView({ parentId }: Props) {
       i.locationName === activeStoreFilter
     ));
   }, [activeStoreFilter, items]);
+
+  React.useEffect(() => {
+    setEditingListTitle(selectedList?.title ?? '');
+  }, [selectedList?.id, selectedList?.title]);
 
   return (
     <div className="flex h-[calc(100vh-200px)] overflow-hidden rounded-2xl border border-ui bg-white shadow-sm">
@@ -169,6 +183,45 @@ export function RoutinesView({ parentId }: Props) {
             {showListSettings && (
               <div className="space-y-4 border-b border-ui bg-ui-soft p-4">
                 <div>
+                  <label className="mb-2 block text-xs font-bold uppercase text-ui-muted">List Name</label>
+                  <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <input
+                      value={editingListTitle}
+                      onChange={(e) => setEditingListTitle(e.target.value)}
+                      placeholder="Rename this routine"
+                      className="rounded-xl border border-ui bg-white px-3 py-2 text-sm text-ui-primary focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleRenameSelectedList()}
+                      disabled={!editingListTitle.trim() || editingListTitle.trim() === selectedList.title}
+                      className="rounded-xl border border-ui bg-white px-3 py-2 text-xs font-bold text-ui-primary transition-colors hover:bg-ui-soft disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Save name
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase text-ui-muted">Tab</label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => void updateList(selectedList.id, selectedList.title, 'routine', selectedList.isRoutine, selectedList.locationName)}
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 text-xs font-bold transition-all",
+                        selectedList.category === 'routine' ? "border-ui-primary bg-ui-primary text-white shadow-sm" : "border-ui bg-white text-ui-muted",
+                      )}
+                    >
+                      Routines
+                    </button>
+                    <button
+                      onClick={() => void updateList(selectedList.id, selectedList.title, 'shopping', 0, selectedList.locationName)}
+                      className="rounded-full border border-ui bg-white px-3 py-1.5 text-xs font-bold text-ui-muted transition-all hover:bg-ui-soft"
+                    >
+                      Move to Shopping
+                    </button>
+                  </div>
+                </div>
+                <div>
                   <label className="mb-2 block text-xs font-bold uppercase text-ui-muted">Location Tag</label>
                   <div className="hide-scrollbar flex gap-2 overflow-x-auto pb-1">
                     <button
@@ -229,10 +282,15 @@ export function RoutinesView({ parentId }: Props) {
                 listTitle={selectedList.title}
                 items={filteredItems}
                 frequentItems={frequentItems}
+                availableLists={lists.map((list) => ({ id: list.id, title: list.title, category: list.category }))}
+                primaryListId={selectedList.id}
                 isOpen={true}
                 inline={true}
                 onToggleItem={(itemId, completed) => void toggleItem(itemId, completed)}
                 onAddItem={handleAddItem}
+                onAddItemToLists={(listIds, text, store, location) => void addItemToLists(listIds, text, store, location)}
+                onCopyItem={(itemId, listIds) => void copyItemToLists(itemId, listIds)}
+                onMoveItem={(itemId, targetListId) => void moveItemToList(itemId, targetListId)}
                 onDeleteItem={(itemId) => void deleteItem(itemId)}
               />
             </div>

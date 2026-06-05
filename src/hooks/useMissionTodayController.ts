@@ -97,6 +97,7 @@ export function useMissionTodayController({
         status: 'pending',
         storeName: storeName as string,
         locationName: locationName as string,
+        listCategory: parentList?.category,
         originalData: item
       });
     });
@@ -115,6 +116,7 @@ export function useMissionTodayController({
         subtitle: `${routineItems.length} items remaining`,
         status: 'pending',
         locationName: list.locationName,
+        listCategory: list.category,
         originalData: list
       });
     });

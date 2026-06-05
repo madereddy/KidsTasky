@@ -219,6 +219,31 @@ describe('useMissionTodayController', () => {
     expect(result.current.missionItems.find(i => i.id === 'list_l3')?.storeName).toBeUndefined();
   });
 
+  it('tags list items with the parent list category so routine items do not render like shopping', () => {
+    const lists: AppList[] = [
+      { id: 'routine-list', parentId: 'parent1', title: 'Morning Routine', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
+      { id: 'shopping-list', parentId: 'parent1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
+    ];
+    const listItems: AppListItem[] = [
+      { id: 'routine-item', listId: 'routine-list', text: 'Fill water bottle', completed: 0 },
+      { id: 'shopping-item', listId: 'shopping-list', text: 'Milk', completed: 0 },
+    ];
+
+    const { result } = renderHook(() => useMissionTodayController({
+      profile: mockProfile,
+      tasks: [],
+      events: [],
+      completions: [],
+      listItems,
+      lists,
+      kids: mockKids,
+      categories: mockCategories
+    }));
+
+    expect(result.current.missionItems.find(i => i.id === 'list_routine-item')?.listCategory).toBe('routine');
+    expect(result.current.missionItems.find(i => i.id === 'list_shopping-item')?.listCategory).toBe('shopping');
+  });
+
   it('populates time for tasks with reminderTime', () => {
     const taskWithTime: Task = {
         ...getMockTasks()[0],

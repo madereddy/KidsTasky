@@ -1,6 +1,6 @@
 import { fetchAPI } from './http';
 
-export type ProofTemplateKind = 'task' | 'homework';
+export type ProofTemplateKind = 'task' | 'homework' | 'list';
 export type ProofTemplate = {
   id: string;
   parentId: string;

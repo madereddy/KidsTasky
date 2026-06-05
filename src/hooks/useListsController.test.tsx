@@ -7,9 +7,13 @@ vi.mock('../services/lists', () => ({
   listsClientService: {
     getLists: vi.fn(),
     createList: vi.fn(),
+    updateList: vi.fn(),
     deleteList: vi.fn(),
     getItems: vi.fn(),
     addItem: vi.fn(),
+    addItemsToLists: vi.fn(),
+    copyItemToLists: vi.fn(),
+    moveItemToList: vi.fn(),
     toggleItem: vi.fn(),
     deleteItem: vi.fn(),
     getParentItems: vi.fn(),
@@ -111,6 +115,29 @@ describe('useListsController', () => {
     expect(result.current.selectedListId).toBe('l2');
   });
 
+  it('moves selection when the selected list changes category out of the active tab', async () => {
+    vi.mocked(listsClientService.getLists).mockResolvedValueOnce([
+      { id: 'routine-1', parentId: 'p1', title: 'Morning', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
+      { id: 'routine-2', parentId: 'p1', title: 'Evening', category: 'routine', isRoutine: 0, createdAt: '', updatedAt: '' },
+      { id: 'shop-1', parentId: 'p1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
+    ]);
+    vi.mocked(listsClientService.getParentItems).mockResolvedValueOnce([]);
+    vi.mocked(listsClientService.getItems).mockResolvedValue([]);
+    vi.mocked(listsClientService.updateList).mockResolvedValue({
+      id: 'routine-1', parentId: 'p1', title: 'Morning', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '',
+    });
+
+    const { result } = renderHook(() => useListsController({ parentId: 'p1', preferredCategory: 'routine' }));
+
+    await waitFor(() => expect(result.current.selectedListId).toBe('routine-1'));
+
+    await act(async () => {
+      await result.current.updateList('routine-1', 'Morning', 'shopping', 0);
+    });
+
+    expect(result.current.selectedListId).toBe('routine-2');
+  });
+
   it('does not fetch lists when parentId is empty', async () => {
     const { result } = renderHook(() => useListsController({ parentId: '' }));
 
@@ -162,6 +189,72 @@ describe('useListsController - Smart Metadata', () => {
     expect(result.current.items).toHaveLength(1);
     expect(result.current.items[0].text).toBe('Eggs');
     expect(result.current.items[0].storeName).toBe('Costco');
+  });
+
+  it('can add one item to multiple lists with metadata preserved', async () => {
+    vi.mocked(listsClientService.getLists).mockResolvedValue([
+      { id: 'list-1', parentId: 'parent-1', title: 'Morning', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
+      { id: 'list-2', parentId: 'parent-1', title: 'Soccer', category: 'routine', isRoutine: 0, createdAt: '', updatedAt: '' },
+    ]);
+    vi.mocked(listsClientService.getItems).mockResolvedValue([]);
+    vi.mocked(listsClientService.addItemsToLists).mockResolvedValue([
+      { id: 'item-1', listId: 'list-1', text: 'Water Bottle |META:{"locationName":"School"}|', completed: 0 },
+      { id: 'item-2', listId: 'list-2', text: 'Water Bottle |META:{"locationName":"School"}|', completed: 0 },
+    ]);
+
+    const { result } = renderHook(() => useListsController({ parentId: 'parent-1', preferredCategory: 'routine' }));
+
+    await waitFor(() => expect(result.current.selectedListId).toBe('list-1'));
+
+    await act(async () => {
+      await result.current.addItemToLists(['list-1', 'list-2'], 'Water Bottle', undefined, 'School');
+    });
+
+    expect(listsClientService.addItemsToLists).toHaveBeenCalledWith(
+      ['list-1', 'list-2'],
+      'Water Bottle |META:{"locationName":"School"}|'
+    );
+    expect(result.current.items.map((item) => item.text)).toContain('Water Bottle');
+  });
+
+  it('can copy an existing item to another list', async () => {
+    vi.mocked(listsClientService.getLists).mockResolvedValue([
+      { id: 'list-1', parentId: 'parent-1', title: 'Morning', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
+      { id: 'list-2', parentId: 'parent-1', title: 'Soccer', category: 'routine', isRoutine: 0, createdAt: '', updatedAt: '' },
+    ]);
+    vi.mocked(listsClientService.getItems).mockResolvedValue([{ id: 'item-1', listId: 'list-1', text: 'Water Bottle', completed: 0 }]);
+    vi.mocked(listsClientService.getParentItems).mockResolvedValue([{ id: 'item-1', listId: 'list-1', text: 'Water Bottle', completed: 0 }]);
+    vi.mocked(listsClientService.copyItemToLists).mockResolvedValue([
+      { id: 'item-2', listId: 'list-2', text: 'Water Bottle', completed: 0 },
+    ]);
+
+    const { result } = renderHook(() => useListsController({ parentId: 'parent-1', preferredCategory: 'routine' }));
+    await waitFor(() => expect(result.current.selectedListId).toBe('list-1'));
+
+    await act(async () => {
+      await result.current.copyItemToLists('item-1', ['list-2']);
+    });
+
+    expect(listsClientService.copyItemToLists).toHaveBeenCalledWith('item-1', ['list-2']);
+  });
+
+  it('can move an existing item to another list', async () => {
+    vi.mocked(listsClientService.getLists).mockResolvedValue([
+      { id: 'list-1', parentId: 'parent-1', title: 'Morning', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
+      { id: 'list-2', parentId: 'parent-1', title: 'Soccer', category: 'routine', isRoutine: 0, createdAt: '', updatedAt: '' },
+    ]);
+    vi.mocked(listsClientService.getItems).mockResolvedValue([]);
+    vi.mocked(listsClientService.getParentItems).mockResolvedValue([]);
+    vi.mocked(listsClientService.moveItemToList).mockResolvedValue({ id: 'item-1', listId: 'list-2', text: 'Water Bottle', completed: 0 });
+
+    const { result } = renderHook(() => useListsController({ parentId: 'parent-1', preferredCategory: 'routine' }));
+    await waitFor(() => expect(result.current.selectedListId).toBe('list-1'));
+
+    await act(async () => {
+      await result.current.moveItemToList('item-1', 'list-2');
+    });
+
+    expect(listsClientService.moveItemToList).toHaveBeenCalledWith('item-1', 'list-2');
   });
 
   it('keeps metadata out of visible text after checking an item', async () => {

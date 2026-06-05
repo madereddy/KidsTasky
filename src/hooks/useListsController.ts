@@ -141,6 +141,15 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     setGlobalHistory((nextGlobal || []).map(parseItemMetadata));
   }, [parentId]);
 
+  const refreshSelectedListItems = useCallback(async () => {
+    if (!selectedListId) {
+      setItems([]);
+      return;
+    }
+    const nextItems = await listsClientService.getItems(selectedListId);
+    setItems((nextItems || []).map(parseItemMetadata));
+  }, [selectedListId]);
+
   useEffect(() => {
     void loadLists();
   }, [loadLists]);
@@ -174,7 +183,14 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     const rawTitle = stringifyListMetadata(title, locationName, isRoutine);
     const updated = await listsClientService.updateList(id, rawTitle, category, isRoutine, locationName);
     const parsed = parseListMetadata(updated);
-    setLists((prev) => prev.map(l => l.id === id ? parsed : l));
+    setLists((prev) => {
+      const nextLists = prev.map((list) => list.id === id ? parsed : list);
+      setSelectedListId((currentId) => {
+        if (currentId !== id) return currentId;
+        return chooseInitialListId(nextLists, currentId, preferredCategory);
+      });
+      return nextLists;
+    });
     return parsed;
   };
 
@@ -206,6 +222,31 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
 
     const parsedCreated = parseItemMetadata(created);
     setItems((prev) => [...prev, parsedCreated]);
+    void refreshGlobalHistory();
+    return parsedCreated;
+  };
+
+  const addItemToLists = async (
+    listIds: string[],
+    text: string,
+    explicitStore?: string,
+    explicitLocation?: string,
+  ) => {
+    const uniqueListIds = Array.from(new Set(listIds.filter(Boolean)));
+    if (uniqueListIds.length === 0) return [];
+
+    const { cleanText, storeName: parsedStore, locationName: parsedLocation } = extractStoreFromText(text);
+    const finalStore = explicitStore || parsedStore;
+    const finalLocation = explicitLocation || parsedLocation;
+
+    const rawText = stringifyItemMetadata(cleanText, finalStore, undefined, finalLocation);
+    const created = await listsClientService.addItemsToLists(uniqueListIds, rawText);
+    const parsedCreated = created.map(parseItemMetadata);
+
+    setItems((prev) => {
+      const selectedCreations = parsedCreated.filter((item) => item.listId === selectedListId);
+      return selectedCreations.length > 0 ? [...prev, ...selectedCreations] : prev;
+    });
     void refreshGlobalHistory();
     return parsedCreated;
   };
@@ -252,6 +293,22 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     setItems((prev) => removeEntityById(prev, itemId));
     setGlobalHistory((prev) => removeEntityById(prev, itemId));
     void refreshGlobalHistory();
+  };
+
+  const copyItemToLists = async (itemId: string, listIds: string[]) => {
+    const uniqueListIds = Array.from(new Set(listIds.filter(Boolean)));
+    if (uniqueListIds.length === 0) return [];
+    const created = await listsClientService.copyItemToLists(itemId, uniqueListIds);
+    const parsedCreated = created.map(parseItemMetadata);
+    await Promise.all([refreshSelectedListItems(), refreshGlobalHistory()]);
+    return parsedCreated;
+  };
+
+  const moveItemToList = async (itemId: string, targetListId: string) => {
+    const moved = await listsClientService.moveItemToList(itemId, targetListId);
+    const parsedMoved = parseItemMetadata(moved);
+    await Promise.all([refreshSelectedListItems(), refreshGlobalHistory()]);
+    return parsedMoved;
   };
 
   const frequentItems = useMemo(() => {
@@ -324,6 +381,9 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     updateList,
     deleteList,
     addItem,
+    addItemToLists,
+    copyItemToLists,
+    moveItemToList,
     toggleItem,
     deleteItem,
     frequentItems,

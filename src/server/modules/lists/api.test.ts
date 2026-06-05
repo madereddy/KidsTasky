@@ -30,6 +30,27 @@ vi.mock('./service.js', () => ({
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }),
+    getListsByIds: vi.fn().mockReturnValue([
+      {
+        id: 'list_xyz',
+        parentId: 'parent_qwe',
+        title: 'Todos',
+        category: 'routine',
+        isRoutine: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 'list_abc',
+        parentId: 'parent_qwe',
+        title: 'Soccer',
+        category: 'routine',
+        isRoutine: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ]),
+    getItemById: vi.fn().mockReturnValue({ id: 'item_abc', listId: 'list_xyz', text: 'Clean room', completed: 0 }),
     getItemParentId: vi.fn().mockReturnValue('parent_qwe'),
     createList: vi.fn().mockReturnValue({
       id: 'new_list',
@@ -42,6 +63,14 @@ vi.mock('./service.js', () => ({
     }),
     deleteList: vi.fn(),
     addItem: vi.fn().mockReturnValue({ id: 'new_item', listId: 'list_xyz', text: 'x', completed: 0 }),
+    addItemsToLists: vi.fn().mockReturnValue([
+      { id: 'new_item_1', listId: 'list_xyz', text: 'x', completed: 0 },
+      { id: 'new_item_2', listId: 'list_abc', text: 'x', completed: 0 },
+    ]),
+    copyItemToLists: vi.fn().mockReturnValue([
+      { id: 'copied_item', listId: 'list_abc', text: 'Clean room', completed: 0 },
+    ]),
+    moveItemToList: vi.fn().mockReturnValue({ id: 'item_abc', listId: 'list_abc', text: 'Clean room', completed: 0 }),
     toggleItem: vi.fn(),
     deleteItem: vi.fn(),
   }
@@ -54,6 +83,7 @@ describe('Lists API', () => {
   let token: string;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     token = jwt.sign({ uid: parentId, role: 'parent', parentId }, SECRET);
   });
 
@@ -68,6 +98,44 @@ describe('Lists API', () => {
     expect(itemRes.status).toBe(200);
     expect(itemRes.body[0].text).toBe('Clean room');
   });
+
+  it('adds the same item to multiple lists', async () => {
+    const res = await request(app).post('/api/list-items/batch')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ listIds: ['list_xyz', 'list_abc'], text: 'Water bottle' });
+
+    expect(res.status).toBe(201);
+    expect(mockedListsService.getListsByIds).toHaveBeenCalledWith(['list_xyz', 'list_abc']);
+    expect(mockedListsService.addItemsToLists).toHaveBeenCalledWith(['list_xyz', 'list_abc'], 'Water bottle');
+    expect(res.body).toHaveLength(2);
+  });
+
+  it('copies an existing item to another list', async () => {
+    vi.mocked(mockedListsService.getListsByIds).mockReturnValueOnce([{
+      id: 'list_abc',
+      parentId: 'parent_qwe',
+      title: 'Soccer',
+      category: 'routine',
+      isRoutine: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }]);
+    const res = await request(app).post('/api/list-items/item_abc/copy')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ listIds: ['list_abc'] });
+
+    expect(res.status).toBe(201);
+    expect(mockedListsService.copyItemToLists).toHaveBeenCalledWith('item_abc', ['list_abc']);
+  });
+
+  it('moves an existing item to another list', async () => {
+    const res = await request(app).post('/api/list-items/item_abc/move')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ targetListId: 'list_abc' });
+
+    expect(res.status).toBe(200);
+    expect(mockedListsService.moveItemToList).toHaveBeenCalledWith('item_abc', 'list_abc');
+  });
 });
 
 describe('Lists API — cross-family ownership (IDOR)', () => {
@@ -75,6 +143,7 @@ describe('Lists API — cross-family ownership (IDOR)', () => {
   let outsiderToken: string;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     // Service mock always reports list/item owned by 'parent_qwe'.
     outsiderToken = jwt.sign({ uid: outsider, role: 'parent', parentId: outsider }, SECRET);
   });
@@ -100,6 +169,30 @@ describe('Lists API — cross-family ownership (IDOR)', () => {
       .send({ completed: true });
     expect(res.status).toBe(403);
     expect(mockedListsService.toggleItem).not.toHaveBeenCalled();
+  });
+
+  it('rejects batch-adding to another family\'s lists', async () => {
+    const res = await request(app).post('/api/list-items/batch')
+      .set('Authorization', `Bearer ${outsiderToken}`)
+      .send({ listIds: ['list_xyz', 'list_abc'], text: 'pwn' });
+    expect(res.status).toBe(403);
+    expect(mockedListsService.addItemsToLists).not.toHaveBeenCalled();
+  });
+
+  it('rejects copying an item to another family\'s lists', async () => {
+    const res = await request(app).post('/api/list-items/item_abc/copy')
+      .set('Authorization', `Bearer ${outsiderToken}`)
+      .send({ listIds: ['list_abc'] });
+    expect(res.status).toBe(403);
+    expect(mockedListsService.copyItemToLists).not.toHaveBeenCalled();
+  });
+
+  it('rejects moving an item to another family\'s list', async () => {
+    const res = await request(app).post('/api/list-items/item_abc/move')
+      .set('Authorization', `Bearer ${outsiderToken}`)
+      .send({ targetListId: 'list_abc' });
+    expect(res.status).toBe(403);
+    expect(mockedListsService.moveItemToList).not.toHaveBeenCalled();
   });
 
   it('rejects deleting another family\'s item', async () => {

@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Clipboard, ClipboardCheck, Plus, ShoppingCart, Trash2 } from 'lucide-react';
+import { Clipboard, ClipboardCheck, Edit3, Plus, ShoppingCart, Trash2 } from 'lucide-react';
 import { useListsController } from '../../hooks/useListsController';
 import { cn } from '../../lib/utils';
 import { FrequentItems } from './FrequentItems';
 import { StoreFilterBar } from './StoreFilterBar';
+import { analyzeQuickListInput } from '../../lib/quickListInput';
+import { useQuickItemTemplates } from '../../hooks/useQuickItemTemplates';
+import { QuickItemTemplatesPanel } from './QuickItemTemplatesPanel';
 
 interface Props {
   parentId: string;
@@ -14,18 +17,28 @@ export function ShoppingView({ parentId }: Props) {
   const [newItemText, setNewItemText] = useState('');
   const [copied, setCopied] = useState(false);
   const [activeStoreFilter, setActiveStoreFilter] = useState<string | null>(null);
+  const [extraTargetListIds, setExtraTargetListIds] = useState<string[]>([]);
+  const [transferTargets, setTransferTargets] = useState<Record<string, string>>({});
+  const [runMode, setRunMode] = useState<'queue' | 'run'>('queue');
+  const [editingListTitle, setEditingListTitle] = useState('');
   const {
+    lists,
     shoppingLists,
     shoppingItems,
     selectedListId,
     setSelectedListId,
     createList,
+    updateList,
     deleteList,
     addItem,
+    addItemToLists,
+    copyItemToLists,
+    moveItemToList,
     toggleItem,
     deleteItem,
     frequentItems,
   } = useListsController({ parentId, preferredCategory: 'shopping' });
+  const { templates, saveTemplate, removeTemplate, pinTemplate } = useQuickItemTemplates();
 
   useEffect(() => {
     if (!selectedListId && shoppingLists.length > 0) {
@@ -33,10 +46,18 @@ export function ShoppingView({ parentId }: Props) {
     }
   }, [selectedListId, setSelectedListId, shoppingLists]);
 
+  useEffect(() => {
+    setExtraTargetListIds((prev) => prev.filter((id) => id !== selectedListId && shoppingLists.some((list) => list.id === id)));
+  }, [selectedListId, shoppingLists]);
+
   const selectedList = useMemo(
     () => shoppingLists.find((list) => list.id === selectedListId) ?? shoppingLists[0] ?? null,
     [selectedListId, shoppingLists],
   );
+
+  useEffect(() => {
+    setEditingListTitle(selectedList?.title ?? '');
+  }, [selectedList?.id, selectedList?.title]);
 
   const listTitlesById = useMemo(
     () => new Map(shoppingLists.map((list) => [list.id, list.title])),
@@ -50,6 +71,29 @@ export function ShoppingView({ parentId }: Props) {
     ));
   }, [activeStoreFilter, shoppingItems]);
 
+  const quickInputAnalysis = useMemo(
+    () => analyzeQuickListInput(newItemText, lists, selectedListId),
+    [newItemText, lists, selectedListId],
+  );
+
+  const resolvedExtraListIds = useMemo(
+    () => Array.from(new Set([...extraTargetListIds, ...quickInputAnalysis.inferredExtraListIds])),
+    [extraTargetListIds, quickInputAnalysis.inferredExtraListIds],
+  );
+
+  const groupedRunSections = useMemo(() => {
+    const groups = new Map<string, typeof filteredItems>();
+    for (const item of filteredItems) {
+      const key = item.storeName || item.locationName || listTitlesById.get(item.listId) || 'Open queue';
+      const existing = groups.get(key) ?? [];
+      existing.push(item);
+      groups.set(key, existing);
+    }
+    return Array.from(groups.entries());
+  }, [filteredItems, listTitlesById]);
+
+  const getTransferOptions = (itemListId: string) => lists.filter((list) => list.id !== itemListId);
+
   const handleCreateList = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newListTitle.trim()) return;
@@ -60,8 +104,21 @@ export function ShoppingView({ parentId }: Props) {
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemText.trim() || !selectedList) return;
-    await addItem(newItemText.trim());
+    const targetListIds = [selectedList.id, ...resolvedExtraListIds];
+    const finalStore = quickInputAnalysis.inferredStoreName;
+    const finalLocation = quickInputAnalysis.inferredLocationName;
+    if (targetListIds.length > 1) {
+      await addItemToLists(targetListIds, quickInputAnalysis.cleanText, finalStore, finalLocation);
+    } else {
+      await addItem(quickInputAnalysis.cleanText, finalStore, finalLocation);
+    }
     setNewItemText('');
+    setExtraTargetListIds([]);
+  };
+
+  const handleRenameSelectedList = async () => {
+    if (!selectedList || !editingListTitle.trim() || editingListTitle.trim() === selectedList.title) return;
+    await updateList(selectedList.id, editingListTitle.trim(), 'shopping', selectedList.isRoutine, selectedList.locationName);
   };
 
   const handleCopyItems = async () => {
@@ -107,6 +164,15 @@ export function ShoppingView({ parentId }: Props) {
             {selectedList && (
               <button
                 type="button"
+                onClick={() => void updateList(selectedList.id, selectedList.title, 'routine', 0, selectedList.locationName)}
+                className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 transition-colors hover:bg-sky-100"
+              >
+                Move to routines
+              </button>
+            )}
+            {selectedList && (
+              <button
+                type="button"
                 onClick={() => void handleDeleteList(selectedList.id)}
                 className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
               >
@@ -120,7 +186,7 @@ export function ShoppingView({ parentId }: Props) {
         <div className="mt-5 grid gap-4 xl:grid-cols-[1.6fr_1fr]">
           <div className="space-y-4 rounded-[1.5rem] border border-ui bg-ui-soft p-4">
             <div className="space-y-3">
-              <label className="text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted">Send new items to</label>
+              <label className="text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted">Primary shopping list</label>
               <div className="flex flex-wrap gap-2">
                 {shoppingLists.map((list) => (
                   <button
@@ -143,19 +209,103 @@ export function ShoppingView({ parentId }: Props) {
               </div>
             </div>
 
+            {selectedList && shoppingLists.length > 1 && (
+              <div className="space-y-3">
+                <label className="text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted">Also add to</label>
+                <div className="flex flex-wrap gap-2">
+                  {shoppingLists.filter((list) => list.id !== selectedList.id).map((list) => {
+                    const isSelected = extraTargetListIds.includes(list.id);
+                    return (
+                      <button
+                        key={list.id}
+                        type="button"
+                        onClick={() => setExtraTargetListIds((prev) => (
+                          prev.includes(list.id)
+                            ? prev.filter((id) => id !== list.id)
+                            : [...prev, list.id]
+                        ))}
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-xs font-bold transition-colors",
+                          isSelected
+                            ? "border-sky-300 bg-sky-50 text-sky-700"
+                            : "border-ui bg-white text-ui-muted hover:bg-ui-soft-2",
+                        )}
+                      >
+                        {list.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <FrequentItems
               items={frequentItems}
               onSelect={(item) => {
                 if (!selectedList) return;
-                void addItem(item.text, item.storeName, item.locationName);
+                const targetListIds = [selectedList.id, ...resolvedExtraListIds];
+                if (targetListIds.length > 1) {
+                  void addItemToLists(targetListIds, item.text, item.storeName, item.locationName);
+                } else {
+                  void addItem(item.text, item.storeName, item.locationName);
+                }
+                setExtraTargetListIds([]);
               }}
             />
+
+            <QuickItemTemplatesPanel
+              templates={templates}
+              draftText={quickInputAnalysis.cleanText}
+              onApply={(text) => {
+                if (!selectedList) return;
+                const targetListIds = [selectedList.id, ...resolvedExtraListIds];
+                if (targetListIds.length > 1) {
+                  void addItemToLists(targetListIds, text);
+                } else {
+                  void addItem(text);
+                }
+              }}
+              onSave={(name, text, pinned) => void saveTemplate(name, text, pinned)}
+              onRemove={(id) => void removeTemplate(id)}
+              onTogglePin={(id, pinned) => void pinTemplate(id, pinned)}
+            />
+
+            {selectedList && (
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                <input
+                  value={editingListTitle}
+                  onChange={(e) => setEditingListTitle(e.target.value)}
+                  placeholder="Rename selected list"
+                  className="rounded-2xl border border-ui bg-white px-4 py-3 text-sm text-ui-primary focus:outline-none focus:ring-2 focus:ring-sky-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleRenameSelectedList()}
+                  disabled={!editingListTitle.trim() || editingListTitle.trim() === selectedList.title}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-ui bg-white px-4 py-3 text-sm font-bold text-ui-primary transition-colors hover:bg-ui-soft disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Edit3 size={14} />
+                  Rename
+                </button>
+              </div>
+            )}
+
+            {(quickInputAnalysis.inferredExtraListIds.length > 0 || quickInputAnalysis.inferredStoreName || quickInputAnalysis.inferredLocationName) && (
+              <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-semibold text-sky-800">
+                <span>Quick match:</span>
+                {quickInputAnalysis.inferredExtraListIds.length > 0 && (
+                  <span className="ml-2">lists {lists.filter((list) => quickInputAnalysis.inferredExtraListIds.includes(list.id)).map((list) => list.title).join(', ')}</span>
+                )}
+                {quickInputAnalysis.inferredStoreName && <span className="ml-2">store {quickInputAnalysis.inferredStoreName}</span>}
+                {quickInputAnalysis.inferredLocationName && <span className="ml-2">location {quickInputAnalysis.inferredLocationName}</span>}
+              </div>
+            )}
 
             <form onSubmit={handleAddItem} className="flex flex-col gap-3 sm:flex-row">
               <input
                 value={newItemText}
                 onChange={(e) => setNewItemText(e.target.value)}
-                placeholder={selectedList ? `Add to ${selectedList.title}` : 'Create a shopping list first'}
+                placeholder={selectedList ? `Add to ${selectedList.title}, try 'Batteries Target Home'` : 'Create a shopping list first'}
                 disabled={!selectedList}
                 className="flex-1 rounded-2xl border border-ui bg-white px-4 py-3 text-sm text-ui-primary focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:cursor-not-allowed disabled:bg-ui-soft"
               />
@@ -208,8 +358,28 @@ export function ShoppingView({ parentId }: Props) {
 
       <section className="rounded-[2rem] border border-ui bg-white shadow-sm">
         <div className="border-b border-ui px-5 py-4">
-          <h3 className="text-lg font-black text-ui-primary">Open shopping queue</h3>
-          <p className="text-sm text-ui-muted">All active shopping items across every shopping list.</p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-black text-ui-primary">Open shopping queue</h3>
+              <p className="text-sm text-ui-muted">All active shopping items across every shopping list.</p>
+            </div>
+            <div className="inline-flex rounded-full border border-ui bg-white p-1">
+              <button
+                type="button"
+                onClick={() => setRunMode('queue')}
+                className={cn("rounded-full px-3 py-1 text-xs font-bold transition-colors", runMode === 'queue' ? "bg-ui-primary text-white" : "text-ui-muted")}
+              >
+                Queue
+              </button>
+              <button
+                type="button"
+                onClick={() => setRunMode('run')}
+                className={cn("rounded-full px-3 py-1 text-xs font-bold transition-colors", runMode === 'run' ? "bg-ui-primary text-white" : "text-ui-muted")}
+              >
+                Run mode
+              </button>
+            </div>
+          </div>
         </div>
         <StoreFilterBar items={shoppingItems} activeStore={activeStoreFilter} onSelectStore={setActiveStoreFilter} />
         <div className="p-5">
@@ -217,6 +387,37 @@ export function ShoppingView({ parentId }: Props) {
             <div className="rounded-[1.5rem] border border-dashed border-ui bg-ui-soft px-6 py-12 text-center">
               <p className="text-lg font-semibold text-ui-primary">No shopping items waiting.</p>
               <p className="mt-1 text-sm text-ui-muted">Add an item above or use a frequent add chip.</p>
+            </div>
+          ) : runMode === 'run' ? (
+            <div className="space-y-5">
+              {groupedRunSections.map(([groupName, groupItems]) => (
+                <section key={groupName} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-black uppercase tracking-[0.16em] text-ui-muted">{groupName}</h4>
+                    <span className="rounded-full bg-ui-soft px-2 py-1 text-[10px] font-bold text-ui-muted">{groupItems.length} items</span>
+                  </div>
+                  <ul className="space-y-3">
+                    {groupItems.map((item) => (
+                      <li key={item.id} className="flex items-start gap-3 rounded-2xl border border-ui bg-ui-soft px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={item.completed === 1}
+                          onChange={(e) => void toggleItem(item.id, e.target.checked)}
+                          className="mt-1 h-5 w-5 rounded border-ui text-sky-600 focus:ring-sky-500"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-semibold text-ui-primary">{item.text}</p>
+                            <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wide text-ui-muted">
+                              {listTitlesById.get(item.listId) ?? 'Shopping'}
+                            </span>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
             </div>
           ) : (
             <ul className="space-y-3">
@@ -245,6 +446,39 @@ export function ShoppingView({ parentId }: Props) {
                         </span>
                       )}
                     </div>
+                    {getTransferOptions(item.listId).length > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1">
+                        <select
+                          value={transferTargets[item.id] ?? getTransferOptions(item.listId)[0]?.id ?? ''}
+                          onChange={(e) => setTransferTargets((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                          className="max-w-36 rounded-md border border-ui bg-white px-2 py-1 text-[10px] font-bold text-ui-primary"
+                        >
+                          {getTransferOptions(item.listId).map((list) => (
+                            <option key={list.id} value={list.id}>{list.title}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const target = transferTargets[item.id] ?? getTransferOptions(item.listId)[0]?.id;
+                            if (target) void copyItemToLists(item.id, [target]);
+                          }}
+                          className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                        >
+                          Copy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const target = transferTargets[item.id] ?? getTransferOptions(item.listId)[0]?.id;
+                            if (target) void moveItemToList(item.id, target);
+                          }}
+                          className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[10px] font-bold text-sky-700 transition-colors hover:bg-sky-100"
+                        >
+                          Move
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <button
                     type="button"

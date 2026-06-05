@@ -68,4 +68,19 @@ describe('Proof Templates API', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(remove.status).toBe(200);
   });
+
+  it('supports reusable list-item templates', async () => {
+    const create = await request(app)
+      .post('/api/proof-templates/list')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Soccer Bottle', questions: ['Water Bottle @ Soccer Field'], pinned: true });
+    expect(create.status).toBe(200);
+    expect(create.body.kind).toBe('list');
+
+    const list = await request(app)
+      .get('/api/proof-templates/list')
+      .set('Authorization', `Bearer ${token}`);
+    expect(list.status).toBe(200);
+    expect(list.body[0].name).toBe('Soccer Bottle');
+  });
 });

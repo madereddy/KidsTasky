@@ -299,4 +299,5 @@ export interface MissionItem {
   assignedToId?: string;
   storeName?: string;
   locationName?: string;
+  listCategory?: 'shopping' | 'routine';
 }

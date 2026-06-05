@@ -10,8 +10,16 @@ export const listsService = {
   getListById: (id: string): AppList | undefined => {
     return db.prepare('SELECT * FROM lists WHERE id = ?').get(id) as AppList | undefined;
   },
+  getListsByIds: (ids: string[]): AppList[] => {
+    if (ids.length === 0) return [];
+    const placeholders = ids.map(() => '?').join(', ');
+    return db.prepare(`SELECT * FROM lists WHERE id IN (${placeholders})`).all(...ids) as AppList[];
+  },
   getListItems: (listId: string): AppListItem[] => {
     return db.prepare('SELECT * FROM list_items WHERE listId = ?').all(listId) as AppListItem[];
+  },
+  getItemById: (itemId: string): AppListItem | undefined => {
+    return db.prepare('SELECT * FROM list_items WHERE id = ?').get(itemId) as AppListItem | undefined;
   },
   getAllParentItems: (parentId: string): AppListItem[] => {
     return db.prepare(`
@@ -82,6 +90,32 @@ export const listsService = {
     const id = randomUUID();
     db.prepare('INSERT INTO list_items (id, listId, text, completed) VALUES (?, ?, ?, 0)').run(id, listId, text);
     return { id, listId, text, completed: 0 };
+  },
+  addItemsToLists: (listIds: string[], text: string): AppListItem[] => {
+    const uniqueListIds = Array.from(new Set(listIds.filter(Boolean)));
+    if (uniqueListIds.length === 0) return [];
+
+    const insertItem = db.prepare('INSERT INTO list_items (id, listId, text, completed) VALUES (?, ?, ?, 0)');
+    const transaction = db.transaction((ids: string[]) => {
+      return ids.map((listId) => {
+        const id = randomUUID();
+        insertItem.run(id, listId, text);
+        return { id, listId, text, completed: 0 } as AppListItem;
+      });
+    });
+
+    return transaction(uniqueListIds);
+  },
+  copyItemToLists: (itemId: string, listIds: string[]): AppListItem[] => {
+    const item = db.prepare('SELECT * FROM list_items WHERE id = ?').get(itemId) as AppListItem | undefined;
+    if (!item) throw new Error('Item not found');
+    return listsService.addItemsToLists(listIds, item.text);
+  },
+  moveItemToList: (itemId: string, targetListId: string): AppListItem => {
+    db.prepare('UPDATE list_items SET listId = ? WHERE id = ?').run(targetListId, itemId);
+    const updated = db.prepare('SELECT * FROM list_items WHERE id = ?').get(itemId) as AppListItem | undefined;
+    if (!updated) throw new Error('Item not found');
+    return updated;
   },
   toggleItem: (itemId: string, completed: boolean, text?: string) => {
     if (text !== undefined) {

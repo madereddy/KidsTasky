@@ -62,7 +62,11 @@ export function MissionTodayView({ profile, tasks, events, completions, listItem
               <div className="p-2 rounded-lg bg-ui-soft">
                 {item.type === 'event' && <Calendar className={iconColorClass} style={iconStyle} />}
                 {item.type === 'task' && <CheckCircle2 className={iconColorClass} style={iconStyle} />}
-                {item.type === 'list_item' && <ShoppingCart className={iconColorClass} style={iconStyle} />}
+                {item.type === 'list_item' && (
+                  item.listCategory === 'routine'
+                    ? <ListChecks className="text-purple-500" />
+                    : <ShoppingCart className={iconColorClass} style={iconStyle} />
+                )}
                 {item.type === 'routine' && <ListChecks className="text-purple-500" />}
               </div>
               <div className="flex-1">
