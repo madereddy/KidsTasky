@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, MapPin, Globe, Moon, Lock, RefreshCw, CheckCircle, AlertTriangle, Users, Trash2, Palette } from 'lucide-react';
-import { authService } from '../../services/auth';
+import { X, MapPin, Globe, Moon, RefreshCw, CheckCircle, AlertTriangle, Users, Palette } from 'lucide-react';
 import { settingsClientService } from '../../services/settings';
 import { syncClientService, SyncNowResult } from '../../services/sync';
 import { userService } from '../../services/users';
@@ -10,8 +9,8 @@ import { FamilySettings, SyncCalendar } from '../../types';
 import { THEMES } from '../../constants';
 import { useFamilyData } from '../../contexts/FamilyDataContext';
 import { PhotoManager } from './PhotoManager';
-import { clientLogger } from '../../services/clientLogger';
 import { HouseholdTagManager } from '../shared/HouseholdTagManager';
+import { SecuritySettings } from './settings/SecuritySettings';
 
 interface Props {
   parentId: string;
@@ -72,11 +71,6 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
   const [pin, setPin] = useState('');
   const [hasPIN, setHasPIN] = useState(false);
   const [showPinInput, setShowPinInput] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordChanging, setPasswordChanging] = useState(false);
-  const [passwordChangeMessage, setPasswordChangeMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [syncingNow, setSyncingNow] = useState(false);
@@ -90,8 +84,6 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
   const [calendarVisibility, setCalendarVisibility] = useState<Record<string, boolean>>({});
   const [coParents, setCoParents] = useState<{uid: string; name: string; email: string}[]>([]);
   const [coParentInvite, setCoParentInvite] = useState<{id: string} | null>(null);
-  const [generatingCoInvite, setGeneratingCoInvite] = useState(false);
-  const [coInviteCopied, setCoInviteCopied] = useState(false);
   const [displayRotationEnabled, setDisplayRotationEnabled] = useState(false);
   const [displayRotationInterval, setDisplayRotationInterval] = useState(30);
   const [screensaverShuffle, setScreensaverShuffle] = useState(false);
@@ -151,16 +143,16 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
 
       setCalendars((bootstrap.calendars || []) as SyncCalendar[]);
       const visMap: Record<string, boolean> = {};
-      (bootstrap.calendarVisibility || []).forEach((v) => {
+      (bootstrap.calendarVisibility || []).forEach((v: any) => {
         visMap[v.calendarId] = Number(v.isVisible) === 1;
       });
       setCalendarVisibility(visMap);
 
       const conns = bootstrap.connections || [];
       if (conns.length > 0) setConnectionId(conns[0].id);
-      const withSync = conns.filter(c => c.lastSyncAt);
+      const withSync = conns.filter((c: any) => c.lastSyncAt);
       if (withSync.length > 0) {
-        const latest = withSync.reduce((a, b) => (a.lastSyncAt! > b.lastSyncAt! ? a : b));
+        const latest = withSync.reduce((a: any, b: any) => (a.lastSyncAt! > b.lastSyncAt! ? a : b));
         setLastSyncAt(latest.lastSyncAt ?? null);
         setLastSyncStatus(latest.lastSyncStatus ?? null);
       }
@@ -334,41 +326,6 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
       onClose();
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleChangePassword = async () => {
-    const trimmedCurrent = currentPassword.trim();
-    const trimmedNew = newPassword.trim();
-    const trimmedConfirm = confirmPassword.trim();
-
-    if (!trimmedCurrent || !trimmedNew || !trimmedConfirm) {
-      setPasswordChangeMessage('Fill out the current password and both new password fields.');
-      return;
-    }
-    if (trimmedNew.length < 8) {
-      setPasswordChangeMessage('New password must be at least 8 characters.');
-      return;
-    }
-    if (trimmedNew !== trimmedConfirm) {
-      setPasswordChangeMessage('New passwords do not match.');
-      return;
-    }
-
-    setPasswordChanging(true);
-    setPasswordChangeMessage('');
-    try {
-      const ok = await authService.changePassword(trimmedCurrent, trimmedNew);
-      if (!ok) {
-        setPasswordChangeMessage('Password change failed. Check your current password and try again.');
-        return;
-      }
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setPasswordChangeMessage('Password updated.');
-    } finally {
-      setPasswordChanging(false);
     }
   };
 
@@ -632,184 +589,19 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
             </section>
           )}
 
-          <section>
-            <div className="flex items-center gap-2 mb-3">
-              <Lock size={16} className="text-amber-500" />
-              <h3 className="font-bold text-ui-secondary">Family PIN</h3>
-            </div>
-            {!showPinInput ? (
-              <div className="flex items-center gap-3">
-                {hasPIN ? (
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4].map(i => (
-                      <div key={i} className="w-4 h-4 rounded-full bg-amber-400" />
-                    ))}
-                  </div>
-                ) : (
-                  <span className="text-sm text-ui-muted-2">No PIN set</span>
-                )}
-                <button
-                  onClick={() => setShowPinInput(true)}
-                  className="px-3 py-1.5 bg-ui-soft border border-ui text-amber-700 rounded-lg text-sm font-medium hover:bg-ui-soft-2 transition-colors"
-                >
-                  {hasPIN ? 'Change PIN' : 'Set PIN'}
-                </button>
-              </div>
-            ) : (
-              <div>
-                <input
-                  type="password"
-                  maxLength={4}
-                  value={pin}
-                  onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="4-digit PIN"
-                  className="w-32 border border-ui rounded-lg px-3 py-2 text-sm text-center tracking-widest font-mono bg-white text-ui-primary focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
-                <p className="text-xs text-ui-muted-2 mt-1">Enter a new 4-digit PIN</p>
-              </div>
-            )}
-          </section>
-
-          <section>
-            <div className="flex items-center gap-2 mb-3">
-              <Lock size={16} className="text-slate-500" />
-              <h3 className="font-bold text-ui-secondary">Parent Password</h3>
-            </div>
-            <p className="text-xs text-ui-muted mb-3">Change the password used to sign in as a parent.</p>
-            <div className="space-y-3">
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={e => setCurrentPassword(e.target.value)}
-                placeholder="Current password"
-                autoComplete="current-password"
-                className="w-full border border-ui rounded-lg px-3 py-2 text-sm bg-white text-ui-primary focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-              <input
-                type="password"
-                value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
-                placeholder="New password"
-                autoComplete="new-password"
-                className="w-full border border-ui rounded-lg px-3 py-2 text-sm bg-white text-ui-primary focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                placeholder="Confirm new password"
-                autoComplete="new-password"
-                className="w-full border border-ui rounded-lg px-3 py-2 text-sm bg-white text-ui-primary focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-              <button
-                onClick={handleChangePassword}
-                disabled={passwordChanging || !currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()}
-                className="px-3 py-2 bg-slate-700 text-white rounded-lg text-sm font-semibold hover:bg-slate-600 disabled:opacity-60"
-              >
-                {passwordChanging ? 'Updating...' : 'Update Password'}
-              </button>
-              {passwordChangeMessage && (
-                <p className={`text-xs ${passwordChangeMessage === 'Password updated.' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  {passwordChangeMessage}
-                </p>
-              )}
-            </div>
-          </section>
-
-          <section>
-            <div className="flex items-center gap-2 mb-3">
-              <Globe size={16} className="text-sky-500" />
-              <h3 className="font-bold text-ui-secondary">Quick Tags</h3>
-            </div>
-            <div className="space-y-3">
-              <HouseholdTagManager
-                title="Shopping stores"
-                helperText="Used by shopping quick-add matching and filters."
-                values={customStoreNames}
-                placeholder="Publix"
-                addLabel="Add store"
-                onChange={setCustomStoreNames}
-              />
-              <HouseholdTagManager
-                title="Routine locations"
-                helperText="Used by routine location chips and quick-add matching."
-                values={customLocationNames}
-                placeholder="Baseball"
-                addLabel="Add location"
-                onChange={setCustomLocationNames}
-              />
-            </div>
-          </section>
-
-          {/* Co-Parents */}
-          <div className="border-t pt-4">
-            <h3 className="font-semibold mb-2 flex items-center gap-2">
-              <Users size={16} /> Co-Parents
-            </h3>
-            {coParents.length > 0 && (
-              <ul className="mb-3 space-y-1">
-                {coParents.map(cp => (
-                  <li key={cp.uid} className="flex items-center justify-between text-sm bg-ui-soft rounded px-3 py-1.5">
-                    <span>{cp.name} <span className="text-ui-muted-2">({cp.email})</span></span>
-                    <button
-                      onClick={async () => {
-                        if (!confirm(`Remove ${cp.name} as co-parent?`)) return;
-                        await userService.removeCoParent(cp.uid);
-                        setCoParents(prev => prev.filter(c => c.uid !== cp.uid));
-                      }}
-                      className="text-red-500 hover:text-red-700 ml-2"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {coParentInvite ? (
-              <div className="flex items-center gap-2">
-                <span className="font-mono bg-ui-soft-2 px-2 py-1 rounded text-sm">{coParentInvite.id}</span>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(coParentInvite.id);
-                    setCoInviteCopied(true);
-                    setTimeout(() => setCoInviteCopied(false), 2000);
-                  }}
-                  className="text-blue-500 text-xs"
-                >
-                  {coInviteCopied ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
-            ) : (
-              <button
-                disabled={generatingCoInvite}
-                onClick={async () => {
-                  setGeneratingCoInvite(true);
-                  try {
-                    const res = await inviteService.createCoParentInvite(parentId, 'Family');
-                    setCoParentInvite({ id: res });
-                  } catch (e) {
-                    clientLogger.errorWithException('settings_generate_coparent_invite_failed', e, { parentId });
-                  } finally {
-                    setGeneratingCoInvite(false);
-                  }
-                }}
-                className="text-sm bg-blue-500 text-white px-3 py-1.5 rounded hover:bg-blue-600 disabled:opacity-50"
-              >
-                {generatingCoInvite ? 'Generating…' : 'Generate Co-Parent Invite'}
-              </button>
-            )}
-          </div>
-
-          <section>
-            <h3 className="font-bold text-ui-secondary mb-2">Display Lock</h3>
-            <p className="text-xs text-ui-muted mb-3">Lock this display in read-only mode.</p>
-            <button
-              onClick={() => onLockNow?.()}
-              className="px-3 py-2 bg-ui-dark-2 text-white rounded-lg text-sm font-semibold"
-            >
-              Lock Display Now
-            </button>
-          </section>
+          <SecuritySettings
+            parentId={parentId}
+            hasPIN={hasPIN}
+            pin={pin}
+            setPin={setPin}
+            showPinInput={showPinInput}
+            setShowPinInput={setShowPinInput}
+            onLockNow={onLockNow}
+            coParents={coParents}
+            setCoParents={setCoParents}
+            coParentInvite={coParentInvite}
+            setCoParentInvite={setCoParentInvite}
+          />
 
           <section>
             <h3 className="font-bold text-ui-secondary mb-2">Calendar Sync</h3>
