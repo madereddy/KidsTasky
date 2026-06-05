@@ -14,7 +14,14 @@ const STORAGE_KEY = 'kidtasker_offline_queue';
 
 export function getOfflineQueue(): OfflineAction[] {
   const stored = localStorage.getItem(STORAGE_KEY);
-  return stored ? JSON.parse(stored) : [];
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored);
+  } catch (error) {
+    console.error('Failed to parse offline queue:', error);
+    localStorage.removeItem(STORAGE_KEY);
+    return [];
+  }
 }
 
 export function pushOfflineAction(action: Omit<OfflineAction, 'id' | 'timestamp'>) {
