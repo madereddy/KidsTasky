@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { fetchAPI } from '../services/http';
 import { userService } from '../services/users';
 import { inviteService } from '../services/invites';
@@ -9,21 +9,97 @@ import { tasksClientService } from '../services/tasks';
 import { dashboardClientService } from '../services/dashboard';
 import { Invite, Notification, Reward, SyncCalendar, UserProfile } from '../types';
 import { removeEntityById } from '../lib/entity-list';
+import { useAsyncData } from './useAsyncData';
 
 interface UseParentDashboardControllerOptions {
   familyId: string;
 }
 
+interface ParentDashboardData {
+  kids: UserProfile[];
+  invite: Invite | null;
+  notifications: Notification[];
+  connections: any[];
+  syncCalendars: SyncCalendar[];
+  rewards: Reward[];
+  todaySummary: {
+    eventsToday: number;
+    homeworkDue: number;
+    pendingApprovals: number;
+    activeChores: number;
+  };
+}
+
+const DEFAULT_SUMMARY = { eventsToday: 0, homeworkDue: 0, pendingApprovals: 0, activeChores: 0 };
+
 export function useParentDashboardController({ familyId }: UseParentDashboardControllerOptions) {
-  const [kids, setKids] = useState<UserProfile[]>([]);
-  const [invite, setInvite] = useState<Invite | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
   const [generatingInvite, setGeneratingInvite] = useState(false);
-  const [connections, setConnections] = useState<any[]>([]);
-  const [syncCalendars, setSyncCalendars] = useState<SyncCalendar[]>([]);
-  const [rewards, setRewards] = useState<Reward[]>([]);
-  const [todaySummary, setTodaySummary] = useState({ eventsToday: 0, homeworkDue: 0, pendingApprovals: 0, activeChores: 0 });
+
+  const fetchFn = useCallback(async (): Promise<ParentDashboardData> => {
+    const today = new Date().toISOString().slice(0, 10);
+    const [
+      k, i, n, r, c, sc, dashData, pending
+    ] = await Promise.all([
+      userService.getKidsForParent(familyId),
+      inviteService.getActiveInvite(familyId),
+      notificationService.getUnreadNotifications(familyId),
+      rewardService.getRewards(familyId),
+      fetchAPI('/settings/' + familyId + '/connections').catch(() => []),
+      syncClientService.getCalendars(familyId).catch(() => []),
+      dashboardClientService.getFamilyDashboardData(familyId, today).catch(() => null),
+      tasksClientService.getPendingCompletions(familyId).catch(() => []),
+    ]);
+
+    let summary = DEFAULT_SUMMARY;
+    if (dashData) {
+      summary = {
+        eventsToday: dashData.events.filter((e) => new Date(e.startTime).toISOString().slice(0, 10) === today).length,
+        homeworkDue: dashData.homework.filter((h) => h.status !== 'done' && h.dueDate <= today).length,
+        pendingApprovals: (pending || []).length,
+        activeChores: dashData.tasks.filter((t) => t.status === 'active').length,
+      };
+    }
+
+    return {
+      kids: k || [],
+      invite: i || null,
+      notifications: n || [],
+      rewards: r || [],
+      connections: c || [],
+      syncCalendars: sc || [],
+      todaySummary: summary,
+    };
+  }, [familyId]);
+
+  const { data, loading, refresh: fetchData, setData } = useAsyncData<ParentDashboardData>(fetchFn, [fetchFn], {
+    initialData: {
+      kids: [],
+      invite: null,
+      notifications: [],
+      connections: [],
+      syncCalendars: [],
+      rewards: [],
+      todaySummary: DEFAULT_SUMMARY,
+    }
+  });
+
+  const {
+    kids,
+    invite,
+    notifications,
+    connections,
+    syncCalendars,
+    rewards,
+    todaySummary,
+  } = data || {
+    kids: [],
+    invite: null,
+    notifications: [],
+    connections: [],
+    syncCalendars: [],
+    rewards: [],
+    todaySummary: DEFAULT_SUMMARY,
+  };
 
   const refreshTodaySummary = useCallback(async () => {
     const today = new Date().toISOString().slice(0, 10);
@@ -32,97 +108,89 @@ export function useParentDashboardController({ familyId }: UseParentDashboardCon
       tasksClientService.getPendingCompletions(familyId).catch(() => []),
     ]);
     if (dashData) {
-      setTodaySummary({
-        eventsToday: dashData.events.filter((e) => new Date(e.startTime).toISOString().slice(0, 10) === today).length,
-        homeworkDue: dashData.homework.filter((h) => h.status !== 'done' && h.dueDate <= today).length,
-        pendingApprovals: (pending || []).length,
-        activeChores: dashData.tasks.filter((t) => t.status === 'active').length,
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          todaySummary: {
+            eventsToday: dashData.events.filter((e) => new Date(e.startTime).toISOString().slice(0, 10) === today).length,
+            homeworkDue: dashData.homework.filter((h) => h.status !== 'done' && h.dueDate <= today).length,
+            pendingApprovals: (pending || []).length,
+            activeChores: dashData.tasks.filter((t) => t.status === 'active').length,
+          }
+        };
       });
     }
-  }, [familyId]);
-
-  const fetchData = useCallback(async () => {
-    try {
-      const [k, i, n, r, c, sc] = await Promise.all([
-        userService.getKidsForParent(familyId),
-        inviteService.getActiveInvite(familyId),
-        notificationService.getUnreadNotifications(familyId),
-        rewardService.getRewards(familyId),
-        fetchAPI('/settings/' + familyId + '/connections').catch(() => []),
-        syncClientService.getCalendars(familyId).catch(() => []),
-      ]);
-      setKids(k || []);
-      setInvite(i || null);
-      setNotifications(n || []);
-      setRewards(r || []);
-      setConnections(c || []);
-      setSyncCalendars(sc || []);
-      await refreshTodaySummary();
-    } finally {
-      setLoading(false);
-    }
-  }, [familyId, refreshTodaySummary]);
-
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+  }, [familyId, setData]);
 
   const refreshNotifications = useCallback(async () => {
     const n = await notificationService.getUnreadNotifications(familyId);
-    setNotifications(n || []);
-  }, [familyId]);
+    setData((prev) => prev ? { ...prev, notifications: n || [] } : prev);
+  }, [familyId, setData]);
 
   const refreshKids = useCallback(async () => {
     const k = await userService.getKidsForParent(familyId);
-    setKids(k || []);
-  }, [familyId]);
+    setData((prev) => prev ? { ...prev, kids: k || [] } : prev);
+  }, [familyId, setData]);
 
   const refreshConnectionsAndCalendars = useCallback(async () => {
     const [c, sc] = await Promise.all([
       fetchAPI('/settings/' + familyId + '/connections').catch(() => []),
       syncClientService.getCalendars(familyId).catch(() => []),
     ]);
-    setConnections(c || []);
-    setSyncCalendars(sc || []);
-  }, [familyId]);
+    setData((prev) => prev ? { ...prev, connections: c || [], syncCalendars: sc || [] } : prev);
+  }, [familyId, setData]);
 
   const markRead = async (id: string) => {
     await notificationService.markNotificationRead(id);
-    setNotifications((prev) => removeEntityById(prev, id));
+    setData((prev) => prev ? { ...prev, notifications: removeEntityById(prev.notifications, id) } : prev);
   };
 
   const generateInvite = async (parentName: string) => {
     setGeneratingInvite(true);
     await inviteService.createInvite(familyId, parentName);
     const updatedInvite = await inviteService.getActiveInvite(familyId);
-    setInvite(updatedInvite);
+    setData((prev) => prev ? { ...prev, invite: updatedInvite } : prev);
     setGeneratingInvite(false);
   };
 
   const refreshRewards = async () => {
     const r = await rewardService.getRewards(familyId);
-    setRewards(r || []);
+    setData((prev) => prev ? { ...prev, rewards: r || [] } : prev);
   };
 
   const handleDisconnect = async (connId: string) => {
     await fetchAPI('/settings/connections/' + connId, { method: 'DELETE' });
-    setConnections((prev) => prev.filter((connection) => connection.id !== connId));
+    setData((prev) => prev ? { ...prev, connections: prev.connections.filter((connection) => connection.id !== connId) } : prev);
   };
 
   const handleToggleCalendar = async (calendarId: string, enabled: boolean) => {
-    const previous = syncCalendars;
-    setSyncCalendars((calendars) =>
-      calendars.map((calendar) =>
-        calendar.id === calendarId ? { ...calendar, enabled } : calendar,
-      ),
-    );
+    let previous: SyncCalendar[] = [];
+    setData((prev) => {
+      if (!prev) return prev;
+      previous = prev.syncCalendars;
+      return {
+        ...prev,
+        syncCalendars: prev.syncCalendars.map((calendar) =>
+          calendar.id === calendarId ? { ...calendar, enabled } : calendar
+        )
+      };
+    });
     try {
       await syncClientService.toggleCalendar(calendarId, enabled);
     } catch (error) {
-      setSyncCalendars(previous);
+      setData((prev) => prev ? { ...prev, syncCalendars: previous } : prev);
       throw error;
     }
   };
+
+  const setKids = useCallback((value: React.SetStateAction<UserProfile[]>) => {
+    setData((prev) => {
+      if (!prev) return prev;
+      const newKids = typeof value === 'function' ? (value as Function)(prev.kids) : value;
+      return { ...prev, kids: newKids };
+    });
+  }, [setData]);
 
   return {
     kids,
