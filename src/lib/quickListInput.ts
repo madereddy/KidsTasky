@@ -8,12 +8,40 @@ type QuickListInputAnalysis = {
   inferredExtraListIds: string[];
 };
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function normalize(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-function removePhrase(source: string, phrase: string) {
-  return source.replace(new RegExp(`\\b${escapeRegExp(phrase)}\\b`, 'i'), ' ');
+function tokenize(value: string) {
+  return normalize(value).split(' ').filter(Boolean);
+}
+
+function findPhraseStart(haystack: string[], needle: string[]) {
+  if (needle.length === 0 || haystack.length < needle.length) return -1;
+  for (let i = 0; i <= haystack.length - needle.length; i += 1) {
+    let matches = true;
+    for (let j = 0; j < needle.length; j += 1) {
+      if (haystack[i + j] !== needle[j]) {
+        matches = false;
+        break;
+      }
+    }
+    if (matches) return i;
+  }
+  return -1;
+}
+
+function stripPhrase(rawTokens: string[], phrase: string) {
+  const phraseTokens = tokenize(phrase);
+  const start = findPhraseStart(rawTokens, phraseTokens);
+  if (start === -1) {
+    return { matched: false, nextTokens: rawTokens };
+  }
+
+  return {
+    matched: true,
+    nextTokens: [...rawTokens.slice(0, start), ...rawTokens.slice(start + phraseTokens.length)],
+  };
 }
 
 export function analyzeQuickListInput(
@@ -26,38 +54,44 @@ export function analyzeQuickListInput(
     return { cleanText: '', inferredExtraListIds: [] };
   }
 
-  let working = trimmed;
+  let workingTokens = tokenize(trimmed);
 
-  const matchedStore = [...COMMON_STORES]
-    .sort((a, b) => b.length - a.length)
-    .find((store) => new RegExp(`\\b${escapeRegExp(store)}\\b`, 'i').test(working));
-  if (matchedStore) {
-    working = removePhrase(working, matchedStore);
+  let inferredStoreName: string | undefined;
+  for (const store of [...COMMON_STORES].sort((a, b) => b.length - a.length)) {
+    const { matched, nextTokens } = stripPhrase(workingTokens, store);
+    if (matched) {
+      inferredStoreName = store;
+      workingTokens = nextTokens;
+      break;
+    }
   }
 
-  const matchedLocation = [...COMMON_LOCATIONS]
-    .sort((a, b) => b.label.length - a.label.length)
-    .find((location) => new RegExp(`\\b${escapeRegExp(location.label)}\\b`, 'i').test(working));
-  if (matchedLocation) {
-    working = removePhrase(working, matchedLocation.label);
+  let inferredLocationName: string | undefined;
+  for (const location of [...COMMON_LOCATIONS].sort((a, b) => b.label.length - a.label.length)) {
+    const { matched, nextTokens } = stripPhrase(workingTokens, location.label);
+    if (matched) {
+      inferredLocationName = location.label;
+      workingTokens = nextTokens;
+      break;
+    }
   }
 
   const inferredExtraListIds: string[] = [];
   for (const list of [...availableLists].sort((a, b) => b.title.length - a.title.length)) {
     if (list.id === primaryListId) continue;
-    if (!list.title.trim()) continue;
-    if (new RegExp(`\\b${escapeRegExp(list.title)}\\b`, 'i').test(working)) {
+    const { matched, nextTokens } = stripPhrase(workingTokens, list.title);
+    if (matched) {
       inferredExtraListIds.push(list.id);
-      working = removePhrase(working, list.title);
+      workingTokens = nextTokens;
     }
   }
 
-  const cleanText = working.replace(/\s{2,}/g, ' ').replace(/\s+,/g, ',').trim() || trimmed;
+  const cleanText = workingTokens.join(' ').trim() || trimmed;
 
   return {
     cleanText,
-    inferredStoreName: matchedStore,
-    inferredLocationName: matchedLocation?.label,
+    inferredStoreName,
+    inferredLocationName,
     inferredExtraListIds: Array.from(new Set(inferredExtraListIds)),
   };
 }
