@@ -101,6 +101,31 @@ Only low/medium-confidence and non-code constraints are listed here.
   - `KidTaskBoard`
   - `ParentTaskBoard`
 
+## Security Standards
+
+### Authentication & Hashing
+- **Hashing:** Mandatory Argon2id for all new credentials.
+  - Memory: 64MB
+  - Time Cost: 3
+  - Parallelism: 4
+
+### Lockout Policy
+Exponential backoff persisted in `auth_lockouts`.
+- Attempts 1-5: No delay.
+- Attempt 6: 1 minute.
+- Attempt 7: 5 minutes.
+- Attempt 8: 15 minutes.
+- Attempt 9: 1 hour.
+- Attempt 10+: 24 hours.
+
+## Data Strategy
+
+### The "Metadata Delimiter" Strategy
+Approach for extending SQLite schemas without migrations for list items.
+- **Format:** `[clean_text] |META:[json_payload]|`
+- **Purpose:** Stores `storeName`, `locationName`, and `completedAt` inside the `text` field.
+- **Governance:** This is considered a "Strangler-Fig" transitional state; new features with high data volume should still use proper columns.
+
 ## Strangler-Fig Migration Direction
 1. Keep module boundaries stable (`routes -> service -> db`).
 2. Extract hot paths into narrower service contracts without changing API behavior.
