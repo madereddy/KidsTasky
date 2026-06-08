@@ -58,7 +58,7 @@ export function HouseholdTagManager({
           </span>
         ))}
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
@@ -75,7 +75,7 @@ export function HouseholdTagManager({
           type="button"
           onClick={() => void handleAdd()}
           disabled={disabled || !draft.trim()}
-          className="rounded-lg bg-ui-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-ui-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="min-h-11 rounded-lg bg-ui-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-ui-primary/90 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
         >
           {addLabel}
         </button>

@@ -41,9 +41,9 @@ export function QuickItemTemplatesPanel({ templates, draftText, onApply, onSave,
         <button 
           type="button" 
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="flex flex-1 items-center justify-between text-left group"
+          className="group flex flex-1 items-center justify-between gap-3 text-left"
         >
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted group-hover:text-ui-primary transition-colors">
               <Star size={12} className={cn(isCollapsed ? "" : "text-amber-500 fill-amber-500")} />
               Quick Library
@@ -65,11 +65,11 @@ export function QuickItemTemplatesPanel({ templates, draftText, onApply, onSave,
               {pinnedTemplates.map((template) => {
                 const templateText = template.questions[0] || template.name;
                 return (
-                  <div key={template.id} className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 shadow-sm">
+                  <div key={template.id} className="inline-flex max-w-full items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 shadow-sm">
                     <button
                       type="button"
                       onClick={() => onApply(templateText)}
-                      className="text-xs font-bold text-amber-800"
+                      className="truncate text-xs font-bold text-amber-800"
                     >
                       + {template.name}
                     </button>
@@ -90,8 +90,8 @@ export function QuickItemTemplatesPanel({ templates, draftText, onApply, onSave,
               {unpinnedTemplates.map((template) => {
                 const templateText = template.questions[0] || template.name;
                 return (
-                  <div key={template.id} className="inline-flex items-center gap-1 rounded-full border border-ui bg-ui-soft px-2 py-1">
-                    <button type="button" onClick={() => onApply(templateText)} className="text-xs font-bold text-ui-primary">
+                  <div key={template.id} className="inline-flex max-w-full items-center gap-1 rounded-full border border-ui bg-ui-soft px-2 py-1">
+                    <button type="button" onClick={() => onApply(templateText)} className="truncate text-xs font-bold text-ui-primary">
                       + {template.name}
                     </button>
                     <button type="button" onClick={() => onTogglePin(template.id, true)} className="text-ui-muted hover:text-amber-500">
@@ -114,7 +114,7 @@ export function QuickItemTemplatesPanel({ templates, draftText, onApply, onSave,
               type="button"
               onClick={() => setPinOnSave((value) => !value)}
               className={cn(
-                "rounded-xl border px-3 py-2 text-xs font-bold transition-colors",
+                "min-h-11 rounded-xl border px-3 py-2 text-xs font-bold transition-colors sm:min-h-0",
                 pinOnSave ? "border-amber-300 bg-amber-50 text-amber-800" : "border-ui bg-ui-soft text-ui-muted",
               )}
             >
@@ -124,7 +124,7 @@ export function QuickItemTemplatesPanel({ templates, draftText, onApply, onSave,
               type="button"
               onClick={handleSave}
               disabled={!templateName.trim() || !draftText.trim()}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-ui-primary px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-ui-primary/90 disabled:cursor-not-allowed disabled:bg-ui-soft-3 disabled:text-ui-muted"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-ui-primary px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-ui-primary/90 disabled:cursor-not-allowed disabled:bg-ui-soft-3 disabled:text-ui-muted sm:min-h-0"
             >
               <Save size={14} />
               Save

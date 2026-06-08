@@ -902,7 +902,12 @@ export default function App() {
         )}
       </header>
 
-      <main className="max-w-7xl mx-auto px-6">
+      <main
+        className={cn(
+          "mx-auto max-w-7xl px-4 sm:px-6",
+          isMobile ? "pb-[calc(7.5rem+env(safe-area-inset-bottom))]" : "pb-10",
+        )}
+      >
         {(profile.role === 'parent' || profile.role === 'coparent') && isLocked && (
           <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
             Display is locked in read-only mode. Calendar and profiles stay visible, but parent edits are disabled until unlock.

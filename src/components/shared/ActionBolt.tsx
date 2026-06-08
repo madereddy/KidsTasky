@@ -1,5 +1,5 @@
 // src/components/shared/ActionBolt.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { Zap, ShoppingBasket, ClipboardCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../../types';
@@ -7,6 +7,20 @@ import { UserProfile } from '../../types';
 export function ActionBolt({ onAction, profile }: { onAction: (type: string) => void, profile: UserProfile }) {
   const [isOpen, setIsOpen] = useState(false);
   const isKid = profile.role === 'kid';
+  const menuId = useId();
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isOpen]);
 
   return (
     <>
@@ -21,20 +35,33 @@ export function ActionBolt({ onAction, profile }: { onAction: (type: string) => 
           />
         )}
       </AnimatePresence>
-      <div className="fixed bottom-20 right-6 z-[49]">
+      <div className="fixed bottom-24 right-4 z-[49] sm:right-6">
         <AnimatePresence>
           {isOpen && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="flex flex-col gap-3 mb-4 items-end"
+              id={menuId}
+              role="menu"
+              aria-label="Quick actions"
+              className="mb-4 flex flex-col items-end gap-3"
             >
-              <button onClick={() => { onAction('grocery'); setIsOpen(false); }} className="flex items-center gap-2 bg-white p-3 rounded-full shadow-lg border border-ui font-bold">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { onAction('grocery'); setIsOpen(false); }}
+                className="flex min-h-11 items-center gap-2 rounded-full border border-ui bg-ui-soft px-4 py-3 font-bold text-ui-primary shadow-lg"
+              >
                 Add Grocery <ShoppingBasket size={20} className="text-amber-500" />
               </button>
               {!isKid && (
-                <button onClick={() => { onAction('task'); setIsOpen(false); }} className="flex items-center gap-2 bg-white p-3 rounded-full shadow-lg border border-ui font-bold">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { onAction('task'); setIsOpen(false); }}
+                  className="flex min-h-11 items-center gap-2 rounded-full border border-ui bg-ui-soft px-4 py-3 font-bold text-ui-primary shadow-lg"
+                >
                   New Task <ClipboardCheck size={20} className="text-sky-500" />
                 </button>
               )}
@@ -42,12 +69,17 @@ export function ActionBolt({ onAction, profile }: { onAction: (type: string) => 
           )}
         </AnimatePresence>
         <button
+          type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl hover:bg-blue-500 transition-colors"
+          aria-label={isOpen ? 'Close quick actions' : 'Open quick actions'}
+          aria-expanded={isOpen}
+          aria-controls={menuId}
+          aria-haspopup="menu"
+          className="flex h-16 w-16 items-center justify-center rounded-full border border-ui bg-ui-primary text-white shadow-xl transition-colors hover:bg-ui-primary/90"
         >
           <motion.div
             animate={{ rotate: isOpen ? 45 : 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+            transition={{ duration: 0.12, ease: 'easeOut' }}
           >
             <Zap size={32} />
           </motion.div>

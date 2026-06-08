@@ -28,8 +28,11 @@ export function BottomNav({ activeTab, onTabSelect, role }: BottomNavProps) {
       ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-ui safe-area-pb z-[52]">
-      <div className="flex h-16 items-center justify-around max-w-md mx-auto px-2">
+    <nav
+      aria-label="Primary mobile navigation"
+      className="fixed bottom-0 left-0 right-0 z-[52] border-t border-ui bg-ui-soft/95 backdrop-blur-md safe-area-pb"
+    >
+      <div className="mx-auto flex h-[4.25rem] max-w-md items-center justify-around px-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id || (tab.id === 'tools' && ['tasks', 'routines', 'meals'].includes(activeTab));
@@ -37,17 +40,19 @@ export function BottomNav({ activeTab, onTabSelect, role }: BottomNavProps) {
             <button
               key={tab.id}
               onClick={() => onTabSelect(tab.id)}
+              aria-current={isActive ? 'page' : undefined}
+              aria-label={tab.label}
               className={cn(
-                "flex min-h-[44px] w-full flex-col items-center justify-center space-y-1 transition-colors",
-                isActive ? "text-sky-600" : "text-ui-muted",
+                "flex min-h-[46px] w-full flex-col items-center justify-center gap-1 transition-colors",
+                isActive ? "text-ui-primary" : "text-ui-muted",
               )}
             >
               <Icon size={22} />
-              <span className="text-[10px] font-bold">{tab.label}</span>
+              <span className="text-[11px] font-bold leading-none">{tab.label}</span>
             </button>
           );
         })}
       </div>
-    </div>
+    </nav>
   );
 }

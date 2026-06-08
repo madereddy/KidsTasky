@@ -17,13 +17,13 @@ export function StoreFilterBar({ items, activeStore, onSelectStore }: StoreFilte
   if (stores.length === 0) return null;
 
   return (
-    <div className="flex gap-2 overflow-x-auto p-3 border-b border-ui bg-ui-soft hide-scrollbar">
+    <div className="flex gap-2 overflow-x-auto border-b border-ui bg-ui-soft p-3 hide-scrollbar">
       <button
         onClick={() => onSelectStore(null)}
         aria-pressed={activeStore === null}
         aria-label="Show all items"
         className={cn(
-          "px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors border",
+          "min-h-10 rounded-full border px-3 py-2 text-xs font-bold whitespace-nowrap transition-colors",
           activeStore === null ? "bg-blue-500 text-white border-blue-500" : "bg-white text-ui-muted border-ui hover:bg-ui-soft-2"
         )}
       >
@@ -38,7 +38,7 @@ export function StoreFilterBar({ items, activeStore, onSelectStore }: StoreFilte
             aria-pressed={activeStore === store}
             aria-label={`Filter by ${store} store`}
             className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors border flex items-center gap-1",
+              "flex min-h-10 items-center gap-1 rounded-full border px-3 py-2 text-xs font-bold whitespace-nowrap transition-colors",
               activeStore === store ? "bg-blue-500 text-white border-blue-500" : "bg-white text-blue-600 border-blue-200 hover:bg-blue-50"
             )}
           >

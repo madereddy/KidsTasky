@@ -89,10 +89,41 @@ export function ParentDashboard({
 
   if (loading) return null;
 
+  const summaryCards = [
+    { label: 'Pending approvals', value: todaySummary.pendingApprovals, tone: 'text-amber-600' },
+    { label: 'Homework due', value: todaySummary.homeworkDue, tone: 'text-rose-600' },
+    { label: 'Events today', value: todaySummary.eventsToday, tone: 'text-sky-600' },
+    { label: 'Active chores', value: todaySummary.activeChores, tone: 'text-emerald-600' },
+  ];
+
+  const focusItem = summaryCards.reduce((current, item) => (item.value > current.value ? item : current), summaryCards[0]);
+
   return (
     <div className="space-y-8">
       <RewardManager parentId={familyId} rewards={rewards} onUpdate={refreshRewards} />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <section className="space-y-3 sm:hidden">
+        <div className="rounded-3xl border border-ui bg-white p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted">Needs Attention Now</p>
+              <h3 className="mt-2 text-xl font-black text-ui-primary">{focusItem.value} {focusItem.label.toLowerCase()}</h3>
+              <p className="mt-1 text-sm text-ui-muted">Keep the family day moving with the highest-pressure items first.</p>
+            </div>
+            <span className={cn("rounded-full bg-ui-soft px-3 py-1 text-xs font-black uppercase tracking-wide", focusItem.tone)}>
+              Focus
+            </span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {summaryCards.map((item) => (
+            <div key={item.label} className="rounded-2xl border border-ui bg-white p-3">
+              <p className="text-[11px] font-bold uppercase text-ui-muted">{item.label}</p>
+              <p className={cn("mt-2 text-2xl font-black", item.tone)}>{item.value}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+      <div className="hidden gap-3 sm:grid sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-ui bg-white p-3"><p className="text-[11px] uppercase text-ui-muted font-bold">Events Today</p><p className="text-2xl font-black text-ui-primary">{todaySummary.eventsToday}</p></div>
         <div className="rounded-2xl border border-ui bg-white p-3"><p className="text-[11px] uppercase text-ui-muted font-bold">Homework Due</p><p className="text-2xl font-black text-ui-primary">{todaySummary.homeworkDue}</p></div>
         <div className="rounded-2xl border border-ui bg-white p-3"><p className="text-[11px] uppercase text-ui-muted font-bold">Pending Approvals</p><p className="text-2xl font-black text-ui-primary">{todaySummary.pendingApprovals}</p></div>
@@ -100,15 +131,18 @@ export function ParentDashboard({
       </div>
       <AllowanceLedger parentId={familyId} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 bg-white shadow-sm border border-ui-soft p-6 rounded-3xl flex justify-between items-center relative overflow-hidden">
-          <div className="relative z-10">
+        <div className="relative overflow-hidden rounded-3xl border border-ui-soft bg-white p-5 shadow-sm md:col-span-2 sm:p-6">
+          <div className="relative z-10 flex flex-col gap-5 sm:gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
             <h3 className="text-lg font-bold mb-2">Ground Control Command</h3>
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-white shadow-sm border border-ui rounded-2xl relative">
-                <ShieldCheck className="w-6 h-6 text-blue-500" />
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+              <div className="relative rounded-2xl border border-ui bg-white p-3 shadow-sm">
+                <ShieldCheck className="w-6 h-6 text-ui-primary" />
                 <button
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className="absolute -top-2 -right-2 w-6 h-6 bg-ui-soft-2 rounded-full flex items-center justify-center border border-ui hover:border-amber-500 transition-colors"
+                  aria-label={showNotifications ? 'Hide notifications' : 'Show notifications'}
+                  aria-expanded={showNotifications}
+                  className="absolute -right-2 -top-2 flex min-h-11 min-w-11 items-center justify-center rounded-full border border-ui bg-ui-soft-2 transition-colors hover:border-amber-500"
                 >
                   <Bell className={cn('w-3 h-3', notifications.length > 0 ? 'text-amber-500 animate-pulse' : 'text-ui-muted')} />
                   {notifications.length > 0 && (
@@ -123,11 +157,11 @@ export function ParentDashboard({
               {onOpenSettings && (
                 <button
                   onClick={onOpenSettings}
-                  className="ml-2 p-2.5 bg-ui-soft border border-ui rounded-xl text-ui-muted hover:text-sky-500 hover:border-sky-300 transition-all flex items-center gap-2 group"
+                  className="group inline-flex min-h-11 items-center gap-2 rounded-xl border border-ui bg-ui-soft px-3 py-2.5 text-ui-muted transition-all hover:border-sky-300 hover:text-sky-500 sm:ml-2"
                   title="App & Display Settings"
                 >
                   <Settings className="w-4 h-4 group-hover:rotate-45 transition-transform" />
-                  <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">System Settings</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">System Settings</span>
                 </button>
               )}
             </div>
@@ -138,7 +172,7 @@ export function ParentDashboard({
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute top-full left-0 mt-4 w-64 bg-white border border-ui rounded-2xl shadow-2xl z-[100] max-h-[300px] overflow-y-auto"
+                  className="mt-4 max-h-[300px] overflow-y-auto rounded-2xl border border-ui bg-white shadow-2xl sm:absolute sm:left-0 sm:right-auto sm:top-full sm:z-[100] sm:mt-4 sm:w-64"
                 >
                   <div className="p-3 border-b border-ui flex justify-between items-center bg-white/90 backdrop-blur-md sticky top-0 z-10">
                     <span className="text-xs font-black uppercase tracking-widest text-ui-muted">Tactical Alerts</span>
@@ -172,29 +206,29 @@ export function ParentDashboard({
             </AnimatePresence>
           </div>
 
-          <div className="relative z-10 flex flex-col items-end">
+            <div className="relative z-10 flex w-full flex-col items-stretch gap-3 lg:max-w-sm lg:items-end">
             {!invite ? (
               <button
                 onClick={() => generateInvite(profile.name)}
                 disabled={generatingInvite}
-                className="bg-sky-500 hover:bg-sky-600 text-white shadow-md border border-sky-600 rounded-2xl transition-all px-6 py-3 font-bold text-xs uppercase tracking-wider"
+                className="min-h-11 rounded-2xl border border-ui-primary bg-ui-primary px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all hover:bg-ui-primary/90"
               >
                 {generatingInvite ? 'GENERATING...' : 'GENERATE MISSION CODE'}
               </button>
             ) : (
-              <div className="text-right">
-                <p className="text-xs text-ui-muted font-black uppercase tracking-widest mb-2 flex items-center justify-end gap-1">
+              <div className="text-left lg:text-right">
+                <p className="mb-2 flex items-center gap-1 text-xs font-black uppercase tracking-widest text-ui-muted lg:justify-end">
                   <Send className="w-3 h-3" /> Mission Access Code
                 </p>
-                <div className="flex items-center gap-2">
-                  <div className="bg-sky-50 border border-sky-100 font-mono px-4 py-2 rounded-2xl text-sky-600 text-2xl font-black tracking-widest shadow-inner">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center lg:justify-end">
+                  <div className="rounded-2xl border border-ui bg-ui-soft px-4 py-2 font-mono text-2xl font-black tracking-[0.22em] text-ui-primary shadow-inner">
                     {invite.id}
                   </div>
                   <button
                     onClick={handleCopy}
                     className={cn(
-                      'p-3 rounded-2xl transition-all flex items-center justify-center border',
-                      copied ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-white text-ui-secondary hover:bg-ui-soft border border-ui'
+                      'flex min-h-11 items-center justify-center rounded-2xl border p-3 transition-all sm:self-auto',
+                      copied ? 'border border-emerald-200 bg-emerald-50 text-emerald-600' : 'border border-ui bg-white text-ui-secondary hover:bg-ui-soft'
                     )}
                     title="Copy Code"
                   >
@@ -204,12 +238,13 @@ export function ParentDashboard({
                 <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="text-xs text-blue-400 font-bold mt-2 uppercase tracking-wide bg-blue-500/10 px-2 py-1 rounded-lg inline-block"
+                  className="mt-2 inline-block rounded-lg bg-ui-soft px-2 py-1 text-xs font-bold uppercase tracking-wide text-ui-primary"
                 >
                   {copied ? 'COORDINATES COPIED!' : 'SHARE CODE WITH SPACE CADET'}
                 </motion.p>
               </div>
             )}
+          </div>
           </div>
 
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl rounded-full translate-x-10 -translate-y-10" />

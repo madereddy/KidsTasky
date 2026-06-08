@@ -154,9 +154,9 @@ export function ShoppingView({ parentId }: Props) {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[2rem] border border-ui bg-white p-5 shadow-sm">
+      <section className="rounded-[1.5rem] border border-ui bg-white p-4 shadow-sm sm:rounded-[2rem] sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-2">
+          <div className="min-w-0 space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-amber-700">
               <ShoppingCart size={12} />
               Shopping
@@ -166,13 +166,13 @@ export function ShoppingView({ parentId }: Props) {
               <p className="text-sm text-ui-muted">One queue for active grocery and supply items, with quick-add suggestions from recent history.</p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             <button
               type="button"
               onClick={handleCopyItems}
               disabled={filteredItems.length === 0}
               className={cn(
-                "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors",
+                "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors sm:min-h-0",
                 copied ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-ui bg-white text-ui-muted hover:bg-ui-soft",
                 filteredItems.length === 0 && "cursor-not-allowed opacity-50",
               )}
@@ -184,7 +184,7 @@ export function ShoppingView({ parentId }: Props) {
               <button
                 type="button"
                 onClick={() => void handleDeleteList(selectedList.id)}
-                className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 sm:min-h-0"
               >
                 <Trash2 size={16} />
                 Delete list
@@ -197,14 +197,14 @@ export function ShoppingView({ parentId }: Props) {
           <div className="space-y-4 rounded-[1.5rem] border border-ui bg-ui-soft p-4">
             <div className="space-y-3">
               <label className="text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted">Primary shopping list</label>
-              <div className="flex flex-wrap gap-2">
+              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 hide-scrollbar sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
                 {shoppingLists.map((list) => (
                   <button
                     key={list.id}
                     type="button"
                     onClick={() => setSelectedListId(list.id)}
                     className={cn(
-                      "rounded-full border px-3 py-1.5 text-xs font-bold transition-colors",
+                      "shrink-0 rounded-full border px-3 py-2 text-xs font-bold transition-colors",
                       selectedList?.id === list.id
                         ? "border-sky-600 bg-sky-500 text-white"
                         : "border-ui bg-white text-ui-muted hover:bg-ui-soft-2",
@@ -222,7 +222,7 @@ export function ShoppingView({ parentId }: Props) {
             {selectedList && shoppingLists.length > 1 && (
               <div className="space-y-3">
                 <label className="text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted">Also add to</label>
-                <div className="flex flex-wrap gap-2">
+                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 hide-scrollbar sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
                   {shoppingLists.filter((list) => list.id !== selectedList.id).map((list) => {
                     const isSelected = extraTargetListIds.includes(list.id);
                     return (
@@ -235,7 +235,7 @@ export function ShoppingView({ parentId }: Props) {
                             : [...prev, list.id]
                         ))}
                         className={cn(
-                          "rounded-full border px-3 py-1.5 text-xs font-bold transition-colors",
+                          "shrink-0 rounded-full border px-3 py-2 text-xs font-bold transition-colors",
                           isSelected
                             ? "border-sky-300 bg-sky-50 text-sky-700"
                             : "border-ui bg-white text-ui-muted hover:bg-ui-soft-2",
@@ -292,7 +292,7 @@ export function ShoppingView({ parentId }: Props) {
                   type="button"
                   onClick={() => void handleRenameSelectedList()}
                   disabled={!editingListTitle.trim() || editingListTitle.trim() === selectedList.title}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-ui bg-white px-4 py-3 text-sm font-bold text-ui-primary transition-colors hover:bg-ui-soft disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-ui bg-white px-4 py-3 text-sm font-bold text-ui-primary transition-colors hover:bg-ui-soft disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
                 >
                   <Edit3 size={14} />
                   Rename
@@ -303,11 +303,13 @@ export function ShoppingView({ parentId }: Props) {
             {(quickInputAnalysis.inferredExtraListIds.length > 0 || quickInputAnalysis.inferredStoreName || quickInputAnalysis.inferredLocationName) && (
               <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-semibold text-sky-800">
                 <span>Quick match:</span>
-                {quickInputAnalysis.inferredExtraListIds.length > 0 && (
-                  <span className="ml-2">lists {shoppingLists.filter((list) => quickInputAnalysis.inferredExtraListIds.includes(list.id)).map((list) => list.title).join(', ')}</span>
-                )}
-                {quickInputAnalysis.inferredStoreName && <span className="ml-2">store {quickInputAnalysis.inferredStoreName}</span>}
-                {quickInputAnalysis.inferredLocationName && <span className="ml-2">location {quickInputAnalysis.inferredLocationName}</span>}
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                  {quickInputAnalysis.inferredExtraListIds.length > 0 && (
+                    <span>lists {shoppingLists.filter((list) => quickInputAnalysis.inferredExtraListIds.includes(list.id)).map((list) => list.title).join(', ')}</span>
+                  )}
+                  {quickInputAnalysis.inferredStoreName && <span>store {quickInputAnalysis.inferredStoreName}</span>}
+                  {quickInputAnalysis.inferredLocationName && <span>location {quickInputAnalysis.inferredLocationName}</span>}
+                </div>
               </div>
             )}
 
@@ -332,7 +334,7 @@ export function ShoppingView({ parentId }: Props) {
               <button
                 type="submit"
                 disabled={!selectedList || !newItemText.trim()}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-sky-500 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-sky-200"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-sky-500 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-sky-200 sm:min-h-0"
               >
                 <Plus size={16} />
                 Add item
@@ -363,14 +365,14 @@ export function ShoppingView({ parentId }: Props) {
 
           <div className="rounded-[1.5rem] border border-ui bg-white p-4">
             <label className="mb-3 block text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted">Create shopping lists</label>
-            <form onSubmit={handleCreateList} className="flex gap-2">
+            <form onSubmit={handleCreateList} className="flex flex-col gap-2 sm:flex-row">
               <input
                 value={newListTitle}
                 onChange={(e) => setNewListTitle(e.target.value)}
                 placeholder="Weekend groceries"
                 className="flex-1 rounded-xl border border-ui px-3 py-2 text-sm text-ui-primary focus:outline-none focus:ring-2 focus:ring-sky-400"
               />
-              <button type="submit" className="rounded-xl bg-ui-primary px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-ui-primary/90">
+              <button type="submit" className="min-h-11 rounded-xl bg-ui-primary px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-ui-primary/90 sm:min-h-0">
                 New
               </button>
             </form>
@@ -397,25 +399,25 @@ export function ShoppingView({ parentId }: Props) {
         </div>
       </section>
 
-      <section className="rounded-[2rem] border border-ui bg-white shadow-sm">
-        <div className="border-b border-ui px-5 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+      <section className="rounded-[1.5rem] border border-ui bg-white shadow-sm sm:rounded-[2rem]">
+        <div className="border-b border-ui px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div>
               <h3 className="text-lg font-black text-ui-primary">Open shopping queue</h3>
               <p className="text-sm text-ui-muted">All active shopping items across every shopping list.</p>
             </div>
-            <div className="inline-flex rounded-full border border-ui bg-white p-1">
+            <div className="inline-flex w-full rounded-full border border-ui bg-white p-1 sm:w-auto">
               <button
                 type="button"
                 onClick={() => setRunMode('queue')}
-                className={cn("rounded-full px-3 py-1 text-xs font-bold transition-colors", runMode === 'queue' ? "bg-ui-primary text-white" : "text-ui-muted")}
+                className={cn("flex-1 rounded-full px-3 py-2 text-xs font-bold transition-colors sm:flex-none", runMode === 'queue' ? "bg-ui-primary text-white" : "text-ui-muted")}
               >
                 Queue
               </button>
               <button
                 type="button"
                 onClick={() => setRunMode('run')}
-                className={cn("rounded-full px-3 py-1 text-xs font-bold transition-colors", runMode === 'run' ? "bg-ui-primary text-white" : "text-ui-muted")}
+                className={cn("flex-1 rounded-full px-3 py-2 text-xs font-bold transition-colors sm:flex-none", runMode === 'run' ? "bg-ui-primary text-white" : "text-ui-muted")}
               >
                 Run mode
               </button>
@@ -423,7 +425,7 @@ export function ShoppingView({ parentId }: Props) {
           </div>
         </div>
         <StoreFilterBar items={shoppingItems} activeStore={activeStoreFilter} onSelectStore={setActiveStoreFilter} />
-        <div className="p-5">
+        <div className="p-4 sm:p-5">
           {filteredItems.length === 0 ? (
             <div className="rounded-[1.5rem] border border-dashed border-ui bg-ui-soft px-6 py-12 text-center">
               <p className="text-lg font-semibold text-ui-primary">No shopping items waiting.</p>
@@ -433,8 +435,8 @@ export function ShoppingView({ parentId }: Props) {
             <div className="space-y-5">
               {groupedRunSections.map(([groupName, groupItems]) => (
                 <section key={groupName} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-black uppercase tracking-[0.16em] text-ui-muted">{groupName}</h4>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <h4 className="min-w-0 break-words text-sm font-black uppercase tracking-[0.16em] text-ui-muted">{groupName}</h4>
                     <span className="rounded-full bg-ui-soft px-2 py-1 text-[10px] font-bold text-ui-muted">{groupItems.length} items</span>
                   </div>
                   <ul className="space-y-3">
@@ -444,7 +446,7 @@ export function ShoppingView({ parentId }: Props) {
                           type="checkbox"
                           checked={item.completed === 1}
                           onChange={(e) => void toggleItem(item.id, e.target.checked)}
-                          className="mt-1 h-5 w-5 rounded border-ui text-sky-600 focus:ring-sky-500"
+                          className="mt-1 h-5 w-5 shrink-0 rounded border-ui text-sky-600 focus:ring-sky-500"
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
@@ -463,12 +465,13 @@ export function ShoppingView({ parentId }: Props) {
           ) : (
             <ul className="space-y-3">
               {filteredItems.map((item) => (
-                <li key={item.id} className="flex items-start gap-3 rounded-2xl border border-ui bg-ui-soft px-4 py-3">
+                <li key={item.id} className="flex flex-col gap-3 rounded-2xl border border-ui bg-ui-soft px-4 py-3 sm:flex-row sm:items-start">
+                  <div className="flex items-start gap-3">
                   <input
                     type="checkbox"
                     checked={item.completed === 1}
                     onChange={(e) => void toggleItem(item.id, e.target.checked)}
-                    className="mt-1 h-5 w-5 rounded border-ui text-sky-600 focus:ring-sky-500"
+                    className="mt-1 h-5 w-5 shrink-0 rounded border-ui text-sky-600 focus:ring-sky-500"
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -488,11 +491,11 @@ export function ShoppingView({ parentId }: Props) {
                       )}
                     </div>
                     {getTransferOptions(item.listId).length > 0 && (
-                      <div className="mt-2 flex flex-wrap items-center gap-1">
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
                         <select
                           value={transferTargets[item.id] ?? getTransferOptions(item.listId)[0]?.id ?? ''}
                           onChange={(e) => setTransferTargets((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                          className="max-w-36 rounded-md border border-ui bg-white px-2 py-1 text-[10px] font-bold text-ui-primary"
+                          className="min-h-10 min-w-0 max-w-full flex-1 rounded-md border border-ui bg-white px-2 py-1 text-[10px] font-bold text-ui-primary sm:max-w-36 sm:flex-none"
                         >
                           {getTransferOptions(item.listId).map((list) => (
                             <option key={list.id} value={list.id}>{list.title}</option>
@@ -504,7 +507,7 @@ export function ShoppingView({ parentId }: Props) {
                             const target = transferTargets[item.id] ?? getTransferOptions(item.listId)[0]?.id;
                             if (target) void copyItemToLists(item.id, [target]);
                           }}
-                          className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                          className="min-h-10 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
                         >
                           Copy
                         </button>
@@ -514,17 +517,18 @@ export function ShoppingView({ parentId }: Props) {
                             const target = transferTargets[item.id] ?? getTransferOptions(item.listId)[0]?.id;
                             if (target) void moveItemToList(item.id, target);
                           }}
-                          className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[10px] font-bold text-sky-700 transition-colors hover:bg-sky-100"
+                          className="min-h-10 rounded-md border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-bold text-sky-700 transition-colors hover:bg-sky-100"
                         >
                           Move
                         </button>
                       </div>
                     )}
                   </div>
+                  </div>
                   <button
                     type="button"
                     onClick={() => void deleteItem(item.id)}
-                    className="rounded-full p-2 text-ui-muted transition-colors hover:bg-red-50 hover:text-red-500"
+                    className="self-end rounded-full p-2 text-ui-muted transition-colors hover:bg-red-50 hover:text-red-500 sm:self-auto"
                     aria-label={`Delete ${item.text}`}
                   >
                     <Trash2 size={16} />
