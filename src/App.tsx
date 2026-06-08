@@ -57,9 +57,27 @@ const lazyWithRetry = <T extends React.ComponentType<any>>(
     sessionStorage.removeItem(retryKey);
     return mod;
   } catch (error) {
-    // Stale chunk after a deploy: hard-reload once to fetch the new manifest.
+    // Stale chunk after a deploy: clear client caches and hard-reload once.
     if (sessionStorage.getItem(retryKey) !== '1') {
       sessionStorage.setItem(retryKey, '1');
+      if (typeof window !== 'undefined') {
+        if ('serviceWorker' in navigator) {
+          try {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.update().catch(() => undefined)));
+          } catch {
+            // Ignore SW refresh failures and still retry with a hard reload.
+          }
+        }
+        if ('caches' in window) {
+          try {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((cacheKey) => caches.delete(cacheKey)));
+          } catch {
+            // Ignore cache-clear failures and still retry with a hard reload.
+          }
+        }
+      }
       window.location.reload();
     }
     throw error;
