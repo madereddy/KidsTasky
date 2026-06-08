@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { format, startOfWeek, addWeeks, subWeeks, addDays, isSameDay } from 'date-fns';
-import { ChevronLeft, ChevronRight, Plus, Trash2, UtensilsCrossed } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Edit3, ExternalLink, Plus, Star, Trash2, Upload, UtensilsCrossed } from 'lucide-react';
 import { Recipe } from '../../types';
 import { RecipeFormModal } from './RecipeFormModal';
 import { cn } from '../../lib/utils';
 import { useMealPlanController } from '../../hooks/useMealPlanController';
+import { mealsClientService } from '../../services/meals';
 
 const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
 
@@ -14,11 +15,14 @@ export function MealPlanView({ parentId }: Props) {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [pickerCell, setPickerCell] = useState<{ date: string; mealType: string } | null>(null);
   const [showRecipeForm, setShowRecipeForm] = useState(false);
+  const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const {
     recipes,
     deletingRecipe,
     addRecipe,
+    updateRecipe,
     deleteRecipe,
     assignMeal,
     getMeal,
@@ -26,6 +30,47 @@ export function MealPlanView({ parentId }: Props) {
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = new Date();
+
+  useEffect(() => {
+    const rawDraft = localStorage.getItem('kidtasker_shared_recipe_draft');
+    if (!rawDraft) return;
+    try {
+      const draft = JSON.parse(rawDraft) as { title?: string; text?: string; url?: string };
+      setEditingRecipe({
+        id: '',
+        parentId,
+        name: draft.title || 'Imported recipe',
+        ingredients: '[]',
+        instructions: draft.text || '',
+        sourceUrl: draft.url || '',
+        favorite: 0,
+      });
+      setShowRecipeForm(true);
+    } catch {
+      // Ignore malformed share payloads.
+    } finally {
+      localStorage.removeItem('kidtasker_shared_recipe_draft');
+    }
+  }, [parentId]);
+
+  const exportRecipe = async (recipe: Recipe) => {
+    const payload = await mealsClientService.exportRecipe(recipe.id);
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${recipe.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'recipe'}.kidtasky-recipe.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importRecipeFile = async (file: File) => {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const imported = await mealsClientService.importRecipe(parsed);
+    addRecipe(imported);
+    setSelectedRecipe(imported);
+  };
 
   return (
     <div className="space-y-6" onClick={() => setPickerCell(null)}>
@@ -139,6 +184,21 @@ export function MealPlanView({ parentId }: Props) {
               className="flex items-center gap-1 text-xs font-semibold text-white bg-blue-500 hover:bg-blue-600 px-3 py-1.5 rounded-lg">
               <Plus size={12} /> New
             </button>
+            <button onClick={(e) => { e.stopPropagation(); importInputRef.current?.click(); }}
+              className="flex items-center gap-1 text-xs font-semibold text-ui-secondary bg-white hover:bg-ui-soft px-3 py-1.5 rounded-lg border border-ui">
+              <Upload size={12} /> Import
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = '';
+                if (file) void importRecipeFile(file);
+              }}
+            />
           </div>
 
           {recipes.length === 0 ? (
@@ -156,9 +216,24 @@ export function MealPlanView({ parentId }: Props) {
                   <div key={r.id} className={cn("p-3 cursor-pointer hover:bg-ui-soft transition-colors", isSelected && "bg-blue-50")}>
                     <div className="flex items-center justify-between" onClick={() => setSelectedRecipe(isSelected ? null : r)}>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-ui-primary truncate">{r.name}</p>
-                        <p className="text-[10px] text-ui-muted-2 font-medium mt-0.5">{ings.length} ingredient{ings.length !== 1 ? 's' : ''}</p>
+                        <p className="text-sm font-semibold text-ui-primary truncate">
+                          {Boolean(r.favorite) && <Star size={12} className="inline mr-1 fill-amber-400 text-amber-400" />}
+                          {r.name}
+                        </p>
+                        <p className="text-[10px] text-ui-muted-2 font-medium mt-0.5">
+                          {ings.length} ingredient{ings.length !== 1 ? 's' : ''}
+                          {r.servings ? ` • ${r.servings} servings` : ''}
+                          {r.prepTimeMinutes || r.cookTimeMinutes ? ` • ${(Number(r.prepTimeMinutes) || 0) + (Number(r.cookTimeMinutes) || 0)} min` : ''}
+                        </p>
                       </div>
+                      <button onClick={e => { e.stopPropagation(); setEditingRecipe(r); setShowRecipeForm(true); }}
+                        className="p-1.5 text-ui-muted-2 hover:text-blue-500 transition-colors ml-2" aria-label={`Edit ${r.name}`}>
+                        <Edit3 size={14} />
+                      </button>
+                      <button onClick={e => { e.stopPropagation(); void exportRecipe(r); }}
+                        className="p-1.5 text-ui-muted-2 hover:text-emerald-600 transition-colors" aria-label={`Export ${r.name}`}>
+                        <Download size={14} />
+                      </button>
                       <button onClick={e => { e.stopPropagation(); if (confirm(`Delete "${r.name}"?`)) { void deleteRecipe(r.id); if (selectedRecipe?.id === r.id) setSelectedRecipe(null); } }}
                         disabled={deletingRecipe === r.id}
                         className="p-1.5 text-ui-muted-2 hover:text-rose-500 transition-colors ml-2">
@@ -166,14 +241,24 @@ export function MealPlanView({ parentId }: Props) {
                       </button>
                     </div>
                     {isSelected && ings.length > 0 && (
-                      <ul className="mt-2 space-y-0.5">
-                        {ings.map((ing, i) => (
-                          <li key={i} className="text-xs text-ui-secondary flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                            {ing}
-                          </li>
-                        ))}
-                      </ul>
+                      <div className="mt-2 space-y-3">
+                        {r.imageUrl && <img src={r.imageUrl} alt="" className="w-full max-h-40 object-cover rounded-xl border border-ui" />}
+                        <ul className="space-y-0.5">
+                          {ings.map((ing, i) => (
+                            <li key={i} className="text-xs text-ui-secondary flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                              {ing}
+                            </li>
+                          ))}
+                        </ul>
+                        {r.instructions && <p className="text-xs text-ui-secondary whitespace-pre-wrap">{r.instructions}</p>}
+                        {r.notes && <p className="text-xs text-ui-muted bg-ui-soft rounded-xl p-2 whitespace-pre-wrap">{r.notes}</p>}
+                        {r.sourceUrl && (
+                          <a href={r.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700">
+                            Source <ExternalLink size={12} />
+                          </a>
+                        )}
+                      </div>
                     )}
                   </div>
                 );
@@ -184,7 +269,15 @@ export function MealPlanView({ parentId }: Props) {
       </div>
 
       {showRecipeForm && (
-        <RecipeFormModal parentId={parentId} onClose={() => setShowRecipeForm(false)} onCreated={addRecipe} />
+        <RecipeFormModal
+          parentId={parentId}
+          recipe={editingRecipe}
+          onClose={() => { setShowRecipeForm(false); setEditingRecipe(null); }}
+          onCreated={(recipe) => {
+            editingRecipe?.id ? updateRecipe(recipe) : addRecipe(recipe);
+            setSelectedRecipe(recipe);
+          }}
+        />
       )}
     </div>
   );

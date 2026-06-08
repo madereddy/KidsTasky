@@ -265,6 +265,16 @@ export interface Recipe {
   parentId: string;
   name: string;
   ingredients: string; // JSON String of array
+  instructions?: string | null;
+  notes?: string | null;
+  sourceUrl?: string | null;
+  imageUrl?: string | null;
+  servings?: number | null;
+  prepTimeMinutes?: number | null;
+  cookTimeMinutes?: number | null;
+  favorite?: number | boolean | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface MealPlan {

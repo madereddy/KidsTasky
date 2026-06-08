@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { removeEntityById, upsertEntityById } from '../lib/entity-list';
 import { extractHouseholdTagFromText, getDefaultLocationOptions, getDefaultStoreNames } from '../lib/householdListPreferences';
 import { listsClientService } from '../services/lists';
+import { HttpError } from '../services/http';
 import { AppList, AppListItem } from '../types';
+import { useSocketStaleData } from './useSocket';
 
 function parseListMetadata(list: AppList): AppList {
   const match = list.title.match(/(.*?)\s*\|META:(.+?)\|$/);
@@ -53,6 +55,12 @@ function stringifyItemMetadata(text: string, storeName?: string, completedAt?: n
 
 const defaultStoreNames = getDefaultStoreNames();
 const defaultLocationNames = getDefaultLocationOptions().map((option) => option.label);
+
+const isQueuedNetworkError = (error: unknown) => error instanceof HttpError && error.status === 0;
+
+function makeQueuedId(prefix: string) {
+  return `${prefix}-queued-${crypto.randomUUID()}`;
+}
 
 interface UseListsControllerOptions {
   parentId: string;
@@ -150,6 +158,18 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     void loadItems();
   }, [loadItems]);
 
+  useSocketStaleData(['lists', 'list_items', 'list-items'], () => {
+    void Promise.all([loadLists(), loadItems()]);
+  });
+
+  useEffect(() => {
+    const handleOfflineSync = () => {
+      void Promise.all([loadLists(), loadItems()]);
+    };
+    window.addEventListener('kidtasker:offline-sync-complete', handleOfflineSync);
+    return () => window.removeEventListener('kidtasker:offline-sync-complete', handleOfflineSync);
+  }, [loadLists, loadItems]);
+
   const createList = async (
     title: string,
     category: 'shopping' | 'routine' = preferredCategory ?? 'shopping',
@@ -157,8 +177,22 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     locationName?: string,
   ) => {
     const rawTitle = stringifyListMetadata(title, locationName, isRoutine);
-    const created = await listsClientService.createList(rawTitle, category, isRoutine, locationName);
-    const parsed = parseListMetadata(created);
+    let parsed: AppList;
+    try {
+      parsed = parseListMetadata(await listsClientService.createList(rawTitle, category, isRoutine, locationName));
+    } catch (error) {
+      if (!isQueuedNetworkError(error)) throw error;
+      parsed = {
+        id: makeQueuedId('list'),
+        parentId,
+        title,
+        category,
+        isRoutine: isRoutine ?? 0,
+        locationName,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
     setLists((prev) => [...prev, parsed]);
     setSelectedListId(parsed.id);
     setItems([]);
@@ -214,9 +248,20 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     const finalLocation = explicitLocation || parsedLocation;
 
     const rawText = stringifyItemMetadata(cleanText, finalStore, undefined, finalLocation);
-    const created = await listsClientService.addItem(selectedListId, rawText);
-
-    const parsedCreated = parseItemMetadata(created);
+    let parsedCreated: AppListItem;
+    try {
+      parsedCreated = parseItemMetadata(await listsClientService.addItem(selectedListId, rawText));
+    } catch (error) {
+      if (!isQueuedNetworkError(error)) throw error;
+      parsedCreated = {
+        id: makeQueuedId('item'),
+        listId: selectedListId,
+        text: cleanText,
+        completed: 0,
+        storeName: finalStore,
+        locationName: finalLocation,
+      };
+    }
     setItems((prev) => [...prev, parsedCreated]);
     void refreshGlobalHistory();
     return parsedCreated;
@@ -240,8 +285,20 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     const finalLocation = explicitLocation || parsedLocation;
 
     const rawText = stringifyItemMetadata(cleanText, finalStore, undefined, finalLocation);
-    const created = await listsClientService.addItemsToLists(uniqueListIds, rawText);
-    const parsedCreated = created.map(parseItemMetadata);
+    let parsedCreated: AppListItem[];
+    try {
+      parsedCreated = (await listsClientService.addItemsToLists(uniqueListIds, rawText)).map(parseItemMetadata);
+    } catch (error) {
+      if (!isQueuedNetworkError(error)) throw error;
+      parsedCreated = uniqueListIds.map((listId) => ({
+        id: makeQueuedId('item'),
+        listId,
+        text: cleanText,
+        completed: 0,
+        storeName: finalStore,
+        locationName: finalLocation,
+      }));
+    }
 
     setItems((prev) => {
       const selectedCreations = parsedCreated.filter((item) => item.listId === selectedListId);
@@ -264,7 +321,11 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
       item.locationName
     );
 
-    await listsClientService.toggleItem(itemId, completed, serializedText);
+    try {
+      await listsClientService.toggleItem(itemId, completed, serializedText);
+    } catch (error) {
+      if (!isQueuedNetworkError(error)) throw error;
+    }
     setItems((prev) => prev.map((i) => (
       i.id === itemId
         ? {
@@ -289,7 +350,11 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
   };
 
   const deleteItem = async (itemId: string) => {
-    await listsClientService.deleteItem(itemId);
+    try {
+      await listsClientService.deleteItem(itemId);
+    } catch (error) {
+      if (!isQueuedNetworkError(error)) throw error;
+    }
     setItems((prev) => removeEntityById(prev, itemId));
     setGlobalHistory((prev) => removeEntityById(prev, itemId));
     void refreshGlobalHistory();

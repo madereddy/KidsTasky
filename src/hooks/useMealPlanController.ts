@@ -3,6 +3,7 @@ import { format, startOfWeek } from 'date-fns';
 import { removeEntityById, sortEntities, upsertEntityByIdSorted } from '../lib/entity-list';
 import { MealPlanWithRecipe, mealsClientService } from '../services/meals';
 import { Recipe } from '../types';
+import { useSocketStaleData } from './useSocket';
 
 interface UseMealPlanControllerOptions {
   parentId: string;
@@ -57,8 +58,19 @@ export function useMealPlanController({ parentId, currentWeek }: UseMealPlanCont
     void loadMealPlans();
   }, [loadMealPlans]);
 
+  useSocketStaleData(['recipes', 'meal_plans'], () => {
+    void Promise.all([loadRecipes(), loadMealPlans()]);
+  });
+
   const addRecipe = useCallback((recipe: Recipe) => {
     setRecipes((prev) => upsertEntityByIdSorted(prev, recipe, compareRecipes));
+  }, []);
+
+  const updateRecipe = useCallback((recipe: Recipe) => {
+    setRecipes((prev) => upsertEntityByIdSorted(prev, recipe, compareRecipes));
+    setMealPlans((prev) => prev.map((plan) => (
+      plan.recipeId === recipe.id ? { ...plan, recipeName: recipe.name } : plan
+    )));
   }, []);
 
   const deleteRecipe = async (recipeId: string) => {
@@ -121,6 +133,7 @@ export function useMealPlanController({ parentId, currentWeek }: UseMealPlanCont
     loadRecipes,
     loadMealPlans,
     addRecipe,
+    updateRecipe,
     deleteRecipe,
     assignMeal,
     getMeal,

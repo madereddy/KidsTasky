@@ -13,8 +13,39 @@ mealsRouter.get('/parents/:parentId/recipes', authenticateUser, assertParentScop
 mealsRouter.post('/recipes', authenticateUser, requireRole('parent'), enforceEditUnlocked, (req, res) => {
   try {
     const parentId = getParentId(req);
-    const { name, ingredients } = req.body;
-    const result = mealsService.createRecipe(parentId, name, ingredients);
+    const result = mealsService.createRecipe(parentId, req.body);
+    res.status(201).json(result);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+mealsRouter.put('/recipes/:id', authenticateUser, requireRole('parent'), enforceEditUnlocked, (req, res) => {
+  try {
+    const recipe = mealsService.getRecipeById(String(req.params.id));
+    if (!recipe) return res.status(404).json({ error: 'Not found' });
+    if (recipe.parentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const result = mealsService.updateRecipe(String(req.params.id), req.body);
+    res.json(result);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+mealsRouter.get('/recipes/:id/export', authenticateUser, requireRole('parent'), (req, res) => {
+  try {
+    const recipe = mealsService.getRecipeById(String(req.params.id));
+    if (!recipe) return res.status(404).json({ error: 'Not found' });
+    if (recipe.parentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
+    res.json({ format: 'kidtasky.recipe.v1', recipe });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+mealsRouter.post('/recipes/import', authenticateUser, requireRole('parent'), enforceEditUnlocked, (req, res) => {
+  try {
+    const parentId = getParentId(req);
+    const source = req.body?.recipe && typeof req.body.recipe === 'object' ? req.body.recipe : req.body;
+    const ingredients = Array.isArray(source.ingredients)
+      ? source.ingredients
+      : (() => { try { return JSON.parse(source.ingredients || '[]'); } catch { return []; } })();
+    const result = mealsService.importRecipe(parentId, { ...source, ingredients });
     res.status(201).json(result);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

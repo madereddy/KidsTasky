@@ -230,6 +230,7 @@ export default function App() {
           console.warn('Sync conflict or error, skipping action:', action.description, e);
         }
       }
+      window.dispatchEvent(new CustomEvent('kidtasker:offline-sync-complete'));
     } finally {
       setSyncing(false);
     }
@@ -336,7 +337,7 @@ export default function App() {
 
   useEffect(() => {
     const handleShare = () => {
-      goToSection('manage');
+      goToSection('meals');
     };
     window.addEventListener('kidtasker:share', handleShare);
     return () => window.removeEventListener('kidtasker:share', handleShare);
@@ -511,7 +512,7 @@ export default function App() {
     initialSettings: familySettings 
   });
 
-  useSocketStaleData(['tasks', 'completions', 'lists', 'list_items'], useCallback(() => {
+  useSocketStaleData(['tasks', 'completions', 'lists', 'list_items', 'list-items'], useCallback(() => {
     refreshWallData();
   }, [refreshWallData]));
 

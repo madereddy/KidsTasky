@@ -9,6 +9,12 @@ export function ShareTargetHandler() {
 
     if (!title && !text && !url) return;
 
+    localStorage.setItem('kidtasker_shared_recipe_draft', JSON.stringify({
+      title,
+      text,
+      url,
+      capturedAt: Date.now(),
+    }));
     window.history.replaceState({}, '', window.location.pathname);
 
     window.dispatchEvent(new CustomEvent('kidtasker:share'));

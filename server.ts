@@ -178,7 +178,7 @@ app.use(helmet({
         "https://static.cloudflareinsights.com",
       ],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      imgSrc: ["'self'", 'data:', 'blob:'],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
       connectSrc: ["'self'", 'ws:', 'wss:'],
       fontSrc: ["'self'", 'data:', "https://fonts.gstatic.com"],
       frameSrc: ["'none'"],

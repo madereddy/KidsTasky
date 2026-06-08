@@ -271,7 +271,12 @@ router.use((req, res, next) => {
           if (parentId) {
             // Safely compute an entity hint from the path (e.g., '/tasks/' -> 'tasks')
             const pathParts = req.path.split('/').filter(Boolean);
-            const entityHint = pathParts[0] || 'general';
+            const rawEntityHint = pathParts[0] || 'general';
+            const entityHintMap: Record<string, string> = {
+              'list-items': 'list_items',
+              'meal-plans': 'meal_plans',
+            };
+            const entityHint = entityHintMap[rawEntityHint] ?? rawEntityHint;
             socketWrapper.emitStaleData(parentId, entityHint);
           }
         }
