@@ -194,23 +194,23 @@ export function ShoppingView({ parentId }: Props) {
         </div>
 
         <div className="mt-5 grid gap-4 xl:grid-cols-[1.6fr_1fr]">
-          <div className="space-y-4 rounded-[1.5rem] border border-ui bg-ui-soft p-4">
+          <div className="min-w-0 space-y-4 rounded-[1.5rem] border border-ui bg-ui-soft p-4">
             <div className="space-y-3">
               <label className="text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted">Primary shopping list</label>
-              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 hide-scrollbar sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+              <div className="grid gap-2 sm:flex sm:flex-wrap">
                 {shoppingLists.map((list) => (
                   <button
                     key={list.id}
                     type="button"
                     onClick={() => setSelectedListId(list.id)}
                     className={cn(
-                      "shrink-0 rounded-full border px-3 py-2 text-xs font-bold transition-colors",
+                      "min-w-0 rounded-2xl border px-3 py-2 text-left text-xs font-bold leading-tight transition-colors sm:w-auto sm:rounded-full sm:text-center",
                       selectedList?.id === list.id
                         ? "border-sky-600 bg-sky-500 text-white"
                         : "border-ui bg-white text-ui-muted hover:bg-ui-soft-2",
                     )}
                   >
-                    {list.title}
+                    <span className="block truncate sm:max-w-[12rem]">{list.title}</span>
                   </button>
                 ))}
                 {shoppingLists.length === 0 && (
@@ -222,7 +222,7 @@ export function ShoppingView({ parentId }: Props) {
             {selectedList && shoppingLists.length > 1 && (
               <div className="space-y-3">
                 <label className="text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted">Also add to</label>
-                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 hide-scrollbar sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+                <div className="grid gap-2 sm:flex sm:flex-wrap">
                   {shoppingLists.filter((list) => list.id !== selectedList.id).map((list) => {
                     const isSelected = extraTargetListIds.includes(list.id);
                     return (
@@ -235,13 +235,13 @@ export function ShoppingView({ parentId }: Props) {
                             : [...prev, list.id]
                         ))}
                         className={cn(
-                          "shrink-0 rounded-full border px-3 py-2 text-xs font-bold transition-colors",
+                          "min-w-0 rounded-2xl border px-3 py-2 text-left text-xs font-bold leading-tight transition-colors sm:w-auto sm:rounded-full sm:text-center",
                           isSelected
                             ? "border-sky-300 bg-sky-50 text-sky-700"
                             : "border-ui bg-white text-ui-muted hover:bg-ui-soft-2",
                         )}
                       >
-                        {list.title}
+                        <span className="block truncate sm:max-w-[12rem]">{list.title}</span>
                       </button>
                     );
                   })}
@@ -363,7 +363,7 @@ export function ShoppingView({ parentId }: Props) {
             </div>
           </div>
 
-          <div className="rounded-[1.5rem] border border-ui bg-white p-4">
+          <div className="min-w-0 rounded-[1.5rem] border border-ui bg-white p-4">
             <label className="mb-3 block text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted">Create shopping lists</label>
             <form onSubmit={handleCreateList} className="flex flex-col gap-2 sm:flex-row">
               <input
@@ -385,12 +385,12 @@ export function ShoppingView({ parentId }: Props) {
                     type="button"
                     onClick={() => setSelectedListId(list.id)}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-left transition-colors",
+                      "flex min-w-0 w-full items-center justify-between gap-3 rounded-2xl border px-3 py-3 text-left transition-colors",
                       selectedList?.id === list.id ? "border-sky-300 bg-sky-50" : "border-ui bg-ui-soft hover:bg-white",
                     )}
                   >
-                    <span className="font-semibold text-ui-primary">{list.title}</span>
-                    <span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-ui-muted">{pendingCount} open</span>
+                    <span className="min-w-0 truncate font-semibold text-ui-primary">{list.title}</span>
+                    <span className="shrink-0 rounded-full bg-white px-2 py-1 text-xs font-bold text-ui-muted">{pendingCount} open</span>
                   </button>
                 );
               })}
