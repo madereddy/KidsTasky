@@ -141,10 +141,14 @@ export function ShoppingView({ parentId }: Props) {
   };
 
   const handleCopyItems = async () => {
-    const text = filteredItems.map((item) => item.text).join('\n');
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      const text = filteredItems.map((item) => item.text).join('\n');
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
   };
 
   const handleDeleteList = async (listId: string) => {
@@ -172,7 +176,7 @@ export function ShoppingView({ parentId }: Props) {
               onClick={handleCopyItems}
               disabled={filteredItems.length === 0}
               className={cn(
-                "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors sm:min-h-0",
+                "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 sm:min-h-0",
                 copied ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-ui bg-white text-ui-muted hover:bg-ui-soft",
                 filteredItems.length === 0 && "cursor-not-allowed opacity-50",
               )}
@@ -184,7 +188,7 @@ export function ShoppingView({ parentId }: Props) {
               <button
                 type="button"
                 onClick={() => void handleDeleteList(selectedList.id)}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 sm:min-h-0"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 sm:min-h-0"
               >
                 <Trash2 size={16} />
                 Delete list
@@ -204,9 +208,9 @@ export function ShoppingView({ parentId }: Props) {
                     type="button"
                     onClick={() => setSelectedListId(list.id)}
                     className={cn(
-                      "min-w-0 rounded-2xl border px-3 py-2 text-left text-xs font-bold leading-tight transition-colors sm:w-auto sm:rounded-full sm:text-center",
+                      "min-w-0 rounded-2xl border px-3 py-3 text-left text-sm font-bold leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 sm:w-auto sm:rounded-full sm:px-4 sm:py-2 sm:text-center",
                       selectedList?.id === list.id
-                        ? "border-sky-600 bg-sky-500 text-white"
+                        ? "border-ui-primary bg-ui-primary text-white shadow-sm"
                         : "border-ui bg-white text-ui-muted hover:bg-ui-soft-2",
                     )}
                   >
@@ -235,9 +239,9 @@ export function ShoppingView({ parentId }: Props) {
                             : [...prev, list.id]
                         ))}
                         className={cn(
-                          "min-w-0 rounded-2xl border px-3 py-2 text-left text-xs font-bold leading-tight transition-colors sm:w-auto sm:rounded-full sm:text-center",
+                          "min-w-0 rounded-2xl border px-3 py-3 text-left text-sm font-bold leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 sm:w-auto sm:rounded-full sm:px-4 sm:py-2 sm:text-center",
                           isSelected
-                            ? "border-sky-300 bg-sky-50 text-sky-700"
+                            ? "border-ui-primary bg-ui-primary text-white shadow-sm"
                             : "border-ui bg-white text-ui-muted hover:bg-ui-soft-2",
                         )}
                       >
@@ -286,13 +290,13 @@ export function ShoppingView({ parentId }: Props) {
                   value={editingListTitle}
                   onChange={(e) => setEditingListTitle(e.target.value)}
                   placeholder="Rename selected list"
-                  className="rounded-2xl border border-ui bg-white px-4 py-3 text-sm text-ui-primary focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  className="rounded-2xl border border-ui bg-white px-4 py-3 text-sm text-ui-primary focus:outline-none focus:ring-2 focus:ring-ui-primary"
                 />
                 <button
                   type="button"
                   onClick={() => void handleRenameSelectedList()}
                   disabled={!editingListTitle.trim() || editingListTitle.trim() === selectedList.title}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-ui bg-white px-4 py-3 text-sm font-bold text-ui-primary transition-colors hover:bg-ui-soft disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-ui bg-white px-4 py-3 text-sm font-bold text-ui-primary transition-colors hover:bg-ui-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
                 >
                   <Edit3 size={14} />
                   Rename
@@ -329,12 +333,12 @@ export function ShoppingView({ parentId }: Props) {
                 onChange={(e) => setNewItemText(e.target.value)}
                 placeholder={selectedList ? `Add to ${selectedList.title}, try 'Batteries Target Home'` : 'Create a shopping list first'}
                 disabled={!selectedList}
-                className="flex-1 rounded-2xl border border-ui bg-white px-4 py-3 text-sm text-ui-primary focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:cursor-not-allowed disabled:bg-ui-soft"
+                className="flex-1 rounded-2xl border border-ui bg-white px-4 py-3 text-sm text-ui-primary focus:outline-none focus:ring-2 focus:ring-ui-primary disabled:cursor-not-allowed disabled:bg-ui-soft"
               />
               <button
                 type="submit"
                 disabled={!selectedList || !newItemText.trim()}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-sky-500 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-sky-200 sm:min-h-0"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-ui-primary px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-ui-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-ui-soft-3 disabled:text-ui-muted sm:min-h-0"
               >
                 <Plus size={16} />
                 Add item
@@ -370,9 +374,9 @@ export function ShoppingView({ parentId }: Props) {
                 value={newListTitle}
                 onChange={(e) => setNewListTitle(e.target.value)}
                 placeholder="Weekend groceries"
-                className="flex-1 rounded-xl border border-ui px-3 py-2 text-sm text-ui-primary focus:outline-none focus:ring-2 focus:ring-sky-400"
+                className="flex-1 rounded-xl border border-ui px-3 py-2 text-sm text-ui-primary focus:outline-none focus:ring-2 focus:ring-ui-primary"
               />
-              <button type="submit" className="min-h-11 rounded-xl bg-ui-primary px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-ui-primary/90 sm:min-h-0">
+              <button type="submit" className="min-h-11 rounded-xl bg-ui-primary px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-ui-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 sm:min-h-0">
                 New
               </button>
             </form>
@@ -385,12 +389,21 @@ export function ShoppingView({ parentId }: Props) {
                     type="button"
                     onClick={() => setSelectedListId(list.id)}
                     className={cn(
-                      "flex min-w-0 w-full items-center justify-between gap-3 rounded-2xl border px-3 py-3 text-left transition-colors",
-                      selectedList?.id === list.id ? "border-sky-300 bg-sky-50" : "border-ui bg-ui-soft hover:bg-white",
+                      "flex min-w-0 w-full items-center justify-between gap-3 rounded-2xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2",
+                      selectedList?.id === list.id
+                        ? "border-ui-primary bg-ui-primary text-white shadow-sm"
+                        : "border-ui bg-ui-soft hover:bg-white",
                     )}
                   >
-                    <span className="min-w-0 truncate font-semibold text-ui-primary">{list.title}</span>
-                    <span className="shrink-0 rounded-full bg-white px-2 py-1 text-xs font-bold text-ui-muted">{pendingCount} open</span>
+                    <span className={cn("min-w-0 truncate font-semibold", selectedList?.id === list.id ? "text-white" : "text-ui-primary")}>{list.title}</span>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2 py-1 text-sm font-bold",
+                        selectedList?.id === list.id ? "bg-ui-soft text-ui-primary" : "bg-white text-ui-muted",
+                      )}
+                    >
+                      {pendingCount} open
+                    </span>
                   </button>
                 );
               })}
@@ -406,18 +419,28 @@ export function ShoppingView({ parentId }: Props) {
               <h3 className="text-lg font-black text-ui-primary">Open shopping queue</h3>
               <p className="text-sm text-ui-muted">All active shopping items across every shopping list.</p>
             </div>
-            <div className="inline-flex w-full rounded-full border border-ui bg-white p-1 sm:w-auto">
+            <div className="inline-flex w-full rounded-full border border-ui bg-white p-1 sm:w-auto" role="tablist" aria-label="Shopping queue display mode">
               <button
                 type="button"
                 onClick={() => setRunMode('queue')}
-                className={cn("flex-1 rounded-full px-3 py-2 text-xs font-bold transition-colors sm:flex-none", runMode === 'queue' ? "bg-ui-primary text-white" : "text-ui-muted")}
+                role="tab"
+                aria-selected={runMode === 'queue'}
+                className={cn(
+                  "flex-1 rounded-full px-4 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 sm:flex-none",
+                  runMode === 'queue' ? "bg-ui-primary text-white" : "text-ui-muted"
+                )}
               >
                 Queue
               </button>
               <button
                 type="button"
                 onClick={() => setRunMode('run')}
-                className={cn("flex-1 rounded-full px-3 py-2 text-xs font-bold transition-colors sm:flex-none", runMode === 'run' ? "bg-ui-primary text-white" : "text-ui-muted")}
+                role="tab"
+                aria-selected={runMode === 'run'}
+                className={cn(
+                  "flex-1 rounded-full px-4 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 sm:flex-none",
+                  runMode === 'run' ? "bg-ui-primary text-white" : "text-ui-muted"
+                )}
               >
                 Run mode
               </button>
@@ -437,21 +460,24 @@ export function ShoppingView({ parentId }: Props) {
                 <section key={groupName} className="space-y-2">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <h4 className="min-w-0 break-words text-sm font-black uppercase tracking-[0.16em] text-ui-muted">{groupName}</h4>
-                    <span className="rounded-full bg-ui-soft px-2 py-1 text-[10px] font-bold text-ui-muted">{groupItems.length} items</span>
+                    <span className="rounded-full bg-ui-soft px-2 py-1 text-xs font-bold text-ui-muted">{groupItems.length} items</span>
                   </div>
                   <ul className="space-y-3">
                     {groupItems.map((item) => (
                       <li key={item.id} className="flex items-start gap-3 rounded-2xl border border-ui bg-ui-soft px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={item.completed === 1}
-                          onChange={(e) => void toggleItem(item.id, e.target.checked)}
-                          className="mt-1 h-5 w-5 shrink-0 rounded border-ui text-sky-600 focus:ring-sky-500"
-                        />
+                        <label className="mt-[-0.375rem] ml-[-0.375rem] flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full focus-within:ring-2 focus-within:ring-ui-primary focus-within:ring-offset-2">
+                          <input
+                            type="checkbox"
+                            checked={item.completed === 1}
+                            onChange={(e) => void toggleItem(item.id, e.target.checked)}
+                            className="h-5 w-5 rounded border-ui text-sky-600 focus:outline-none"
+                            aria-label={`Mark ${item.text} complete`}
+                          />
+                        </label>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-semibold text-ui-primary">{item.text}</p>
-                            <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wide text-ui-muted">
+                            <span className="rounded-full bg-white px-2 py-1 text-xs font-black uppercase tracking-wide text-ui-muted">
                               {listTitlesById.get(item.listId) ?? 'Shopping'}
                             </span>
                           </div>
@@ -467,25 +493,28 @@ export function ShoppingView({ parentId }: Props) {
               {filteredItems.map((item) => (
                 <li key={item.id} className="flex flex-col gap-3 rounded-2xl border border-ui bg-ui-soft px-4 py-3 sm:flex-row sm:items-start">
                   <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={item.completed === 1}
-                    onChange={(e) => void toggleItem(item.id, e.target.checked)}
-                    className="mt-1 h-5 w-5 shrink-0 rounded border-ui text-sky-600 focus:ring-sky-500"
-                  />
+                  <label className="mt-[-0.375rem] ml-[-0.375rem] flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full focus-within:ring-2 focus-within:ring-ui-primary focus-within:ring-offset-2">
+                    <input
+                      type="checkbox"
+                      checked={item.completed === 1}
+                      onChange={(e) => void toggleItem(item.id, e.target.checked)}
+                      className="h-5 w-5 rounded border-ui text-sky-600 focus:outline-none"
+                      aria-label={`Mark ${item.text} complete`}
+                    />
+                  </label>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold text-ui-primary">{item.text}</p>
-                      <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wide text-ui-muted">
+                      <span className="rounded-full bg-white px-2 py-1 text-xs font-black uppercase tracking-wide text-ui-muted">
                         {listTitlesById.get(item.listId) ?? 'Shopping'}
                       </span>
                       {item.storeName && (
-                        <span className="rounded-full bg-blue-100 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-blue-700">
+                        <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-black uppercase tracking-wide text-blue-700">
                           {item.storeName}
                         </span>
                       )}
                       {item.locationName && (
-                        <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-slate-600">
+                        <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-black uppercase tracking-wide text-slate-600">
                           {item.locationName}
                         </span>
                       )}
@@ -495,7 +524,7 @@ export function ShoppingView({ parentId }: Props) {
                         <select
                           value={transferTargets[item.id] ?? getTransferOptions(item.listId)[0]?.id ?? ''}
                           onChange={(e) => setTransferTargets((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                          className="min-h-10 min-w-0 max-w-full flex-1 rounded-md border border-ui bg-white px-2 py-1 text-[10px] font-bold text-ui-primary sm:max-w-36 sm:flex-none"
+                          className="min-h-11 min-w-0 max-w-full flex-1 rounded-md border border-ui bg-white px-3 py-2 text-xs font-bold text-ui-primary focus:outline-none focus:ring-2 focus:ring-ui-primary sm:max-w-36 sm:flex-none"
                         >
                           {getTransferOptions(item.listId).map((list) => (
                             <option key={list.id} value={list.id}>{list.title}</option>
@@ -507,7 +536,7 @@ export function ShoppingView({ parentId }: Props) {
                             const target = transferTargets[item.id] ?? getTransferOptions(item.listId)[0]?.id;
                             if (target) void copyItemToLists(item.id, [target]);
                           }}
-                          className="min-h-10 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                          className="min-h-11 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2"
                         >
                           Copy
                         </button>
@@ -517,7 +546,7 @@ export function ShoppingView({ parentId }: Props) {
                             const target = transferTargets[item.id] ?? getTransferOptions(item.listId)[0]?.id;
                             if (target) void moveItemToList(item.id, target);
                           }}
-                          className="min-h-10 rounded-md border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-bold text-sky-700 transition-colors hover:bg-sky-100"
+                          className="min-h-11 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700 transition-colors hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2"
                         >
                           Move
                         </button>
@@ -528,7 +557,7 @@ export function ShoppingView({ parentId }: Props) {
                   <button
                     type="button"
                     onClick={() => void deleteItem(item.id)}
-                    className="self-end rounded-full p-2 text-ui-muted transition-colors hover:bg-red-50 hover:text-red-500 sm:self-auto"
+                    className="self-end rounded-full p-2 text-ui-muted transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 sm:self-auto"
                     aria-label={`Delete ${item.text}`}
                   >
                     <Trash2 size={16} />
