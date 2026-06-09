@@ -21,9 +21,9 @@ export function ToolsMenu({ activeSection, isOpen, onClose, onSelect }: ToolsMen
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] bg-black/45 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[120] flex flex-col justify-end bg-black/45 p-4 backdrop-blur-sm pb-[calc(env(safe-area-inset-bottom,16px)+4.25rem)]" onClick={onClose}>
       <div
-        className="mx-auto mt-20 max-w-sm rounded-[2rem] border border-ui bg-white p-5 shadow-2xl"
+        className="mx-auto w-full max-w-sm rounded-[2rem] border border-ui bg-white p-5 shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between">

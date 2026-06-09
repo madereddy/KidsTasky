@@ -139,39 +139,6 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
         </button>
       </header>
 
-      {/* Store Selector */}
-      <div className="flex shrink-0 gap-2 overflow-x-auto border-b bg-ui-soft p-3 hide-scrollbar">
-        <button
-          onClick={() => setActiveStore(null)}
-          className={cn(
-            "whitespace-nowrap rounded-full border px-5 py-2 text-sm font-black transition-all active:scale-95",
-            activeStore === null
-              ? "border-ui-primary bg-ui-primary text-white shadow-md"
-              : "border-ui bg-white text-ui-primary hover:bg-ui-soft-2"
-          )}
-        >
-          All <span className="ml-1 opacity-60">({deduplicatedItems.length})</span>
-        </button>
-        {allStores.map(store => {
-          const count = storeCounts[store] || 0;
-          return (
-            <button
-              key={store}
-              onClick={() => setActiveStore(store)}
-              className={cn(
-                "whitespace-nowrap rounded-full border px-5 py-2 text-sm font-black transition-all active:scale-95",
-                activeStore === store
-                  ? "border-ui-primary bg-ui-primary text-white shadow-md"
-                  : "border-ui bg-white text-ui-primary hover:bg-ui-soft-2",
-                count === 0 && activeStore !== store && "opacity-40"
-              )}
-            >
-              {store} <span className="ml-1 opacity-60">({count})</span>
-            </button>
-          );
-        })}
-      </div>
-
       {/* List */}
       <div className="flex-1 overflow-y-auto bg-ui-soft/30 p-4">
         <AnimatePresence mode="popLayout">
@@ -244,6 +211,39 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
             </ul>
           )}
         </AnimatePresence>
+      </div>
+
+      {/* Store Selector */}
+      <div className="flex shrink-0 gap-2 overflow-x-auto border-t bg-ui-soft p-3 hide-scrollbar">
+        <button
+          onClick={() => setActiveStore(null)}
+          className={cn(
+            "whitespace-nowrap rounded-full border px-5 py-2 text-sm font-black transition-all active:scale-95",
+            activeStore === null
+              ? "border-ui-primary bg-ui-primary text-white shadow-md"
+              : "border-ui bg-white text-ui-primary hover:bg-ui-soft-2"
+          )}
+        >
+          All <span className="ml-1 opacity-60">({deduplicatedItems.length})</span>
+        </button>
+        {allStores.map(store => {
+          const count = storeCounts[store] || 0;
+          return (
+            <button
+              key={store}
+              onClick={() => setActiveStore(store)}
+              className={cn(
+                "whitespace-nowrap rounded-full border px-5 py-2 text-sm font-black transition-all active:scale-95",
+                activeStore === store
+                  ? "border-ui-primary bg-ui-primary text-white shadow-md"
+                  : "border-ui bg-white text-ui-primary hover:bg-ui-soft-2",
+                count === 0 && activeStore !== store && "opacity-40"
+              )}
+            >
+              {store} <span className="ml-1 opacity-60">({count})</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Footer / Info */}

@@ -51,14 +51,16 @@ export function MissionTodayView({ profile, tasks, events, completions, listItem
   }, [missionItems, activeLocation]);
 
   return (
-    <div className="flex flex-col gap-3 pb-24">
+    <div className="flex flex-col gap-3 pb-32">
       <h2 className="text-2xl font-black px-2 mb-2">MISSION: TODAY</h2>
       
-      <LocationFilterBar 
-        activeLocation={activeLocation} 
-        onLocationSelect={setActiveLocation} 
-        locationOptions={locationOptions}
-      />
+      <div className="fixed bottom-[4.25rem] left-0 right-0 z-[45] bg-gradient-to-t from-ui-soft via-ui-soft/95 to-transparent pt-6 pb-2 px-2">
+        <LocationFilterBar 
+          activeLocation={activeLocation} 
+          onLocationSelect={setActiveLocation} 
+          locationOptions={locationOptions}
+        />
+      </div>
 
       {filteredItems.map(item => {
         const isHex = item.color?.startsWith('#');
