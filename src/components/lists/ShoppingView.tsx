@@ -9,7 +9,6 @@ import { useQuickItemTemplates } from '../../hooks/useQuickItemTemplates';
 import { QuickItemTemplatesPanel } from './QuickItemTemplatesPanel';
 import { useHouseholdListPreferences } from '../../hooks/useHouseholdListPreferences';
 import { HouseholdTagManager } from '../shared/HouseholdTagManager';
-import { getQuickEntrySuggestions } from '../../lib/suggestions';
 import { SuggestionBar } from '../shared/SuggestionBar';
 import { useFamilyData } from '../../contexts/FamilyDataContext';
 
@@ -54,7 +53,33 @@ export function ShoppingView({ parentId }: Props) {
   } = useHouseholdListPreferences(parentId);
 
   const { kids } = useFamilyData();
-  const suggestions = useMemo(() => getQuickEntrySuggestions(newItemText, kids), [newItemText, kids]);
+
+  // Suggestions that match existing items or frequent items as you type
+  const suggestions = useMemo(() => {
+    if (!newItemText.trim()) return [];
+    const search = newItemText.toLowerCase().trim();
+    const matches = new Map<string, string>(); // text -> id
+    
+    // Check shopping items first (high priority)
+    for (const item of shoppingItems) {
+      if (item.text.toLowerCase().includes(search) && item.text.toLowerCase() !== search) {
+        matches.set(item.text.toLowerCase(), item.text);
+      }
+    }
+    // Check frequent items
+    for (const item of frequentItems) {
+      if (item.text.toLowerCase().includes(search) && item.text.toLowerCase() !== search) {
+        matches.set(item.text.toLowerCase(), item.text);
+      }
+    }
+    
+    return Array.from(matches.values()).map(value => ({
+      id: `match-${value}`,
+      label: value,
+      type: 'where' as any, // using 'where' for list items
+      value
+    })).slice(0, 5);
+  }, [newItemText, frequentItems, shoppingItems]);
 
   useEffect(() => {
     if (!selectedListId && shoppingLists.length > 0) {
@@ -80,12 +105,39 @@ export function ShoppingView({ parentId }: Props) {
     [shoppingLists],
   );
 
+  // Deduplicate items by text across different lists
+  const deduplicatedItems = useMemo(() => {
+    const groups = new Map<string, typeof shoppingItems>();
+    for (const item of shoppingItems) {
+      const key = item.text.trim().toLowerCase();
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(item);
+    }
+    
+    return Array.from(groups.values()).map(group => {
+      const first = group[0];
+      const allStoreNames = Array.from(new Set(group.map(i => i.storeName).filter(Boolean)));
+      const allLocationNames = Array.from(new Set(group.map(i => i.locationName).filter(Boolean)));
+      const allListIds = Array.from(new Set(group.map(i => i.listId)));
+      
+      return {
+        ...first,
+        id: group.map(i => i.id).join(','), // virtual id
+        originalIds: group.map(i => i.id),
+        allListIds,
+        allStoreNames,
+        allLocationNames,
+      };
+    });
+  }, [shoppingItems]);
+
   const filteredItems = useMemo(() => {
-    if (!activeStoreFilter) return shoppingItems;
-    return shoppingItems.filter((item) => (
-      item.storeName === activeStoreFilter || item.locationName === activeStoreFilter
+    if (!activeStoreFilter) return deduplicatedItems;
+    return deduplicatedItems.filter((item) => (
+      item.allStoreNames.includes(activeStoreFilter) || 
+      item.allLocationNames.includes(activeStoreFilter)
     ));
-  }, [activeStoreFilter, shoppingItems]);
+  }, [activeStoreFilter, deduplicatedItems]);
 
   const quickInputAnalysis = useMemo(
     () => analyzeQuickListInput(newItemText, shoppingLists, selectedListId, {
@@ -103,15 +155,23 @@ export function ShoppingView({ parentId }: Props) {
   const groupedRunSections = useMemo(() => {
     const groups = new Map<string, typeof filteredItems>();
     for (const item of filteredItems) {
-      const key = item.storeName || item.locationName || listTitlesById.get(item.listId) || 'Open queue';
-      const existing = groups.get(key) ?? [];
-      existing.push(item);
-      groups.set(key, existing);
+      const keys: string[] = [];
+      if (item.allStoreNames.length > 0) keys.push(...item.allStoreNames);
+      else if (item.allLocationNames.length > 0) keys.push(...item.allLocationNames);
+      else if (item.allListIds.length > 0) keys.push(...item.allListIds.map(id => listTitlesById.get(id) || 'Open queue'));
+      else keys.push('Open queue');
+
+      const uniqueKeys = Array.from(new Set(keys));
+      for (const key of uniqueKeys) {
+        const existing = groups.get(key) ?? [];
+        existing.push(item);
+        groups.set(key, existing);
+      }
     }
     return Array.from(groups.entries());
   }, [filteredItems, listTitlesById]);
 
-  const getTransferOptions = (itemListId: string) => shoppingLists.filter((list) => list.id !== itemListId);
+  const getTransferOptions = (itemListIds: string[]) => shoppingLists.filter((list) => !itemListIds.includes(list.id));
 
   const handleCreateList = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -199,6 +259,48 @@ export function ShoppingView({ parentId }: Props) {
 
         <div className="mt-5 grid gap-4 xl:grid-cols-[1.6fr_1fr]">
           <div className="min-w-0 space-y-4 rounded-[1.5rem] border border-ui bg-ui-soft p-4">
+            
+            <div className="space-y-3">
+              {(quickInputAnalysis.inferredExtraListIds.length > 0 || quickInputAnalysis.inferredStoreName || quickInputAnalysis.inferredLocationName) && (
+                <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-semibold text-sky-800">
+                  <span>Quick match:</span>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                    {quickInputAnalysis.inferredExtraListIds.length > 0 && (
+                      <span>lists {shoppingLists.filter((list) => quickInputAnalysis.inferredExtraListIds.includes(list.id)).map((list) => list.title).join(', ')}</span>
+                    )}
+                    {quickInputAnalysis.inferredStoreName && <span>store {quickInputAnalysis.inferredStoreName}</span>}
+                    {quickInputAnalysis.inferredLocationName && <span>location {quickInputAnalysis.inferredLocationName}</span>}
+                  </div>
+                </div>
+              )}
+
+              <SuggestionBar 
+                suggestions={suggestions} 
+                onSelect={(s) => {
+                  setNewItemText(s.value);
+                }} 
+              />
+
+              <form onSubmit={handleAddItem} className="flex flex-col gap-3 sm:flex-row">
+                <input
+                  value={newItemText}
+                  onChange={(e) => setNewItemText(e.target.value)}
+                  placeholder={selectedList ? `Add to ${selectedList.title}, try 'Batteries Target Home'` : 'Create a shopping list first'}
+                  disabled={!selectedList}
+                  className="flex-1 rounded-2xl border border-ui bg-white px-4 py-3 text-sm text-ui-primary focus:outline-none focus:ring-2 focus:ring-ui-primary disabled:cursor-not-allowed disabled:bg-ui-soft"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  disabled={!selectedList || !newItemText.trim()}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-ui-primary px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-ui-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-ui-soft-3 disabled:text-ui-muted sm:min-h-0"
+                >
+                  <Plus size={16} />
+                  Add item
+                </button>
+              </form>
+            </div>
+            
             <div className="space-y-3">
               <label className="text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted">Primary shopping list</label>
               <div className="grid gap-2 sm:flex sm:flex-wrap">
@@ -303,47 +405,6 @@ export function ShoppingView({ parentId }: Props) {
                 </button>
               </div>
             )}
-
-            {(quickInputAnalysis.inferredExtraListIds.length > 0 || quickInputAnalysis.inferredStoreName || quickInputAnalysis.inferredLocationName) && (
-              <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-semibold text-sky-800">
-                <span>Quick match:</span>
-                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                  {quickInputAnalysis.inferredExtraListIds.length > 0 && (
-                    <span>lists {shoppingLists.filter((list) => quickInputAnalysis.inferredExtraListIds.includes(list.id)).map((list) => list.title).join(', ')}</span>
-                  )}
-                  {quickInputAnalysis.inferredStoreName && <span>store {quickInputAnalysis.inferredStoreName}</span>}
-                  {quickInputAnalysis.inferredLocationName && <span>location {quickInputAnalysis.inferredLocationName}</span>}
-                </div>
-              </div>
-            )}
-
-            <SuggestionBar 
-              suggestions={suggestions} 
-              onSelect={(s) => {
-                setNewItemText(prev => {
-                  const trimmed = prev.trim();
-                  return (trimmed ? trimmed + ' ' : '') + s.value;
-                });
-              }} 
-            />
-
-            <form onSubmit={handleAddItem} className="flex flex-col gap-3 sm:flex-row">
-              <input
-                value={newItemText}
-                onChange={(e) => setNewItemText(e.target.value)}
-                placeholder={selectedList ? `Add to ${selectedList.title}, try 'Batteries Target Home'` : 'Create a shopping list first'}
-                disabled={!selectedList}
-                className="flex-1 rounded-2xl border border-ui bg-white px-4 py-3 text-sm text-ui-primary focus:outline-none focus:ring-2 focus:ring-ui-primary disabled:cursor-not-allowed disabled:bg-ui-soft"
-              />
-              <button
-                type="submit"
-                disabled={!selectedList || !newItemText.trim()}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-ui-primary px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-ui-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-ui-soft-3 disabled:text-ui-muted sm:min-h-0"
-              >
-                <Plus size={16} />
-                Add item
-              </button>
-            </form>
 
             <div className="grid gap-3 lg:grid-cols-2">
               <HouseholdTagManager
@@ -464,12 +525,15 @@ export function ShoppingView({ parentId }: Props) {
                   </div>
                   <ul className="space-y-3">
                     {groupItems.map((item) => (
-                      <li key={item.id} className="flex items-start gap-3 rounded-2xl border border-ui bg-ui-soft px-4 py-3">
+                      <li key={`${groupName}-${item.id}`} className="flex items-start gap-3 rounded-2xl border border-ui bg-ui-soft px-4 py-3">
                         <label className="mt-[-0.375rem] ml-[-0.375rem] flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full focus-within:ring-2 focus-within:ring-ui-primary focus-within:ring-offset-2">
                           <input
                             type="checkbox"
                             checked={item.completed === 1}
-                            onChange={(e) => void toggleItem(item.id, e.target.checked)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              item.originalIds.forEach((id: string) => void toggleItem(id, checked));
+                            }}
                             className="h-5 w-5 rounded border-ui text-sky-600 focus:outline-none"
                             aria-label={`Mark ${item.text} complete`}
                           />
@@ -478,7 +542,7 @@ export function ShoppingView({ parentId }: Props) {
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-semibold text-ui-primary">{item.text}</p>
                             <span className="rounded-full bg-white px-2 py-1 text-xs font-black uppercase tracking-wide text-ui-muted">
-                              {listTitlesById.get(item.listId) ?? 'Shopping'}
+                              {item.allListIds.map((id: string) => listTitlesById.get(id)).filter(Boolean).join(', ') || 'Shopping'}
                             </span>
                           </div>
                         </div>
@@ -497,7 +561,10 @@ export function ShoppingView({ parentId }: Props) {
                     <input
                       type="checkbox"
                       checked={item.completed === 1}
-                      onChange={(e) => void toggleItem(item.id, e.target.checked)}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        item.originalIds.forEach((id: string) => void toggleItem(id, checked));
+                      }}
                       className="h-5 w-5 rounded border-ui text-sky-600 focus:outline-none"
                       aria-label={`Mark ${item.text} complete`}
                     />
@@ -506,35 +573,37 @@ export function ShoppingView({ parentId }: Props) {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold text-ui-primary">{item.text}</p>
                       <span className="rounded-full bg-white px-2 py-1 text-xs font-black uppercase tracking-wide text-ui-muted">
-                        {listTitlesById.get(item.listId) ?? 'Shopping'}
+                        {item.allListIds.map((id: string) => listTitlesById.get(id)).filter(Boolean).join(', ') || 'Shopping'}
                       </span>
-                      {item.storeName && (
-                        <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-black uppercase tracking-wide text-blue-700">
-                          {item.storeName}
+                      {item.allStoreNames.map((storeName: string) => (
+                        <span key={storeName} className="rounded-full bg-blue-100 px-2 py-1 text-xs font-black uppercase tracking-wide text-blue-700">
+                          {storeName}
                         </span>
-                      )}
-                      {item.locationName && (
-                        <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-black uppercase tracking-wide text-slate-600">
-                          {item.locationName}
+                      ))}
+                      {item.allLocationNames.map((locName: string) => (
+                        <span key={locName} className="rounded-full bg-slate-100 px-2 py-1 text-xs font-black uppercase tracking-wide text-slate-600">
+                          {locName}
                         </span>
-                      )}
+                      ))}
                     </div>
-                    {getTransferOptions(item.listId).length > 0 && (
+                    {getTransferOptions(item.allListIds).length > 0 && (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <select
-                          value={transferTargets[item.id] ?? getTransferOptions(item.listId)[0]?.id ?? ''}
+                          value={transferTargets[item.id] ?? getTransferOptions(item.allListIds)[0]?.id ?? ''}
                           onChange={(e) => setTransferTargets((prev) => ({ ...prev, [item.id]: e.target.value }))}
                           className="min-h-11 min-w-0 max-w-full flex-1 rounded-md border border-ui bg-white px-3 py-2 text-xs font-bold text-ui-primary focus:outline-none focus:ring-2 focus:ring-ui-primary sm:max-w-36 sm:flex-none"
                         >
-                          {getTransferOptions(item.listId).map((list) => (
+                          {getTransferOptions(item.allListIds).map((list) => (
                             <option key={list.id} value={list.id}>{list.title}</option>
                           ))}
                         </select>
                         <button
                           type="button"
                           onClick={() => {
-                            const target = transferTargets[item.id] ?? getTransferOptions(item.listId)[0]?.id;
-                            if (target) void copyItemToLists(item.id, [target]);
+                            const target = transferTargets[item.id] ?? getTransferOptions(item.allListIds)[0]?.id;
+                            if (target) {
+                              item.originalIds.forEach((id: string) => void copyItemToLists(id, [target]));
+                            }
                           }}
                           className="min-h-11 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2"
                         >
@@ -543,8 +612,10 @@ export function ShoppingView({ parentId }: Props) {
                         <button
                           type="button"
                           onClick={() => {
-                            const target = transferTargets[item.id] ?? getTransferOptions(item.listId)[0]?.id;
-                            if (target) void moveItemToList(item.id, target);
+                            const target = transferTargets[item.id] ?? getTransferOptions(item.allListIds)[0]?.id;
+                            if (target) {
+                              item.originalIds.forEach((id: string) => void moveItemToList(id, target));
+                            }
                           }}
                           className="min-h-11 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700 transition-colors hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2"
                         >
@@ -556,7 +627,9 @@ export function ShoppingView({ parentId }: Props) {
                   </div>
                   <button
                     type="button"
-                    onClick={() => void deleteItem(item.id)}
+                    onClick={() => {
+                      item.originalIds.forEach((id: string) => void deleteItem(id));
+                    }}
                     className="self-end rounded-full p-2 text-ui-muted transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 sm:self-auto"
                     aria-label={`Delete ${item.text}`}
                   >
