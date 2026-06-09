@@ -44,9 +44,7 @@ export function ShoppingView({ parentId }: Props) {
   const { templates, saveTemplate, removeTemplate, pinTemplate } = useQuickItemTemplates('shopping');
   const {
     storeNames,
-    customStoreNames,
     locationOptions,
-    customLocationNames,
     saveStoreNames,
     saveLocationNames,
     saving: savingPreferences,
@@ -410,7 +408,7 @@ export function ShoppingView({ parentId }: Props) {
               <HouseholdTagManager
                 title="Shopping stores"
                 helperText="Add household stores for quick parsing and filtering."
-                values={customStoreNames}
+                values={storeNames}
                 placeholder="Publix"
                 addLabel="Add store"
                 disabled={savingPreferences}
@@ -419,7 +417,7 @@ export function ShoppingView({ parentId }: Props) {
               <HouseholdTagManager
                 title="Quick locations"
                 helperText="Optional tags for where shopping items belong after the run."
-                values={customLocationNames}
+                values={locationOptions.map((opt) => opt.label)}
                 placeholder="Garage"
                 addLabel="Add location"
                 disabled={savingPreferences}

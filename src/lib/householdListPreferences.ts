@@ -57,14 +57,16 @@ export function sanitizeLocationNames(values: string[]) {
 }
 
 export function getHouseholdStoreNames(settings?: Pick<FamilySettings, 'customStoreNames'> | null) {
-  return mergeUnique([...DEFAULT_STORE_NAMES, ...(settings?.customStoreNames ?? [])]);
+  if (settings && Array.isArray(settings.customStoreNames)) {
+    return settings.customStoreNames;
+  }
+  return [...DEFAULT_STORE_NAMES];
 }
 
 export function getHouseholdLocationOptions(settings?: Pick<FamilySettings, 'customLocationNames'> | null) {
-  const labels = mergeUnique([
-    ...DEFAULT_LOCATION_OPTIONS.map((option) => option.label),
-    ...(settings?.customLocationNames ?? []),
-  ]);
+  const labels = (settings && Array.isArray(settings.customLocationNames))
+    ? settings.customLocationNames
+    : DEFAULT_LOCATION_OPTIONS.map((option) => option.label);
 
   return labels.map((label) => {
     const preset = DEFAULT_LOCATION_OPTIONS.find((option) => normalizeTagKey(option.label) === normalizeTagKey(label));

@@ -38,13 +38,11 @@ export function useHouseholdListPreferences(parentId: string) {
     () => getHouseholdStoreNames(settings),
     [settings],
   );
-  const customStoreNames = settings?.customStoreNames ?? [];
 
   const locationOptions = useMemo(
     () => getHouseholdLocationOptions(settings),
     [settings],
   );
-  const customLocationNames = settings?.customLocationNames ?? [];
 
   const savePartial = async (partial: Partial<FamilySettings>) => {
     if (!parentId) return;
@@ -58,17 +56,13 @@ export function useHouseholdListPreferences(parentId: string) {
   };
 
   const saveStoreNames = async (nextStoreNames: string[]) => {
-    const defaultStores = new Set(getDefaultStoreNames().map((value) => value.toLowerCase()));
-    const customStoreNames = sanitizeStoreNames(nextStoreNames)
-      .filter((value) => !defaultStores.has(value.toLowerCase()));
+    const customStoreNames = sanitizeStoreNames(nextStoreNames);
     await savePartial({ customStoreNames });
     return customStoreNames;
   };
 
   const saveLocationNames = async (nextLocationNames: string[]) => {
-    const defaultLabels = new Set(getDefaultLocationOptions().map((option) => option.label.toLowerCase()));
-    const customLocationNames = sanitizeLocationNames(nextLocationNames)
-      .filter((value) => !defaultLabels.has(value.toLowerCase()));
+    const customLocationNames = sanitizeLocationNames(nextLocationNames);
     await savePartial({ customLocationNames });
     return customLocationNames;
   };
@@ -77,9 +71,7 @@ export function useHouseholdListPreferences(parentId: string) {
     settings,
     saving,
     storeNames,
-    customStoreNames,
     locationOptions,
-    customLocationNames,
     saveStoreNames,
     saveLocationNames,
   };
