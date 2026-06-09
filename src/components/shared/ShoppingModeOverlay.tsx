@@ -12,7 +12,6 @@ interface ShoppingModeOverlayProps {
 
 export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayProps) {
   const { shoppingItems, toggleItem, shoppingLists } = useListsController({ parentId, preferredCategory: 'shopping' });
-  const { storeNames } = useHouseholdListPreferences(parentId);
   const [activeStore, setActiveStore] = useState<string | null>(null);
 
   const listTitlesById = useMemo(
@@ -73,11 +72,11 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
     return Array.from(s).sort();
   }, [deduplicatedItems]);
 
-  // Combine master list of stores with any stores found in items that might not be in master list
+  // Combine master list of shopping list titles with any stores found in items (explicit @ tags)
   const allStores = useMemo(() => {
-    const combined = new Set([...storeNames, ...storesWithItems]);
+    const combined = new Set([...shoppingLists.map(l => l.title), ...storesWithItems]);
     return Array.from(combined).sort();
-  }, [storeNames, storesWithItems]);
+  }, [shoppingLists, storesWithItems]);
 
   const filteredItems = useMemo(() => {
     if (!activeStore) return deduplicatedItems;

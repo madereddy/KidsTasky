@@ -43,14 +43,14 @@ export function ShoppingView({ parentId }: Props) {
   } = useListsController({ parentId, preferredCategory: 'shopping' });
   const { templates, saveTemplate, removeTemplate, pinTemplate } = useQuickItemTemplates('shopping');
   const {
-    storeNames,
     locationOptions,
-    saveStoreNames,
     saveLocationNames,
     saving: savingPreferences,
   } = useHouseholdListPreferences(parentId);
 
   const { kids } = useFamilyData();
+
+  const shoppingListTitles = useMemo(() => shoppingLists.map(l => l.title), [shoppingLists]);
 
   // Suggestions that match existing items or frequent items as you type
   const suggestions = useMemo(() => {
@@ -139,10 +139,10 @@ export function ShoppingView({ parentId }: Props) {
 
   const quickInputAnalysis = useMemo(
     () => analyzeQuickListInput(newItemText, shoppingLists, selectedListId, {
-      storeNames,
+      storeNames: shoppingListTitles,
       locationNames: locationOptions.map((option) => option.label),
     }),
-    [newItemText, shoppingLists, selectedListId, storeNames, locationOptions],
+    [newItemText, shoppingLists, selectedListId, shoppingListTitles, locationOptions],
   );
 
   const resolvedExtraListIds = useMemo(
@@ -406,17 +406,8 @@ export function ShoppingView({ parentId }: Props) {
 
             <div className="grid gap-3 lg:grid-cols-2">
               <HouseholdTagManager
-                title="Shopping stores"
-                helperText="Add household stores for quick parsing and filtering."
-                values={storeNames}
-                placeholder="Publix"
-                addLabel="Add store"
-                disabled={savingPreferences}
-                onChange={saveStoreNames}
-              />
-              <HouseholdTagManager
                 title="Quick locations"
-                helperText="Optional tags for where shopping items belong after the run."
+                helperText="Optional tags for where shopping items belong after the run (e.g., Garage, Pantry)."
                 values={locationOptions.map((opt) => opt.label)}
                 placeholder="Garage"
                 addLabel="Add location"

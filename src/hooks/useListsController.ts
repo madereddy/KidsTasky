@@ -239,12 +239,15 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
   const addItem = async (text: string, explicitStore?: string, explicitLocation?: string) => {
     if (!selectedListId) return null;
 
+    const list = lists.find(l => l.id === selectedListId);
     const { cleanText, storeName: parsedStore, locationName: parsedLocation } = extractHouseholdTagFromText(
       text,
       defaultStoreNames,
       defaultLocationNames,
     );
-    const finalStore = explicitStore || parsedStore;
+    
+    // If no explicit store is provided via @ tag or param, use the list title as the default storeName
+    const finalStore = explicitStore || parsedStore || list?.title;
     const finalLocation = explicitLocation || parsedLocation;
 
     const rawText = stringifyItemMetadata(cleanText, finalStore, undefined, finalLocation);
@@ -281,6 +284,10 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
       defaultStoreNames,
       defaultLocationNames,
     );
+    
+    // Note: When adding to multiple lists, the storeName for each instance 
+    // is best handled by the server or individual add calls if we want list-specific defaults.
+    // However, for this bulk API, we'll use the parsedStore or explicitStore.
     const finalStore = explicitStore || parsedStore;
     const finalLocation = explicitLocation || parsedLocation;
 
