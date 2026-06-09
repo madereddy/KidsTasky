@@ -55,6 +55,14 @@ export function ActionBolt({ onAction, profile }: { onAction: (type: string) => 
               >
                 Add Grocery <ShoppingBasket size={20} className="text-amber-500" />
               </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { onAction('shopping-mode'); setIsOpen(false); }}
+                className="flex min-h-11 items-center gap-2 rounded-full border border-ui bg-ui-soft px-4 py-3 font-bold text-ui-primary shadow-lg"
+              >
+                Go Shopping <Zap size={20} className="text-amber-400" />
+              </button>
               {!isKid && (
                 <button
                   type="button"

@@ -28,6 +28,7 @@ import { ShareTargetHandler } from './components/shared/ShareTargetHandler';
 import { ParentalLockOverlay } from './components/shared/ParentalLockOverlay';
 import { SleepModeOverlay } from './components/shared/SleepModeOverlay';
 import { PhotoScreensaver } from './components/shared/PhotoScreensaver';
+import { ShoppingModeOverlay } from './components/shared/ShoppingModeOverlay';
 import { LoginView } from './components/auth/LoginView';
 import { OnboardingView } from './components/onboarding/OnboardingView';
 import { WallHome } from './components/parent/WallHome';
@@ -130,6 +131,7 @@ export default function App() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<'home' | 'tasks' | 'calendar' | 'shopping' | 'routines' | 'meals' | 'manage' | string>('home');
   const [showToolsMenu, setShowToolsMenu] = useState(false);
+  const [showShoppingMode, setShowShoppingMode] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
   const [hiddenMissionIds, setHiddenMissionIds] = useState<Set<string>>(() => {
     const stored = localStorage.getItem('kidtasker_hidden_missions');
@@ -1043,7 +1045,14 @@ export default function App() {
           onAction={(type) => {
             if (type === 'task') goToSection('tasks');
             else if (type === 'grocery') goToSection('shopping');
+            else if (type === 'shopping-mode') setShowShoppingMode(true);
           }} 
+        />
+      )}
+      {showShoppingMode && (
+        <ShoppingModeOverlay
+          parentId={familyParentId}
+          onClose={() => setShowShoppingMode(false)}
         />
       )}
       {isMobile && (

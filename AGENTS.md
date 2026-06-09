@@ -146,3 +146,7 @@ When rules conflict, prioritize:
 - Prefer incremental replacement over full rewrites
 - Define how to resolve conflicts, not just list rules
 - Anchor quality to outcomes (correctness, stability) rather than metrics
+
+## Deployment & Infrastructure
+- **Komodo Integration**: For information on how to redeploy the stack using the Komodo API, refer to [docs/komodo-api-guide.md](docs/komodo-api-guide.md).
+- **Environment Variables**: Authoritative Komodo configuration is stored in the `.env` file (`KOMODO_URL`, `KOMODO_API_KEY`, `KOMODO_API_KEY_SECRET`).
