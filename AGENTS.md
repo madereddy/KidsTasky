@@ -150,3 +150,4 @@ When rules conflict, prioritize:
 ## Deployment & Infrastructure
 - **Komodo Integration**: For information on how to redeploy the stack using the Komodo API, refer to [docs/komodo-api-guide.md](docs/komodo-api-guide.md).
 - **Environment Variables**: Authoritative Komodo configuration is stored in the `.env` file (`KOMODO_URL`, `KOMODO_API_KEY`, `KOMODO_API_KEY_SECRET`).
+- **Deployment Sequence**: **CRITICAL**: Always monitor GitHub Actions (`gh run list`) and ensure the container build/push workflow completes successfully before triggering a Komodo deployment. Never trigger a deploy immediately after a push without verifying the new image is ready in the registry.

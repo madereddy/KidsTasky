@@ -47,6 +47,7 @@ $response
 
 ## 5. Deployment Lifecycle
 
-1. **GitHub Build**: Code is pushed to GitHub, which builds the `ghcr.io/madereddy/kidstasky:latest` image.
-2. **Deploy**: Once the GitHub Action is finished, use `/execute/DeployStack` in Komodo to pull the latest image and restart the container.
-3. **Verify**: Use `/read/ListStacks` to ensure the stack is running with the new image.
+1. **GitHub Build**: Code is pushed to GitHub, which triggers the "Docker Build, Scan, and Push" workflow to build and push the `ghcr.io/madereddy/kidstasky:latest` image.
+2. **Monitor Build**: **CRITICAL**: You MUST wait for the GitHub Action to complete successfully before proceeding. Use `gh run list` and `gh run watch <ID>` to monitor progress.
+3. **Deploy**: Once the GitHub Action is finished and the new image is in the registry, use `/execute/DeployStack` in Komodo to pull the latest image and restart the container.
+4. **Verify**: Use `/read/ListStacks` to ensure the stack is running with the new image.
