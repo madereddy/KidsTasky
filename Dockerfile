@@ -1,15 +1,17 @@
 # Stage 1: Build Environment
-FROM node:20-alpine AS builder
+FROM cgr.dev/chainguard/node:latest-dev AS builder
 
 ARG BUILD_VERSION=dev
 ARG BUILD_SHA=dev
 ARG BUILD_TIME=unknown
 ENV VITE_BUILD_VERSION=$BUILD_VERSION
 
+USER root
+
 WORKDIR /app
 
-# Install build dependencies for native modules
-RUN apk add --no-cache python3 make g++ gcc
+# Install build dependencies for native modules (better-sqlite3)
+RUN apk add --no-cache build-base python-3
 
 # Enable pnpm
 RUN corepack enable pnpm
