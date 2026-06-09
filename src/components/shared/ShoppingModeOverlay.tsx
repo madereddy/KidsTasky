@@ -11,31 +11,67 @@ interface ShoppingModeOverlayProps {
 }
 
 export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayProps) {
-  const { shoppingItems, toggleItem } = useListsController({ parentId, preferredCategory: 'shopping' });
+  const { shoppingItems, toggleItem, shoppingLists } = useListsController({ parentId, preferredCategory: 'shopping' });
   const { storeNames } = useHouseholdListPreferences(parentId);
   const [activeStore, setActiveStore] = useState<string | null>(null);
 
-  const activeItems = useMemo(() => 
-    shoppingItems.filter(i => i.completed === 0),
-  [shoppingItems]);
+  const listTitlesById = useMemo(
+    () => new Map(shoppingLists.map((list) => [list.id, list.title])),
+    [shoppingLists],
+  );
+
+  // Deduplicate items by text across different lists, falling back to list title for store name
+  const deduplicatedItems = useMemo(() => {
+    const groups = new Map<string, typeof shoppingItems>();
+    for (const item of shoppingItems) {
+      if (item.completed === 1) continue;
+      const key = item.text.trim().toLowerCase();
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(item);
+    }
+    
+    return Array.from(groups.values()).map(group => {
+      const first = group[0];
+      
+      // Collect explicit store names
+      const explicitStores = group.map(i => i.storeName).filter(Boolean) as string[];
+      
+      // Fallback to list titles if no explicit store name is present for a specific item instance
+      const implicitStores = group
+        .filter(i => !i.storeName)
+        .map(i => listTitlesById.get(i.listId))
+        .filter(Boolean) as string[];
+
+      const allStores = Array.from(new Set([...explicitStores, ...implicitStores]));
+      const allLocationNames = Array.from(new Set(group.map(i => i.locationName).filter(Boolean)));
+      
+      return {
+        ...first,
+        id: group.map(i => i.id).join(','), // virtual id
+        originalIds: group.map(i => i.id),
+        allStoreNames: allStores,
+        allLocationNames,
+      };
+    });
+  }, [shoppingItems, listTitlesById]);
 
   const storeCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    activeItems.forEach(item => {
-      if (item.storeName) {
-        counts[item.storeName] = (counts[item.storeName] || 0) + 1;
-      }
+    deduplicatedItems.forEach(item => {
+      item.allStoreNames.forEach(store => {
+        counts[store] = (counts[store] || 0) + 1;
+      });
     });
     return counts;
-  }, [activeItems]);
+  }, [deduplicatedItems]);
 
   const storesWithItems = useMemo(() => {
     const s = new Set<string>();
-    activeItems.forEach(item => {
-      if (item.storeName) s.add(item.storeName);
+    deduplicatedItems.forEach(item => {
+      item.allStoreNames.forEach(store => s.add(store));
     });
     return Array.from(s).sort();
-  }, [activeItems]);
+  }, [deduplicatedItems]);
 
   // Combine master list of stores with any stores found in items that might not be in master list
   const allStores = useMemo(() => {
@@ -44,9 +80,9 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
   }, [storeNames, storesWithItems]);
 
   const filteredItems = useMemo(() => {
-    if (!activeStore) return activeItems;
-    return activeItems.filter(item => item.storeName === activeStore);
-  }, [activeStore, activeItems]);
+    if (!activeStore) return deduplicatedItems;
+    return deduplicatedItems.filter(item => item.allStoreNames.includes(activeStore));
+  }, [activeStore, deduplicatedItems]);
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-white">
@@ -82,7 +118,7 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
               : "border-ui bg-white text-ui-primary hover:bg-ui-soft-2"
           )}
         >
-          All <span className="ml-1 opacity-60">({activeItems.length})</span>
+          All <span className="ml-1 opacity-60">({deduplicatedItems.length})</span>
         </button>
         {allStores.map(store => {
           const count = storeCounts[store] || 0;
@@ -131,7 +167,7 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9, x: -20 }}
                   className="group relative flex items-center gap-3 rounded-2xl border border-ui bg-white p-4 shadow-sm active:bg-ui-soft"
-                  onClick={() => void toggleItem(item.id, true)}
+                  onClick={() => item.originalIds.forEach(id => void toggleItem(id, true))}
                 >
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center">
                     <Circle className="text-ui-soft-3 group-active:text-emerald-500 transition-colors" size={26} />
@@ -139,16 +175,16 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
                   <div className="min-w-0 flex-1">
                     <p className="text-lg font-bold text-ui-primary leading-tight">{item.text}</p>
                     <div className="mt-0.5 flex flex-wrap gap-2">
-                      {!activeStore && item.storeName && (
-                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 px-1.5 rounded">
-                          {item.storeName}
+                      {!activeStore && item.allStoreNames.map(store => (
+                        <span key={store} className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 px-1.5 rounded">
+                          {store}
                         </span>
-                      )}
-                      {item.locationName && (
-                        <span className="text-[10px] font-black uppercase tracking-wider text-ui-muted">
-                          📍 {item.locationName}
+                      ))}
+                      {item.allLocationNames.map(loc => (
+                        <span key={loc} className="text-[10px] font-black uppercase tracking-wider text-ui-muted">
+                          📍 {loc}
                         </span>
-                      )}
+                      ))}
                     </div>
                   </div>
                   <div className="flex h-10 w-10 items-center justify-center rounded-full text-ui-soft-3 group-active:text-emerald-500">
