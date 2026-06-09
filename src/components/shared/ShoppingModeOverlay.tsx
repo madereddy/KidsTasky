@@ -13,11 +13,34 @@ interface ShoppingModeOverlayProps {
 export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayProps) {
   const { shoppingItems, toggleItem, shoppingLists } = useListsController({ parentId, preferredCategory: 'shopping' });
   const [activeStore, setActiveStore] = useState<string | null>(null);
+  const [stagedOriginalIds, setStagedOriginalIds] = useState<Set<string>>(new Set());
 
   const listTitlesById = useMemo(
     () => new Map(shoppingLists.map((list) => [list.id, list.title])),
     [shoppingLists],
   );
+
+  const handleToggle = (item: { originalIds: string[] }) => {
+    const isStaged = item.originalIds.every(id => stagedOriginalIds.has(id));
+    setStagedOriginalIds(prev => {
+      const next = new Set(prev);
+      if (isStaged) {
+        item.originalIds.forEach(id => next.delete(id));
+      } else {
+        item.originalIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const handleClose = async () => {
+    const idsToComplete = Array.from(stagedOriginalIds);
+    // Fire off completion updates without blocking the UI close
+    idsToComplete.forEach(id => {
+      void toggleItem(id, true);
+    });
+    onClose();
+  };
 
   // Deduplicate items by text across different lists, falling back to list title for store name
   const deduplicatedItems = useMemo(() => {
@@ -79,9 +102,19 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
   }, [shoppingLists, storesWithItems]);
 
   const filteredItems = useMemo(() => {
-    if (!activeStore) return deduplicatedItems;
-    return deduplicatedItems.filter(item => item.allStoreNames.includes(activeStore));
-  }, [activeStore, deduplicatedItems]);
+    let items = deduplicatedItems;
+    if (activeStore) {
+      items = deduplicatedItems.filter(item => item.allStoreNames.includes(activeStore));
+    }
+    
+    // Sort so staged items are at the bottom
+    return [...items].sort((a, b) => {
+      const aStaged = a.originalIds.every(id => stagedOriginalIds.has(id));
+      const bStaged = b.originalIds.every(id => stagedOriginalIds.has(id));
+      if (aStaged === bStaged) return 0;
+      return aStaged ? 1 : -1;
+    });
+  }, [activeStore, deduplicatedItems, stagedOriginalIds]);
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-white">
@@ -99,7 +132,7 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
           </div>
         </div>
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-ui-soft text-ui-muted transition-colors hover:bg-ui-soft-3 hover:text-ui-primary"
         >
           <X size={24} />
@@ -158,39 +191,56 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
             </motion.div>
           ) : (
             <ul className="space-y-3 pb-8">
-              {filteredItems.map(item => (
-                <motion.li
-                  key={item.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9, x: -20 }}
-                  className="group relative flex items-center gap-3 rounded-2xl border border-ui bg-white p-4 shadow-sm active:bg-ui-soft"
-                  onClick={() => item.originalIds.forEach(id => void toggleItem(id, true))}
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center">
-                    <Circle className="text-ui-soft-3 group-active:text-emerald-500 transition-colors" size={26} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-lg font-bold text-ui-primary leading-tight">{item.text}</p>
-                    <div className="mt-0.5 flex flex-wrap gap-2">
-                      {!activeStore && item.allStoreNames.map(store => (
-                        <span key={store} className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 px-1.5 rounded">
-                          {store}
-                        </span>
-                      ))}
-                      {item.allLocationNames.map(loc => (
-                        <span key={loc} className="text-[10px] font-black uppercase tracking-wider text-ui-muted">
-                          📍 {loc}
-                        </span>
-                      ))}
+              {filteredItems.map(item => {
+                const isStaged = item.originalIds.every(id => stagedOriginalIds.has(id));
+                return (
+                  <motion.li
+                    key={item.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9, x: -20 }}
+                    className={cn(
+                      "group relative flex items-center gap-3 rounded-2xl border border-ui p-4 shadow-sm transition-all active:scale-[0.98]",
+                      isStaged ? "bg-ui-soft/50 opacity-60" : "bg-white"
+                    )}
+                    onClick={() => handleToggle(item)}
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center">
+                      {isStaged ? (
+                        <CheckCircle2 className="text-emerald-500" size={26} />
+                      ) : (
+                        <Circle className="text-ui-soft-3 group-active:text-emerald-500 transition-colors" size={26} />
+                      )}
                     </div>
-                  </div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full text-ui-soft-3 group-active:text-emerald-500">
-                    <CheckCircle2 size={28} />
-                  </div>
-                </motion.li>
-              ))}
+                    <div className="min-w-0 flex-1">
+                      <p className={cn(
+                        "text-lg font-bold leading-tight transition-all",
+                        isStaged ? "text-ui-muted line-through" : "text-ui-primary"
+                      )}>
+                        {item.text}
+                      </p>
+                      <div className="mt-0.5 flex flex-wrap gap-2">
+                        {!activeStore && item.allStoreNames.map(store => (
+                          <span key={store} className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 px-1.5 rounded">
+                            {store}
+                          </span>
+                        ))}
+                        {item.allLocationNames.map(loc => (
+                          <span key={loc} className="text-[10px] font-black uppercase tracking-wider text-ui-muted">
+                            📍 {loc}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    {!isStaged && (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full text-ui-soft-3 group-active:text-emerald-500">
+                        <CheckCircle2 size={28} />
+                      </div>
+                    )}
+                  </motion.li>
+                );
+              })}
             </ul>
           )}
         </AnimatePresence>
@@ -198,7 +248,11 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
 
       {/* Footer / Info */}
       <footer className="shrink-0 border-t bg-white p-4 text-center shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
-        <p className="text-xs font-bold text-ui-muted">Tap any item to mark it as found.</p>
+        <p className="text-xs font-bold text-ui-muted">
+          {stagedOriginalIds.size > 0 
+            ? `${stagedOriginalIds.size} item${stagedOriginalIds.size === 1 ? '' : 's'} ready to check off.`
+            : "Tap any item to mark it as found."}
+        </p>
       </footer>
     </div>
   );
