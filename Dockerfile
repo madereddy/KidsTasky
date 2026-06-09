@@ -10,6 +10,9 @@ USER root
 
 WORKDIR /app
 
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++
+
 # Enable pnpm
 RUN corepack enable pnpm
 
