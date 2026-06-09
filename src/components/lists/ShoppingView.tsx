@@ -181,9 +181,20 @@ export function ShoppingView({ parentId }: Props) {
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemText.trim() || !selectedList) return;
-    const targetListIds = [selectedList.id, ...resolvedExtraListIds];
+    
+    // Check if this item exists in frequent history
+    const frequentMatch = frequentItems.find(
+      f => f.text.toLowerCase() === quickInputAnalysis.cleanText.toLowerCase()
+    );
+
+    // If the user didn't explicitly provide extra lists, but the item has history, use history
+    const targetListIds = (resolvedExtraListIds.length === 0 && frequentMatch?.listIds && frequentMatch.listIds.length > 0)
+      ? frequentMatch.listIds
+      : [selectedList.id, ...resolvedExtraListIds];
+    
     const finalStore = quickInputAnalysis.inferredStoreName;
     const finalLocation = quickInputAnalysis.inferredLocationName;
+    
     if (targetListIds.length > 1) {
       await addItemToLists(targetListIds, quickInputAnalysis.cleanText, finalStore, finalLocation);
     } else {
@@ -357,11 +368,23 @@ export function ShoppingView({ parentId }: Props) {
               items={frequentItems}
               onSelect={(item) => {
                 if (!selectedList) return;
-                const targetListIds = [selectedList.id, ...resolvedExtraListIds];
+                // If the item has historical listIds, use them. 
+                // Otherwise fallback to current selection.
+                const targetListIds = (item.listIds && item.listIds.length > 0)
+                  ? item.listIds
+                  : [selectedList.id, ...resolvedExtraListIds];
+                
                 if (targetListIds.length > 1) {
-                  void addItemToLists(targetListIds, item.text, item.storeName, item.locationName);
+                  // If multiple lists, we don't pass a single storeName/locationName 
+                  // as they are list-specific in this case.
+                  void addItemToLists(targetListIds, item.text);
                 } else {
-                  void addItem(item.text, item.storeName, item.locationName);
+                  // For a single list, we can pass the first storeName/location if available
+                  void addItem(
+                    item.text, 
+                    item.storeNames?.[0], 
+                    item.locationNames?.[0]
+                  );
                 }
                 setExtraTargetListIds([]);
               }}

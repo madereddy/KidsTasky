@@ -4,8 +4,9 @@ import { cn } from '../../lib/utils';
 
 interface FrequentItem {
   text: string;
-  storeName?: string;
-  locationName?: string;
+  listIds?: string[];
+  storeNames?: string[];
+  locationNames?: string[];
 }
 
 interface FrequentItemsProps {
@@ -29,9 +30,14 @@ export function FrequentItems({ items, onSelect, className }: FrequentItemsProps
             key={`${item.text}-${index}`}
             type="button"
             onClick={() => onSelect(item)}
-            className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
+            className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100 flex items-center gap-1.5"
           >
             + {item.text}
+            {item.listIds && item.listIds.length > 1 && (
+              <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] text-white">
+                {item.listIds.length}
+              </span>
+            )}
           </button>
         ))}
       </div>

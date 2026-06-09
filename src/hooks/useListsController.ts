@@ -391,7 +391,13 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
       items.filter(i => i.completed === 0).map(i => i.text.toLowerCase())
     );
 
-    const counts = new Map<string, { count: number, storeName?: string, locationName?: string, text: string }>();
+    const counts = new Map<string, { 
+      count: number, 
+      text: string,
+      listIds: Set<string>,
+      storeNames: Set<string>,
+      locationNames: Set<string>
+    }>();
 
     globalHistory.forEach(item => {
       if (item.completed === 1 && item.completedAt && (now - item.completedAt) <= THIRTY_DAYS_MS) {
@@ -400,14 +406,17 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
           const existing = counts.get(textKey);
           if (existing) {
             existing.count += 1;
-            if (!existing.storeName && item.storeName) {
-              existing.storeName = item.storeName;
-            }
-            if (!existing.locationName && item.locationName) {
-              existing.locationName = item.locationName;
-            }
+            existing.listIds.add(item.listId);
+            if (item.storeName) existing.storeNames.add(item.storeName);
+            if (item.locationName) existing.locationNames.add(item.locationName);
           } else {
-            counts.set(textKey, { count: 1, storeName: item.storeName, locationName: item.locationName, text: item.text });
+            counts.set(textKey, { 
+              count: 1, 
+              text: item.text,
+              listIds: new Set([item.listId]),
+              storeNames: new Set(item.storeName ? [item.storeName] : []),
+              locationNames: new Set(item.locationName ? [item.locationName] : [])
+            });
           }
         }
       }
@@ -416,7 +425,12 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     return Array.from(counts.values())
       .sort((a, b) => b.count - a.count)
       .slice(0, 15)
-      .map(entry => ({ text: entry.text, storeName: entry.storeName, locationName: entry.locationName }));
+      .map(entry => ({ 
+        text: entry.text, 
+        listIds: Array.from(entry.listIds),
+        storeNames: Array.from(entry.storeNames), 
+        locationNames: Array.from(entry.locationNames) 
+      }));
   }, [items, globalHistory]);
 
   const selectedList = useMemo(

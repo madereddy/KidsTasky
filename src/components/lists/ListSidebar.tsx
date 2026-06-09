@@ -12,7 +12,12 @@ import { ProofTemplateKind } from '../../services/proofTemplates';
 interface Props {
   listTitle: string;
   items: AppListItem[];
-  frequentItems?: { text: string; storeName?: string; locationName?: string }[];
+  frequentItems?: { 
+    text: string; 
+    listIds?: string[];
+    storeNames?: string[]; 
+    locationNames?: string[] 
+  }[];
   availableLists?: Pick<AppList, 'id' | 'title' | 'category'>[];
   primaryListId?: string;
   isOpen: boolean;
@@ -115,15 +120,24 @@ export function ListSidebar({
     availableLists.filter((list) => list.id !== (itemListId ?? primaryListId))
   );
 
-  const submitFrequentItem = (item: { text: string; storeName?: string; locationName?: string }) => {
-    const targetListIds = primaryListId
-      ? [primaryListId, ...resolvedExtraListIds]
-      : resolvedExtraListIds;
+  const submitFrequentItem = (item: { 
+    text: string; 
+    listIds?: string[];
+    storeNames?: string[]; 
+    locationNames?: string[] 
+  }) => {
+    const targetListIds = (item.listIds && item.listIds.length > 0)
+      ? item.listIds
+      : (primaryListId ? [primaryListId, ...resolvedExtraListIds] : resolvedExtraListIds);
 
     if (onAddItemToLists && targetListIds.length > 1) {
-      onAddItemToLists(targetListIds, item.text, item.storeName, item.locationName);
+      onAddItemToLists(targetListIds, item.text);
     } else if (onAddItem) {
-      onAddItem(item.text, item.storeName, item.locationName);
+      onAddItem(
+        item.text, 
+        item.storeNames?.[0], 
+        item.locationNames?.[0]
+      );
     }
 
     setNewItemText('');
@@ -367,7 +381,14 @@ export function ListSidebar({
                   onClick={() => submitFrequentItem(item)}
                   className="w-full text-left px-3 py-2 text-xs font-bold text-ui-primary hover:bg-white border-b border-ui last:border-0 flex items-center justify-between group"
                 >
-                  <span>{item.text}</span>
+                  <div className="flex items-center gap-2">
+                    <span>{item.text}</span>
+                    {item.listIds && item.listIds.length > 1 && (
+                      <span className="flex h-3.5 min-w-[1rem] items-center justify-center rounded-full bg-blue-500 px-1 text-[8px] text-white">
+                        {item.listIds.length} lists
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[10px] text-ui-muted group-hover:text-blue-500">Quick Add +</span>
                 </button>
               ))}
@@ -385,9 +406,14 @@ export function ListSidebar({
                     key={idx}
                     type="button"
                     onClick={() => submitFrequentItem(item)}
-                    className="px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-all shadow-sm"
+                    className="px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-all shadow-sm flex items-center gap-1.5"
                   >
                     + {item.text}
+                    {item.listIds && item.listIds.length > 1 && (
+                      <span className="flex h-3.5 min-w-[1rem] items-center justify-center rounded-full bg-emerald-600 px-1 text-[8px] text-white">
+                        {item.listIds.length}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
