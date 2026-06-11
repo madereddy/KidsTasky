@@ -17,9 +17,36 @@ vi.mock('../../services/dashboard', () => ({
 }));
 vi.mock('../../services/weather', () => ({ weatherClientService: { getForecastWithHourly: vi.fn().mockResolvedValue([]) } }));
 vi.mock('../../services/settings', () => ({ settingsClientService: { getSettings: vi.fn().mockResolvedValue(null) } }));
-vi.mock('../../hooks/useSocket', () => ({ useSocketStaleData: vi.fn() }));
+vi.mock('../../hooks/useSocket', () => ({
+  useSocketStaleData: vi.fn(),
+  getSocket: vi.fn().mockReturnValue(null),
+  initSocket: vi.fn(),
+  matchesEntityFilter: vi.fn().mockReturnValue(false),
+}));
+vi.mock('../../services/meals', () => ({
+  mealsClientService: {
+    getMealPlans: vi.fn().mockResolvedValue([]),
+    getRecipes: vi.fn().mockResolvedValue([]),
+  },
+}));
+vi.mock('../../services/lists', () => ({
+  listsClientService: {
+    getFrequentItems: vi.fn().mockResolvedValue([]),
+    createList: vi.fn(),
+    addItem: vi.fn(),
+  },
+}));
+vi.mock('../../services/http', () => ({
+  fetchAPI: vi.fn().mockResolvedValue([]),
+  API_BASE: '/api',
+}));
+vi.mock('../../lib/wallMode', () => ({
+  getCurrentWallMode: vi.fn().mockReturnValue('ambient'),
+}));
 vi.mock('../shared/FamilyNote', () => ({ FamilyNote: () => <div>FamilyNote</div> }));
 vi.mock('../calendar/WeeklyWeather', () => ({ WeeklyWeather: () => <div>WeeklyWeather</div> }));
+vi.mock('../shared/IntelligenceHeader', () => ({ IntelligenceHeader: () => <div>IntelligenceHeader</div> }));
+vi.mock('../shared/FrequentItemChips', () => ({ FrequentItemChips: () => <div>FrequentItemChips</div> }));
 
 const baseProps = {
   parentId: 'p1',

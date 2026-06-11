@@ -72,6 +72,7 @@ export function useHouseholdListPreferences(parentId: string) {
     saving,
     storeNames,
     locationOptions,
+    customLocationNames: settings?.customLocationNames ?? [],
     saveStoreNames,
     saveLocationNames,
   };

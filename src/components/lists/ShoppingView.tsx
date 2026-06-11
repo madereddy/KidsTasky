@@ -114,8 +114,8 @@ export function ShoppingView({ parentId }: Props) {
     
     return Array.from(groups.values()).map(group => {
       const first = group[0];
-      const allStoreNames = Array.from(new Set(group.map(i => i.storeName).filter(Boolean)));
-      const allLocationNames = Array.from(new Set(group.map(i => i.locationName).filter(Boolean)));
+      const allStoreNames = Array.from(new Set(group.map(i => i.storeName).filter((x): x is string => Boolean(x))));
+      const allLocationNames = Array.from(new Set(group.map(i => i.locationName).filter((x): x is string => Boolean(x))));
       const allListIds = Array.from(new Set(group.map(i => i.listId)));
       
       return {

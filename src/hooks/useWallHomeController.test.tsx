@@ -3,6 +3,22 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useWallHomeController } from './useWallHomeController';
 
+vi.mock('../services/http', () => ({
+  fetchAPI: vi.fn().mockResolvedValue([]),
+  API_BASE: '/api',
+}));
+
+vi.mock('./useSocket', () => ({
+  initSocket: vi.fn(),
+  getSocket: vi.fn().mockReturnValue(null),
+  useSocketStaleData: vi.fn(),
+  matchesEntityFilter: vi.fn().mockReturnValue(false),
+}));
+
+vi.mock('../lib/wallMode', () => ({
+  getCurrentWallMode: vi.fn().mockReturnValue('ambient'),
+}));
+
 vi.mock('../services/dashboard', () => ({
   dashboardClientService: { getFamilyDashboardData: vi.fn() },
 }));
@@ -12,10 +28,23 @@ vi.mock('../services/weather', () => ({
 vi.mock('../services/settings', () => ({
   settingsClientService: { getSettings: vi.fn() },
 }));
+vi.mock('../services/meals', () => ({
+  mealsClientService: {
+    getMealPlans: vi.fn(),
+    getRecipes: vi.fn(),
+  },
+}));
+vi.mock('../services/lists', () => ({
+  listsClientService: {
+    getFrequentItems: vi.fn(),
+  },
+}));
 
 import { dashboardClientService } from '../services/dashboard';
 import { weatherClientService } from '../services/weather';
 import { settingsClientService } from '../services/settings';
+import { mealsClientService } from '../services/meals';
+import { listsClientService } from '../services/lists';
 
 describe('useWallHomeController', () => {
   beforeEach(() => {
@@ -25,6 +54,8 @@ describe('useWallHomeController', () => {
       homework: [{ id: 'h1', dueDate: '2026-06-03', status: 'pending' }],
       tasks: [{ id: 't1', assignedKidId: 'k1' }],
       completions: [{ id: 'c1', taskId: 't1', kidId: 'k1' }],
+      lists: [],
+      listItems: [],
     } as any);
     vi.mocked(settingsClientService.getSettings).mockResolvedValue({
       temperatureUnit: 'fahrenheit',
@@ -38,6 +69,9 @@ describe('useWallHomeController', () => {
       daily: [{ date: '2026-06-03' }],
       hourlyToday: [{ time: new Date().toISOString(), temp: 72, weatherCode: 1 }],
     } as any);
+    vi.mocked(mealsClientService.getMealPlans).mockResolvedValue([]);
+    vi.mocked(mealsClientService.getRecipes).mockResolvedValue([]);
+    vi.mocked(listsClientService.getFrequentItems).mockResolvedValue(['Apples', 'Milk']);
   });
 
   it('loads family data, weather, and per-kid task data', async () => {
