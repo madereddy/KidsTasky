@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { CalendarEvent, Homework, Task, TaskCompletion, UserProfile, AppList, AppListItem } from '../types';
+import { CalendarEvent, Homework, Task, TaskCompletion, UserProfile, AppList, AppListItem, DailyIntelligence, MealPlan, Recipe, WallMode, LeaderboardEntry, PowerMission, MissionCompletedPayload } from '../types';
 import { dashboardClientService } from '../services/dashboard';
 import { weatherClientService, DailyForecast, HourlyForecastEntry } from '../services/weather';
 import { settingsClientService } from '../services/settings';
+import { mealsClientService } from '../services/meals';
+import { listsClientService } from '../services/lists';
 import { clientLogger } from '../services/clientLogger';
+import { calculateNextUp } from '../lib/dateTimePrefs';
+import { getCurrentWallMode } from '../lib/wallMode';
+import { fetchAPI } from '../services/http';
+import { getSocket } from './useSocket';
 
 interface UseWallHomeControllerOptions {
   parentId: string;
@@ -19,6 +25,7 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
   const [homework, setHomework] = useState<Homework[]>([]);
   const [lists, setLists] = useState<AppList[]>([]);
   const [listItems, setListItems] = useState<AppListItem[]>([]);
+  const [frequentItems, setFrequentItems] = useState<string[]>([]);
   const [forecast, setForecast] = useState<DailyForecast[]>([]);
   const [hourlyToday, setHourlyToday] = useState<HourlyForecastEntry[]>([]);
   const [tempUnit, setTempUnit] = useState<'celsius' | 'fahrenheit'>('celsius');
@@ -26,12 +33,24 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
   const [rotationEnabled, setRotationEnabled] = useState(false);
   const [rotationInterval, setRotationInterval] = useState(30);
   const [rotationOrder, setRotationOrder] = useState<string[]>(['chores', 'calendar', 'weather']);
+  const [mealData, setMealData] = useState<DailyIntelligence['meal']>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [wallMode, setWallMode] = useState<WallMode>('ambient');
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [powerMission, setPowerMission] = useState<PowerMission | null>(null);
+  const [celebration, setCelebration] = useState<MissionCompletedPayload | null>(null);
 
-  const memoKids = useMemo(() => JSON.stringify(kids), [kids]);
-  const memoSettings = useMemo(() => JSON.stringify(initialSettings), [initialSettings]);
   const today = format(new Date(), 'yyyy-MM-dd');
+  const kidIds = useMemo(() => kids.map(k => k.uid).join(','), [kids]);
+
+  // Update wall mode every minute
+  useEffect(() => {
+    const update = () => setWallMode(getCurrentWallMode(new Date()));
+    update();
+    const interval = setInterval(update, 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchFamilyData = useCallback(async () => {
     if (!parentId) {
@@ -41,6 +60,7 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
       setHomework([]);
       setLists([]);
       setListItems([]);
+      setFrequentItems([]);
       setForecast([]);
       setHourlyToday([]);
       setLoadError('');
@@ -67,28 +87,65 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
         : Promise.resolve(null);
 
       const dashboardPromise = dashboardClientService.getFamilyDashboardData(parentId, today);
+      const mealPlansPromise = mealsClientService.getMealPlans(parentId, today).catch(() => []);
+      const recipesPromise = mealsClientService.getRecipes(parentId).catch(() => []);
+      const frequentItemsPromise = listsClientService.getFrequentItems(parentId).catch(() => []);
+      const leaderboardPromise = fetchAPI(`/parents/${parentId}/leaderboard`).catch(() => []);
+      const powerMissionPromise = fetchAPI(`/parents/${parentId}/power-mission`).catch(() => null);
 
-      const [wx, dashboardData] = await Promise.all([weatherPromise, dashboardPromise]);
+      const [wx, dashboardData, mealPlans, recipes, freqItems, leaderboardData, powerMissionData] = await Promise.all([
+        weatherPromise,
+        dashboardPromise,
+        mealPlansPromise as Promise<MealPlan[]>,
+        recipesPromise as Promise<Recipe[]>,
+        frequentItemsPromise,
+        leaderboardPromise,
+        powerMissionPromise,
+      ]);
+      setLeaderboard(leaderboardData ?? []);
+      setPowerMission(powerMissionData ?? null);
 
       setEvents(dashboardData.events);
       setHomework(dashboardData.homework);
       setLists(dashboardData.lists || []);
       setListItems(dashboardData.listItems || []);
+      setFrequentItems(freqItems);
       
+      // Process Meal Data
+      const todayMealPlan = mealPlans.find((mp: MealPlan) => mp.date === today);
+      let mealInfo: DailyIntelligence['meal'] = null;
+      if (todayMealPlan?.recipeId) {
+        const recipe = recipes.find((r: Recipe) => r.id === todayMealPlan.recipeId);
+        if (recipe) {
+          let ingredients: string[] = [];
+          try {
+            ingredients = recipe.ingredients ? JSON.parse(recipe.ingredients) : [];
+          } catch {
+            if (Array.isArray(recipe.ingredients)) ingredients = recipe.ingredients as unknown as string[];
+          }
+          mealInfo = {
+            id: recipe.id,
+            title: recipe.name,
+            imageUrl: recipe.imageUrl || undefined,
+            ingredients
+          };
+        }
+      }
+      setMealData(mealInfo);
+
       // Map tasks and completions by kid
       const tMap: Record<string, Task[]> = {};
       const cMap: Record<string, TaskCompletion[]> = {};
       
-      const parsedKids = JSON.parse(memoKids);
       // Initialize maps for all kids
-      parsedKids.forEach((k: any) => {
+      kids.forEach(k => {
         tMap[k.uid] = [];
         cMap[k.uid] = [];
       });
 
-      dashboardData.tasks.forEach(t => {
+      dashboardData.tasks.forEach((t: Task) => {
         if (t.assignedKidId === 'all') {
-          parsedKids.forEach((k: any) => {
+          kids.forEach(k => {
             if (!tMap[k.uid]) tMap[k.uid] = [];
             tMap[k.uid].push(t);
           });
@@ -97,7 +154,7 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
         }
       });
 
-      dashboardData.completions.forEach(c => {
+      dashboardData.completions.forEach((c: TaskCompletion) => {
         if (cMap[c.kidId]) {
           cMap[c.kidId].push(c);
         }
@@ -116,11 +173,30 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
     } finally {
       setLoading(false);
     }
-  }, [parentId, memoKids, today, memoSettings]); // use stable settings string
+  }, [parentId, kidIds, today, initialSettings]); // initialSettings is likely stable or memoized by parent
 
   useEffect(() => {
     void fetchFamilyData();
   }, [fetchFamilyData]);
+
+  // Listen for XP celebration events from socket
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const handler = (payload: MissionCompletedPayload) => {
+      setCelebration(payload);
+      setTimeout(() => setCelebration(null), 3000);
+    };
+    socket.on('mission-completed', handler);
+    return () => { socket.off('mission-completed', handler); };
+  });
+
+  const nextUp = useMemo(() => calculateNextUp(events, kids), [events, kids]);
+
+  const intelligence = useMemo(() => ({
+    nextUp,
+    meal: mealData
+  }), [nextUp, mealData]);
 
   const allTasks = useMemo(() => Object.values(tasksByKid).flat(), [tasksByKid]);
   const allCompletions = useMemo(() => Object.values(completionsByKid).flat(), [completionsByKid]);
@@ -138,6 +214,7 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
     rotationEnabled,
     rotationInterval,
     rotationOrder,
+    intelligence,
     loading,
     loadError,
     fetchFamilyData,
@@ -146,5 +223,10 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
     allCompletions,
     lists,
     listItems,
+    frequentItems,
+    wallMode,
+    leaderboard,
+    powerMission,
+    celebration,
   };
 }

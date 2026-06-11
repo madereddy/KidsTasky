@@ -42,6 +42,10 @@ export function matchesEntityFilter(entities: string[], data: StaleDataEvent): b
   return entities.includes('all') || entity === 'all' || entities.includes(entity);
 }
 
+export function getSocket(): Socket | null {
+  return socket;
+}
+
 export const useSocketStaleData = (
   entities: string[],
   onStaleData: (data: StaleDataEvent) => void
