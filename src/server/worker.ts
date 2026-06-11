@@ -24,6 +24,10 @@ import {
 
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+
+const intervalHandles: ReturnType<typeof setInterval>[] = [];
+const cronHandles: ScheduledTask[] = [];
+
 const workerStartedAt = Date.now();
 let workerActive = false;
 
