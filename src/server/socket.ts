@@ -70,6 +70,11 @@ export const socketWrapper = {
     }
   },
 
+  emitToFamily: (parentId: string, event: string, data: unknown) => {
+    if (!io) return;
+    io.to(parentId).emit(event, data);
+  },
+
   getDiagnostics: () => ({
     connectedUsers: userSocketMap.size,
     connectedSockets: socketToUid.size,

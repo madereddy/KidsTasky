@@ -5,6 +5,8 @@ import { mapTaskRow, mapCompletionRow } from './mappers.js';
 import { userService } from '../users/service.js';
 import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
 import { logger } from '../../lib/logger.js';
+import { socketWrapper } from '../../socket.js';
+import type { MissionCompletedPayload } from '../../../types.js';
 
 export const tasksRouter = Router();
 
@@ -131,6 +133,15 @@ tasksRouter.post("/completions", authenticateUser, enforceEditUnlocked, [
       ...req.body,
       proofAnswers: Array.isArray(req.body?.proofAnswers) ? req.body.proofAnswers : undefined,
     });
+    if (result.created && result.streakDay > 0) {
+      const payload: MissionCompletedPayload = {
+        userId: req.body.kidId,
+        xp: result.xpEarned,
+        streakDay: result.streakDay,
+        badgesEarned: result.badgesEarned ?? [],
+      };
+      socketWrapper.emitToFamily(task.parentId, 'mission-completed', payload);
+    }
     res.json({ id: result.id, approvalStatus: result.approvalStatus, created: result.created });
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
