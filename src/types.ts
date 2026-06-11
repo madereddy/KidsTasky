@@ -259,6 +259,7 @@ export interface AppListItem {
   storeName?: string;
   locationName?: string; // Specific location override
   completedAt?: number;
+  usageCount?: number;
 }
 export interface Recipe {
   id: string;
@@ -312,4 +313,63 @@ export interface MissionItem {
   storeName?: string;
   locationName?: string;
   listCategory?: 'shopping' | 'routine';
+}
+
+export interface NextUpEvent {
+  title: string;
+  startTime: number;
+  memberName: string;
+  memberColor: string;
+}
+
+export interface DailyIntelligence {
+  nextUp: NextUpEvent | null;
+  meal: {
+    id: string;
+    title: string;
+    imageUrl?: string;
+    ingredients?: string[];
+  } | null;
+}
+
+export type WallMode = 'morning' | 'ambient' | 'afterschool' | 'evening' | 'night';
+
+export interface StreakData {
+  userId: string;
+  currentStreak: number;
+  longestStreak: number;
+  multiplier: number;
+  badgesEarned: string[];
+}
+
+export interface XpEvent {
+  id: number;
+  userId: string;
+  parentId: string;
+  xp: number;
+  reason: string;
+  createdAt: string;
+}
+
+export interface LeaderboardEntry {
+  userId: string;
+  name: string;
+  weeklyXp: number;
+  deltaFromLastWeek: number;
+  role: 'parent' | 'kid' | 'coparent';
+}
+
+export interface PowerMission {
+  taskId: string;
+  title: string;
+  xpReward: number;
+  assignedKidId: string;
+  assignedKidName: string;
+}
+
+export interface MissionCompletedPayload {
+  userId: string;
+  xp: number;
+  streakDay: number;
+  badgesEarned: string[];
 }
