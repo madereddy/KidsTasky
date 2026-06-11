@@ -73,17 +73,17 @@ These elements appear in relevant modes and are tappable:
 ### 4.2 Family Leaderboard
 
 - Weekly XP totals per family member, reset every Monday at midnight
-- Parents earn XP by assigning missions (5 XP) and marking them reviewed/approved (10 XP)
+- Parents earn XP for: creating a task with `assignedTo` set to a kid user ID via `POST /tasks` (5 XP), and approving/marking a completed task reviewed via `PATCH /tasks/:id` where status transitions to `approved` (10 XP). Bulk imports and edits that don't set `assignedTo` do not grant XP.
 - Displayed on wall in After School and Evening modes as a ranked list with deltas from last week
-- **DB:** No new table needed — query `task_completions` by `parentId` + date range
+- **DB:** New `xp_events` table `(id INTEGER PRIMARY KEY, user_id INTEGER, xp INTEGER, reason TEXT, created_at TEXT)`. All XP — kids (mission completions) and parents (assignment/approval actions) — is written here. Weekly leaderboard queries `xp_events` grouped by `user_id` filtered to current week. Kids' existing XP column on `users` remains as cumulative total; `xp_events` is the append-only log.
 
 ### 4.3 Power Mission
 
 - One rotating "Power Mission" per family per day: 2x XP, marked with a bolt icon ⚡
-- Selected by parent (or auto-selected: highest-priority pending task across all kids)
+- Selected by parent (or auto-selected: pending task with the highest `xp_reward` across all kids; `created_at ASC` as tiebreaker)
 - Expires at midnight — creates urgency and a daily check-in reason
 - Displayed prominently in Morning Briefing and After School modes
-- **DB:** `power_mission_id` and `power_mission_date` columns on `families` (or equivalent parent record); cron clears at midnight
+- **DB:** `power_mission_id` and `power_mission_date` columns added to the `users` row where `role = 'parent'` (the parent user IS the family grouping key via `parentId` — there is no separate families table). Cron clears both columns at midnight.
 
 ### 4.4 Animated XP Celebrations
 
@@ -114,8 +114,8 @@ Milestone badges displayed on kid's profile card on the wall:
 
 | Table | Change |
 |-------|--------|
-| `users` | Add `current_streak INT DEFAULT 0`, `longest_streak INT DEFAULT 0`, `last_mission_date TEXT`, `badges TEXT DEFAULT '[]'` |
-| `families` / parent record | Add `power_mission_id INT`, `power_mission_date TEXT` |
+| `users` | Add `current_streak INT DEFAULT 0`, `longest_streak INT DEFAULT 0`, `last_mission_date TEXT`, `badges TEXT DEFAULT '[]'`, `power_mission_id INT`, `power_mission_date TEXT` (last two only relevant when `role = 'parent'`) |
+| `xp_events` (new) | `id INTEGER PRIMARY KEY, user_id INTEGER, xp INTEGER, reason TEXT, created_at TEXT` — append-only log for all XP earned by all family members (kids and parents) |
 
 Migration: new numbered SQL file in `src/server/migrations/`.
 
@@ -126,7 +126,9 @@ Migration: new numbered SQL file in `src/server/migrations/`.
 - `useWallHomeController` owns mode switching and feeds all wall layout components
 - New `useStreakService` (server-side) handles streak calculation — pure functions, easy to unit test
 - `useMissionTodayController` gets `streakData` and `powerMission` injected
-- Socket.IO event `missionCompleted` carries `{ userId, xp, streakDay, badgesEarned[] }` — wall subscribes for celebration animation trigger
+- **Prerequisite:** Grocery chips row depends on `usage_count` item-frequency tracking, which is already implemented (see `docs/superpowers/specs/2026-06-11-daily-intelligence-fast-action-design.md` Section 3.3). No new frequency infrastructure needed.
+- **Badge evaluation performance:** Badge checks run synchronously on mission completion only to populate the `missionCompleted` Socket.IO payload (which fields `badgesEarned[]`). The check is a simple SQL count query — acceptable latency. The nightly cron handles backdated recalculation (e.g., "Family MVP" which requires cross-user comparison). If badge logic grows, move all evaluation to cron and drop the synchronous path.
+- Socket.IO event `missionCompleted` is a **new named event** (distinct from the existing `staleData` broadcast) carrying `{ userId, xp, streakDay, badgesEarned[] }`. The wall subscribes to this event for the celebration animation. `staleData` continues to fire as before for data refetch; `missionCompleted` is additive and does not modify existing event handling.
 - Worker cron adds: midnight streak reset, midnight Power Mission rotation, weekly leaderboard reset (Monday)
 
 ---
