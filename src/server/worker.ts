@@ -15,14 +15,15 @@ import { sendEmail } from './modules/notifications/emailService.js';
 import { ensurePhotosUploadsDir, getSafePhotoFilename, resolvePhotoUploadPath } from './modules/photos/storage.js';
 import { logger } from './lib/logger.js';
 import { SyncConnection } from '../types.js';
+import { 
+  syncBackoff, 
+  onGoogleSyncFailure, 
+  onGoogleSyncSuccess, 
+  shouldSkipGoogleSync 
+} from './lib/syncBackoff.js';
 
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-
-const intervalHandles: ReturnType<typeof setInterval>[] = [];
-const cronHandles: ScheduledTask[] = [];
-
-const syncBackoff = { failCount: 0, nextAllowedAt: 0 };
 const workerStartedAt = Date.now();
 let workerActive = false;
 
@@ -133,28 +134,6 @@ function markWorkerJobFailure(jobName: keyof typeof workerJobs, startedAt: numbe
   job.lastDurationMs = finishedAt - startedAt;
   job.failureCount += 1;
   job.lastError = error instanceof Error ? error.message : String(error);
-}
-
-function shouldSkipGoogleSync(): boolean {
-  return Date.now() < syncBackoff.nextAllowedAt;
-}
-
-function onGoogleSyncSuccess() {
-  syncBackoff.failCount = 0;
-  syncBackoff.nextAllowedAt = 0;
-}
-
-function onGoogleSyncFailure(err: any) {
-  const is429 = err?.status === 429 || err?.code === 429 ||
-    String(err?.message).toLowerCase().includes('quota') ||
-    String(err?.message).toLowerCase().includes('rate limit');
-  if (is429) {
-    syncBackoff.failCount++;
-    // Exponential backoff: 1min, 2min, 4min, 8min, 16min — max 30min
-    const delayMs = Math.min(Math.pow(2, syncBackoff.failCount) * 60_000, 30 * 60_000);
-    syncBackoff.nextAllowedAt = Date.now() + delayMs;
-    logger.warn({ delayMinutes: delayMs / 60_000, failCount: syncBackoff.failCount }, 'worker_google_sync_rate_limited');
-  }
 }
 
 export function startBackgroundWorker(io?: SocketServer) {
@@ -467,6 +446,10 @@ export function startBackgroundWorker(io?: SocketServer) {
             }
             if (result.failureCount > 0) {
               logger.error({ connectionId: conn.id, errors: result.errors }, 'worker_google_sync_partial');
+              for (const error of result.errors) {
+                onGoogleSyncFailure(error);
+              }
+              anyRateLimit = true;
             }
           } catch (err: any) {
             logger.error({ connectionId: conn.id, error: err?.message }, 'worker_google_sync_connection_error');

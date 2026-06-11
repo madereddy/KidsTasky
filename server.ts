@@ -202,6 +202,7 @@ const limiter = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   skip: (req) => {
+    if (req.url.startsWith('/api/health')) return true;
     const host = String(req.hostname || "").toLowerCase();
     if (host === "localhost" || host === "127.0.0.1") return true;
     const forwardedFor = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
