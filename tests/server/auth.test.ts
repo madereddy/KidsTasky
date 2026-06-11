@@ -64,11 +64,16 @@ test('Login backoff temporarily blocks repeated failed attempts', async () => {
   const email = 'backoff@example.com';
   await request(app).post('/api/auth/register').send({ email, password: 'password123', name: 'Backoff User' });
 
-  const firstFail = await request(app).post('/api/auth/login').send({ email, password: 'wrong-password' });
-  expect(firstFail.status).toBe(401);
+  // Lockout triggers on the 6th failure (Apple-like backoff)
+  for (let i = 0; i < 6; i++) {
+    const res = await request(app).post('/api/auth/login').send({ email, password: 'wrong-password' });
+    expect(res.status).toBe(401);
+  }
 
-  const immediateRetry = await request(app).post('/api/auth/login').send({ email, password: 'wrong-password' });
-  expect(immediateRetry.status).toBe(429);
+  // 7th attempt should be blocked
+  const blockedRes = await request(app).post('/api/auth/login').send({ email, password: 'wrong-password' });
+  expect(blockedRes.status).toBe(429);
 
   db.prepare("DELETE FROM users WHERE email = ?").run(email);
+  db.prepare("DELETE FROM auth_lockouts WHERE targetId LIKE ?").run(`parent-login:${email}%`);
 });
