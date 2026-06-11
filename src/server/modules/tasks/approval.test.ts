@@ -398,4 +398,24 @@ describe('Task Completion Approval', () => {
     expect(row.starValue).toBe(3);
     expect(JSON.parse(row.completionQuestions)).toEqual(['Did you actually do it?']);
   });
+
+  it('GET /leaderboard returns weekly XP ranked list', async () => {
+    db.prepare('DELETE FROM xp_events WHERE parentId = ?').run(parentId);
+    db.prepare('INSERT INTO xp_events (userId, parentId, xp, reason, createdAt) VALUES (?, ?, ?, ?, ?)').run(kidId, parentId, 30, 'mission_completion', new Date().toISOString());
+    const res = await request(app)
+      .get(`/api/parents/${parentId}/leaderboard`)
+      .set('Authorization', `Bearer ${parentToken}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body[0]).toHaveProperty('weeklyXp');
+    expect(res.body[0]).toHaveProperty('deltaFromLastWeek');
+  });
+
+  it('GET /power-mission returns null when no power mission set', async () => {
+    const res = await request(app)
+      .get(`/api/parents/${parentId}/power-mission`)
+      .set('Authorization', `Bearer ${parentToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toBeNull();
+  });
 });
