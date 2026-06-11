@@ -529,6 +529,45 @@ export function startBackgroundWorker(io?: SocketServer) {
       logger.error({ error }, 'worker_multi_source_sync_error');
     }
   }));
+
+  // Midnight: reset broken streaks + select Power Mission per family
+  cronHandles.push(cron.schedule('1 0 * * *', async () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+      // Reset streaks for kids who missed yesterday
+      db.prepare(`
+        UPDATE users
+        SET currentStreak = 0
+        WHERE role = 'kid'
+          AND currentStreak > 0
+          AND (lastMissionDate IS NULL OR lastMissionDate < ?)
+      `).run(yesterdayStr);
+
+      // Select Power Mission for each family (parent)
+      const parents = db.prepare("SELECT uid FROM users WHERE role = 'parent'").all() as { uid: string }[];
+      for (const parent of parents) {
+        const task = db.prepare(`
+          SELECT t.id FROM tasks t
+          WHERE t.parentId = ?
+            AND t.status = 'active'
+            AND t.assignedKidId IS NOT NULL
+            AND t.assignedKidId != 'all'
+          ORDER BY COALESCE(t.starValue, 1) DESC, t.createdAt ASC
+          LIMIT 1
+        `).get(parent.uid) as { id: string } | undefined;
+        db.prepare('UPDATE users SET powerMissionId = ?, powerMissionDate = ? WHERE uid = ?')
+          .run(task?.id ?? null, today, parent.uid);
+      }
+
+      logger.info({}, 'midnight_engagement_reset_complete');
+    } catch (err: any) {
+      logger.error({ error: err.message }, 'midnight_engagement_reset_error');
+    }
+  }));
 }
 
 export function stopWorker() {
