@@ -14,6 +14,13 @@ import { cn } from '../../lib/utils';
 import { useWallHomeController } from '../../hooks/useWallHomeController';
 import { useWakeLock } from '../../hooks/useWakeLock';
 import { WallSkeleton } from '../shared/Skeleton';
+import { IntelligenceHeader } from '../shared/IntelligenceHeader';
+import { FrequentItemChips } from '../shared/FrequentItemChips';
+import { listsClientService } from '../../services/lists';
+import { XpCelebration } from './XpCelebration';
+import { FamilyLeaderboard } from './FamilyLeaderboard';
+import { PowerMissionCard } from './PowerMissionCard';
+import { GroceryChips } from './GroceryChips';
 
 interface Props {
   parentId: string;
@@ -95,6 +102,14 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
     fetchKidTaskData,
     allTasks,
     allCompletions,
+    intelligence,
+    lists,
+    listItems,
+    frequentItems,
+    wallMode,
+    leaderboard,
+    powerMission,
+    celebration,
   } = useWallHomeController({ parentId, kids, initialSettings: settings });
 
   useSocketStaleData(['events', 'homework', 'tasks', 'completions', 'weather', 'settings'], useCallback((data: { entity?: string; type?: string }) => {
@@ -159,6 +174,80 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
     };
   });
 
+  const handleAddIngredients = useCallback(async () => {
+    if (!intelligence.meal?.ingredients?.length) return;
+    
+    // Find a shopping list or use the first one available
+    let shoppingList = lists.find(l => l.category === 'shopping');
+    
+    if (!shoppingList && lists.length > 0) {
+      shoppingList = lists[0];
+    }
+    
+    if (!shoppingList) {
+      try {
+        shoppingList = await listsClientService.createList('Shopping List', 'shopping');
+      } catch (err) {
+        console.error('Failed to create shopping list:', err);
+        return;
+      }
+    }
+    
+    if (!shoppingList) return;
+    
+    try {
+      // Find items already on this list to avoid duplicates
+      const existingItems = new Set(
+        listItems
+          .filter(item => item.listId === shoppingList!.id && item.completed === 0)
+          .map(item => item.text.toLowerCase().trim())
+      );
+
+      let addedCount = 0;
+      // Add each ingredient as a list item if not already present
+      for (const ingredient of intelligence.meal.ingredients) {
+        if (!existingItems.has(ingredient.toLowerCase().trim())) {
+          await listsClientService.addItem(shoppingList.id, ingredient);
+          addedCount++;
+        }
+      }
+
+      // Trigger a refresh of family data to update lists/items
+      void fetchFamilyData();
+      
+      if (addedCount > 0) {
+        alert(`Added ${addedCount} new items to ${shoppingList.title}`);
+      } else {
+        alert('All ingredients are already on your shopping list!');
+      }
+    } catch (err) {
+      console.error('Failed to add ingredients:', err);
+    }
+  }, [intelligence.meal, lists, listItems, fetchFamilyData]);
+
+  const handleQuickAdd = useCallback(async (text: string) => {
+    let shoppingList = lists.find(l => l.category === 'shopping');
+    if (!shoppingList && lists.length > 0) shoppingList = lists[0];
+    
+    if (!shoppingList) {
+      try {
+        shoppingList = await listsClientService.createList('Shopping List', 'shopping');
+      } catch (err) {
+        console.error('Failed to create shopping list', err);
+        return;
+      }
+    }
+
+    if (!shoppingList) return;
+
+    try {
+      await listsClientService.addItem(shoppingList.id, text);
+      void fetchFamilyData();
+    } catch (err) {
+      console.error('Failed to add item', err);
+    }
+  }, [lists, fetchFamilyData]);
+
   if (loading) {
     return <WallSkeleton />;
   }
@@ -202,6 +291,10 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
 
     return (
       <div className="flex overflow-hidden bg-white dark:bg-gray-950" style={{ minHeight: 'calc(100vh - 80px)' }}>
+        <XpCelebration
+          payload={celebration}
+          kidName={kids.find(k => k.uid === celebration?.userId)?.name ?? ''}
+        />
 
         {/* ── LEFT PANEL: Clock · Weather · Chores ── */}
         <aside className="w-64 xl:w-72 shrink-0 flex flex-col border-r border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950">
@@ -285,6 +378,22 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
 
         {/* ── RIGHT PANEL: Agenda ── */}
         <main className="flex-1 overflow-y-auto px-8 xl:px-12 py-8 bg-white dark:bg-gray-950">
+          <IntelligenceHeader data={intelligence} onAddIngredients={handleAddIngredients} />
+
+          {/* Power Mission — morning and afterschool */}
+          {(wallMode === 'morning' || wallMode === 'afterschool') && (
+            <div className="mb-4">
+              <PowerMissionCard mission={powerMission} isWallMode />
+            </div>
+          )}
+
+          {/* Grocery chips — all modes except night */}
+          {wallMode !== 'night' && (
+            <div className="mb-6">
+              <GroceryChips items={frequentItems} onAdd={handleQuickAdd} isWallMode />
+            </div>
+          )}
+
           {loadError && (
             <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 flex items-center justify-between">
               <p className="text-sm text-rose-700">{loadError}</p>
@@ -371,6 +480,16 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
               ))}
             </div>
           )}
+
+          {/* Family Leaderboard — afterschool and evening */}
+          {(wallMode === 'afterschool' || wallMode === 'evening') && leaderboard.length > 0 && (
+            <section className="mt-8">
+              <h2 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.15em] mb-3">
+                This Week
+              </h2>
+              <FamilyLeaderboard entries={leaderboard} isWallMode />
+            </section>
+          )}
         </main>
       </div>
     );
@@ -379,6 +498,10 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
 
   return (
     <div className="space-y-6">
+      <IntelligenceHeader data={intelligence} onAddIngredients={handleAddIngredients} />
+      <div className="-mx-2">
+        <FrequentItemChips items={frequentItems} onAdd={handleQuickAdd} />
+      </div>
       {loadError && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 flex items-center justify-between">
           <p className="text-sm text-rose-700">{loadError}</p>
