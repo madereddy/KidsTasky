@@ -4,6 +4,8 @@ import { AppList, AppListItem } from '../types';
 export const listsClientService = {
   getLists: (parentId: string): Promise<AppList[]> =>
     fetchAPI(`/parents/${parentId}/lists`),
+  getFrequentItems: (parentId: string, limit = 5): Promise<string[]> =>
+    fetchAPI(`/parents/${parentId}/frequent-items?limit=${limit}`),
   getParentItems: (parentId: string): Promise<AppListItem[]> =>
     fetchAPI(`/parents/${parentId}/list-items`),
   createList: (title: string, category?: 'shopping' | 'routine', isRoutine?: number, locationName?: string): Promise<AppList> =>

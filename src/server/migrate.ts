@@ -69,4 +69,24 @@ export function runMigrations(db: Database) {
       }
     }
   }
+
+  // Task 1: Add usage tracking to list_items and item_stats
+  try {
+    db.exec(`
+      ALTER TABLE list_items ADD COLUMN usageCount INTEGER DEFAULT 1;
+    `);
+  } catch (err: any) {
+    if (!err.message.includes('duplicate column name')) {
+      throw err;
+    }
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS item_stats (
+      parentId TEXT NOT NULL,
+      text TEXT NOT NULL,
+      usageCount INTEGER DEFAULT 1,
+      PRIMARY KEY (parentId, text)
+    );
+  `);
 }

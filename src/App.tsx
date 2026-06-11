@@ -507,7 +507,8 @@ export default function App() {
     events,
     fetchFamilyData: refreshWallData,
     lists: globalLists,
-    listItems: globalListItems
+    listItems: globalListItems,
+    frequentItems
   } = useWallHomeController({ 
     parentId: familyParentId, 
     kids, 
@@ -944,9 +945,11 @@ export default function App() {
               completions={allCompletions}
               listItems={visibleListItems}
               lists={globalLists}
+              frequentItems={frequentItems}
               kids={kids}
               categories={categories}
               onAction={handleMissionAction}
+              onRefresh={refreshWallData}
             />
           </Suspense>
         ) : (

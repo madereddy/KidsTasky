@@ -89,19 +89,49 @@ export const listsService = {
   addItem: (listId: string, text: string): AppListItem => {
     const id = randomUUID();
     db.prepare('INSERT INTO list_items (id, listId, text, completed) VALUES (?, ?, ?, 0)').run(id, listId, text);
+
+    // Update frequency
+    const list = listsService.getListById(listId);
+    if (list) {
+      db.prepare(`
+        INSERT INTO item_stats (parentId, text, usageCount) 
+        VALUES (?, ?, 1)
+        ON CONFLICT(parentId, text) DO UPDATE SET usageCount = usageCount + 1
+      `).run(list.parentId, text.toLowerCase().trim());
+    }
+
     return { id, listId, text, completed: 0 };
   },
   addItemsToLists: (listIds: string[], text: string): AppListItem[] => {
     const uniqueListIds = Array.from(new Set(listIds.filter(Boolean)));
     if (uniqueListIds.length === 0) return [];
 
+    const lists = listsService.getListsByIds(uniqueListIds);
+    if (lists.length === 0) return [];
+
+    const parentId = lists[0].parentId;
+    const normalizedText = text.toLowerCase().trim();
     const insertItem = db.prepare('INSERT INTO list_items (id, listId, text, completed) VALUES (?, ?, ?, 0)');
+
+    // Update frequency preparation - increment by the number of lists added to
+    const updateStats = db.prepare(`
+      INSERT INTO item_stats (parentId, text, usageCount)
+      VALUES (?, ?, ?)
+      ON CONFLICT(parentId, text) DO UPDATE SET usageCount = usageCount + excluded.usageCount
+    `);
+
     const transaction = db.transaction((ids: string[]) => {
-      return ids.map((listId) => {
+      const items = ids.map((listId) => {
         const id = randomUUID();
         insertItem.run(id, listId, text);
         return { id, listId, text, completed: 0 } as AppListItem;
       });
+
+      if (parentId) {
+        updateStats.run(parentId, normalizedText, ids.length);
+      }
+
+      return items;
     });
 
     return transaction(uniqueListIds);
@@ -126,5 +156,20 @@ export const listsService = {
   },
   deleteItem: (itemId: string) => {
     db.prepare('DELETE FROM list_items WHERE id = ?').run(itemId);
+  },
+  getFrequentItems: (parentId: string, limit = 5): string[] => {
+    const rows = db.prepare(`
+      SELECT text FROM item_stats 
+      WHERE parentId = ? 
+      AND text NOT IN (
+        SELECT LOWER(TRIM(li.text))
+        FROM list_items li
+        JOIN lists l ON li.listId = l.id
+        WHERE l.parentId = ? AND li.completed = 0
+      )
+      ORDER BY usageCount DESC 
+      LIMIT ?
+    `).all(parentId, parentId, limit) as { text: string }[];
+    return rows.map(r => r.text);
   },
 };

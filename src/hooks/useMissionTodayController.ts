@@ -1,8 +1,11 @@
 // src/hooks/useMissionTodayController.ts
-import { useMemo } from 'react';
-import { isToday } from 'date-fns';
-import { MissionItem, UserProfile, Task, CalendarEvent, AppListItem, Category, TaskCompletion, AppList } from '../types';
+import { useMemo, useState, useEffect } from 'react';
+import { isToday, format } from 'date-fns';
+import { MissionItem, UserProfile, Task, CalendarEvent, AppListItem, Category, TaskCompletion, AppList, DailyIntelligence } from '../types';
 import { HouseholdLocationOption } from '../lib/householdListPreferences';
+import { listsClientService } from '../services/lists';
+import { mealsClientService } from '../services/meals';
+import { calculateNextUp } from '../lib/dateTimePrefs';
 
 interface UseMissionTodayOptions {
   profile: UserProfile;
@@ -29,6 +32,62 @@ export function useMissionTodayController({
   storeNames = [],
   locationOptions = []
 }: UseMissionTodayOptions) {
+  const [frequentItems, setFrequentItems] = useState<string[]>([]);
+  const [mealData, setMealData] = useState<DailyIntelligence['meal']>(null);
+
+  const parentId = profile.parentId || profile.uid;
+  const today = format(new Date(), 'yyyy-MM-dd');
+
+  useEffect(() => {
+    if (!parentId) return;
+
+    const fetchExtraData = async () => {
+      try {
+        const [frequent, mealPlans, recipes] = await Promise.all([
+          listsClientService.getFrequentItems(parentId).catch(() => []),
+          mealsClientService.getMealPlans(parentId, today).catch(() => []),
+          mealsClientService.getRecipes(parentId).catch(() => [])
+        ]);
+
+        setFrequentItems(frequent);
+
+        const todayMealPlan = mealPlans.find(mp => mp.date === today);
+        let mealInfo: DailyIntelligence['meal'] = null;
+        if (todayMealPlan?.recipeId) {
+          const recipe = recipes.find(r => r.id === todayMealPlan.recipeId);
+          if (recipe) {
+            let ingredients: string[] = [];
+            try {
+              ingredients = recipe.ingredients ? JSON.parse(recipe.ingredients) : [];
+            } catch {
+              if (Array.isArray(recipe.ingredients)) ingredients = recipe.ingredients as unknown as string[];
+            }
+            mealInfo = {
+              id: recipe.id,
+              title: recipe.name,
+              imageUrl: recipe.imageUrl || undefined,
+              ingredients
+            };
+          }
+        }
+        
+        setMealData(mealInfo);
+      } catch (error) {
+        console.error('Failed to fetch mission today intelligence', error);
+      }
+    };
+
+    fetchExtraData();
+  }, [parentId, today]);
+
+  // Derive nextUp from events and kids
+  const nextUp = useMemo(() => calculateNextUp(events, kids, profile), [events, kids, profile]);
+
+  const intelligence = useMemo(() => ({
+    nextUp,
+    meal: mealData
+  }), [nextUp, mealData]);
+
   const missionItems = useMemo(() => {
     const items: MissionItem[] = [];
 
@@ -76,12 +135,15 @@ export function useMissionTodayController({
       });
     });
 
-    // 3. Process List Items & Routines
+    // 3. Process List Items (Shopping items remain top-level, routine items are grouped)
     listItems.forEach(item => {
       if (item.completed) return;
       
       const parentList = lists.find(l => l.id === item.listId);
-      if (!parentList || parentList.category !== 'routine' || !parentList.isRoutine) return;
+      if (!parentList) return;
+
+      // Skip routine items here - they'll be shown inside the routine card
+      if (parentList.category === 'routine' && parentList.isRoutine) return;
       
       // Extract store/location from text or parent list
       const storeName = storeNames.find(store => 
@@ -134,5 +196,9 @@ export function useMissionTodayController({
     });
   }, [profile, tasks, events, completions, listItems, lists, categories, storeNames, locationOptions]);
 
-  return { missionItems };
+  return { 
+    missionItems,
+    intelligence,
+    frequentItems
+  };
 }

@@ -25,6 +25,17 @@ listsRouter.get('/parents/:parentId/list-items', authenticateUser, assertParentS
   }
 });
 
+listsRouter.get('/parents/:parentId/frequent-items', authenticateUser, assertParentScope, (req, res) => {
+  try {
+    const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 5;
+    const items = listsService.getFrequentItems(String(req.params.parentId), limit);
+    res.json(items);
+  } catch (error: any) {
+    logger.error({ parentId: req.params.parentId, error: error.message }, 'get_frequent_items_error');
+    res.status(500).json({ error: error.message });
+  }
+});
+
 listsRouter.get('/lists/:listId/items', authenticateUser, (req, res) => {
   try {
     const list = listsService.getListById(String(req.params.listId));
