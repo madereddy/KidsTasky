@@ -1,6 +1,7 @@
 import { db } from '../../db.js';
 import { randomUUID } from 'crypto';
 import { levelForXp } from '../../../lib/xp.js';
+import { calculateStreakUpdate, getXpMultiplier, evaluateBadges, writeXpEvent } from './streakService.js';
 
 // XP per difficulty — server-authoritative, mirrors client XP_REWARDS in constants.ts.
 const XP_BY_DIFFICULTY: Record<string, number> = { easy: 10, medium: 25, hard: 50 };
@@ -100,7 +101,7 @@ export const taskServiceServer = {
   
   createCompletion: db.transaction((data: any) => {
     const id = `${data.taskId}_${data.dateString}_${data.count || 1}`;
-    const task = db.prepare('SELECT starValue, requiresApproval, difficulty FROM tasks WHERE id = ?').get(data.taskId) as { starValue: number; requiresApproval: number; difficulty: string } | undefined;
+    const task = db.prepare('SELECT id, parentId, starValue, requiresApproval, difficulty FROM tasks WHERE id = ?').get(data.taskId) as { id: string; parentId: string; starValue: number; requiresApproval: number; difficulty: string } | undefined;
     const needsApproval = Boolean(task?.requiresApproval);
     const approvalStatus = needsApproval ? 'pending' : 'approved';
     const proofAnswers = Array.isArray(data.proofAnswers) && data.proofAnswers.length > 0
@@ -111,13 +112,43 @@ export const taskServiceServer = {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO NOTHING
     `).run(id, data.taskId, data.kidId, Date.now(), data.dateString, data.count || null, approvalStatus, proofAnswers);
+
+    let streakDay = 0;
+    let badgesEarned: string[] = [];
+    let xpEarned = 0;
+
     // Award stars + XP immediately if approval not required (otherwise granted on approval)
     if (result.changes > 0 && !needsApproval) {
       const stars = task?.starValue ?? 1;
       db.prepare('UPDATE users SET earnedStars = earnedStars + ? WHERE uid = ?').run(stars, data.kidId);
-      adjustUserXp(data.kidId, xpForDifficulty(task?.difficulty));
+      const baseXp = xpForDifficulty(task?.difficulty);
+
+      // Streak update
+      const today = new Date().toISOString().slice(0, 10);
+      const kidUser = db.prepare('SELECT currentStreak, longestStreak, lastMissionDate, badges FROM users WHERE uid = ?').get(data.kidId) as { currentStreak: number; longestStreak: number; lastMissionDate: string | null; badges: string } | undefined;
+      const { newStreak, newLongest } = calculateStreakUpdate(kidUser?.lastMissionDate ?? null, today, kidUser?.currentStreak ?? 0, kidUser?.longestStreak ?? 0);
+      db.prepare('UPDATE users SET currentStreak = ?, longestStreak = ?, lastMissionDate = ? WHERE uid = ?')
+        .run(newStreak, newLongest, today, data.kidId);
+
+      // XP with streak multiplier
+      const multiplier = getXpMultiplier(newStreak);
+      xpEarned = Math.round(baseXp * multiplier);
+      adjustUserXp(data.kidId, xpEarned);
+      writeXpEvent(data.kidId, task?.parentId ?? '', xpEarned, 'mission_completion');
+
+      // Badge evaluation
+      const completionCount = (db.prepare('SELECT COUNT(*) AS c FROM completions WHERE kidId = ? AND approvalStatus != ?').get(data.kidId, 'skipped') as { c: number }).c;
+      const powerMissionCount = (db.prepare("SELECT COUNT(*) AS c FROM xp_events WHERE userId = ? AND reason = 'power_mission'").get(data.kidId) as { c: number }).c;
+      const existingBadges: string[] = JSON.parse(kidUser?.badges ?? '[]');
+      const allEarned = evaluateBadges({ streak: newStreak, completions: completionCount, powerMissions: powerMissionCount, isFamilyMvp: false });
+      badgesEarned = allEarned.filter(b => !existingBadges.includes(b));
+      if (badgesEarned.length > 0) {
+        db.prepare('UPDATE users SET badges = ? WHERE uid = ?').run(JSON.stringify([...existingBadges, ...badgesEarned]), data.kidId);
+      }
+      streakDay = newStreak;
     }
-    return { id, approvalStatus, created: result.changes > 0 };
+
+    return { id, approvalStatus, created: result.changes > 0, streakDay, badgesEarned, xpEarned, taskId: task?.id };
   }),
 
   skipTask: (data: { taskId: string; kidId: string; dateString: string; count?: number }) => {

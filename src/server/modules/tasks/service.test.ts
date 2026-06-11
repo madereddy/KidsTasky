@@ -66,4 +66,24 @@ describe('taskServiceServer transaction safety', () => {
     db.prepare('DELETE FROM tasks WHERE id = ?').run(approvalTaskId);
     db.prepare('DELETE FROM completions WHERE taskId = ?').run(approvalTaskId);
   });
+
+  it('createCompletion returns streakDay and badgesEarned and writes xp_events row', () => {
+    db.prepare('DELETE FROM xp_events WHERE userId = ?').run(kid1);
+    const result = taskServiceServer.createCompletion({ taskId, kidId: kid1, dateString: '2026-06-11' });
+    expect(result).toHaveProperty('streakDay');
+    expect(result.streakDay).toBeGreaterThanOrEqual(1);
+    expect(result).toHaveProperty('badgesEarned');
+    expect(Array.isArray(result.badgesEarned)).toBe(true);
+    const events = db.prepare('SELECT * FROM xp_events WHERE userId = ?').all(kid1) as any[];
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0].reason).toBe('mission_completion');
+  });
+
+  it('createCompletion returns taskId and xpEarned', () => {
+    db.prepare('DELETE FROM completions WHERE taskId = ?').run(taskId);
+    const result = taskServiceServer.createCompletion({ taskId, kidId: kid1, dateString: '2026-06-12' });
+    expect(result).toHaveProperty('taskId', taskId);
+    expect(result).toHaveProperty('xpEarned');
+    expect(typeof result.xpEarned).toBe('number');
+  });
 });
