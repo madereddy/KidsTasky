@@ -37,6 +37,9 @@ export const taskServiceServer = {
       task.categoryId || null, task.difficulty || 'easy', 'active', Date.now(), task.customInterval || null, prereqs,
       task.starValue ?? 1, requiresApproval, completionQuestions, completionQuestionsKidId
     );
+    if (task.assignedKidId) {
+      writeXpEvent(task.parentId, task.parentId, 5, 'task_assigned');
+    }
     return id;
   },
   
@@ -179,10 +182,13 @@ export const taskServiceServer = {
     const completion = db.prepare("SELECT * FROM completions WHERE id = ? AND approvalStatus = 'pending'").get(completionId) as any;
     if (!completion) throw new Error('Completion not found or not pending');
     db.prepare("UPDATE completions SET approvalStatus = 'approved' WHERE id = ?").run(completionId);
-    const task = db.prepare('SELECT starValue, difficulty FROM tasks WHERE id = ?').get(completion.taskId) as { starValue: number; difficulty: string } | undefined;
+    const task = db.prepare('SELECT parentId, starValue, difficulty FROM tasks WHERE id = ?').get(completion.taskId) as { parentId: string; starValue: number; difficulty: string } | undefined;
     const stars = task?.starValue ?? 1;
     db.prepare('UPDATE users SET earnedStars = earnedStars + ? WHERE uid = ?').run(stars, completion.kidId);
     adjustUserXp(completion.kidId, xpForDifficulty(task?.difficulty));
+    if (task?.parentId) {
+      writeXpEvent(task.parentId, task.parentId, 10, 'task_approved');
+    }
   }),
 
   rejectCompletion: (completionId: string) => {

@@ -86,4 +86,34 @@ describe('taskServiceServer transaction safety', () => {
     expect(result).toHaveProperty('xpEarned');
     expect(typeof result.xpEarned).toBe('number');
   });
+
+  it('createTask with assignedKidId writes xp_event for parent', () => {
+    db.prepare('DELETE FROM xp_events WHERE userId = ?').run(parentId);
+    taskServiceServer.createTask({
+      title: 'XP test task',
+      assignedKidId: kid1,
+      parentId,
+      frequency: 'daily',
+      starValue: 2,
+      requiresApproval: false,
+    });
+    const events = db.prepare('SELECT * FROM xp_events WHERE userId = ?').all(parentId) as any[];
+    expect(events.length).toBe(1);
+    expect(events[0].reason).toBe('task_assigned');
+    expect(events[0].xp).toBe(5);
+  });
+
+  it('approving a completion writes xp_event for parent', () => {
+    db.prepare('DELETE FROM xp_events WHERE userId = ?').run(parentId);
+    const approvalTaskId = 'xp_approval_task';
+    db.prepare("INSERT OR REPLACE INTO tasks (id, title, frequency, assignedKidId, parentId, status, createdAt, starValue, requiresApproval) VALUES (?, 'Approval Task', 'daily', ?, ?, 'active', ?, 5, 1)")
+      .run(approvalTaskId, kid1, parentId, Date.now());
+    const completion = taskServiceServer.createCompletion({ taskId: approvalTaskId, kidId: kid1, dateString: '2026-06-11' });
+    taskServiceServer.approveCompletion(completion.id);
+    const events = db.prepare('SELECT * FROM xp_events WHERE userId = ? AND reason = ?').all(parentId, 'task_approved') as any[];
+    expect(events.length).toBe(1);
+    expect(events[0].xp).toBe(10);
+    db.prepare('DELETE FROM tasks WHERE id = ?').run(approvalTaskId);
+    db.prepare('DELETE FROM completions WHERE taskId = ?').run(approvalTaskId);
+  });
 });
