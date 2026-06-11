@@ -55,7 +55,7 @@ These elements appear in relevant modes and are tappable:
 - **XP progress bars** — animated fill; visual progress begs to be completed
 - **Meal card** — shows tonight's dinner with "Missing Ingredients?" button (cross-references shopping list, bulk-adds missing items)
 - **Event countdown ticker** — "Soccer in 2h 15m", updates live
-- **Grocery chips row** — horizontal scroll of top-5 frequent items not currently on shopping list; one tap adds to list
+- **Grocery chips row** — horizontal scroll of top-5 frequent items not currently on shopping list; one tap adds to list. Frequency data fetched by `useWallHomeController` via the existing lists service; no new hook needed.
 
 ---
 
@@ -80,7 +80,7 @@ These elements appear in relevant modes and are tappable:
 ### 4.3 Power Mission
 
 - One rotating "Power Mission" per family per day: 2x XP, marked with a bolt icon ⚡
-- Selected by parent (or auto-selected: pending task with the highest `xp_reward` across all kids; `created_at ASC` as tiebreaker)
+- Selected by parent (or auto-selected by the **midnight cron**: picks the pending task with the highest `xp_reward` across all kids scoped to the family; `created_at ASC` as tiebreaker; writes the result to the parent's `power_mission_id` and `power_mission_date` columns)
 - Expires at midnight — creates urgency and a daily check-in reason
 - Displayed prominently in Morning Briefing and After School modes
 - **DB:** `power_mission_id` and `power_mission_date` columns added to the `users` row where `role = 'parent'` (the parent user IS the family grouping key via `parentId` — there is no separate families table). Cron clears both columns at midnight.
@@ -105,8 +105,9 @@ Milestone badges displayed on kid's profile card on the wall:
 | 🚀 Power Chaser | Completed 5 Power Missions |
 
 - Badges stored as JSON array in `users.badges` column
-- Evaluated by worker cron nightly + on mission completion
+- Evaluated by worker cron nightly + on mission completion (synchronous path; see Section 6)
 - Wall displays most recent 3 badges per kid
+- The 5 badges listed above are **exhaustive for v1** — no additional badges in this spec
 
 ---
 
@@ -123,6 +124,8 @@ Migration: new numbered SQL file in `src/server/migrations/`.
 
 ## 6. Architecture Notes
 
+- **XP event writes** live in `src/server/modules/tasks/service.ts` — the tasks service writes `xp_events` rows when a task is assigned (parent XP) and when a task is approved (parent XP) or completed (kid XP). No separate XP service in v1; if XP logic grows, extract then.
+- **`missionCompleted` Socket.IO emission** is done in `src/server/modules/tasks/routes.ts` immediately after the task completion DB write and XP event write, before the existing `staleData` broadcast.
 - `useWallHomeController` owns mode switching and feeds all wall layout components
 - New `useStreakService` (server-side) handles streak calculation — pure functions, easy to unit test
 - `useMissionTodayController` gets `streakData` and `powerMission` injected
