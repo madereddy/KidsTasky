@@ -12,7 +12,7 @@ export const usersRouter = Router();
 const validate = (req: Request, res: Response, next: any) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-  next();
+  return next();
 };
 
 usersRouter.get("/users/:uid", authenticateUser, [
@@ -90,7 +90,7 @@ usersRouter.post("/users", [
   }
 
   // ---- Authenticated path: a parent creating a managed kid in their family ----
-  authenticateUser(req, res, async () => {
+  return authenticateUser(req, res, async () => {
     const caller = (req as any).user as { uid: string; role: string; parentId: string };
     if (caller.role !== 'parent') return res.status(403).json({ error: 'Forbidden' });
     if (!req.body.uid) return res.status(400).json({ error: 'uid is required' });
@@ -109,7 +109,7 @@ usersRouter.post("/users", [
     } catch (err: any) {
       return res.status(409).json({ error: err.message });
     }
-    res.json({ success: true });
+    return res.json({ success: true });
   });
 });
 
@@ -118,7 +118,7 @@ usersRouter.get("/parents/:parentId/coparents", authenticateUser, assertParentSc
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  res.json(userService.getCoParents(req.params.parentId as string));
+  return res.json(userService.getCoParents(req.params.parentId as string));
 });
 
 // Remove co-parent (owner only)
@@ -133,9 +133,9 @@ usersRouter.delete("/users/:uid/coparent", authenticateUser, [
     userService.removeCoParent(req.params.uid as string, caller.uid);
     // Force-disconnect all active sessions for the removed co-parent
     socketWrapper.emitToUser(req.params.uid as string, 'forceLogout');
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    return res.status(400).json({ error: err.message });
   }
 });
 
@@ -152,7 +152,7 @@ usersRouter.post("/users/:uid/badge", authenticateUser, [
   const isParentOf = (caller.role === 'parent' || caller.role === 'coparent') && targetFamily === getParentId(req);
   if (!isSelf && !isParentOf) return res.status(403).json({ error: 'Forbidden' });
   userService.addBadge(req.params.uid as string, req.body.badgeId);
-  res.json({ success: true });
+  return res.json({ success: true });
 });
 
 usersRouter.post("/users/:uid/xp", authenticateUser, requireRole('parent'), [
@@ -166,7 +166,7 @@ usersRouter.post("/users/:uid/xp", authenticateUser, requireRole('parent'), [
   const targetFamily = target.parentId ?? target.uid;
   if (targetFamily !== callerParentId) return res.status(403).json({ error: 'Forbidden' });
   userService.addXP(req.params.uid as string, req.body.xpChange);
-  res.json({ success: true });
+  return res.json({ success: true });
 });
 
 usersRouter.post("/users/:uid/theme", authenticateUser, [
@@ -183,7 +183,7 @@ usersRouter.post("/users/:uid/theme", authenticateUser, [
   const targetFamily = target.parentId ?? target.uid;
   if (!isSelf && callerParentId !== targetFamily) return res.status(403).json({ error: 'Forbidden' });
   userService.updateTheme(req.params.uid as string, req.body.themeId);
-  res.json({ success: true });
+  return res.json({ success: true });
 });
 
 usersRouter.get("/parents/:parentId/kids", authenticateUser, assertParentScope, [
@@ -192,7 +192,7 @@ usersRouter.get("/parents/:parentId/kids", authenticateUser, assertParentScope, 
 ], (req: Request, res: Response) => {
   const kids = userService.getKidsByParent(req.params.parentId as string);
   kids.forEach(k => k.badges = JSON.parse(k.badges || "[]"));
-  res.json(kids);
+  return res.json(kids);
 });
 
 usersRouter.put('/users/:uid/color', authenticateUser, [
@@ -208,7 +208,7 @@ usersRouter.put('/users/:uid/color', authenticateUser, [
   const targetFamily = target.parentId ?? target.uid;
   if (callerParentId !== targetFamily) return res.status(403).json({ error: 'Forbidden' });
   userService.setMemberColor(req.params.uid as string, color);
-  res.json({ success: true });
+  return res.json({ success: true });
 });
 
 usersRouter.put('/users/:uid/avatar', authenticateUser, [
@@ -231,5 +231,5 @@ usersRouter.put('/users/:uid/avatar', authenticateUser, [
 
   const { avatarPreset = null, avatarUrl = null } = req.body;
   userService.setAvatar(targetUid, avatarPreset, avatarUrl);
-  res.json({ success: true });
+  return res.json({ success: true });
 });

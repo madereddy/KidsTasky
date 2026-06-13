@@ -28,7 +28,6 @@ export const listsService = {
       WHERE l.parentId = ?
     `).all(parentId) as AppListItem[];
   },
-  // Family that owns a given list item (via its parent list), or null if missing.
   getItemParentId: (itemId: string): string | null => {
     const row = db.prepare(
       'SELECT l.parentId AS parentId FROM list_items i JOIN lists l ON l.id = i.listId WHERE i.id = ?'
@@ -86,11 +85,10 @@ export const listsService = {
     db.prepare('DELETE FROM list_items WHERE listId = ?').run(id);
     db.prepare('DELETE FROM lists WHERE id = ?').run(id);
   },
-  addItem: (listId: string, text: string): AppListItem => {
+  addItem: (listId: string, text: string, storeName?: string, locationName?: string): AppListItem => {
     const id = randomUUID();
-    db.prepare('INSERT INTO list_items (id, listId, text, completed) VALUES (?, ?, ?, 0)').run(id, listId, text);
+    db.prepare('INSERT INTO list_items (id, listId, text, completed, storeName, locationName) VALUES (?, ?, ?, 0, ?, ?)').run(id, listId, text, storeName || null, locationName || null);
 
-    // Update frequency
     const list = listsService.getListById(listId);
     if (list) {
       db.prepare(`
@@ -100,9 +98,9 @@ export const listsService = {
       `).run(list.parentId, text.toLowerCase().trim());
     }
 
-    return { id, listId, text, completed: 0 };
+    return { id, listId, text, completed: 0, storeName, locationName };
   },
-  addItemsToLists: (listIds: string[], text: string): AppListItem[] => {
+  addItemsToLists: (listIds: string[], text: string, storeName?: string, locationName?: string): AppListItem[] => {
     const uniqueListIds = Array.from(new Set(listIds.filter(Boolean)));
     if (uniqueListIds.length === 0) return [];
 
@@ -111,9 +109,8 @@ export const listsService = {
 
     const parentId = lists[0].parentId;
     const normalizedText = text.toLowerCase().trim();
-    const insertItem = db.prepare('INSERT INTO list_items (id, listId, text, completed) VALUES (?, ?, ?, 0)');
+    const insertItem = db.prepare('INSERT INTO list_items (id, listId, text, completed, storeName, locationName) VALUES (?, ?, ?, 0, ?, ?)');
 
-    // Update frequency preparation - increment by the number of lists added to
     const updateStats = db.prepare(`
       INSERT INTO item_stats (parentId, text, usageCount)
       VALUES (?, ?, ?)
@@ -123,8 +120,8 @@ export const listsService = {
     const transaction = db.transaction((ids: string[]) => {
       const items = ids.map((listId) => {
         const id = randomUUID();
-        insertItem.run(id, listId, text);
-        return { id, listId, text, completed: 0 } as AppListItem;
+        insertItem.run(id, listId, text, storeName || null, locationName || null);
+        return { id, listId, text, completed: 0, storeName, locationName } as AppListItem;
       });
 
       if (parentId) {
@@ -139,7 +136,7 @@ export const listsService = {
   copyItemToLists: (itemId: string, listIds: string[]): AppListItem[] => {
     const item = db.prepare('SELECT * FROM list_items WHERE id = ?').get(itemId) as AppListItem | undefined;
     if (!item) throw new Error('Item not found');
-    return listsService.addItemsToLists(listIds, item.text);
+    return listsService.addItemsToLists(listIds, item.text, item.storeName, item.locationName);
   },
   moveItemToList: (itemId: string, targetListId: string): AppListItem => {
     db.prepare('UPDATE list_items SET listId = ? WHERE id = ?').run(targetListId, itemId);
@@ -147,12 +144,21 @@ export const listsService = {
     if (!updated) throw new Error('Item not found');
     return updated;
   },
-  toggleItem: (itemId: string, completed: boolean, text?: string) => {
-    if (text !== undefined) {
-      db.prepare('UPDATE list_items SET completed = ?, text = ? WHERE id = ?').run(completed ? 1 : 0, text, itemId);
-    } else {
-      db.prepare('UPDATE list_items SET completed = ? WHERE id = ?').run(completed ? 1 : 0, itemId);
-    }
+  toggleItem: (itemId: string, completed: boolean, text?: string, storeName?: string, locationName?: string) => {
+    const now = Date.now();
+    const current = db.prepare('SELECT * FROM list_items WHERE id = ?').get(itemId) as any;
+    if (!current) return;
+
+    const newText = text !== undefined ? text : current.text;
+    const newStoreName = storeName !== undefined ? storeName : current.storeName;
+    const newLocationName = locationName !== undefined ? locationName : current.locationName;
+    const newCompletedAt = completed && !current.completed ? now : (completed ? current.completedAt : null);
+
+    db.prepare(`
+      UPDATE list_items 
+      SET completed = ?, text = ?, storeName = ?, locationName = ?, completedAt = ? 
+      WHERE id = ?
+    `).run(completed ? 1 : 0, newText, newStoreName || null, newLocationName || null, newCompletedAt, itemId);
   },
   deleteItem: (itemId: string) => {
     db.prepare('DELETE FROM list_items WHERE id = ?').run(itemId);

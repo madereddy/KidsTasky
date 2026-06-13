@@ -8,7 +8,7 @@ export const notificationsRouter = Router();
 const validate = (req: Request, res: Response, next: any) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-  next();
+  return next();
 };
 
 notificationsRouter.get("/parents/:parentId/notifications", authenticateUser, assertParentScope, [
@@ -16,7 +16,7 @@ notificationsRouter.get("/parents/:parentId/notifications", authenticateUser, as
   validate
 ], (req: Request, res: Response) => {
   const notifs = notificationService.getNotifications(req.params.parentId as string);
-  res.json(notifs.map((n: any) => ({ ...n, createdAt: { seconds: n.createdAt / 1000 } })));
+  return res.json(notifs.map((n: any) => ({ ...n, createdAt: { seconds: n.createdAt / 1000 } })));
 });
 
 notificationsRouter.put("/notifications/:id/read", authenticateUser, [
@@ -30,11 +30,11 @@ notificationsRouter.put("/notifications/:id/read", authenticateUser, [
     return res.status(403).json({ error: 'Forbidden' });
   }
   notificationService.markRead(req.params.id as string);
-  res.json({ success: true });
+  return res.json({ success: true });
 });
 
 notificationsRouter.get('/notifications/vapid-public-key', (req: Request, res: Response) => {
-  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
+  return res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
 });
 
 notificationsRouter.post('/notifications/subscribe', authenticateUser, (req: Request, res: Response) => {

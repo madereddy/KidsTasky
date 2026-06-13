@@ -15,7 +15,7 @@ export const tasksRouter = Router();
 const validate = (req: Request, res: Response, next: any) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-  next();
+  return next();
 };
 
 tasksRouter.post("/tasks", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
@@ -30,10 +30,10 @@ tasksRouter.post("/tasks", authenticateUser, requireRole('parent'), enforceEditU
   try {
     const parentId = getParentId(req);
     const id = taskServiceServer.createTask({ ...req.body, parentId });
-    res.json({ id });
+    return res.json({ id });
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -51,10 +51,10 @@ tasksRouter.get("/kids/:kidId/tasks", authenticateUser, [
     if (kidParentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
 
     const tasks = taskServiceServer.getKidsTasks(targetKidId);
-    res.json(tasks.map(mapTaskRow));
+    return res.json(tasks.map(mapTaskRow));
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -64,10 +64,10 @@ tasksRouter.get("/parents/:parentId/tasks", authenticateUser, assertParentScope,
 ], (req: Request, res: Response) => {
   try {
     const tasks = taskServiceServer.getParentsTasks(req.params.parentId as string);
-    res.json(tasks.map(mapTaskRow));
+    return res.json(tasks.map(mapTaskRow));
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -81,10 +81,10 @@ tasksRouter.put("/tasks/:taskId/archive", authenticateUser, enforceEditUnlocked,
     const userParentId = getParentId(req);
     if (task.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
     taskServiceServer.archiveTask(req.params.taskId as string);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -101,10 +101,10 @@ tasksRouter.patch("/tasks/:taskId", authenticateUser, enforceEditUnlocked, [
     if (task.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
     const ok = taskServiceServer.updateTask(req.params.taskId as string, userParentId, req.body || {});
     if (!ok) return res.status(400).json({ error: 'No valid task fields to update' });
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_update_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -144,10 +144,10 @@ tasksRouter.post("/completions", authenticateUser, enforceEditUnlocked, [
       };
       socketWrapper.emitToFamily(task.parentId, 'mission-completed', payload);
     }
-    res.json({ id: result.id, approvalStatus: result.approvalStatus, created: result.created });
+    return res.json({ id: result.id, approvalStatus: result.approvalStatus, created: result.created });
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -166,10 +166,10 @@ tasksRouter.delete("/completions/:completionId", authenticateUser, enforceEditUn
       return res.status(403).json({ error: 'Forbidden' });
     }
     taskServiceServer.deleteCompletion(req.params.completionId as string);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error: any) {
     logger.error({ error: error.message, params: req.params }, 'tasks_delete_completion_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -194,10 +194,10 @@ tasksRouter.post("/tasks/:taskId/skip", authenticateUser, enforceEditUnlocked, [
       dateString: req.body.dateString as string,
       count: req.body.count,
     });
-    res.json(result);
+    return res.json(result);
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_skip_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -224,16 +224,14 @@ tasksRouter.get("/kids/:kidId/completions", authenticateUser, [
     } else if (dateString) {
       completions = taskServiceServer.getCompletionsByDate(kidId, dateString as string);
     } else {
-      res.status(400).json({ error: "Missing date query params" });
-      return;
+      return res.status(400).json({ error: "Missing date query params" });
     }
-    res.json(completions.map(mapCompletionRow));
+    return res.json(completions.map(mapCompletionRow));
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
-  });
-
+});
 
 tasksRouter.get("/kids/:kidId/history", authenticateUser, [
   param('kidId').isString().notEmpty(),
@@ -251,13 +249,12 @@ tasksRouter.get("/kids/:kidId/history", authenticateUser, [
 
     const limit = parseInt(req.query.limit as string) || 50;
     const history = taskServiceServer.getCompletionHistory(kidId, limit);
-    res.json(history.map(mapCompletionRow));
+    return res.json(history.map(mapCompletionRow));
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
-  });
-
+});
 
 tasksRouter.get("/parents/:parentId/pending-completions", authenticateUser, assertParentScope, [
   param('parentId').isString().notEmpty(),
@@ -265,13 +262,12 @@ tasksRouter.get("/parents/:parentId/pending-completions", authenticateUser, asse
 ], (req: Request, res: Response) => {
   try {
     const pending = taskServiceServer.getPendingCompletionsByParent(req.params.parentId as string);
-    res.json(pending.map(mapCompletionRow));
+    return res.json(pending.map(mapCompletionRow));
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
-  });
-
+});
 
 tasksRouter.patch("/completions/:completionId/approve", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
   param('completionId').isString().notEmpty(),
@@ -284,10 +280,10 @@ tasksRouter.patch("/completions/:completionId/approve", authenticateUser, requir
     const userParentId = getParentId(req);
     if (task && task.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
     taskServiceServer.approveCompletion(req.params.completionId as string);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err: any) {
     logger.error({ error: err.message, params: req.params }, 'tasks_approve_completion_error');
-    res.status(400).json({ error: err.message });
+    return res.status(400).json({ error: err.message });
   }
 });
 
@@ -302,10 +298,10 @@ tasksRouter.patch("/completions/:completionId/reject", authenticateUser, require
     const userParentId = getParentId(req);
     if (task && task.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
     taskServiceServer.rejectCompletion(req.params.completionId as string);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error: any) {
     logger.error({ error: error.message, params: req.params }, 'tasks_reject_completion_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -343,10 +339,10 @@ tasksRouter.get('/parents/:parentId/leaderboard', authenticateUser, assertParent
       }))
       .sort((a, b) => b.weeklyXp - a.weeklyXp);
 
-    res.json(entries);
+    return res.json(entries);
   } catch (error: any) {
     logger.error({ error: error.message }, 'leaderboard_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -371,9 +367,9 @@ tasksRouter.get('/parents/:parentId/power-mission', authenticateUser, assertPare
       assignedKidId: taskRow.assignedKidId ?? '',
       assignedKidName: kid?.name ?? '',
     };
-    res.json(payload);
+    return res.json(payload);
   } catch (error: any) {
     logger.error({ error: error.message }, 'power_mission_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });

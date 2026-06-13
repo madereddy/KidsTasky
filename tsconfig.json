@@ -16,6 +16,7 @@
     "allowJs": true,
     "noImplicitAny": true,
     "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
     "jsx": "react-jsx",
     "paths": {
       "@/*": [

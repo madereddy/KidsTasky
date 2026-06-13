@@ -1,12 +1,12 @@
 import { userService } from '../../services/users';
 import { tasksClientService } from '../../services/tasks';
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense, startTransition } from 'react';
-import { Trophy, Award, Clock, CalendarDays, History, Bell, Star, CheckCircle2 } from 'lucide-react';
+import { Clock, CalendarDays, History, Bell, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { format, startOfToday, subDays } from 'date-fns';
-import { Task, TaskCompletion, UserProfile, Category, BadgeDef } from '../../types';
+import { format, startOfToday } from 'date-fns';
+import { Task, TaskCompletion, UserProfile, Category } from '../../types';
 import { cn } from '../../lib/utils';
-import { THEMES, XP_REWARDS, BADGE_DEFS } from '../../constants';
+import { THEMES } from '../../constants';
 import { KidTaskBoard } from './KidTaskBoard';
 import { KidHeader } from './dashboard/KidHeader';
 import { MissionHistoryModal } from './MissionHistoryModal';
@@ -22,6 +22,9 @@ import { useKidMilestones } from '../../hooks/useKidMilestones';
 import { useKidRewardsController } from '../../hooks/useKidRewardsController';
 import { KidDashboardSkeleton } from '../shared/Skeleton';
 import { clientLogger } from '../../services/clientLogger';
+import { BadgeCollection } from './dashboard/BadgeCollection';
+import { CelebrationOverlays } from './dashboard/CelebrationOverlays';
+
 const CalendarView = lazy(() => import('../calendar/CalendarView').then(m => ({ default: m.CalendarView })));
 const HomeworkView = lazy(() => import('../homework/HomeworkView').then(m => ({ default: m.HomeworkView })));
 
@@ -56,7 +59,6 @@ export function KidDashboard({
   const [kidView, setKidView] = useState<'tasks' | 'calendar' | 'homework' | 'shop'>('tasks');
   const [, setTabRetryTick] = useState(0);
 
-  // Sync kidView with activeSection from parent/nav
   useEffect(() => {
     if (!activeSection) return;
     if (activeSection === 'home' || activeSection === 'tasks') setKidView('tasks');
@@ -65,8 +67,6 @@ export function KidDashboard({
     else if (activeSection === 'lists' || activeSection === 'shopping' || activeSection === 'routines') setKidView('tasks');
   }, [activeSection]);
 
-  // See App.tsx goToSection: a 50ms follow-up re-render forces re-reconciliation
-  // of the Suspense boundary after the lazy chunk resolves from cache.
   const goKidView = useCallback((view: 'tasks' | 'calendar' | 'homework' | 'shop') => {
     startTransition(() => {
       setKidView(view);
@@ -123,9 +123,7 @@ export function KidDashboard({
 
   const {
     streak,
-    shouldShowToday,
     filteredTasks,
-    todayTasks,
     totalSlots,
     progressPercent,
     getUrgency,
@@ -171,7 +169,7 @@ export function KidDashboard({
     } finally {
       setLoading(false);
     }
-  }, [profile.uid, today, loadRewards]);
+  }, [profile.uid, today, loadRewards, syncControllerCompletions]);
 
   useEffect(() => {
     fetchData();
@@ -214,9 +212,6 @@ export function KidDashboard({
         },
       ];
 
-  // RuneScape-style level/progress derived from current XP (not the stored,
-  // possibly-stale level column). Harder to level the higher you climb.
-
   useEffect(() => {
     onProgressChange(progressPercent);
   }, [progressPercent, onProgressChange]);
@@ -252,7 +247,7 @@ export function KidDashboard({
       <FamilyNote parentId={profile.parentId || profile.uid} readOnly={true} />
 
       <div className={cn("flex justify-between items-center shadow-sm p-3 rounded-[2rem] border", currentTheme.vocab?.panelBg || "bg-white", currentTheme.vocab?.panelBorder || "border-ui-soft")}>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-ui-soft")}>
             <button
               onClick={() => goKidView('tasks')}
@@ -483,182 +478,28 @@ export function KidDashboard({
         </div>
       )}
 
-      {/* Badge Collection Section */}
-      <div className="space-y-4 pt-8">
-        <div className="flex items-center gap-3">
-          <Trophy className="w-6 h-6 text-amber-500" />
-          <h3 className={cn("text-2xl font-bold", currentTheme.vocab?.textPrimary || "text-ui-primary")}>{currentTheme.vocab?.badges || 'My Badges'}</h3>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Object.values(BADGE_DEFS).map(badge => {
-            const isEarned = (profile.badges || []).some(b => b.id === badge.id);
-            return (
-              <motion.div 
-                key={badge.id}
-                whileHover={isEarned ? { scale: 1.02 } : {}}
-                className={cn(
-                  "p-5 rounded-[2rem] border flex flex-col items-center justify-center text-center gap-3 transition-all relative overflow-hidden",
-                  isEarned ? cn(badge.color, "bg-opacity-10 border-transparent shadow-sm") : "bg-ui-soft border-ui-soft opacity-60 grayscale"
-                )}
-              >
-                <div className={cn(
-                  "w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-1 shadow-sm",
-                  isEarned ? "bg-white" : "bg-ui-soft-2"
-                )}>
-                  {badge.icon}
-                </div>
-                <div>
-                  <p className={cn("font-bold text-sm leading-tight", isEarned ? (isDarkMode ? "text-ui-primary" : "text-ui-primary") : (isDarkMode ? "text-ui-muted-2" : "text-ui-muted"))}>
-                    {badge.name}
-                  </p>
-                  <p className={cn("text-xs mt-1 leading-tight px-1", toneSecondary)}>{badge.description}</p>
-                </div>
-                {isEarned && (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="absolute top-3 right-3"
-                  >
-                    <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                    </div>
-                  </motion.div>
-                )}
-              </motion.div>
-            );
-          })}
-        </div>
-      </div>
+      <BadgeCollection
+        profile={profile}
+        isDarkMode={isDarkMode}
+        toneSecondary={toneSecondary}
+        themeVocab={currentTheme.vocab}
+      />
 
-      <AnimatePresence>
-        {confirmTask && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-ui-dark-40 backdrop-blur-sm"
-          >
-            <div className={cn("border rounded-[3rem] p-8 shadow-xl max-w-sm w-full text-center relative overflow-hidden", currentTheme.vocab?.panelBg || "bg-white", currentTheme.vocab?.panelBorder || "border-ui-soft")}>
-              <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 relative z-10", `bg-${currentTheme.primary}/10`)}>
-                <CheckCircle2 className={cn("w-10 h-10", `text-${currentTheme.primary}`)} />
-              </div>
-              <h4 className={cn("text-3xl font-bold mb-2 relative z-10", currentTheme.vocab?.textPrimary || "text-ui-primary")}>{currentTheme.vocab?.verifyTitle || 'All Done?'}</h4>
-              <p className={cn("mb-8 relative z-10 text-sm font-medium", currentTheme.vocab?.textSecondary || "text-ui-muted")}>
-                {currentTheme.vocab?.verifyDesc || 'Did you complete'}<br/><span className={cn("text-lg font-bold", currentTheme.vocab?.textPrimary || "text-ui-primary")}>"{confirmTask.taskTitle}"</span>?
-              </p>
-
-              {(confirmTask.questions || []).length > 0 && (
-                <div className="mb-6 text-left space-y-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-ui-muted">Follow-up Questions</p>
-                  {confirmTask.questions!.map((q, i) => (
-                    <div key={`proof-${i}`}>
-                      <label className="block text-xs text-ui-muted mb-1">{q}</label>
-                      <input
-                        className="w-full border border-ui rounded-xl px-3 py-2 text-sm text-ui-primary"
-                        value={proofAnswers[`q_${i}`] || ''}
-                        onChange={(e) => setProofAnswers((prev) => ({ ...prev, [`q_${i}`]: e.target.value }))}
-                        placeholder="Your answer"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <div className="flex gap-4 relative z-10">
-                <button 
-                  onClick={() => setConfirmTask(null)}
-                  className={cn("flex-1 py-4 font-bold rounded-2xl transition-all", currentTheme.vocab?.darkMode ? "bg-ui-dark-2 text-ui-muted-2 hover:bg-ui-dark-2" : "bg-ui-soft-2 text-ui-secondary hover:bg-ui-soft-3")}
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={executeCompletion}
-                  disabled={(confirmTask.questions || []).length > 0 && (confirmTask.questions || []).some((_, i) => !String(proofAnswers[`q_${i}`] || '').trim())}
-                  className={cn("flex-1 py-4 font-bold rounded-2xl transition-all shadow-md", `bg-${currentTheme.primary} text-white hover:bg-${currentTheme.accent}`)}
-                >
-                  {currentTheme.vocab?.confirmYes || 'Yes!'} +{confirmTask.xpReward} {currentTheme.vocab?.points || 'XP'}
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {xpAnimation.active && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.5, y: 0 }}
-            animate={{ opacity: 1, scale: [0.5, 1.2, 1], y: -100 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="fixed inset-0 z-[130] pointer-events-none flex items-center justify-center"
-          >
-            <div className="flex flex-col items-center">
-               <motion.div
-                 animate={{ rotate: 360 }}
-                 transition={{ duration: 2, ease: 'linear', repeat: Infinity }}
-                 className="text-yellow-400 mb-4 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)]"
-               >
-                 <Star className="w-20 h-20 fill-yellow-400" />
-               </motion.div>
-               <span className="text-6xl font-black text-amber-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)] uppercase tracking-tighter italic">
-                 +{xpAnimation.amount} XP
-               </span>
-            </div>
-          </motion.div>
-        )}
-
-        {showStarBurst && starsAwarded > 0 && (
-          <motion.div
-            initial={{ opacity: 1, scale: 0.5, y: 0 }}
-            animate={{ opacity: 0, scale: 1.5, y: -40 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8 }}
-            className="fixed bottom-1/3 left-1/2 -translate-x-1/2 z-[140] pointer-events-none text-3xl font-black"
-          >
-            ⭐ +{starsAwarded}
-          </motion.div>
-        )}
-
-        {celebrationTick > 0 && (
-          <div className="fixed inset-0 pointer-events-none z-[129] overflow-hidden" key={`celebrate-${celebrationTick}`}>
-            {Array.from({ length: 18 }).map((_, i) => (
-              <motion.div
-                key={`confetti-${celebrationTick}-${i}`}
-                initial={{ opacity: 1, y: 80, x: 0, scale: 0.8 }}
-                animate={{ opacity: 0, y: -260 - (i % 4) * 30, x: (i % 2 === 0 ? 1 : -1) * (40 + i * 8), rotate: (i % 2 === 0 ? 1 : -1) * (60 + i * 10), scale: 1.1 }}
-                transition={{ duration: 1.1, ease: "easeOut", delay: (i % 6) * 0.03 }}
-                className="absolute left-1/2 bottom-24 text-2xl"
-              >
-                {i % 3 === 0 ? '🎉' : (i % 3 === 1 ? '✨' : '⭐')}
-              </motion.div>
-            ))}
-          </div>
-        )}
-        {unlockedBadge && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.8, y: 50 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: 50 }}
-            className="fixed bottom-10 left-6 right-6 md:left-auto md:right-10 md:w-80 z-[100] bg-white border border-ui rounded-[3rem] p-8 shadow-xl"
-          >
-            <div className="flex flex-col items-center text-center">
-              <div className="text-6xl mb-6">
-                {unlockedBadge.icon}
-              </div>
-              <h4 className="text-2xl font-bold text-sky-500 mb-2">New Badge!</h4>
-              <p className="text-ui-primary font-black text-lg leading-tight mb-2">{unlockedBadge.name}</p>
-              <p className={cn("text-sm mb-8 leading-relaxed", toneSecondary)}>{unlockedBadge.description}</p>
-              <button 
-                onClick={dismissUnlockedBadge}
-                className="w-full py-4 bg-sky-500 text-white font-bold rounded-2xl hover:bg-sky-400 transition-all active:scale-95"
-              >
-                Awesome
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <CelebrationOverlays
+        confirmTask={confirmTask}
+        setConfirmTask={setConfirmTask}
+        proofAnswers={proofAnswers}
+        setProofAnswers={setProofAnswers}
+        executeCompletion={executeCompletion}
+        xpAnimation={xpAnimation}
+        showStarBurst={showStarBurst}
+        starsAwarded={starsAwarded}
+        celebrationTick={celebrationTick}
+        unlockedBadge={unlockedBadge}
+        dismissUnlockedBadge={dismissUnlockedBadge}
+        currentTheme={currentTheme}
+        toneSecondary={toneSecondary}
+      />
     </div>
   );
 }
-
-

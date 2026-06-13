@@ -1,29 +1,13 @@
-import { format, parse, isAfter, startOfDay, differenceInDays } from "date-fns";
-import { db } from "./db.js";
-import cron from "node-cron";
-import type { ScheduledTask } from "node-cron";
+import cron from 'node-cron';
+import type { ScheduledTask } from 'node-cron';
 import type { Server as SocketServer } from 'socket.io';
-import fs from 'fs';
-import path from 'path';
-import imaps from 'imap-simple';
-import { simpleParser } from 'mailparser';
-import ical from 'node-ical';
-import { magicService } from './modules/magic/service.js';
-import { syncService, decryptConnection } from './modules/sync/service.js';
-import { sendPushToUser } from './modules/notifications/pushService.js';
-import { sendEmail } from './modules/notifications/emailService.js';
-import { ensurePhotosUploadsDir, getSafePhotoFilename, resolvePhotoUploadPath } from './modules/photos/storage.js';
 import { logger } from './lib/logger.js';
-import { SyncConnection } from '../types.js';
-import { 
-  syncBackoff, 
-  onGoogleSyncFailure, 
-  onGoogleSyncSuccess, 
-  shouldSkipGoogleSync 
-} from './lib/syncBackoff.js';
-
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+import { syncBackoff } from './lib/syncBackoff.js';
+import { workerJobs } from './worker/diagnostics.js';
+import { sendEventReminders, REMINDER_WINDOW_MS } from './worker/reminders.js';
+import { processOverdueTasks, runDailyCleanup, runMidnightEngagementReset } from './worker/tasks.js';
+import { runPhotoCleanup } from './worker/photos.js';
+import { runMultiSourceSync } from './worker/sync.js';
 
 const intervalHandles: ReturnType<typeof setInterval>[] = [];
 const cronHandles: ScheduledTask[] = [];
@@ -31,543 +15,64 @@ const cronHandles: ScheduledTask[] = [];
 const workerStartedAt = Date.now();
 let workerActive = false;
 
-type WorkerJobDiagnostics = {
-  name: string;
-  intervalType: 'interval' | 'cron';
-  schedule: string;
-  lastStartedAt: number | null;
-  lastFinishedAt: number | null;
-  lastSuccessAt: number | null;
-  lastFailureAt: number | null;
-  lastDurationMs: number | null;
-  successCount: number;
-  failureCount: number;
-  lastError: string | null;
-};
-
-const workerJobs: Record<string, WorkerJobDiagnostics> = {
-  eventReminders: {
-    name: 'eventReminders',
-    intervalType: 'interval',
-    schedule: '60000ms',
-    lastStartedAt: null,
-    lastFinishedAt: null,
-    lastSuccessAt: null,
-    lastFailureAt: null,
-    lastDurationMs: null,
-    successCount: 0,
-    failureCount: 0,
-    lastError: null,
-  },
-  overdueTasks: {
-    name: 'overdueTasks',
-    intervalType: 'interval',
-    schedule: '300000ms',
-    lastStartedAt: null,
-    lastFinishedAt: null,
-    lastSuccessAt: null,
-    lastFailureAt: null,
-    lastDurationMs: null,
-    successCount: 0,
-    failureCount: 0,
-    lastError: null,
-  },
-  photoCleanup: {
-    name: 'photoCleanup',
-    intervalType: 'interval',
-    schedule: '900000ms',
-    lastStartedAt: null,
-    lastFinishedAt: null,
-    lastSuccessAt: null,
-    lastFailureAt: null,
-    lastDurationMs: null,
-    successCount: 0,
-    failureCount: 0,
-    lastError: null,
-  },
-  dailyCleanup: {
-    name: 'dailyCleanup',
-    intervalType: 'cron',
-    schedule: '0 3 * * *',
-    lastStartedAt: null,
-    lastFinishedAt: null,
-    lastSuccessAt: null,
-    lastFailureAt: null,
-    lastDurationMs: null,
-    successCount: 0,
-    failureCount: 0,
-    lastError: null,
-  },
-  multiSourceSync: {
-    name: 'multiSourceSync',
-    intervalType: 'cron',
-    schedule: '*/5 * * * *',
-    lastStartedAt: null,
-    lastFinishedAt: null,
-    lastSuccessAt: null,
-    lastFailureAt: null,
-    lastDurationMs: null,
-    successCount: 0,
-    failureCount: 0,
-    lastError: null,
-  },
-};
-
-function markWorkerJobStart(jobName: keyof typeof workerJobs): number {
-  const startedAt = Date.now();
-  const job = workerJobs[jobName];
-  job.lastStartedAt = startedAt;
-  return startedAt;
-}
-
-function markWorkerJobSuccess(jobName: keyof typeof workerJobs, startedAt: number) {
-  const job = workerJobs[jobName];
-  const finishedAt = Date.now();
-  job.lastFinishedAt = finishedAt;
-  job.lastSuccessAt = finishedAt;
-  job.lastDurationMs = finishedAt - startedAt;
-  job.successCount += 1;
-  job.lastError = null;
-}
-
-function markWorkerJobFailure(jobName: keyof typeof workerJobs, startedAt: number, error: unknown) {
-  const job = workerJobs[jobName];
-  const finishedAt = Date.now();
-  job.lastFinishedAt = finishedAt;
-  job.lastFailureAt = finishedAt;
-  job.lastDurationMs = finishedAt - startedAt;
-  job.failureCount += 1;
-  job.lastError = error instanceof Error ? error.message : String(error);
-}
-
 export function startBackgroundWorker(io?: SocketServer) {
   workerActive = true;
-  const lastPhotoCleanupRun = new Map<string, number>();
-  let photoSweepUploadsDirUnavailable = false;
-  const REMINDER_WINDOW_MS = 60_000;
-  const MAX_NOTIFICATION_CONCURRENCY = 4;
 
-  async function runWithConcurrency<T>(
-    items: T[],
-    workerFn: (item: T) => Promise<void>,
-    concurrency = MAX_NOTIFICATION_CONCURRENCY
-  ) {
-    const queue = [...items];
-    const runners = new Array(Math.max(1, concurrency)).fill(null).map(async () => {
-      while (queue.length > 0) {
-        const item = queue.shift();
-        if (!item) return;
-        try {
-          await workerFn(item);
-        } catch (e) {
-          logger.error({ error: e }, 'worker_async_item_failed');
-        }
-      }
-    });
-    await Promise.all(runners);
-  }
-
+  // 1. Event Reminders (every 1 minute)
   intervalHandles.push(setInterval(async () => {
-    const startedAt = markWorkerJobStart('eventReminders');
     try {
       await sendEventReminders();
-      markWorkerJobSuccess('eventReminders', startedAt);
     } catch (e) {
-      markWorkerJobFailure('eventReminders', startedAt, e);
-      logger.error({ error: e }, 'worker_event_reminder_error');
+      // Error already logged and diagnostics updated in module
     }
   }, REMINDER_WINDOW_MS));
 
-  async function sendEventReminders() {
-    const getReminderSentStmt = db.prepare('SELECT 1 FROM sent_reminders WHERE eventId = ? AND reminderMinutes = ?');
-    const insertReminderSentStmt = db.prepare('INSERT OR IGNORE INTO sent_reminders (eventId, reminderMinutes, sentAt) VALUES (?, ?, ?)');
-    const getFamilyMembersStmt = db.prepare('SELECT uid, email FROM users WHERE parentId = ? OR uid = ?');
-    const now = Date.now();
-    const events = db.prepare(`
-      SELECT e.id, e.title, e.startTime, e.reminderMinutes, e.parentId,
-             fs.timezone as familyTimezone
-      FROM events e
-      JOIN family_settings fs ON e.parentId = fs.parentId
-      WHERE e.reminderMinutes IS NOT NULL
-        AND e.startTime > ?
-    `).all(now - REMINDER_WINDOW_MS) as any[];
-    const familyMembersCache = new Map<string, Array<{ uid: string; email?: string }>>();
-
-    for (const event of events) {
-      const reminderMs = Number(event.reminderMinutes) * 60 * 1000;
-      const fireAt = Number(event.startTime) - reminderMs;
-      if (Math.abs(now - fireAt) > REMINDER_WINDOW_MS) continue;
-
-      const already = getReminderSentStmt.get(event.id, event.reminderMinutes);
-      if (already) continue;
-
-      insertReminderSentStmt.run(event.id, event.reminderMinutes, now);
-
-      const title = `Reminder: ${event.title}`;
-      const body = Number(event.reminderMinutes) === 0
-        ? 'Starting now'
-        : `Starting in ${event.reminderMinutes} minute${Number(event.reminderMinutes) !== 1 ? 's' : ''}`;
-      const payload = { title, body, tag: `event-${event.id}` };
-
-      let members = familyMembersCache.get(event.parentId);
-      if (!members) {
-        members = getFamilyMembersStmt.all(event.parentId, event.parentId) as Array<{ uid: string; email?: string }>;
-        familyMembersCache.set(event.parentId, members);
-      }
-      await runWithConcurrency(members, async (member) => {
-        const pushed = await sendPushToUser(member.uid, payload);
-        if (!pushed && member.email) {
-          await sendEmail(member.email, title, body);
-        }
-      });
-    }
-  }
-
-  intervalHandles.push(setInterval(() => {
-    const startedAt = markWorkerJobStart('overdueTasks');
-    logger.info({}, 'worker_overdue_tasks_start');
+  // 2. Overdue Tasks (every 5 minutes)
+  intervalHandles.push(setInterval(async () => {
     try {
-      const today = format(new Date(), 'yyyy-MM-dd');
-      const now = new Date();
-      
-      const tasks = db.prepare("SELECT * FROM tasks WHERE status = 'active'").all() as any[];
-      const dueTasks = tasks.filter((task) => !!task.reminderTime);
-      if (dueTasks.length === 0) {
-        markWorkerJobSuccess('overdueTasks', startedAt);
-        return;
-      }
-
-      const taskIdToTask = new Map<string, any>(tasks.map((t) => [t.id, t]));
-      const kidIds = Array.from(new Set(dueTasks.map((t) => t.assignedKidId).filter(Boolean)));
-      const kidNameById = new Map<string, string>(
-        kidIds.length === 0
-          ? []
-          : (db.prepare(
-            `SELECT uid, name FROM users WHERE uid IN (${kidIds.map(() => '?').join(',')})`
-          ).all(...kidIds) as Array<{ uid: string; name: string }>).map((k) => [k.uid, k.name])
-      );
-
-      const completionRows = db.prepare(`
-        SELECT taskId, dateString, COUNT(*) as completionCount
-        FROM completions
-        WHERE dateString = ?
-          AND taskId IN (${dueTasks.map(() => '?').join(',')})
-        GROUP BY taskId, dateString
-      `).all(today, ...dueTasks.map((t) => t.id)) as Array<{ taskId: string; dateString: string; completionCount: number }>;
-      const completionCountByTaskDate = new Map<string, number>(
-        completionRows.map((r) => [`${r.taskId}:${r.dateString}`, Number(r.completionCount) || 0])
-      );
-      const createdNotifIds = new Set<string>();
-      const parentIdsWithNewNotifications = new Set<string>();
-
-      for (const task of dueTasks) {
-
-        let scheduledForToday = false;
-        if (task.frequency === 'daily' || task.frequency === 'twice-daily') {
-          scheduledForToday = true;
-        } else if (task.frequency === 'weekdays') {
-          const day = now.getDay();
-          scheduledForToday = day >= 1 && day <= 5;
-        } else {
-          const createdDate = new Date(task.createdAt);
-          const daysSinceCreated = differenceInDays(startOfDay(now), startOfDay(createdDate));
-          if (task.frequency === 'weekly') scheduledForToday = daysSinceCreated % 7 === 0;
-          else if (task.frequency === 'bi-weekly') scheduledForToday = daysSinceCreated % 14 === 0;
-          else if (task.frequency === 'custom' && task.customInterval) scheduledForToday = daysSinceCreated % task.customInterval === 0;
-        }
-
-        if (!scheduledForToday) continue;
-
-        const reminderDate = parse(task.reminderTime, 'HH:mm', now);
-        if (isAfter(now, reminderDate)) {
-          const taskCompletionCount = completionCountByTaskDate.get(`${task.id}:${today}`) || 0;
-          const isCompleted = task.frequency === 'twice-daily' ? taskCompletionCount >= 2 : taskCompletionCount >= 1;
-          if (!isCompleted) {
-            let isLocked = false;
-            if (task.prerequisiteTaskIds) {
-              try {
-                const prereqIds = JSON.parse(task.prerequisiteTaskIds);
-                for (const pid of prereqIds) {
-                  const pTask = taskIdToTask.get(pid);
-                  if (pTask) {
-                    const reqCount = pTask.frequency === 'twice-daily' ? 2 : 1;
-                    const prereqCompletionCount = completionCountByTaskDate.get(`${pid}:${today}`) || 0;
-                    if (prereqCompletionCount < reqCount) { isLocked = true; break; }
-                  }
-                }
-              } catch (e) {}
-            }
-            if (isLocked) continue;
-
-            const notifId = `overdue_${task.id}_${today}`;
-            if (createdNotifIds.has(notifId)) continue;
-            const kidName = kidNameById.get(task.assignedKidId) || 'Cadet';
-            const result = db.prepare(`INSERT OR IGNORE INTO notifications (id, parentId, kidId, taskId, taskTitle, kidName, type, status, createdAt, dateString) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(notifId, task.parentId, task.assignedKidId, task.id, task.title, kidName, 'overdue', 'unread', Date.now(), today);
-            if (result.changes > 0) {
-              createdNotifIds.add(notifId);
-              parentIdsWithNewNotifications.add(task.parentId);
-            }
-          }
-        }
-      }
-      for (const parentId of parentIdsWithNewNotifications) {
-        io?.to(parentId).emit('stale-data', { type: 'notifications' });
-      }
-      markWorkerJobSuccess('overdueTasks', startedAt);
-    } catch (error) {
-      markWorkerJobFailure('overdueTasks', startedAt, error);
-      logger.error({ error }, 'worker_overdue_tasks_error');
+      await processOverdueTasks(io);
+    } catch (e) {
+      // Error already logged and diagnostics updated in module
     }
   }, 5 * 60 * 1000));
 
-  intervalHandles.push(setInterval(() => {
-    const startedAt = markWorkerJobStart('photoCleanup');
+  // 3. Photo Cleanup (every 15 minutes)
+  intervalHandles.push(setInterval(async () => {
     try {
-      const families = db.prepare(`
-        SELECT parentId, photoCleanupEnabled, photoCleanupIntervalHours
-        FROM family_settings
-      `).all() as Array<{ parentId: string; photoCleanupEnabled?: number; photoCleanupIntervalHours?: number }>;
-
-      const now = Date.now();
-      let shouldRunGlobalOrphanSweep = false;
-      for (const family of families) {
-        if (!family.parentId || Number(family.photoCleanupEnabled ?? 1) !== 1) continue;
-        const intervalHours = Math.max(1, Number(family.photoCleanupIntervalHours || 24));
-        const intervalMs = intervalHours * 60 * 60 * 1000;
-        const lastRun = lastPhotoCleanupRun.get(family.parentId) ?? 0;
-        if (now - lastRun < intervalMs) continue;
-
-        const photos = db.prepare('SELECT id, url FROM family_photos WHERE parentId = ?')
-          .all(family.parentId) as Array<{ id: string; url: string }>;
-
-        const parentExists = db.prepare('SELECT 1 FROM users WHERE uid = ?').get(family.parentId);
-        for (const photo of photos) {
-          const url = photo.url;
-          // Extract filename for local photos only; skip remote URLs (Google Photos https*)
-          let localFilename: string | null = null;
-          if (url.startsWith('/api/photos/file/')) {
-            localFilename = getSafePhotoFilename(url.replace('/api/photos/file/', ''));
-          } else if (url.startsWith('/uploads/photos/')) {
-            localFilename = getSafePhotoFilename(url.replace('/uploads/photos/', ''));
-          }
-
-          if (!parentExists) {
-            db.prepare('DELETE FROM family_photos WHERE id = ?').run(photo.id);
-            if (localFilename) {
-              const filePath = resolvePhotoUploadPath(localFilename, ensurePhotosUploadsDir());
-              if (filePath) {
-                fs.unlink(filePath, () => {});
-              }
-            }
-            continue;
-          }
-
-          // Only check file existence for local photos; remote URLs are always "present"
-          if (localFilename) {
-            const filePath = resolvePhotoUploadPath(localFilename, ensurePhotosUploadsDir());
-            if (filePath && !fs.existsSync(filePath)) {
-              db.prepare('DELETE FROM family_photos WHERE id = ?').run(photo.id);
-            }
-          }
-        }
-        shouldRunGlobalOrphanSweep = true;
-        lastPhotoCleanupRun.set(family.parentId, now);
-      }
-
-      if (shouldRunGlobalOrphanSweep) {
-        if (photoSweepUploadsDirUnavailable) {
-          markWorkerJobSuccess('photoCleanup', startedAt);
-          return;
-        }
-        let uploadsDir: string;
-        try {
-          uploadsDir = ensurePhotosUploadsDir();
-        } catch (err) {
-          photoSweepUploadsDirUnavailable = true;
-          logger.error({ error: err }, 'worker_photo_sweep_uploads_dir_unavailable');
-          return;
-        }
-        const trackedFiles = new Set(
-          (db.prepare("SELECT url FROM family_photos WHERE url LIKE '/uploads/photos/%' OR url LIKE '/api/photos/file/%'")
-            .all() as Array<{ url: string }>)
-            .map((r) => getSafePhotoFilename(r.url))
-            .filter((value): value is string => Boolean(value))
-        );
-        for (const file of fs.readdirSync(uploadsDir)) {
-          if (!trackedFiles.has(file)) {
-            const filePath = resolvePhotoUploadPath(file, uploadsDir);
-            if (filePath) {
-              fs.unlink(filePath, () => {});
-            }
-          }
-        }
-      }
-      markWorkerJobSuccess('photoCleanup', startedAt);
-    } catch (error) {
-      markWorkerJobFailure('photoCleanup', startedAt, error);
-      logger.error({ error }, 'worker_photo_cleanup_error');
+      await runPhotoCleanup();
+    } catch (e) {
+      // Error already logged and diagnostics updated in module
     }
   }, 15 * 60 * 1000));
 
-  // Daily cleanup: prune unbounded tables that accumulate over time
-  cronHandles.push(cron.schedule("0 3 * * *", () => {
-    const startedAt = markWorkerJobStart('dailyCleanup');
+  // 4. Daily Cleanup (3:00 AM)
+  cronHandles.push(cron.schedule("0 3 * * *", async () => {
     try {
-      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-      const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-      const r1 = db.prepare('DELETE FROM sent_reminders WHERE sentAt < ?').run(sevenDaysAgo);
-      const r2 = db.prepare("DELETE FROM notifications WHERE status = 'read' AND createdAt < ?").run(thirtyDaysAgo);
-      if (r1.changes > 0 || r2.changes > 0) {
-        logger.info({ sentRemindersRemoved: r1.changes, notificationsRemoved: r2.changes }, 'worker_daily_cleanup_removed_rows');
-      }
-      markWorkerJobSuccess('dailyCleanup', startedAt);
+      await runDailyCleanup();
     } catch (e) {
-      markWorkerJobFailure('dailyCleanup', startedAt, e);
-      logger.error({ error: e }, 'worker_daily_cleanup_error');
+      // Error already logged and diagnostics updated in module
     }
   }));
 
+  // 5. Multi-Source Sync (every 5 minutes)
   cronHandles.push(cron.schedule("*/5 * * * *", async () => {
-    const startedAt = markWorkerJobStart('multiSourceSync');
     try {
-    logger.info({}, 'worker_multi_source_sync_start');
-    
-    if (shouldSkipGoogleSync()) {
-      logger.info({ nextAllowedAt: new Date(syncBackoff.nextAllowedAt).toISOString() }, 'worker_google_sync_skipped_backoff');
-    } else {
-      try {
-        const rows = db.prepare("SELECT * FROM sync_connections WHERE provider = 'google' AND refreshToken IS NOT NULL").all() as SyncConnection[];
-        const connections = rows.map(decryptConnection);
-        let anyRateLimit = false;
-        for (const conn of connections) {
-          try {
-            const result = await syncService.syncGoogleConnectionNow(conn);
-            if (result.errors.some(e => e.message.includes('invalid_grant'))) {
-              logger.error({ connectionId: conn.id }, 'worker_google_invalid_grant');
-              db.prepare('DELETE FROM sync_connections WHERE id = ?').run(conn.id);
-            } else if (result.imported > 0) {
-              io?.to(conn.parentId).emit('stale-data', { type: 'events' });
-            }
-            if (result.failureCount > 0) {
-              logger.error({ connectionId: conn.id, errors: result.errors }, 'worker_google_sync_partial');
-              for (const error of result.errors) {
-                onGoogleSyncFailure(error);
-              }
-              anyRateLimit = true;
-            }
-          } catch (err: any) {
-            logger.error({ connectionId: conn.id, error: err?.message }, 'worker_google_sync_connection_error');
-            onGoogleSyncFailure(err);
-            anyRateLimit = true;
-          }
-        }
-        if (!anyRateLimit) onGoogleSyncSuccess();
-      } catch (err: any) {
-        logger.error({ error: err }, 'worker_google_sync_global_error');
-        onGoogleSyncFailure(err);
-      }
-    }
-
-    try {
-      const icalConns = db.prepare("SELECT * FROM sync_connections WHERE icalUrl IS NOT NULL").all() as any[];
-      for (const conn of icalConns) {
-        if (!conn.icalUrl) continue;
-        const webEvents = await ical.fromURL(conn.icalUrl);
-        const existingExternalIds = new Set(
-          (db.prepare("SELECT externalId FROM events WHERE parentId = ? AND source = 'ical' AND externalId IS NOT NULL")
-            .all(conn.parentId) as Array<{ externalId: string }>)
-            .map((row) => row.externalId)
-        );
-        let changes = false;
-        for (const k in webEvents) {
-          const ev: any = webEvents[k];
-          if (!ev || ev.type !== 'VEVENT' || !ev.summary || !ev.start || !ev.end) continue;
-          const eId = "ical_" + (ev.uid || k);
-          if (!existingExternalIds.has(eId)) {
-            db.prepare(`INSERT INTO events (id, parentId, title, description, startTime, endTime, assignedToId, color, externalId, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(eId, conn.parentId, ev.summary, ev.description || '', new Date(ev.start).getTime(), new Date(ev.end).getTime(), null, 'purple', eId, 'ical');
-            existingExternalIds.add(eId);
-            changes = true;
-          }
-        }
-        if (changes) io?.to(conn.parentId).emit('stale-data', { type: 'events' });
-      }
-    } catch (err) { logger.error({ error: err }, 'worker_ical_sync_error'); }
-
-    if (GEMINI_API_KEY) {
-      try {
-        const manualConns = syncService.getManualConnections();
-        for (const conn of manualConns) {
-          let connection;
-          try {
-            const config = { imap: { user: conn.email, password: conn.appPassword, host: 'imap.gmail.com', port: 993, tls: true, authTimeout: 3000 } };
-            connection = await imaps.connect(config);
-            await connection.openBox('INBOX');
-            const messages = await connection.search(['UNSEEN'], { bodies: ['HEADER', 'TEXT'], markSeen: true });
-            for (const msg of messages) {
-              const all = msg.parts.find((p: any) => p.which === 'TEXT');
-              if (all) {
-                const parsed = await simpleParser(all.body);
-                const extracted = await magicService.parseEventsFromText(parsed.text || parsed.html || '', GEMINI_API_KEY);
-                if (extracted && extracted.title && extracted.date) {
-                  const startTs = new Date(`${extracted.date}T${extracted.startTime || '09:00'}:00`).getTime();
-                  db.prepare(`INSERT INTO events (id, parentId, title, description, startTime, endTime, assignedToId, color, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run("magic_" + Date.now() + "_" + msg.attributes.uid, conn.parentId, extracted.title, `From email: ${extracted.location || ''}`, startTs, startTs + 3600000, null, 'amber', 'magic');
-                  io?.to(conn.parentId).emit('stale-data', { type: 'events' });
-                }
-              }
-            }
-          } catch (connErr) {
-            logger.error({ email: conn.email, error: connErr }, 'worker_imap_connection_error');
-          } finally {
-            try { connection?.end(); } catch {}
-          }
-        }
-      } catch (err) { logger.error({ error: err }, 'worker_imap_sync_error'); }
-    }
-      markWorkerJobSuccess('multiSourceSync', startedAt);
-    } catch (error) {
-      markWorkerJobFailure('multiSourceSync', startedAt, error);
-      logger.error({ error }, 'worker_multi_source_sync_error');
+      await runMultiSourceSync(io);
+    } catch (e) {
+      // Error already logged and diagnostics updated in module
     }
   }));
 
-  // Midnight: reset broken streaks + select Power Mission per family
+  // 6. Midnight Reset (0:01 AM)
   cronHandles.push(cron.schedule('1 0 * * *', async () => {
     try {
-      const today = new Date().toISOString().slice(0, 10);
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().slice(0, 10);
-
-      // Reset streaks for kids who missed yesterday
-      db.prepare(`
-        UPDATE users
-        SET currentStreak = 0
-        WHERE role = 'kid'
-          AND currentStreak > 0
-          AND (lastMissionDate IS NULL OR lastMissionDate < ?)
-      `).run(yesterdayStr);
-
-      // Select Power Mission for each family (parent)
-      const parents = db.prepare("SELECT uid FROM users WHERE role = 'parent'").all() as { uid: string }[];
-      for (const parent of parents) {
-        const task = db.prepare(`
-          SELECT t.id FROM tasks t
-          WHERE t.parentId = ?
-            AND t.status = 'active'
-            AND t.assignedKidId IS NOT NULL
-            AND t.assignedKidId != 'all'
-          ORDER BY COALESCE(t.starValue, 1) DESC, t.createdAt ASC
-          LIMIT 1
-        `).get(parent.uid) as { id: string } | undefined;
-        db.prepare('UPDATE users SET powerMissionId = ?, powerMissionDate = ? WHERE uid = ?')
-          .run(task?.id ?? null, today, parent.uid);
-      }
-
-      logger.info({}, 'midnight_engagement_reset_complete');
+      await runMidnightEngagementReset();
     } catch (err: any) {
-      logger.error({ error: err.message }, 'midnight_engagement_reset_error');
+      // Error already logged in module
     }
   }));
+
+  logger.info({ workerJobs: Object.keys(workerJobs) }, 'background_worker_started');
 }
 
 export function stopWorker() {
@@ -576,6 +81,7 @@ export function stopWorker() {
   cronHandles.forEach(h => h.stop());
   intervalHandles.length = 0;
   cronHandles.length = 0;
+  logger.info('background_worker_stopped');
 }
 
 export function getWorkerDiagnostics() {

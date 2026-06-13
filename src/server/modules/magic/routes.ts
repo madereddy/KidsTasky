@@ -104,9 +104,9 @@ magicRouter.post('/magic/import', magicLimiter, async (req, res) => {
     // Broadcast stale-data event
     socketWrapper.emitStaleData(parentId, 'events');
 
-    res.json(dbEvent);
+    return res.json(dbEvent);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 

@@ -48,9 +48,7 @@ describe('useListsController', () => {
       { id: 'l2', parentId: 'p1', title: 'Hardware', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
       { id: 'l3', parentId: 'p1', title: 'Morning', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
     ]);
-    // selected list items
     vi.mocked(listsClientService.getItems).mockResolvedValueOnce([]);
-    // getParentItems for globalHistory
     vi.mocked(listsClientService.getParentItems).mockResolvedValueOnce([
       { id: 'i1', listId: 'l1', text: 'Milk', completed: 0 },
       { id: 'i2', listId: 'l1', text: 'Eggs', completed: 1 },
@@ -62,8 +60,6 @@ describe('useListsController', () => {
 
     await waitFor(() => expect(result.current.loadingLists).toBe(false));
 
-    // Should include items from l1 and l2, but only uncompleted ones? Or all? 
-    // Usually aggregates are active items. Let's assume uncompleted items.
     expect(result.current.shoppingItems).toHaveLength(2);
     expect(result.current.shoppingItems.map(i => i.text)).toContain('Milk');
     expect(result.current.shoppingItems.map(i => i.text)).toContain('Nails');
@@ -148,11 +144,11 @@ describe('useListsController', () => {
   });
 });
 
-describe('useListsController - Smart Metadata', () => {
-  it('parses storeName and completedAt from text field', async () => {
+describe('useListsController - Structured Metadata', () => {
+  it('parses storeName and completedAt from separate columns', async () => {
     vi.mocked(listsClientService.getLists).mockResolvedValue([{ id: 'list-1', parentId: 'parent-1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' }]);
     vi.mocked(listsClientService.getItems).mockResolvedValue([
-      { id: 'item-1', listId: 'list-1', text: 'Milk |META:{"storeName":"Costco","completedAt":1700000000000}|', completed: 1 }
+      { id: 'item-1', listId: 'list-1', text: 'Milk', completed: 1, storeName: 'Costco', completedAt: 1700000000000 }
     ]);
 
     const { result } = renderHook(() => useListsController({ parentId: 'parent-1' }));
@@ -174,7 +170,7 @@ describe('useListsController - Smart Metadata', () => {
     vi.mocked(listsClientService.getLists).mockResolvedValue([{ id: 'list-1', parentId: 'parent-1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' }]);
     vi.mocked(listsClientService.getItems).mockResolvedValue([]);
     vi.mocked(listsClientService.addItem).mockResolvedValue({
-      id: 'item-2', listId: 'list-1', text: 'Eggs |META:{"storeName":"Costco"}|', completed: 0
+      id: 'item-2', listId: 'list-1', text: 'Eggs', completed: 0, storeName: 'Costco'
     });
 
     const { result } = renderHook(() => useListsController({ parentId: 'parent-1' }));
@@ -185,7 +181,7 @@ describe('useListsController - Smart Metadata', () => {
       await result.current.addItem('Eggs @ Costco');
     });
 
-    expect(listsClientService.addItem).toHaveBeenCalledWith('list-1', 'Eggs |META:{"storeName":"Costco"}|');
+    expect(listsClientService.addItem).toHaveBeenCalledWith('list-1', 'Eggs', 'Costco', undefined);
     expect(result.current.items).toHaveLength(1);
     expect(result.current.items[0].text).toBe('Eggs');
     expect(result.current.items[0].storeName).toBe('Costco');
@@ -198,8 +194,8 @@ describe('useListsController - Smart Metadata', () => {
     ]);
     vi.mocked(listsClientService.getItems).mockResolvedValue([]);
     vi.mocked(listsClientService.addItemsToLists).mockResolvedValue([
-      { id: 'item-1', listId: 'list-1', text: 'Water Bottle |META:{"locationName":"School"}|', completed: 0 },
-      { id: 'item-2', listId: 'list-2', text: 'Water Bottle |META:{"locationName":"School"}|', completed: 0 },
+      { id: 'item-1', listId: 'list-1', text: 'Water Bottle', completed: 0, locationName: 'School' },
+      { id: 'item-2', listId: 'list-2', text: 'Water Bottle', completed: 0, locationName: 'School' },
     ]);
 
     const { result } = renderHook(() => useListsController({ parentId: 'parent-1', preferredCategory: 'routine' }));
@@ -212,56 +208,18 @@ describe('useListsController - Smart Metadata', () => {
 
     expect(listsClientService.addItemsToLists).toHaveBeenCalledWith(
       ['list-1', 'list-2'],
-      'Water Bottle |META:{"locationName":"School"}|'
+      'Water Bottle',
+      undefined,
+      'School'
     );
     expect(result.current.items.map((item) => item.text)).toContain('Water Bottle');
-  });
-
-  it('can copy an existing item to another list', async () => {
-    vi.mocked(listsClientService.getLists).mockResolvedValue([
-      { id: 'list-1', parentId: 'parent-1', title: 'Morning', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
-      { id: 'list-2', parentId: 'parent-1', title: 'Soccer', category: 'routine', isRoutine: 0, createdAt: '', updatedAt: '' },
-    ]);
-    vi.mocked(listsClientService.getItems).mockResolvedValue([{ id: 'item-1', listId: 'list-1', text: 'Water Bottle', completed: 0 }]);
-    vi.mocked(listsClientService.getParentItems).mockResolvedValue([{ id: 'item-1', listId: 'list-1', text: 'Water Bottle', completed: 0 }]);
-    vi.mocked(listsClientService.copyItemToLists).mockResolvedValue([
-      { id: 'item-2', listId: 'list-2', text: 'Water Bottle', completed: 0 },
-    ]);
-
-    const { result } = renderHook(() => useListsController({ parentId: 'parent-1', preferredCategory: 'routine' }));
-    await waitFor(() => expect(result.current.selectedListId).toBe('list-1'));
-
-    await act(async () => {
-      await result.current.copyItemToLists('item-1', ['list-2']);
-    });
-
-    expect(listsClientService.copyItemToLists).toHaveBeenCalledWith('item-1', ['list-2']);
-  });
-
-  it('can move an existing item to another list', async () => {
-    vi.mocked(listsClientService.getLists).mockResolvedValue([
-      { id: 'list-1', parentId: 'parent-1', title: 'Morning', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
-      { id: 'list-2', parentId: 'parent-1', title: 'Soccer', category: 'routine', isRoutine: 0, createdAt: '', updatedAt: '' },
-    ]);
-    vi.mocked(listsClientService.getItems).mockResolvedValue([]);
-    vi.mocked(listsClientService.getParentItems).mockResolvedValue([]);
-    vi.mocked(listsClientService.moveItemToList).mockResolvedValue({ id: 'item-1', listId: 'list-2', text: 'Water Bottle', completed: 0 });
-
-    const { result } = renderHook(() => useListsController({ parentId: 'parent-1', preferredCategory: 'routine' }));
-    await waitFor(() => expect(result.current.selectedListId).toBe('list-1'));
-
-    await act(async () => {
-      await result.current.moveItemToList('item-1', 'list-2');
-    });
-
-    expect(listsClientService.moveItemToList).toHaveBeenCalledWith('item-1', 'list-2');
   });
 
   it('keeps metadata out of visible text after checking an item', async () => {
     const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1780588800000);
     vi.mocked(listsClientService.getLists).mockResolvedValue([{ id: 'list-1', parentId: 'parent-1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' }]);
     vi.mocked(listsClientService.getItems).mockResolvedValue([
-      { id: 'item-1', listId: 'list-1', text: 'Milk |META:{"storeName":"Costco"}|', completed: 0 }
+      { id: 'item-1', listId: 'list-1', text: 'Milk', completed: 0, storeName: 'Costco' }
     ]);
     vi.mocked(listsClientService.toggleItem).mockResolvedValue(undefined);
 
@@ -277,7 +235,9 @@ describe('useListsController - Smart Metadata', () => {
     expect(listsClientService.toggleItem).toHaveBeenCalledWith(
       'item-1',
       true,
-      'Milk |META:{"storeName":"Costco","completedAt":1780588800000}|'
+      'Milk',
+      'Costco',
+      undefined
     );
     expect(result.current.items[0]).toMatchObject({
       id: 'item-1',
@@ -296,7 +256,7 @@ describe('useListsController - Smart Metadata', () => {
       { id: 'list-2', parentId: 'parent-1', title: 'Hardware', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
     ]);
     vi.mocked(listsClientService.getParentItems).mockResolvedValueOnce([
-      { id: 'item-2', listId: 'list-2', text: 'Batteries |META:{"storeName":"Target"}|', completed: 0 },
+      { id: 'item-2', listId: 'list-2', text: 'Batteries', completed: 0, storeName: 'Target' },
     ]);
     vi.mocked(listsClientService.getItems).mockResolvedValueOnce([]);
     vi.mocked(listsClientService.toggleItem).mockResolvedValue(undefined);
@@ -312,7 +272,9 @@ describe('useListsController - Smart Metadata', () => {
     expect(listsClientService.toggleItem).toHaveBeenCalledWith(
       'item-2',
       true,
-      'Batteries |META:{"storeName":"Target","completedAt":1780588800000}|'
+      'Batteries',
+      'Target',
+      undefined
     );
     expect(result.current.shoppingItems).toHaveLength(0);
     nowSpy.mockRestore();

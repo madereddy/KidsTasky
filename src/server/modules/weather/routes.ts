@@ -12,10 +12,10 @@ weatherRouter.get('/weather', async (req, res) => {
       return res.status(400).json({ error: 'Valid lat and lon required' });
     }
     const forecast = await weatherService.getWeeklyForecast(lat, lon);
-    res.json(forecast);
+    return res.json(forecast);
   } catch {
     // Graceful degradation: open-meteo unavailable or timed out — return empty rather than 500.
     // 500s trigger client retries which compound slow-network conditions.
-    res.json({ daily: [], hourlyToday: [] });
+    return res.json({ daily: [], hourlyToday: [] });
   }
 });

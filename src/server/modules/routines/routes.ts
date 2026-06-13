@@ -6,7 +6,7 @@ export const routinesRouter = Router();
 
 routinesRouter.get('/parents/:parentId/routines', authenticateUser, assertParentScope, (req, res) => {
   const templates = routinesService.getTemplates(req.params.parentId as string);
-  res.json(templates);
+  return res.json(templates);
 });
 
 routinesRouter.post('/parents/:parentId/routines', authenticateUser, requireRole('parent'), assertParentScope, enforceEditUnlocked, (req, res) => {
@@ -21,7 +21,7 @@ routinesRouter.post('/parents/:parentId/routines', authenticateUser, requireRole
     assignedToId,
     color: color ?? '#6366f1',
   });
-  res.json({ id });
+  return res.json({ id });
 });
 
 routinesRouter.delete('/routines/:id', authenticateUser, requireRole('parent'), enforceEditUnlocked, (req, res) => {
@@ -29,11 +29,11 @@ routinesRouter.delete('/routines/:id', authenticateUser, requireRole('parent'), 
   if (!template) return res.status(404).json({ error: 'Not found' });
   if (template.parentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
   routinesService.deleteTemplate(req.params.id as string);
-  res.json({ success: true });
+  return res.json({ success: true });
 });
 
 routinesRouter.put('/parents/:parentId/routines/reorder', authenticateUser, requireRole('parent'), assertParentScope, enforceEditUnlocked, (req, res) => {
   const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
   routinesService.reorderTemplates(req.params.parentId as string, ids);
-  res.json({ success: true });
+  return res.json({ success: true });
 });

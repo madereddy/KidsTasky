@@ -12,10 +12,10 @@ export const syncRouter = Router();
 syncRouter.get('/settings/:parentId/connections', authenticateUser, assertParentScope, (req, res) => {
   try {
     const list = syncService.getConnections(req.params.parentId as string);
-    res.json(list);
+    return res.json(list);
   } catch (err) {
     logger.error({ error: err, params: req.params }, 'sync_connections_list_error');
-    res.status(500).json({ error: "Failed to load connections" });
+    return res.status(500).json({ error: "Failed to load connections" });
   }
 });
 
@@ -28,10 +28,10 @@ syncRouter.delete('/settings/connections/:id', authenticateUser, requireRole('pa
       return res.status(403).json({ error: 'Forbidden' });
     }
     syncService.deleteConnection(id);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
     logger.error({ error: err, connectionId: id }, 'sync_connection_delete_error');
-    res.status(500).json({ error: "Failed to delete connection" });
+    return res.status(500).json({ error: "Failed to delete connection" });
   }
 });
 
@@ -80,7 +80,7 @@ syncRouter.get('/sync/connect/google', (req, res) => {
     prompt: 'consent select_account',
     include_granted_scopes: false,
   });
-  res.redirect(url);
+  return res.redirect(url);
 });
 
 syncRouter.get('/sync/callback/google', async (req, res) => {
@@ -132,7 +132,7 @@ syncRouter.get('/sync/callback/google', async (req, res) => {
       parentId: parentId as string,
       hasRefreshToken: Boolean(tokens.refresh_token),
     }, 'sync_google_callback_connected');
-    res.type('html').send(`<!doctype html>
+    return res.type('html').send(`<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -160,7 +160,7 @@ syncRouter.get('/sync/callback/google', async (req, res) => {
       code: (err as any)?.code ?? (err as any)?.response?.status ?? null,
       responseData: (err as any)?.response?.data ?? null,
     }, 'sync_google_callback_error');
-    res.status(500).send("Failed to connect");
+    return res.status(500).send("Failed to connect");
   }
 });
 
@@ -168,10 +168,10 @@ syncRouter.get('/sync/callback/google', async (req, res) => {
 syncRouter.get('/settings/:parentId/calendars', authenticateUser, assertParentScope, (req, res) => {
   try {
     const calendars = syncService.getSyncCalendarsByParent(req.params.parentId as string);
-    res.json(calendars);
+    return res.json(calendars);
   } catch (err) {
     logger.error({ error: err, params: req.params }, 'sync_calendars_list_error');
-    res.status(500).json({ error: "Failed to load calendars" });
+    return res.status(500).json({ error: "Failed to load calendars" });
   }
 });
 
@@ -187,10 +187,10 @@ syncRouter.patch('/settings/calendars/:id', authenticateUser, requireRole('paren
       return res.status(403).json({ error: 'Forbidden' });
     }
     syncService.toggleSyncCalendar(id, enabled);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
     logger.error({ error: err, calendarId: id, body: req.body }, 'sync_calendar_toggle_error');
-    res.status(500).json({ error: "Failed to update calendar" });
+    return res.status(500).json({ error: "Failed to update calendar" });
   }
 });
 
@@ -201,10 +201,10 @@ syncRouter.post('/sync/connect/manual', authenticateUser, requireRole('parent'),
   try {
     const parentId = (req as any).user.parentId || (req as any).user.uid;
     syncService.saveManualConnection(parentId, email, appPassword);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
     logger.error({ error: err, userId: (req as any).user?.uid }, 'sync_manual_connection_save_error');
-    res.status(500).json({ error: "Failed to save connection" });
+    return res.status(500).json({ error: "Failed to save connection" });
   }
 });
 
@@ -216,10 +216,10 @@ syncRouter.post('/sync/:id/now', authenticateUser, requireRole('parent'), async 
     }
 
     const result = await syncService.syncGoogleConnectionNow(connection as any);
-    res.json(result);
+    return res.json(result);
   } catch (error: any) {
     logger.error({ error: error.message, connectionId: req.params.id }, 'sync_run_now_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -264,9 +264,9 @@ syncRouter.post('/settings/:parentId/sync-now', authenticateUser, requireRole('p
       startedAt,
       finishedAt,
     });
-  } catch (err) {
+    } catch (err) {
     logger.error({ error: err, parentId }, 'sync_parent_run_now_error');
     const message = err instanceof Error ? err.message : 'Failed to sync calendars now';
     return res.status(500).json({ error: message });
-  }
-});
+    }
+    });

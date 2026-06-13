@@ -31,24 +31,24 @@ eventsRouter.post('/events', authenticateUser, requireRole('parent'), enforceEdi
       ids = [eventsService.createEvent(eventData as any)];
     }
 
-    res.json({ success: true, ids });
-
     // Google sync: push first event only (or all — push first is sufficient for display)
     const first = eventsService.getEventById(ids[0]);
     if (first) {
       const googleId = await syncService.pushEventToGoogle(first.parentId, first).catch(() => null);
       if (googleId) eventsService.setExternalId(ids[0], googleId, 'google');
     }
+
+    return res.json({ success: true, ids });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
 eventsRouter.get('/parents/:parentId/events', authenticateUser, assertParentScope, (req, res) => {
   try {
-    res.json(eventsService.getEventsByParent(req.params.parentId as string));
+    return res.json(eventsService.getEventsByParent(req.params.parentId as string));
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -74,7 +74,6 @@ eventsRouter.put('/events/:id', authenticateUser, requireRole('parent'), enforce
     if (reminderMinutes !== undefined) allowed.reminderMinutes = reminderMinutes;
 
     const affectedIds = eventsService.updateEvent(req.params.id as string, allowed, scope);
-    res.json({ success: true });
 
     // Sync each affected event to Google
     for (const aid of affectedIds) {
@@ -87,8 +86,10 @@ eventsRouter.put('/events/:id', authenticateUser, requireRole('parent'), enforce
         if (googleId) eventsService.setExternalId(aid, googleId, 'google');
       }
     }
+
+    return res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -100,13 +101,14 @@ eventsRouter.delete('/events/:id', authenticateUser, requireRole('parent'), enfo
 
     const scope = (req.query.scope as string) === 'future' ? 'future' : 'one';
     eventsService.deleteEvent(req.params.id as string, scope);
-    res.json({ success: true });
 
     if (event.externalId) {
       await syncService.deleteEventFromGoogle(event.parentId, event.externalId).catch(() => {});
     }
+
+    return res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -121,9 +123,9 @@ eventsRouter.post('/events/:id/attendees', authenticateUser, (req, res) => {
     const familyUser = db.prepare('SELECT uid FROM users WHERE uid = ? AND (uid = ? OR parentId = ?)').get(targetUserId, parentId, parentId) as { uid: string } | undefined;
     if (!familyUser) return res.status(400).json({ error: 'Invalid attendee' });
     eventsService.addAttendee(req.params.id as string, targetUserId);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -138,9 +140,9 @@ eventsRouter.patch('/events/:id/attendees/:userId', authenticateUser, (req, res)
     if (!['pending', 'yes', 'no', 'maybe'].includes(rsvp)) return res.status(400).json({ error: 'Invalid rsvp' });
     const ok = eventsService.updateRsvp(req.params.id as string, req.params.userId as string, rsvp);
     if (!ok) return res.status(404).json({ error: 'Attendee not found' });
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -152,8 +154,8 @@ eventsRouter.delete('/events/:id/attendees/:userId', authenticateUser, (req, res
     const event = eventsService.getEventById(req.params.id as string);
     if (!event || event.parentId !== parentId) return res.status(403).json({ error: 'Forbidden' });
     eventsService.removeAttendee(req.params.id as string, req.params.userId as string);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });

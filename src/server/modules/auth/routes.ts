@@ -56,7 +56,7 @@ function clearAuthFailure(key: string) {
 const validate = (req: Request, res: Response, next: any) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-  next();
+  return next();
 };
 
 authRouter.post('/auth/register', authLimiter, [
@@ -67,9 +67,9 @@ authRouter.post('/auth/register', authLimiter, [
 ], async (req: Request, res: Response) => {
   try {
     const result = await authService.register(req.body.email, req.body.password, req.body.name);
-    res.json(result);
+    return res.json(result);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    return res.status(400).json({ error: err.message });
   }
 });
 
@@ -95,7 +95,7 @@ authRouter.post('/auth/login', authLimiter, [
   clearAuthFailure(key);
   result.user.badges = JSON.parse(result.user.badges || "[]");
   logSecurityEvent('auth.parent_login.success', { uid: result.user.uid, ip }, 'info');
-  res.json(result);
+  return res.json(result);
 });
 
 authRouter.post('/auth/login/kid', authLimiter, [
@@ -120,7 +120,7 @@ authRouter.post('/auth/login/kid', authLimiter, [
   clearAuthFailure(key);
   result.user.badges = JSON.parse(result.user.badges || "[]");
   logSecurityEvent('auth.kid_login.success', { uid: result.user.uid, ip }, 'info');
-  res.json(result);
+  return res.json(result);
 });
 
 authRouter.get('/auth/profiles/:email', profileLookupLimiter, [
@@ -128,7 +128,7 @@ authRouter.get('/auth/profiles/:email', profileLookupLimiter, [
 ], async (req: Request, res: Response) => {
   const email = req.params.email as string;
   const kids = authService.getKidsByParentEmail(email);
-  res.json({ kids });
+  return res.json({ kids });
 });
 
 authRouter.post('/auth/set-pin', authenticateUser, [
@@ -138,9 +138,9 @@ authRouter.post('/auth/set-pin', authenticateUser, [
   try {
     const uid = (req as any).user.uid;
     await authService.setPin(uid, req.body.pin);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    return res.status(400).json({ error: err.message });
   }
 });
 
@@ -167,14 +167,14 @@ authRouter.post('/auth/change-password', authenticateUser, requireRole('parent')
 
   clearAuthFailure(key);
   logSecurityEvent('auth.password_change.success', { uid: user.uid, ip }, 'info');
-  res.json({ success: true });
+  return res.json({ success: true });
 });
 
 authRouter.post('/auth/refresh', authenticateUser, authLimiter, (req: Request, res: Response) => {
   const user = (req as any).user as { uid: string; role: string; parentId: string };
   const result = authService.refresh(user.uid, user.role, user.parentId);
   logSecurityEvent('auth.token_refresh', { uid: user.uid }, 'info');
-  res.json(result);
+  return res.json(result);
 });
 
 authRouter.get('/auth/me', authenticateUser, (req: Request, res: Response) => {
@@ -184,5 +184,5 @@ authRouter.get('/auth/me', authenticateUser, (req: Request, res: Response) => {
     user.badges = JSON.parse(user.badges || "[]");
     return res.json({ user });
   }
-  res.status(401).json({ error: "User not found" });
+  return res.status(401).json({ error: "User not found" });
 });

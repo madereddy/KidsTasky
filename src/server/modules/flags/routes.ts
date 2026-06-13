@@ -6,9 +6,9 @@ export const flagsRouter = Router();
 
 flagsRouter.get('/settings/:parentId/flags', requireAuth, assertParentScope, (req, res) => {
   try {
-    res.json(flagsService.getFlags(String(req.params.parentId)));
+    return res.json(flagsService.getFlags(String(req.params.parentId)));
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -23,8 +23,8 @@ flagsRouter.patch('/settings/:parentId/flags/:flag', requireAuth, requireRole('p
   }
   try {
     flagsService.setFlag(String(req.params.parentId), flag, enabled);
-    res.json({ success: true, flag, enabled });
+    return res.json({ success: true, flag, enabled });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });

@@ -43,7 +43,7 @@ photosRouter.get('/photos/file/:filename', requireAuth, (req, res) => {
 
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Not found' });
   res.type(path.extname(safeName));
-  fs.createReadStream(filePath)
+  return fs.createReadStream(filePath)
     .on('error', () => {
       if (!res.headersSent) {
         res.status(500).json({ error: 'Failed to read photo file' });
@@ -300,7 +300,7 @@ photosRouter.put("/photos/:id/caption", requireAuth, (req, res) => {
   if (!photo) return res.status(404).json({ error: 'Not found' });
   if (photo.parentId !== callerParentId) return res.status(403).json({ error: 'Forbidden' });
   photosService.updateCaption(String(req.params.id), String(req.body?.caption ?? ""));
-  res.json({ success: true });
+  return res.json({ success: true });
 });
 
 photosRouter.delete("/photos/:id", requireAuth, (req, res) => {
@@ -328,7 +328,7 @@ photosRouter.delete("/photos/:id", requireAuth, (req, res) => {
     }
   }
   if (parentId) googleMediaCache.clearPrefix(`${parentId}:`);
-  res.json({ success: true });
+  return res.json({ success: true });
 });
 
 photosRouter.get('/parents/:parentId/google-photos/albums', requireAuth, assertParentScope, async (req, res) => {

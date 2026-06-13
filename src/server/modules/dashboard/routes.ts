@@ -9,7 +9,7 @@ export const dashboardRouter = Router();
 const validate = (req: Request, res: Response, next: any) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-  next();
+  return next();
 };
 
 dashboardRouter.get("/parents/:parentId/family-dashboard-data", authenticateUser, assertParentScope, [
@@ -19,9 +19,9 @@ dashboardRouter.get("/parents/:parentId/family-dashboard-data", authenticateUser
 ], (req: Request, res: Response) => {
   try {
     const data = dashboardService.getFamilyDashboardData(req.params.parentId as string, req.query.dateString as string);
-    res.json(data);
+    return res.json(data);
   } catch (error: any) {
     logger.error({ parentId: req.params.parentId, error: error.message }, 'dashboard_data_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });

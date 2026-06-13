@@ -26,7 +26,7 @@ settingsRouter.get('/settings/:parentId/bootstrap', requireAuth, assertParentSco
     const calendarVisibility = settingsService.getCalendarVisibility(userId);
     const connections = syncService.getConnections(parentId);
 
-    res.json({
+    return res.json({
       settings: {
         ...scrubSettings(settings as any),
         lockout: lockout.locked ? { remainingSec: Math.ceil(lockout.remainingMs / 1000) } : null
@@ -37,7 +37,7 @@ settingsRouter.get('/settings/:parentId/bootstrap', requireAuth, assertParentSco
     });
   } catch (error: any) {
     logger.error({ error: error.message, params: req.params }, 'settings_bootstrap_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -45,10 +45,10 @@ settingsRouter.get('/settings/visibility', requireAuth, (req, res) => {
   try {
     const userId = (req as any).user.uid;
     const visibility = settingsService.getCalendarVisibility(userId);
-    res.json(visibility);
+    return res.json(visibility);
   } catch (error: any) {
     logger.error({ error: error.message, userId: (req as any).user?.uid }, 'settings_get_visibility_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -59,10 +59,10 @@ settingsRouter.post('/settings/visibility', requireAuth, (req, res) => {
     if (!calendarId) return res.status(400).json({ error: 'calendarId is required' });
     
     settingsService.setCalendarVisibility(userId, calendarId, !!isVisible);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error: any) {
     logger.error({ error: error.message, body: req.body, userId: (req as any).user?.uid }, 'settings_post_visibility_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -74,13 +74,13 @@ settingsRouter.get('/settings/:parentId', requireAuth, (req, res) => {
     const parentId = String(req.params.parentId);
     const lockout = getLockoutState(`unlock:${parentId}`);
     
-    res.json({
+    return res.json({
       ...scrubSettings(settings as any),
       lockout: lockout.locked ? { remainingSec: Math.ceil(lockout.remainingMs / 1000) } : null
     });
   } catch (error: any) {
     logger.error({ error: error.message, params: req.params }, 'settings_get_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -97,10 +97,10 @@ settingsRouter.put('/settings/:parentId', requireAuth, requireRole('parent'), as
       delete data.pin;
     }
     settingsService.saveSettings(String(req.params.parentId), data);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error: any) {
     logger.error({ error: error.message, params: req.params, body: req.body }, 'settings_save_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -109,10 +109,10 @@ settingsRouter.post("/settings/:parentId/lock", requireAuth, requireRole('parent
     const userParentId = getParentId(req);
     if (userParentId !== req.params.parentId) return res.status(403).json({ error: 'Forbidden' });
     settingsService.setLocked(String(req.params.parentId), true);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error: any) {
     logger.error({ error: error.message, params: req.params }, 'settings_lock_error');
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 

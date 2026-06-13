@@ -18,9 +18,9 @@ export function authenticateUser(req: Request, res: Response, next: NextFunction
     }
 
     (req as any).user = payload;
-    next();
+    return next();
   } catch (err) {
-    res.status(401).json({ error: "Invalid token" });
+    return res.status(401).json({ error: "Invalid token" });
   }
 }
 
@@ -40,7 +40,7 @@ export function requireRole(role: string) {
     if (!user || (role === 'parent' ? !isParental : user.role !== role)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    next();
+    return next();
   };
 }
 
@@ -49,7 +49,7 @@ export function assertParentScope(req: Request, res: Response, next: NextFunctio
   if (getParentId(req) !== req.params.parentId) {
     return res.status(403).json({ error: 'Forbidden' });
   }
-  next();
+  return next();
 }
 
 export function enforceEditUnlocked(req: Request, res: Response, next: NextFunction) {
@@ -60,5 +60,5 @@ export function enforceEditUnlocked(req: Request, res: Response, next: NextFunct
   const parentId = getParentId(req);
   const row = db.prepare('SELECT isLocked FROM family_settings WHERE parentId = ?').get(parentId) as { isLocked?: number } | undefined;
   if (row?.isLocked) return res.status(423).json({ error: 'Display is locked for edits' });
-  next();
+  return next();
 }

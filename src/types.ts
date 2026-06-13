@@ -20,6 +20,13 @@ export interface UserProfile {
   avatarUrl?: string;
 }
 
+export interface AppUser {
+  uid: string;
+  email?: string;
+  name: string;
+  displayName?: string;
+}
+
 export interface EarnedBadge {
   id: string;
   earnedAt: FirebaseTimestamp;

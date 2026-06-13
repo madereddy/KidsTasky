@@ -106,7 +106,7 @@ describe('Lists API', () => {
 
     expect(res.status).toBe(201);
     expect(mockedListsService.getListsByIds).toHaveBeenCalledWith(['list_xyz', 'list_abc']);
-    expect(mockedListsService.addItemsToLists).toHaveBeenCalledWith(['list_xyz', 'list_abc'], 'Water bottle');
+    expect(mockedListsService.addItemsToLists).toHaveBeenCalledWith(['list_xyz', 'list_abc'], 'Water bottle', undefined, undefined);
     expect(res.body).toHaveLength(2);
   });
 

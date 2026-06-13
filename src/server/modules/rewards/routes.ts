@@ -9,7 +9,7 @@ export const rewardsRouter = Router();
 const validate = (req: Request, res: Response, next: any) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-  next();
+  return next();
 };
 
 rewardsRouter.get("/parents/:parentId/rewards", authenticateUser, assertParentScope, [
@@ -17,7 +17,7 @@ rewardsRouter.get("/parents/:parentId/rewards", authenticateUser, assertParentSc
   validate
 ], (req: Request, res: Response) => {
   const rewards = rewardService.getRewards(req.params.parentId as string);
-  res.json(rewards);
+  return res.json(rewards);
 });
 
 rewardsRouter.post("/rewards", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
@@ -29,7 +29,7 @@ rewardsRouter.post("/rewards", authenticateUser, requireRole('parent'), enforceE
   const parentId = getParentId(req);
   const { title, description, xpCost, starCost, allowanceCents } = req.body;
   const id = rewardService.createReward(parentId, title, description || '', xpCost, starCost, allowanceCents);
-  res.json({ id });
+  return res.json({ id });
 });
 
 rewardsRouter.delete("/rewards/:id", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
@@ -41,7 +41,7 @@ rewardsRouter.delete("/rewards/:id", authenticateUser, requireRole('parent'), en
   const userParentId = getParentId(req);
   if (reward.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
   rewardService.deleteReward(req.params.id as string);
-  res.json({ success: true });
+  return res.json({ success: true });
 });
 
 rewardsRouter.get("/kids/:kidId/claimedRewards", authenticateUser, [
@@ -57,7 +57,7 @@ rewardsRouter.get("/kids/:kidId/claimedRewards", authenticateUser, [
   if (kidParentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
 
   const claimed = rewardService.getClaimedRewards(kidId);
-  res.json(claimed.map((c: any) => ({ ...c, createdAt: { seconds: c.createdAt / 1000 } })));
+  return res.json(claimed.map((c: any) => ({ ...c, createdAt: { seconds: c.createdAt / 1000 } })));
 });
 
 rewardsRouter.post("/claimedRewards", authenticateUser, enforceEditUnlocked, [
@@ -79,7 +79,7 @@ rewardsRouter.post("/claimedRewards", authenticateUser, enforceEditUnlocked, [
   }
   try {
     const result = rewardService.claimReward(kidId, rewardId, xpCost);
-    res.json({
+    return res.json({
       claimedReward: {
         ...result.claimedReward,
         createdAt: { seconds: result.claimedReward.createdAt / 1000 },
@@ -87,7 +87,7 @@ rewardsRouter.post("/claimedRewards", authenticateUser, enforceEditUnlocked, [
       balances: result.balances,
     });
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    return res.status(400).json({ error: error.message });
   }
 });
 
@@ -96,7 +96,7 @@ rewardsRouter.get("/parents/:parentId/allowances", authenticateUser, assertParen
   validate
 ], (req: Request, res: Response) => {
   const entries = rewardService.getPendingAllowances(req.params.parentId as string);
-  res.json(entries);
+  return res.json(entries);
 });
 
 rewardsRouter.put("/allowances/:id/pay", authenticateUser, requireRole('parent'), enforceEditUnlocked, [
@@ -105,5 +105,5 @@ rewardsRouter.put("/allowances/:id/pay", authenticateUser, requireRole('parent')
 ], (req: Request, res: Response) => {
   const ok = rewardService.markAllowancePaid(req.params.id as string, getParentId(req));
   if (!ok) return res.status(404).json({ error: 'Not found' });
-  res.json({ success: true });
+  return res.json({ success: true });
 });

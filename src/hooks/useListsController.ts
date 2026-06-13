@@ -6,53 +6,6 @@ import { HttpError } from '../services/http';
 import { AppList, AppListItem } from '../types';
 import { useSocketStaleData } from './useSocket';
 
-function parseListMetadata(list: AppList): AppList {
-  const match = list.title.match(/(.*?)\s*\|META:(.+?)\|$/);
-  if (match) {
-    try {
-      const meta = JSON.parse(match[2]);
-      return {
-        ...list,
-        title: match[1].trim(),
-        locationName: meta.locationName,
-        isRoutine: meta.isRoutine
-      };
-    } catch (e) {
-      return list;
-    }
-  }
-  return list;
-}
-
-function stringifyListMetadata(title: string, locationName?: string, isRoutine?: number): string {
-  if (!locationName && !isRoutine) return title;
-  return `${title} |META:${JSON.stringify({ locationName, isRoutine })}|`;
-}
-
-function parseItemMetadata(item: AppListItem): AppListItem {
-  const match = item.text.match(/(.*?)\s*\|META:(.+?)\|$/);
-  if (match) {
-    try {
-      const meta = JSON.parse(match[2]);
-      return {
-        ...item,
-        text: match[1].trim(),
-        storeName: meta.storeName,
-        locationName: meta.locationName,
-        completedAt: meta.completedAt
-      };
-    } catch (e) {
-      return item;
-    }
-  }
-  return item;
-}
-
-function stringifyItemMetadata(text: string, storeName?: string, completedAt?: number, locationName?: string): string {
-  if (!storeName && !completedAt && !locationName) return text;
-  return `${text} |META:${JSON.stringify({ storeName, completedAt, locationName })}|`;
-}
-
 const defaultStoreNames = getDefaultStoreNames();
 const defaultLocationNames = getDefaultLocationOptions().map((option) => option.label);
 
@@ -110,8 +63,8 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
         listsClientService.getLists(parentId),
         listsClientService.getParentItems(parentId)
       ]);
-      setLists((nextLists || []).map(parseListMetadata));
-      setGlobalHistory((nextGlobal || []).map(parseItemMetadata));
+      setLists(nextLists || []);
+      setGlobalHistory(nextGlobal || []);
       setSelectedListId((currentId) => {
         return chooseInitialListId(nextLists, currentId, preferredCategory);
       });
@@ -129,7 +82,7 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     setLoadingItems(true);
     try {
       const nextItems = await listsClientService.getItems(listId);
-      setItems((nextItems || []).map(parseItemMetadata));
+      setItems(nextItems || []);
     } finally {
       setLoadingItems(false);
     }
@@ -138,7 +91,7 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
   const refreshGlobalHistory = useCallback(async () => {
     if (!parentId) return;
     const nextGlobal = await listsClientService.getParentItems(parentId);
-    setGlobalHistory((nextGlobal || []).map(parseItemMetadata));
+    setGlobalHistory(nextGlobal || []);
   }, [parentId]);
 
   const refreshSelectedListItems = useCallback(async () => {
@@ -147,7 +100,7 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
       return;
     }
     const nextItems = await listsClientService.getItems(selectedListId);
-    setItems((nextItems || []).map(parseItemMetadata));
+    setItems(nextItems || []);
   }, [selectedListId]);
 
   useEffect(() => {
@@ -176,13 +129,12 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     isRoutine?: number,
     locationName?: string,
   ) => {
-    const rawTitle = stringifyListMetadata(title, locationName, isRoutine);
-    let parsed: AppList;
+    let created: AppList;
     try {
-      parsed = parseListMetadata(await listsClientService.createList(rawTitle, category, isRoutine, locationName));
+      created = await listsClientService.createList(title, category, isRoutine, locationName);
     } catch (error) {
       if (!isQueuedNetworkError(error)) throw error;
-      parsed = {
+      created = {
         id: makeQueuedId('list'),
         parentId,
         title,
@@ -193,10 +145,10 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
         updatedAt: new Date().toISOString(),
       };
     }
-    setLists((prev) => [...prev, parsed]);
-    setSelectedListId(parsed.id);
+    setLists((prev) => [...prev, created]);
+    setSelectedListId(created.id);
     setItems([]);
-    return parsed;
+    return created;
   };
 
   const updateList = async (
@@ -206,18 +158,16 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     isRoutine?: number,
     locationName?: string,
   ) => {
-    const rawTitle = stringifyListMetadata(title, locationName, isRoutine);
-    const updated = await listsClientService.updateList(id, rawTitle, category, isRoutine, locationName);
-    const parsed = parseListMetadata(updated);
+    const updated = await listsClientService.updateList(id, title, category, isRoutine, locationName);
     setLists((prev) => {
-      const nextLists = prev.map((list) => list.id === id ? parsed : list);
+      const nextLists = prev.map((list) => list.id === id ? updated : list);
       setSelectedListId((currentId) => {
         if (currentId !== id) return currentId;
         return chooseInitialListId(nextLists, currentId, preferredCategory);
       });
       return nextLists;
     });
-    return parsed;
+    return updated;
   };
 
   const deleteList = async (id: string) => {
@@ -246,17 +196,15 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
       defaultLocationNames,
     );
     
-    // If no explicit store is provided via @ tag or param, use the list title as the default storeName
     const finalStore = explicitStore || parsedStore || list?.title;
     const finalLocation = explicitLocation || parsedLocation;
 
-    const rawText = stringifyItemMetadata(cleanText, finalStore, undefined, finalLocation);
-    let parsedCreated: AppListItem;
+    let created: AppListItem;
     try {
-      parsedCreated = parseItemMetadata(await listsClientService.addItem(selectedListId, rawText));
+      created = await listsClientService.addItem(selectedListId, cleanText, finalStore, finalLocation);
     } catch (error) {
       if (!isQueuedNetworkError(error)) throw error;
-      parsedCreated = {
+      created = {
         id: makeQueuedId('item'),
         listId: selectedListId,
         text: cleanText,
@@ -265,9 +213,9 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
         locationName: finalLocation,
       };
     }
-    setItems((prev) => [...prev, parsedCreated]);
+    setItems((prev) => [...prev, created]);
     void refreshGlobalHistory();
-    return parsedCreated;
+    return created;
   };
 
   const addItemToLists = async (
@@ -285,19 +233,15 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
       defaultLocationNames,
     );
     
-    // Note: When adding to multiple lists, the storeName for each instance 
-    // is best handled by the server or individual add calls if we want list-specific defaults.
-    // However, for this bulk API, we'll use the parsedStore or explicitStore.
     const finalStore = explicitStore || parsedStore;
     const finalLocation = explicitLocation || parsedLocation;
 
-    const rawText = stringifyItemMetadata(cleanText, finalStore, undefined, finalLocation);
-    let parsedCreated: AppListItem[];
+    let createdItems: AppListItem[];
     try {
-      parsedCreated = (await listsClientService.addItemsToLists(uniqueListIds, rawText)).map(parseItemMetadata);
+      createdItems = await listsClientService.addItemsToLists(uniqueListIds, cleanText, finalStore, finalLocation);
     } catch (error) {
       if (!isQueuedNetworkError(error)) throw error;
-      parsedCreated = uniqueListIds.map((listId) => ({
+      createdItems = uniqueListIds.map((listId) => ({
         id: makeQueuedId('item'),
         listId,
         text: cleanText,
@@ -308,38 +252,29 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     }
 
     setItems((prev) => {
-      const selectedCreations = parsedCreated.filter((item) => item.listId === selectedListId);
+      const selectedCreations = createdItems.filter((item) => item.listId === selectedListId);
       return selectedCreations.length > 0 ? [...prev, ...selectedCreations] : prev;
     });
     void refreshGlobalHistory();
-    return parsedCreated;
+    return createdItems;
   };
 
   const toggleItem = async (itemId: string, completed: boolean) => {
     const item = items.find(i => i.id === itemId) ?? globalHistory.find(i => i.id === itemId);
     if (!item) return;
 
-    const completedAt = completed ? Date.now() : undefined;
-    const displayText = item.text.replace(/\s*\|META:.*?\|$/, '');
-    const serializedText = stringifyItemMetadata(
-      displayText,
-      item.storeName,
-      completedAt,
-      item.locationName
-    );
-
     try {
-      await listsClientService.toggleItem(itemId, completed, serializedText);
+      await listsClientService.toggleItem(itemId, completed, item.text, item.storeName, item.locationName);
     } catch (error) {
       if (!isQueuedNetworkError(error)) throw error;
     }
+    const completedAt = completed ? Date.now() : undefined;
     setItems((prev) => prev.map((i) => (
       i.id === itemId
         ? {
             ...i,
             completed: completed ? 1 : 0,
             completedAt,
-            text: displayText,
           }
         : i
     )));
@@ -349,7 +284,6 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
             ...i,
             completed: completed ? 1 : 0,
             completedAt,
-            text: displayText,
           }
         : i
     )));
@@ -371,16 +305,14 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     const uniqueListIds = Array.from(new Set(listIds.filter(Boolean)));
     if (uniqueListIds.length === 0) return [];
     const created = await listsClientService.copyItemToLists(itemId, uniqueListIds);
-    const parsedCreated = created.map(parseItemMetadata);
     await Promise.all([refreshSelectedListItems(), refreshGlobalHistory()]);
-    return parsedCreated;
+    return created;
   };
 
   const moveItemToList = async (itemId: string, targetListId: string) => {
     const moved = await listsClientService.moveItemToList(itemId, targetListId);
-    const parsedMoved = parseItemMetadata(moved);
     await Promise.all([refreshSelectedListItems(), refreshGlobalHistory()]);
-    return parsedMoved;
+    return moved;
   };
 
   const frequentItems = useMemo(() => {

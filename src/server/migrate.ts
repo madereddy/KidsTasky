@@ -82,11 +82,67 @@ export function runMigrations(db: Database) {
   }
 
   db.exec(`
-    CREATE TABLE IF NOT EXISTS item_stats (
-      parentId TEXT NOT NULL,
-      text TEXT NOT NULL,
-      usageCount INTEGER DEFAULT 1,
-      PRIMARY KEY (parentId, text)
-    );
+  CREATE TABLE IF NOT EXISTS item_stats (
+    parentId TEXT NOT NULL,
+    text TEXT NOT NULL,
+    usageCount INTEGER DEFAULT 1,
+    PRIMARY KEY (parentId, text)
+  );
   `);
-}
+
+  // Migration 054: Extract |META: JSON from text and populate new columns
+  const itemsWithMeta = db.prepare("SELECT id, text FROM list_items WHERE text LIKE '%|META:%'").all() as Array<{ id: string; text: string }>;
+  if (itemsWithMeta.length > 0) {
+  logger.info({ count: itemsWithMeta.length }, 'migration_extracting_list_item_metadata');
+  const updateStmt = db.prepare('UPDATE list_items SET text = ?, storeName = ?, locationName = ?, completedAt = ? WHERE id = ?');
+  const transaction = db.transaction((rows) => {
+    for (const row of rows) {
+      const match = row.text.match(/(.*?)\s*\|META:(.+?)\|$/);
+      if (match) {
+        const cleanText = match[1].trim();
+        try {
+          const meta = JSON.parse(match[2]);
+          updateStmt.run(
+            cleanText,
+            meta.storeName || null,
+            meta.locationName || null,
+            meta.completedAt || null,
+            row.id
+          );
+        } catch (e) {
+          logger.warn({ id: row.id, text: row.text }, 'migration_failed_to_parse_metadata');
+        }
+      }
+    }
+  });
+  transaction(itemsWithMeta);
+  }
+
+  // Similar for lists table
+  const listsWithMeta = db.prepare("SELECT id, title FROM lists WHERE title LIKE '%|META:%'").all() as Array<{ id: string; title: string }>;
+  if (listsWithMeta.length > 0) {
+  logger.info({ count: listsWithMeta.length }, 'migration_extracting_list_metadata');
+  const updateStmt = db.prepare('UPDATE lists SET title = ?, locationName = ?, isRoutine = ? WHERE id = ?');
+  const transaction = db.transaction((rows) => {
+    for (const row of rows) {
+      const match = row.title.match(/(.*?)\s*\|META:(.+?)\|$/);
+      if (match) {
+        const cleanTitle = match[1].trim();
+        try {
+          const meta = JSON.parse(match[2]);
+          updateStmt.run(
+            cleanTitle,
+            meta.locationName || null,
+            meta.isRoutine ? 1 : 0,
+            row.id
+          );
+        } catch (e) {
+          logger.warn({ id: row.id, title: row.title }, 'migration_failed_to_parse_list_metadata');
+        }
+      }
+    }
+  });
+  transaction(listsWithMeta);
+  }
+  }
+

@@ -9,14 +9,14 @@ export const notesRouter = Router();
 const validate = (req: Request, res: Response, next: any) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-  next();
+  return next();
 };
 
 notesRouter.get('/family-notes/:parentId', authenticateUser, assertParentScope, [
   param('parentId').isString().notEmpty(),
   validate
 ], (req: Request, res: Response) => {
-  res.json(notesService.getNote(req.params.parentId as string));
+  return res.json(notesService.getNote(req.params.parentId as string));
 });
 
 notesRouter.put('/family-notes/:parentId', authenticateUser, assertParentScope, [
@@ -28,5 +28,5 @@ notesRouter.put('/family-notes/:parentId', authenticateUser, assertParentScope, 
   const callerUser = db.prepare('SELECT name FROM users WHERE uid = ?').get(callerUid) as any;
   const updatedByName = callerUser?.name || 'Unknown';
   notesService.upsertNote(req.params.parentId as string, req.body.content ?? '', updatedByName);
-  res.json({ success: true });
+  return res.json({ success: true });
 });

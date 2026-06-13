@@ -32,9 +32,9 @@ const nextHomeworkDueDate = (fromDate: string, recurrence: 'none' | 'daily' | 'w
 homeworkRouter.get('/parents/:parentId/homework', authenticateUser, assertParentScope, (req, res) => {
   try {
     const rows = homeworkService.getByParent(req.params.parentId as string).map(serializeHomeworkRow);
-    res.json(rows);
+    return res.json(rows);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -60,9 +60,9 @@ homeworkRouter.post('/homework', authenticateUser, enforceEditUnlocked, (req, re
       completionResponse: null,
     });
     const created = serializeHomeworkRow(homeworkService.getById(id));
-    res.json(created);
+    return res.json(created);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -112,9 +112,9 @@ homeworkRouter.patch('/homework/:id', authenticateUser, enforceEditUnlocked, (re
     const ok = homeworkService.update(req.params.id as string, parentId, patch);
     if (!ok) return res.status(404).json({ error: 'Homework not found' });
     if (homeworkXpDelta !== 0) userService.addXP(user.uid, homeworkXpDelta);
-    res.json({ success: true, homework: serializeHomeworkRow(homeworkService.getById(req.params.id as string)) });
+    return res.json({ success: true, homework: serializeHomeworkRow(homeworkService.getById(req.params.id as string)) });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -125,8 +125,8 @@ homeworkRouter.delete('/homework/:id', authenticateUser, enforceEditUnlocked, (r
     const parentId = getParentId(req);
     const ok = homeworkService.remove(req.params.id as string, parentId);
     if (!ok) return res.status(404).json({ error: 'Homework not found' });
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
