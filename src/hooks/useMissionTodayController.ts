@@ -145,6 +145,9 @@ export function useMissionTodayController({
       // Skip routine items here - they'll be shown inside the routine card
       if (parentList.category === 'routine' && parentList.isRoutine) return;
       
+      // EXCLUDE shopping items from Mission Today
+      if (parentList.category === 'shopping') return;
+
       // Extract store/location from text or parent list
       const storeName = storeNames.find(store => 
         item.text.toLowerCase().includes(store.toLowerCase())

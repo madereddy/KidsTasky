@@ -251,17 +251,11 @@ describe('useMissionTodayController', () => {
     }));
 
     expect(result.current.missionItems.find(i => i.id === 'routine_routine-list')?.listCategory).toBe('routine');
-    expect(result.current.missionItems.find(i => i.id === 'list_shopping-item')).toBeDefined();
+    expect(result.current.missionItems.find(i => i.id === 'list_shopping-item')).toBeUndefined();
     expect(result.current.missionItems.find(i => i.id === 'list_routine-item')).toBeUndefined();
   });
 
-  it('excludes shopping list items from Mission Today (items themselves are included, but listCategory/logic might filter)', () => {
-    // Note: useMissionTodayController currently includes shopping list items as list_item
-    // but the test name suggests they should be excluded. 
-    // Looking at the implementation: 
-    // if (parentList.category === 'routine' && parentList.isRoutine) return; // skips routine items
-    // So shopping items ARE included as list_item.
-    
+  it('excludes shopping list items from Mission Today', () => {
     const lists: AppList[] = [
       { id: 'routine-list', parentId: 'parent1', title: 'Morning Routine', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
       { id: 'shopping-list', parentId: 'parent1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
@@ -283,7 +277,7 @@ describe('useMissionTodayController', () => {
     }));
 
     expect(result.current.missionItems.map((item) => item.id)).toContain('routine_routine-list');
-    expect(result.current.missionItems.map((item) => item.id)).toContain('list_shopping-item');
+    expect(result.current.missionItems.map((item) => item.id)).not.toContain('list_shopping-item');
   });
 
   it('excludes non-daily routine lists from Mission Today summary, but items themselves might appear if isRoutine is 0', () => {
