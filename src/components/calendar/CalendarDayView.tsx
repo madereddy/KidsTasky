@@ -1,5 +1,5 @@
-import React from 'react';
-import { format, isSameDay } from 'date-fns';
+import React, { useEffect, useRef } from 'react';
+import { format, isSameDay, startOfDay } from 'date-fns';
 import { CalendarEvent } from '../../types';
 import { MealPlanWithRecipe } from '../../services/meals';
 import { DailyForecast } from '../../services/weather';
@@ -39,8 +39,24 @@ export function CalendarDayView({
   timeFormat = '12h',
   timezone = 'America/Chicago'
 }: Props) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const allDayEvents = events.filter((ev) => ev.isAllDay && isSameDay(new Date(ev.startTime), day));
   const dayEvents = events.filter((ev) => !ev.isAllDay && isSameDay(new Date(ev.startTime), day));
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      // Find earliest event or default to 7 AM
+      let earliestHour = 7;
+      if (dayEvents.length > 0) {
+        const earliestEvent = dayEvents.reduce((min, ev) => ev.startTime < min ? ev.startTime : min, dayEvents[0].startTime);
+        const eventHour = new Date(earliestEvent).getHours();
+        earliestHour = Math.min(earliestHour, eventHour);
+      }
+      
+      const scrollPos = (earliestHour / 24) * GRID_HEIGHT;
+      scrollRef.current.scrollTop = scrollPos;
+    }
+  }, [day, dayEvents.length]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -86,7 +102,7 @@ export function CalendarDayView({
         </div>
       )}
 
-      <div className="flex overflow-y-auto flex-1">
+      <div className="flex overflow-y-auto flex-1" ref={scrollRef}>
         <div className="w-14 shrink-0 relative" style={{ height: GRID_HEIGHT }}>
           {HOURS.map((h) => (
             <div key={h} className="absolute w-full pr-1 text-right" style={{ top: (h / 24) * GRID_HEIGHT - 8 }}>

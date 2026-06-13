@@ -1,5 +1,5 @@
-﻿import React, { useState } from 'react';
-import { format, addDays, isSameDay } from 'date-fns';
+﻿import React, { useState, useEffect, useRef } from 'react';
+import { format, addDays, isSameDay, startOfDay } from 'date-fns';
 import { CalendarEvent } from '../../types';
 import { cn } from '../../lib/utils';
 import { DailyForecast } from '../../services/weather';
@@ -35,12 +35,33 @@ export function CalendarWeekView({
   timeFormat = '12h',
   timezone = 'America/Chicago'
 }: Props) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const today = new Date();
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   const allDayEvents = events.filter((ev) => ev.isAllDay);
   const timedEvents = events.filter((ev) => !ev.isAllDay);
   const getEventsForDay = (day: Date) => timedEvents.filter((ev) => isSameDay(new Date(ev.startTime), day));
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      // Find earliest event in the visible week or default to 7 AM
+      let earliestHour = 7;
+      
+      const visibleWeekTimedEvents = timedEvents.filter(ev => 
+        days.some(day => isSameDay(new Date(ev.startTime), day))
+      );
+
+      if (visibleWeekTimedEvents.length > 0) {
+        const earliestEvent = visibleWeekTimedEvents.reduce((min, ev) => ev.startTime < min ? ev.startTime : min, visibleWeekTimedEvents[0].startTime);
+        const eventHour = new Date(earliestEvent).getHours();
+        earliestHour = Math.min(earliestHour, eventHour);
+      }
+      
+      const scrollPos = (earliestHour / 24) * GRID_HEIGHT;
+      scrollRef.current.scrollTop = scrollPos;
+    }
+  }, [weekStart, events]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -85,7 +106,7 @@ export function CalendarWeekView({
         })}
       </div>
 
-      <div className="flex overflow-y-auto flex-1">
+      <div className="flex overflow-y-auto flex-1" ref={scrollRef}>
         <div className="w-14 shrink-0 relative" style={{ height: GRID_HEIGHT }}>
           {HOURS.map((h) => (
             <div key={h} className="absolute w-full pr-1 text-right" style={{ top: (h / 24) * GRID_HEIGHT - 8 }}>
