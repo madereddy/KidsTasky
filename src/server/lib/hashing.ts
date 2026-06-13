@@ -4,15 +4,32 @@ import bcrypt from 'bcrypt';
 const ARGON2_PREFIX = '$argon2id$';
 const BCRYPT_PREFIXES = ['$2a$', '$2b$', '$2y$'];
 
+function readPositiveIntEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function getArgon2Options() {
+  const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
+  return {
+    memoryCost: readPositiveIntEnv('ARGON2_MEMORY_COST', isTest ? 4096 : 65536),
+    timeCost: readPositiveIntEnv('ARGON2_TIME_COST', isTest ? 1 : 3),
+    parallelism: readPositiveIntEnv('ARGON2_PARALLELISM', isTest ? 1 : 4),
+  };
+}
+
 /**
  * Hash a secret using Argon2id (modern industry standard).
  */
 export async function hashSecret(plaintext: string): Promise<string> {
+  const options = getArgon2Options();
   return argon2.hash(plaintext, {
     type: argon2.argon2id,
-    memoryCost: 65536, // 64MB
-    timeCost: 3,
-    parallelism: 4,
+    memoryCost: options.memoryCost,
+    timeCost: options.timeCost,
+    parallelism: options.parallelism,
   });
 }
 

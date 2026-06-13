@@ -86,7 +86,11 @@ Only low/medium-confidence and non-code constraints are listed here.
 - Data lifecycle: deleted photo assets should be permanently removed by scheduled cleanup tasks.
 
 ## Runtime Architecture
-- API aggregator: `src/server/routes.ts`
+- API composition root: `src/server/routes.ts`
+  - This file should stay as a route mounting surface only.
+  - Do not add feature logic, diagnostics, response wrapping, or endpoint implementations here.
+  - New cross-cutting middleware belongs under `src/server/middleware/*`.
+  - New diagnostic/operational endpoints belong in a focused router such as `src/server/healthRoutes.ts`.
 - Domain modules: `src/server/modules/*`
 - Cross-device updates: socket stale-data events and client refetch
 - Data layer: SQLite + migration files in `src/server/migrations`
@@ -97,9 +101,33 @@ Only low/medium-confidence and non-code constraints are listed here.
 ## Guardrails Already in Place
 - Parent edit lock enforced server-side on mutation routes.
 - Family scoping by authenticated `parentId` boundary.
+- API-wide stale-data broadcasts are centralized in `src/server/middleware/staleDataBroadcaster.ts`.
+- Health and diagnostic API endpoints are centralized in `src/server/healthRoutes.ts`.
 - Incremental modularization of large dashboard task surfaces:
   - `KidTaskBoard`
   - `ParentTaskBoard`
+
+## Development Guardrails
+
+### Type Safety
+- `pnpm exec tsc --noEmit` is the baseline type gate.
+- `noImplicitAny` and `noFallthroughCasesInSwitch` are enabled.
+- `noImplicitReturns` is intentionally not enabled yet because existing Express route handlers include many implicit non-return paths. Enable it only after those handlers are normalized without changing route behavior.
+- New code should not introduce `any` unless it is isolating untyped legacy or third-party data at a boundary.
+
+### Test Runtime Cost
+- Tests must not use production-strength password hashing parameters by default.
+- Argon2id production defaults remain strong, but `src/server/lib/hashing.ts` uses lower defaults when Vitest or `NODE_ENV=test` is active.
+- If a test exercises authentication, PIN validation, password change, or lockout behavior, prefer behavior assertions over real-cost hashing benchmarks.
+- Use `ARGON2_MEMORY_COST`, `ARGON2_TIME_COST`, and `ARGON2_PARALLELISM` only when explicitly testing hashing configuration.
+
+### Large Module Policy
+- Do not grow composition roots or UI shells with new feature logic.
+- Before adding more than a small routing/mounting change to a large file, extract a focused module with regression coverage around the existing behavior.
+- Current high-value split targets:
+  - `src/server/worker.ts`: split scheduling, reminders, sync jobs, photo cleanup, and diagnostics.
+  - `src/components/calendar/CalendarView.tsx`: split view state, event mutation handlers, dialogs, and rendering adapters.
+  - `src/App.tsx`: keep shrinking toward routing/providers/app-shell composition only.
 
 ## Security Standards
 
@@ -108,6 +136,8 @@ Only low/medium-confidence and non-code constraints are listed here.
   - Memory: 64MB
   - Time Cost: 3
   - Parallelism: 4
+- Production defaults must stay at or above this level unless there is an explicit security review.
+- Test defaults may be lower to keep regression tests deterministic and fast.
 
 ### Lockout Policy
 Exponential backoff persisted in `auth_lockouts`.
@@ -132,6 +162,25 @@ Approach for extending SQLite schemas without migrations for list items.
 3. Add regression tests before each boundary refactor.
 4. Shift UI feature blocks into isolated components behind existing service calls.
 5. Maintain rollback per increment using reversible DB migrations + compose image tags.
+
+## Refactor Validation Checklist
+Before merging structural changes, run:
+```bash
+pnpm exec tsc --noEmit
+pnpm build
+pnpm test
+```
+
+For authentication, settings/PIN, and lockout changes, also run the focused suite:
+```bash
+pnpm exec vitest run server.test.ts tests/server/auth.test.ts src/server/modules/settings/api.test.ts
+```
+
+If a refactor moves route composition or middleware:
+- Confirm endpoint paths and mount order remain unchanged.
+- Confirm authenticated mutation routes still emit stale-data socket events.
+- Confirm health endpoints remain unauthenticated where they were previously unauthenticated.
+- Prefer extracting a module over adding logic back to `src/server/routes.ts`.
 
 ## Rebuild and Recovery Runbook
 1. Native dependency refresh:
