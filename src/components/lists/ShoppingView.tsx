@@ -592,7 +592,7 @@ export function ShoppingView({ parentId }: Props) {
                           {storeName}
                         </span>
                       ))}
-                      {item.allLocationNames.map((locName: string) => (
+                      {item.allLocationNames.filter(loc => !item.allStoreNames.includes(loc)).map((locName: string) => (
                         <span key={locName} className="rounded-full bg-slate-100 px-2 py-1 text-xs font-black uppercase tracking-wide text-slate-600">
                           {locName}
                         </span>

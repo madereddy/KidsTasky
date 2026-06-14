@@ -374,9 +374,9 @@ export default function App() {
           </div>
           <div className="flex items-center gap-4">
             {isParentRole(profile?.role) && isLocked && (
-              <button onClick={() => setShowUnlockPrompt(true)} className={cn("hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors z-[61]", isDarkTheme ? "bg-amber-500/10 text-amber-200 border-amber-400/50 hover:bg-amber-500/20" : "bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100")}>
+              <div className={cn("hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl border z-[61]", isDarkTheme ? "bg-amber-500/10 text-amber-200 border-amber-400/50" : "bg-amber-50 text-amber-900 border-amber-300")}>
                 <Lock className="w-4 h-4" /><span className="text-xs font-black uppercase tracking-[0.18em]">Locked</span>
-              </button>
+              </div>
             )}
             {isParentRole(profile?.role) && (
               <button onClick={() => isLocked ? setShowUnlockPrompt(true) : setShowSettings(true)} className={cn("p-2 rounded-xl border transition-colors flex items-center gap-2 z-[61]", isLocked ? (isDarkTheme ? "text-amber-200 border-amber-400/50 bg-amber-500/10" : "text-amber-900 border-amber-300 bg-amber-50") : (isDarkTheme ? "text-ui-secondary border-ui-dark-3 hover:text-white" : "text-ui-muted-2 border-ui hover:text-ui-primary hover:bg-ui-soft"))}>
