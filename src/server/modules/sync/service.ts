@@ -21,27 +21,6 @@ export type SyncNowResult = {
   updated: number;
 };
 
-type SyncConnectionColumns = {
-  hasCreatedAt: boolean;
-  hasLastSyncAt: boolean;
-  hasLastSyncStatus: boolean;
-};
-
-function getSyncConnectionColumns(): SyncConnectionColumns {
-  const rows = db.prepare("PRAGMA table_info('sync_connections')").all() as Array<{ name: string }>;
-  const names = new Set(rows.map((row) => row.name));
-  return {
-    hasCreatedAt: names.has('createdAt'),
-    hasLastSyncAt: names.has('lastSyncAt'),
-    hasLastSyncStatus: names.has('lastSyncStatus'),
-  };
-}
-
-function buildGoogleConnectionOrderBy(columns: SyncConnectionColumns): string {
-  return columns.hasCreatedAt
-    ? 'ORDER BY COALESCE(createdAt, 0) DESC, rowid DESC'
-    : 'ORDER BY rowid DESC';
-}
 
 export function decryptConnection(conn: SyncConnection): SyncConnection {
   const key = getSecretKey();
@@ -101,6 +80,14 @@ export function buildSyncCalendarId(connectionId: string, calendarId: string): s
   return `syncal_${connectionId}_${encodedCalendar}`;
 }
 
+export function buildLocalGoogleEventId(externalId: string): string {
+  return `ext_${externalId}`;
+}
+
+export function toGoogleProviderEventId(externalId: string): string {
+  return externalId.startsWith('ext_') ? externalId.slice(4) : externalId;
+}
+
 async function withTokenRefresh<T>(
   connection: SyncConnection,
   fn: (conn: SyncConnection) => Promise<T>
@@ -117,21 +104,13 @@ async function withTokenRefresh<T>(
         hasRefreshToken: Boolean(connection.refreshToken),
         provider: connection.provider,
       }, 'sync_token_refresh_attempt');
-      const oauth2 = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-      );
-      oauth2.setCredentials({ refresh_token: connection.refreshToken });
       try {
-        const { credentials } = await oauth2.refreshAccessToken();
-        const newAccessToken = credentials.access_token!;
-        db.prepare('UPDATE sync_connections SET accessToken = ? WHERE id = ?').run(encryptField(newAccessToken, getSecretKey()), connection.id);
+        const refreshed = await syncService.refreshGoogleConnectionTokens(connection);
         logger.info({
           connectionId: connection.id,
-          hasAccessToken: Boolean(newAccessToken),
-          hasRefreshToken: Boolean(credentials.refresh_token || connection.refreshToken),
+          hasAccessToken: Boolean(refreshed?.accessToken),
+          hasRefreshToken: Boolean(refreshed?.refreshToken),
         }, 'sync_token_refresh_ok');
-        const refreshed: SyncConnection = { ...connection, accessToken: newAccessToken };
         return await fn(refreshed);
       } catch (refreshError: any) {
         logger.error({
@@ -148,27 +127,17 @@ async function withTokenRefresh<T>(
 }
 
 function persistSyncStatus(connectionId: string, status: 'ok' | 'partial' | 'error') {
-  const columns = getSyncConnectionColumns();
-  if (!columns.hasLastSyncAt || !columns.hasLastSyncStatus) {
-    return;
-  }
-  db.prepare('UPDATE sync_connections SET lastSyncAt = ?, lastSyncStatus = ? WHERE id = ?').run(
-    Date.now(),
-    status,
-    connectionId,
-  );
+  db.prepare('UPDATE sync_connections SET lastSyncAt = ?, lastSyncStatus = ? WHERE id = ?')
+    .run(Date.now(), status, connectionId);
 }
 
 export const syncService = {
   getConnections: (parentId: string) => {
-    const columns = getSyncConnectionColumns();
-    const createdAtSelect = columns.hasCreatedAt ? 'createdAt' : 'NULL AS createdAt';
-    const lastSyncAtSelect = columns.hasLastSyncAt ? 'lastSyncAt' : 'NULL AS lastSyncAt';
-    const lastSyncStatusSelect = columns.hasLastSyncStatus ? 'lastSyncStatus' : 'NULL AS lastSyncStatus';
     return db.prepare(`
-      SELECT id, provider, ${createdAtSelect}, ${lastSyncAtSelect}, ${lastSyncStatusSelect}
+      SELECT id, provider, createdAt, lastSyncAt, lastSyncStatus
       FROM sync_connections
-      WHERE parentId = ?
+      WHERE parentId = ? AND provider = 'google'
+      ORDER BY COALESCE(createdAt, 0) DESC, rowid DESC
     `).all(parentId);
   },
 
@@ -182,6 +151,58 @@ export const syncService = {
     db.prepare('DELETE FROM sync_connections WHERE id = ?').run(id);
   },
 
+  updateConnectionTokens: (
+    id: string,
+    tokens: { accessToken?: string | null; refreshToken?: string | null; appPassword?: string | null },
+  ) => {
+    const sets: string[] = [];
+    const values: Array<string | null> = [];
+    const key = getSecretKey();
+
+    if ('accessToken' in tokens) {
+      sets.push('accessToken = ?');
+      values.push(tokens.accessToken ? encryptField(tokens.accessToken, key) : null);
+    }
+    if ('refreshToken' in tokens) {
+      sets.push('refreshToken = ?');
+      values.push(tokens.refreshToken ? encryptField(tokens.refreshToken, key) : null);
+    }
+    if ('appPassword' in tokens) {
+      sets.push('appPassword = ?');
+      values.push(tokens.appPassword ? encryptField(tokens.appPassword, key) : null);
+    }
+
+    if (sets.length === 0) return false;
+    values.push(id);
+    const result = db.prepare(`UPDATE sync_connections SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+    return result.changes > 0;
+  },
+
+  refreshGoogleConnectionTokens: async (connection: SyncConnection): Promise<SyncConnection> => {
+    if (!connection.refreshToken) {
+      throw new Error('Google refresh token is missing');
+    }
+
+    const oauth2 = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+    );
+    oauth2.setCredentials({ refresh_token: connection.refreshToken });
+    const { credentials } = await oauth2.refreshAccessToken();
+    const newAccessToken = credentials.access_token || connection.accessToken;
+    const newRefreshToken = credentials.refresh_token || connection.refreshToken;
+    if (!newAccessToken) {
+      throw new Error('Google token refresh did not return an access token');
+    }
+
+    syncService.updateConnectionTokens(connection.id, {
+      accessToken: newAccessToken,
+      ...(credentials.refresh_token ? { refreshToken: credentials.refresh_token } : {}),
+    });
+
+    return { ...connection, accessToken: newAccessToken, refreshToken: newRefreshToken };
+  },
+
   saveGoogleTokens: (parentId: string, accessToken: string, refreshToken?: string | null) => {
     if (!parentId) {
       throw new Error('parentId is required to save Google tokens');
@@ -190,9 +211,8 @@ export const syncService = {
       throw new Error('accessToken is required to save Google tokens');
     }
 
-    const columns = getSyncConnectionColumns();
     const existing = db.prepare(
-      `SELECT id, refreshToken FROM sync_connections WHERE parentId = ? AND provider = 'google' ${buildGoogleConnectionOrderBy(columns)} LIMIT 1`
+      "SELECT id, refreshToken FROM sync_connections WHERE parentId = ? AND provider = 'google' ORDER BY COALESCE(createdAt, 0) DESC, rowid DESC LIMIT 1"
     ).get(parentId) as { id: string; refreshToken?: string | null } | undefined;
 
     const now = Date.now();
@@ -208,24 +228,15 @@ export const syncService = {
       hasExistingConnection: Boolean(existing?.id),
       hasRefreshToken: Boolean(refreshToken),
       preservedRefreshToken: !refreshToken && Boolean(existing?.refreshToken),
-      schema: columns,
     }, 'sync_google_tokens_save_start');
 
     const save = db.transaction(() => {
       if (existing?.id) {
-        if (columns.hasCreatedAt) {
-          db.prepare(`
-            UPDATE sync_connections
-            SET accessToken = ?, refreshToken = ?, createdAt = ?
-            WHERE id = ?
-          `).run(encryptedAccessToken, nextRefreshToken, now, existing.id);
-        } else {
-          db.prepare(`
-            UPDATE sync_connections
-            SET accessToken = ?, refreshToken = ?
-            WHERE id = ?
-          `).run(encryptedAccessToken, nextRefreshToken, existing.id);
-        }
+        db.prepare(`
+          UPDATE sync_connections
+          SET accessToken = ?, refreshToken = ?, createdAt = ?
+          WHERE id = ?
+        `).run(encryptedAccessToken, nextRefreshToken, now, existing.id);
 
         // Keep only one active Google connection per parent to prevent duplicate calendar ingestion.
         db.prepare(
@@ -235,17 +246,10 @@ export const syncService = {
       }
 
       const connId = `sync_${now}_${Math.random().toString(36).slice(2, 8)}`;
-      if (columns.hasCreatedAt) {
-        db.prepare(`
-          INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken, createdAt)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `).run(connId, parentId, 'google', encryptedAccessToken, nextRefreshToken, now);
-      } else {
-        db.prepare(`
-          INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken)
-          VALUES (?, ?, ?, ?, ?)
-        `).run(connId, parentId, 'google', encryptedAccessToken, nextRefreshToken);
-      }
+      db.prepare(`
+        INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(connId, parentId, 'google', encryptedAccessToken, nextRefreshToken, now);
       return connId;
     });
 
@@ -253,7 +257,6 @@ export const syncService = {
     logger.info({
       parentId,
       connectionId: savedConnectionId,
-      schema: columns,
     }, 'sync_google_tokens_save_ok');
   },
 
@@ -266,9 +269,8 @@ export const syncService = {
   },
 
   getActiveGoogleConnection: (parentId: string): SyncConnection | null => {
-    const columns = getSyncConnectionColumns();
     const row = db.prepare(
-      `SELECT * FROM sync_connections WHERE parentId = ? AND provider = 'google' ${buildGoogleConnectionOrderBy(columns)} LIMIT 1`
+      "SELECT * FROM sync_connections WHERE parentId = ? AND provider = 'google' ORDER BY COALESCE(createdAt, 0) DESC, rowid DESC LIMIT 1"
     ).get(parentId) as SyncConnection | null;
     return row ? decryptConnection(row) : null;
   },
@@ -297,7 +299,7 @@ export const syncService = {
       const calendar = getCalendarClient(conn);
       await calendar.events.patch({
         calendarId: 'primary',
-        eventId: event.externalId!,
+        eventId: toGoogleProviderEventId(event.externalId!),
         requestBody: toGoogleEvent(event),
       });
     }).catch((e) => {
@@ -361,7 +363,7 @@ export const syncService = {
       const calendar = getCalendarClient(conn);
       await calendar.events.delete({
         calendarId: 'primary',
-        eventId: externalId,
+        eventId: toGoogleProviderEventId(externalId),
       });
     }).catch((e) => {
       logger.error({ parentId, externalId, error: e }, 'sync_delete_failed');
@@ -385,7 +387,7 @@ export const syncService = {
           ON CONFLICT(connectionId, calendarId) DO UPDATE SET id = excluded.id, name = excluded.name, color = excluded.color, isSharedCalendar = excluded.isSharedCalendar
         `);
         const insertEventStmt = db.prepare('INSERT INTO events (id, parentId, title, description, startTime, endTime, assignedToId, color, externalId, source, sourceCalendarId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        const updateEventStmt = db.prepare('UPDATE events SET title = ?, description = ?, startTime = ?, endTime = ?, color = ?, sourceCalendarId = ? WHERE id = ?');
+        const updateEventStmt = db.prepare('UPDATE events SET title = ?, description = ?, startTime = ?, endTime = ?, color = ?, sourceCalendarId = ?, externalId = ? WHERE id = ?');
 
         const colorMapResponse = await calendar.colors.get();
         const apiEventColors = colorMapResponse.data.event || {};
@@ -458,19 +460,20 @@ export const syncService = {
             });
             for (const ev of (res.data.items || [])) {
               if (!ev.id || !ev.summary || !ev.start?.dateTime || !ev.end?.dateTime) continue;
-              const eId = 'ext_' + ev.id;
+              const externalId = ev.id;
+              const eId = buildLocalGoogleEventId(externalId);
               const derivedColor = resolveEventColor(ev.colorId, googleEventColors, calendarColorById.get(calId));
               const startTime = new Date(ev.start.dateTime).getTime();
               const endTime = new Date(ev.end.dateTime).getTime();
               const description = ev.description || '';
-              const existing = existingEventByExternalId.get(eId);
+              const existing = existingEventByExternalId.get(externalId) ?? existingEventByExternalId.get(eId);
               if (!existing) {
                 insertEventStmt.run(
                   eId, conn.parentId, ev.summary, ev.description || '',
                   startTime, endTime,
-                  null, derivedColor, eId, 'google', calId
+                  null, derivedColor, externalId, 'google', calId
                 );
-                existingEventByExternalId.set(eId, {
+                existingEventByExternalId.set(externalId, {
                   id: eId,
                   title: ev.summary,
                   description,
@@ -487,12 +490,13 @@ export const syncService = {
                   existing.startTime !== startTime ||
                   existing.endTime !== endTime ||
                   (existing.color || '') !== (derivedColor || '') ||
-                  (existing.sourceCalendarId || '') !== (calId || '');
+                  (existing.sourceCalendarId || '') !== (calId || '') ||
+                  existingEventByExternalId.get(eId)?.id === existing.id;
                 if (hasChanges) {
                   updateEventStmt.run(
-                    ev.summary, description, startTime, endTime, derivedColor, calId, existing.id
+                    ev.summary, description, startTime, endTime, derivedColor, calId, externalId, existing.id
                   );
-                  existingEventByExternalId.set(eId, {
+                  existingEventByExternalId.set(externalId, {
                     id: existing.id,
                     title: ev.summary,
                     description,
