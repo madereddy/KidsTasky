@@ -11,14 +11,9 @@ interface ShoppingModeOverlayProps {
 }
 
 export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayProps) {
-  const { shoppingItems, toggleItem, shoppingLists } = useListsController({ parentId, preferredCategory: 'shopping' });
+  const { shoppingItems, toggleItem } = useListsController({ parentId, preferredCategory: 'shopping' });
   const [activeStore, setActiveStore] = useState<string | null>(null);
   const [stagedOriginalIds, setStagedOriginalIds] = useState<Set<string>>(new Set());
-
-  const listTitlesById = useMemo(
-    () => new Map(shoppingLists.map((list) => [list.id, list.title])),
-    [shoppingLists],
-  );
 
   const handleToggle = (item: { originalIds: string[] }) => {
     const isStaged = item.originalIds.every(id => stagedOriginalIds.has(id));
@@ -58,13 +53,7 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
       // Collect explicit store names
       const explicitStores = group.map(i => i.storeName).filter(Boolean) as string[];
       
-      // Fallback to list titles if no explicit store name is present for a specific item instance
-      const implicitStores = group
-        .filter(i => !i.storeName)
-        .map(i => listTitlesById.get(i.listId))
-        .filter(Boolean) as string[];
-
-      const allStores = Array.from(new Set([...explicitStores, ...implicitStores]));
+      const allStores = Array.from(new Set(explicitStores));
       const allLocationNames = Array.from(new Set(group.map(i => i.locationName).filter(Boolean)));
       
       return {
@@ -75,7 +64,7 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
         allLocationNames,
       };
     });
-  }, [shoppingItems, listTitlesById]);
+  }, [shoppingItems]);
 
   const storeCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -95,11 +84,7 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
     return Array.from(s).sort();
   }, [deduplicatedItems]);
 
-  // Combine master list of shopping list titles with any stores found in items (explicit @ tags)
-  const allStores = useMemo(() => {
-    const combined = new Set([...shoppingLists.map(l => l.title), ...storesWithItems]);
-    return Array.from(combined).sort();
-  }, [shoppingLists, storesWithItems]);
+  const allStores = useMemo(() => Array.from(new Set(storesWithItems)).sort(), [storesWithItems]);
 
   const filteredItems = useMemo(() => {
     let items = deduplicatedItems;
