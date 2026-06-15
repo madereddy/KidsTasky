@@ -247,7 +247,7 @@ export const syncService = {
     return db.prepare(`
       SELECT id, provider, createdAt, lastSyncAt, lastSyncStatus
       FROM sync_connections
-      WHERE parentId = ? AND provider = 'google'
+      WHERE parentId = ?
       ORDER BY COALESCE(createdAt, 0) DESC, rowid DESC
     `).all(parentId);
   },
