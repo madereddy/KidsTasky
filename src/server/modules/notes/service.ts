@@ -19,3 +19,8 @@ export const notesService = {
     `).run(id, parentId, content, updatedByName, Date.now());
   },
 };
+
+export function getUserName(uid: string): string | null {
+  const row = db.prepare('SELECT name FROM users WHERE uid = ?').get(uid) as { name: string } | undefined;
+  return row?.name ?? null;
+}

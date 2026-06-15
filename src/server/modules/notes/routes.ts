@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { param, body, validationResult } from 'express-validator';
-import { notesService } from './service.js';
+import { notesService, getUserName } from './service.js';
 import { authenticateUser, assertParentScope, getParentId } from '../../middleware/auth.js';
-import { db } from '../../db.js';
 
 export const notesRouter = Router();
 
@@ -25,8 +24,7 @@ notesRouter.put('/family-notes/:parentId', authenticateUser, assertParentScope, 
   validate
 ], (req: Request, res: Response) => {
   const callerUid = (req as any).user.uid;
-  const callerUser = db.prepare('SELECT name FROM users WHERE uid = ?').get(callerUid) as any;
-  const updatedByName = callerUser?.name || 'Unknown';
+  const updatedByName = getUserName(callerUid) ?? 'Unknown';
   notesService.upsertNote(req.params.parentId as string, req.body.content ?? '', updatedByName);
   return res.json({ success: true });
 });

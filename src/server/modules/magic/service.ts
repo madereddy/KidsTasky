@@ -8,6 +8,13 @@ export interface ExtractedEvent {
   location?: string;
 }
 
+import { db } from '../../db.js';
+
+export function assertParentExists(parentId: string): boolean {
+  const row = db.prepare("SELECT uid FROM users WHERE uid = ? AND role = 'parent'").get(parentId) as { uid: string } | undefined;
+  return Boolean(row);
+}
+
 export const magicService = {
   parseEventsFromText: async (text: string, apiKey: string): Promise<ExtractedEvent> => {
     const ai = new GoogleGenAI({ apiKey });

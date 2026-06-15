@@ -3,15 +3,19 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { google } from 'googleapis';
 import { requireAuth, assertParentScope, getParentId } from '../../middleware/auth.js';
-import { photosService } from './service.js';
+import { photosService, getPhotoParentId, getPhotoParentIdByUrl, getExistingPhotoUrls } from './service.js';
 import { ensurePhotosUploadsDir, getPhotosUploadsDir, getSafePhotoFilename, resolvePhotoUploadPath } from './storage.js';
-import { syncService } from '../sync/service.js';
-import { db } from '../../db.js';
-import { TTLCache } from '../../lib/ttlCache.js';
 import { logSecurityEvent } from '../../lib/securityLog.js';
 import { logger } from '../../lib/logger.js';
+import {
+  GOOGLE_PHOTOS_PICKER_SCOPE,
+  clearGooglePhotosMediaCache,
+  fetchGooglePhotosJson,
+  getGoogleAccessToken,
+  resolvePickerMediaItemBaseUrl,
+  withGooglePhotosToken,
+} from './googlePhotos.js';
 
 import { randomUUID } from 'crypto';
 
@@ -26,11 +30,9 @@ photosRouter.get('/photos/file/:filename', requireAuth, (req, res) => {
   // Find photo by filename to verify family ownership
   const apiUrl = `/api/photos/file/${filename}`;
   const legacyUrl = `/uploads/photos/${filename}`;
-  const photo = db.prepare(
-    'SELECT parentId FROM family_photos WHERE url = ? OR url = ?'
-  ).get(apiUrl, legacyUrl) as { parentId: string } | undefined;
+  const photoParentId = getPhotoParentIdByUrl(apiUrl, legacyUrl);
 
-  if (!photo || photo.parentId !== userParentId) {
+  if (!photoParentId || photoParentId !== userParentId) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
@@ -53,158 +55,6 @@ photosRouter.get('/photos/file/:filename', requireAuth, (req, res) => {
     })
     .pipe(res);
 });
-
-const googleAlbumsCache = new TTLCache<any[]>(5 * 60 * 1000, 500, 'google-photos-albums');
-const googleMediaCache = new TTLCache<any[]>(2 * 60 * 1000, 2000, 'google-photos-media');
-const googleAccessTokenCache = new TTLCache<string>(45 * 60 * 1000, 500, 'google-photos-access-token');
-const GOOGLE_PHOTOS_RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
-const GOOGLE_PHOTOS_PICKER_SCOPE = 'https://www.googleapis.com/auth/photospicker.mediaitems.readonly';
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function fetchGooglePhotosJson<T>(url: string, init: RequestInit, retries = 2): Promise<T> {
-  let lastStatus = 500;
-  let lastBody = '';
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const response = await fetch(url, init);
-    if (response.ok) {
-      return await response.json() as T;
-    }
-
-    lastStatus = response.status;
-    lastBody = await response.text();
-    logger.error({
-      url,
-      status: response.status,
-      attempt,
-      bodySnippet: String(lastBody || '').slice(0, 500),
-    }, 'photos_google_api_error');
-
-    if (!GOOGLE_PHOTOS_RETRYABLE_STATUS.has(response.status) || attempt === retries) {
-      break;
-    }
-
-    const retryAfterHeader = response.headers.get('retry-after');
-    const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN;
-    const delay = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-      ? retryAfterSeconds * 1000
-      : 500 * Math.pow(2, attempt);
-    await sleep(delay);
-  }
-
-  if (lastStatus === 429) {
-    throw Object.assign(
-      new Error('Google Photos rate limit reached. Please wait a minute and try again.'),
-      { status: 429 }
-    );
-  }
-  const normalized = (lastBody || '').toLowerCase();
-  if (lastStatus === 400 && (normalized.includes('pending_user_action') || normalized.includes('has not picked media items'))) {
-    throw Object.assign(
-      new Error('No photos are finalized in this Picker session yet. In Google Photos Picker, finish selection and confirm, then try import again.'),
-      { status: 409 }
-    );
-  }
-  if (lastStatus === 401 && (normalized.includes('unauthenticated') || normalized.includes('invalid authentication credentials'))) {
-    throw Object.assign(
-      new Error('Google authentication expired or invalid. Reconnect Google and approve Calendar + Photos access again.'),
-      { status: 401 }
-    );
-  }
-  if ((lastStatus === 401 || lastStatus === 403) && (
-    normalized.includes('insufficient') ||
-    normalized.includes('scope') ||
-    normalized.includes('permission') ||
-    normalized.includes('not authorized')
-  )) {
-    throw Object.assign(
-      new Error('Google Photos permission is missing. Reconnect Google and grant Google Photos access.'),
-      { status: 403 }
-    );
-  }
-  throw Object.assign(new Error(lastBody || 'Failed to fetch Google Photos data'), { status: lastStatus });
-}
-
-async function resolvePickerMediaItemBaseUrl(token: string, mediaItemId: string, sessionId?: string): Promise<string | null> {
-  const candidates: string[] = [];
-  if (sessionId) {
-    candidates.push(`https://photospicker.googleapis.com/v1/mediaItems/${encodeURIComponent(mediaItemId)}?sessionId=${encodeURIComponent(sessionId)}`);
-  }
-  candidates.push(`https://photospicker.googleapis.com/v1/mediaItems/${encodeURIComponent(mediaItemId)}`);
-
-  for (const url of candidates) {
-    try {
-      const data = await fetchGooglePhotosJson<any>(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      }, 0);
-      const candidate = String(data?.baseUrl || data?.mediaFile?.baseUrl || '').trim();
-      if (candidate) return candidate;
-    } catch {
-      // Try next candidate shape.
-    }
-  }
-  return null;
-}
-
-async function getGoogleAccessToken(parentId: string): Promise<string | null> {
-  const cached = googleAccessTokenCache.get(parentId);
-  if (cached) return cached;
-
-  const conn = syncService.getActiveGoogleConnection(parentId);
-  if (!conn) return null;
-  if (conn.accessToken) {
-    googleAccessTokenCache.set(parentId, conn.accessToken);
-    return conn.accessToken;
-  }
-  if (!conn.refreshToken) return null;
-
-  const oauth2 = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI,
-  );
-  oauth2.setCredentials({
-    access_token: conn.accessToken,
-    refresh_token: conn.refreshToken,
-  });
-
-  try {
-    const { credentials } = await oauth2.refreshAccessToken();
-    const accessToken = credentials.access_token || conn.accessToken;
-    const refreshToken = credentials.refresh_token || conn.refreshToken || null;
-    if (accessToken || refreshToken) {
-      db.prepare('UPDATE sync_connections SET accessToken = ?, refreshToken = ? WHERE id = ?')
-        .run(accessToken || null, refreshToken, conn.id);
-    }
-    logger.info({
-      parentId,
-      connectionId: conn.id,
-      hasAccessToken: Boolean(accessToken),
-      hasRefreshToken: Boolean(refreshToken),
-    }, 'photos_token_refresh_ok');
-    if (accessToken) googleAccessTokenCache.set(parentId, accessToken);
-    return accessToken || null;
-  } catch (error: any) {
-    const message = String(error?.message || '');
-    logger.error({
-      parentId,
-      connectionId: conn.id,
-      status: error?.response?.status ?? error?.code ?? null,
-      message,
-    }, 'photos_token_refresh_failed');
-    if (message.toLowerCase().includes('invalid_grant')) {
-      return null;
-    }
-    if (conn.accessToken) {
-      googleAccessTokenCache.set(parentId, conn.accessToken);
-      return conn.accessToken;
-    }
-    return null;
-  }
-}
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
@@ -285,7 +135,7 @@ photosRouter.post('/photos/upload', requireAuth, upload.single("photo"), async (
   const url = `/api/photos/file/${finalFilename}`;
   const result = photosService.addPhoto(parentId, url);
   logSecurityEvent('photos.upload.accepted', { parentId, filename: finalFilename }, 'info');
-  googleMediaCache.clearPrefix(`${parentId}:`);
+  clearGooglePhotosMediaCache(parentId);
   return res.status(201).json(result);
 });
 
@@ -296,9 +146,9 @@ photosRouter.get("/parents/:parentId/photos", requireAuth, assertParentScope, (r
 
 photosRouter.put("/photos/:id/caption", requireAuth, (req, res) => {
   const callerParentId = getParentId(req);
-  const photo = db.prepare('SELECT parentId FROM family_photos WHERE id = ?').get(String(req.params.id)) as { parentId: string } | undefined;
-  if (!photo) return res.status(404).json({ error: 'Not found' });
-  if (photo.parentId !== callerParentId) return res.status(403).json({ error: 'Forbidden' });
+  const photoParentId = getPhotoParentId(String(req.params.id));
+  if (!photoParentId) return res.status(404).json({ error: 'Not found' });
+  if (photoParentId !== callerParentId) return res.status(403).json({ error: 'Forbidden' });
   photosService.updateCaption(String(req.params.id), String(req.body?.caption ?? ""));
   return res.json({ success: true });
 });
@@ -307,9 +157,9 @@ photosRouter.delete("/photos/:id", requireAuth, (req, res) => {
   const parentId = getParentId(req);
   // Verify family ownership before deleting — without this any authenticated
   // user could delete another family's photo by id (IDOR).
-  const owner = db.prepare('SELECT parentId FROM family_photos WHERE id = ?').get(String(req.params.id)) as { parentId: string } | undefined;
-  if (!owner) return res.status(404).json({ error: 'Not found' });
-  if (owner.parentId !== parentId) return res.status(403).json({ error: 'Forbidden' });
+  const ownerParentId = getPhotoParentId(String(req.params.id));
+  if (!ownerParentId) return res.status(404).json({ error: 'Not found' });
+  if (ownerParentId !== parentId) return res.status(403).json({ error: 'Forbidden' });
   const url = photosService.deletePhoto(String(req.params.id));
   if (url) {
     // Handle both URL formats: /api/photos/file/{name} and legacy /uploads/photos/{name}
@@ -327,7 +177,7 @@ photosRouter.delete("/photos/:id", requireAuth, (req, res) => {
       }
     }
   }
-  if (parentId) googleMediaCache.clearPrefix(`${parentId}:`);
+  if (parentId) clearGooglePhotosMediaCache(parentId);
   return res.json({ success: true });
 });
 
@@ -346,19 +196,19 @@ photosRouter.get('/parents/:parentId/google-photos/albums/:albumId/media', requi
 });
 
 photosRouter.post('/parents/:parentId/google-photos/picker/session', requireAuth, assertParentScope, async (req, res) => {
-
-  const token = await getGoogleAccessToken(String(req.params.parentId));
-  if (!token) return res.status(401).json({ error: 'Google authentication expired or invalid. Reconnect Google and approve Calendar + Photos access again.' });
+  const parentId = String(req.params.parentId);
 
   try {
-    const data = await fetchGooglePhotosJson<any>('https://photospicker.googleapis.com/v1/sessions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({}),
-    });
+    const data = await withGooglePhotosToken(parentId, (token) => (
+      fetchGooglePhotosJson<any>('https://photospicker.googleapis.com/v1/sessions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      })
+    ));
 
     const sessionId = data?.id || data?.name?.split('/').pop();
     const pickerUri = data?.pickerUri || data?.pickerUrl || data?.picker_url || null;
@@ -376,9 +226,7 @@ photosRouter.post('/parents/:parentId/google-photos/picker/session', requireAuth
 });
 
 photosRouter.get('/parents/:parentId/google-photos/picker/sessions/:sessionId/media-items', requireAuth, assertParentScope, async (req, res) => {
-
-  const token = await getGoogleAccessToken(String(req.params.parentId));
-  if (!token) return res.status(401).json({ error: 'Google authentication expired or invalid. Reconnect Google and approve Calendar + Photos access again.' });
+  const parentId = String(req.params.parentId);
 
   const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize || 50)));
   const pageToken = String(req.query.pageToken || '');
@@ -388,9 +236,11 @@ photosRouter.get('/parents/:parentId/google-photos/picker/sessions/:sessionId/me
   pickerMediaItemsUrl.search = qs.toString();
 
   try {
-    const data = await fetchGooglePhotosJson<any>(pickerMediaItemsUrl.toString(), {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const data = await withGooglePhotosToken(parentId, (token) => (
+      fetchGooglePhotosJson<any>(pickerMediaItemsUrl.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    ));
     const rawItems = (data?.mediaItems || []);
     logger.info({
       parentId: req.params.parentId,
@@ -440,15 +290,12 @@ photosRouter.post('/parents/:parentId/google-photos/picker/import', requireAuth,
 
   const uniqueUrls = Array.from(new Set(normalizedUrls));
   if (uniqueUrls.length === 0) {
-    googleMediaCache.clearPrefix(`${parentId}:`);
+    clearGooglePhotosMediaCache(parentId);
     logger.info({ parentId, imported, skipped, unresolved }, 'photos_picker_import_done');
     return res.json({ success: true, imported, skipped, unresolved });
   }
 
-  const existingRows = db.prepare(
-    `SELECT url FROM family_photos WHERE parentId = ? AND url IN (${uniqueUrls.map(() => '?').join(',')})`
-  ).all(parentId, ...uniqueUrls) as Array<{ url: string }>;
-  const existingSet = new Set(existingRows.map((row) => row.url));
+  const existingSet = new Set(getExistingPhotoUrls(parentId, uniqueUrls));
 
   for (const url of uniqueUrls) {
     if (existingSet.has(url)) {
@@ -458,7 +305,7 @@ photosRouter.post('/parents/:parentId/google-photos/picker/import', requireAuth,
     photosService.addPhoto(parentId, url);
     imported += 1;
   }
-  googleMediaCache.clearPrefix(`${parentId}:`);
+  clearGooglePhotosMediaCache(parentId);
   logger.info({ parentId, imported, skipped, unresolved }, 'photos_picker_import_done');
   return res.json({ success: true, imported, skipped, unresolved });
 });

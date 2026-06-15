@@ -8,13 +8,17 @@ import { db } from '../../db.js';
 import jwt from 'jsonwebtoken';
 import { getJwtSecret } from '../../config.js';
 
-vi.mock('./service.js', () => ({
-  magicService: {
-    parseEventsFromText: vi.fn().mockResolvedValue({
-      title: 'Soccer Practice', date: '2026-05-10', startTime: '15:00', location: 'Field A'
-    })
-  }
-}));
+vi.mock('./service.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./service.js')>();
+  return {
+    ...actual,
+    magicService: {
+      parseEventsFromText: vi.fn().mockResolvedValue({
+        title: 'Soccer Practice', date: '2026-05-10', startTime: '15:00', location: 'Field A'
+      })
+    }
+  };
+});
 
 process.env.GEMINI_API_KEY = 'test-key';
 

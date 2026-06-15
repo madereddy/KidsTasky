@@ -1,8 +1,7 @@
 import { Router } from 'express';
-import { eventsService } from './service.js';
+import { eventsService, assertFamilyMember } from './service.js';
 import { syncService } from '../sync/service.js';
 import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId, requireRole } from '../../middleware/auth.js';
-import { db } from '../../db.js';
 
 export const eventsRouter = Router();
 
@@ -120,8 +119,7 @@ eventsRouter.post('/events/:id/attendees', authenticateUser, (req, res) => {
     const event = eventsService.getEventById(req.params.id as string);
     if (!event || event.parentId !== parentId) return res.status(403).json({ error: 'Forbidden' });
     const targetUserId = req.body.userId as string;
-    const familyUser = db.prepare('SELECT uid FROM users WHERE uid = ? AND (uid = ? OR parentId = ?)').get(targetUserId, parentId, parentId) as { uid: string } | undefined;
-    if (!familyUser) return res.status(400).json({ error: 'Invalid attendee' });
+    if (!assertFamilyMember(targetUserId, parentId)) return res.status(400).json({ error: 'Invalid attendee' });
     eventsService.addAttendee(req.params.id as string, targetUserId);
     return res.json({ success: true });
   } catch (error: any) {

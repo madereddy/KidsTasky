@@ -1,9 +1,8 @@
 // src/server/modules/magic/routes.ts
 import { Router } from 'express';
-import { magicService } from './service.js';
+import { magicService, assertParentExists } from './service.js';
 import { eventsService } from '../events/service.js';
 import { socketWrapper } from '../../socket.js';
-import { db } from '../../db.js';
 import crypto from 'crypto';
 import { rateLimit } from 'express-rate-limit';
 
@@ -78,8 +77,7 @@ magicRouter.post('/magic/import', magicLimiter, async (req, res) => {
 
     // Validate parentId maps to a real family to prevent phantom event injection
     if (!parentId) return res.status(400).json({ error: 'Could not determine family from recipient' });
-    const familyRow = db.prepare("SELECT uid FROM users WHERE uid = ? AND role = 'parent'").get(parentId);
-    if (!familyRow) return res.status(404).json({ error: 'Unknown family' });
+    if (!assertParentExists(parentId)) return res.status(404).json({ error: 'Unknown family' });
     // JWT-authenticated callers may only import into their own family. (The
     // webhook-signature path is trusted via HMAC and may target any recipient.)
     if (jwtFamily && parentId !== jwtFamily) {

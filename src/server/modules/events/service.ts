@@ -234,3 +234,10 @@ export const eventsService = {
     db.prepare('DELETE FROM event_attendees WHERE eventId = ? AND userId = ?').run(eventId, userId);
   },
 };
+
+export function assertFamilyMember(targetUserId: string, parentId: string): boolean {
+  const row = db.prepare(
+    'SELECT uid FROM users WHERE uid = ? AND (uid = ? OR parentId = ?)'
+  ).get(targetUserId, parentId, parentId) as { uid: string } | undefined;
+  return Boolean(row);
+}

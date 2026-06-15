@@ -25,3 +25,24 @@ export const photosService = {
     return row?.url ?? null;
   }
 };
+
+export function getPhotoParentId(photoId: string): string | null {
+  const row = db.prepare('SELECT parentId FROM family_photos WHERE id = ?')
+    .get(String(photoId)) as { parentId: string } | undefined;
+  return row?.parentId ?? null;
+}
+
+export function getPhotoParentIdByUrl(apiUrl: string, legacyUrl: string): string | null {
+  const row = db.prepare('SELECT parentId FROM family_photos WHERE url = ? OR url = ?')
+    .get(apiUrl, legacyUrl) as { parentId: string } | undefined;
+  return row?.parentId ?? null;
+}
+
+export function getExistingPhotoUrls(parentId: string, urls: string[]): string[] {
+  if (urls.length === 0) return [];
+  const placeholders = urls.map(() => '?').join(',');
+  const rows = db.prepare(
+    `SELECT url FROM family_photos WHERE parentId = ? AND url IN (${placeholders})`
+  ).all(parentId, ...urls) as Array<{ url: string }>;
+  return rows.map(r => r.url);
+}
