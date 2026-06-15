@@ -1,4 +1,6 @@
 // src/lib/offline-queue.ts
+import { clientLogger } from '../services/clientLogger';
+
 export interface OfflineAction {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE' | 'TOGGLE';
@@ -18,7 +20,7 @@ export function getOfflineQueue(): OfflineAction[] {
   try {
     return JSON.parse(stored);
   } catch (error) {
-    console.error('Failed to parse offline queue:', error);
+    clientLogger.error('Failed to parse offline queue', { error: error instanceof Error ? error.message : String(error) });
     localStorage.removeItem(STORAGE_KEY);
     return [];
   }

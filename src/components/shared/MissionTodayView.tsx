@@ -8,6 +8,7 @@ import { ProgressRing } from './ProgressRing';
 import { MissionItem, UserProfile, Task, CalendarEvent, AppListItem, Category, TaskCompletion, AppList } from '../../types';
 import { Calendar, CheckCircle2, ShoppingCart, ListChecks, MapPin, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { listsClientService } from '../../services/lists';
+import { clientLogger } from '../../services/clientLogger';
 import { cn } from '../../lib/utils';
 
 interface MissionTodayViewProps {
@@ -63,7 +64,7 @@ export function MissionTodayView({
       try {
         shoppingList = await listsClientService.createList('Shopping List', 'shopping');
       } catch (err) {
-        console.error('Failed to create shopping list', err);
+        clientLogger.error('Failed to create shopping list', { error: err instanceof Error ? err.message : String(err) });
         return;
       }
     }
@@ -74,7 +75,7 @@ export function MissionTodayView({
       await listsClientService.addItem(shoppingList.id, text);
       if (onRefresh) onRefresh();
     } catch (err) {
-      console.error('Failed to add item', err);
+      clientLogger.error('Failed to add item', { error: err instanceof Error ? err.message : String(err) });
     }
   }, [lists, onRefresh]);
 

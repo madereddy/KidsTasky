@@ -21,6 +21,7 @@ import { XpCelebration } from './XpCelebration';
 import { FamilyLeaderboard } from './FamilyLeaderboard';
 import { PowerMissionCard } from './PowerMissionCard';
 import { GroceryChips } from './GroceryChips';
+import { clientLogger } from '../../services/clientLogger';
 
 interface Props {
   parentId: string;
@@ -188,13 +189,13 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
       try {
         shoppingList = await listsClientService.createList('Shopping List', 'shopping');
       } catch (err) {
-        console.error('Failed to create shopping list:', err);
+        clientLogger.error('Failed to create shopping list', { error: err instanceof Error ? err.message : String(err) });
         return;
       }
     }
-    
+
     if (!shoppingList) return;
-    
+
     try {
       // Find items already on this list to avoid duplicates
       const existingItems = new Set(
@@ -221,7 +222,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
         alert('All ingredients are already on your shopping list!');
       }
     } catch (err) {
-      console.error('Failed to add ingredients:', err);
+      clientLogger.error('Failed to add ingredients', { error: err instanceof Error ? err.message : String(err) });
     }
   }, [intelligence.meal, lists, listItems, fetchFamilyData]);
 
@@ -233,7 +234,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
       try {
         shoppingList = await listsClientService.createList('Shopping List', 'shopping');
       } catch (err) {
-        console.error('Failed to create shopping list', err);
+        clientLogger.error('Failed to create shopping list', { error: err instanceof Error ? err.message : String(err) });
         return;
       }
     }
@@ -244,7 +245,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
       await listsClientService.addItem(shoppingList.id, text);
       void fetchFamilyData();
     } catch (err) {
-      console.error('Failed to add item', err);
+      clientLogger.error('Failed to add item', { error: err instanceof Error ? err.message : String(err) });
     }
   }, [lists, fetchFamilyData]);
 

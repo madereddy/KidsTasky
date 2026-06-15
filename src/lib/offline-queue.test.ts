@@ -1,6 +1,7 @@
 // src/lib/offline-queue.test.ts
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { pushOfflineAction, getOfflineQueue, clearOfflineQueue, popOfflineAction, OfflineAction } from './offline-queue';
+import { clientLogger } from '../services/clientLogger';
 
 describe('offline-queue', () => {
   beforeEach(() => {
@@ -51,16 +52,16 @@ describe('offline-queue', () => {
 
   it('handles corrupted JSON in storage', () => {
     localStorage.setItem('kidtasker_offline_queue', 'invalid json');
-    
-    // Silence console.error for this test
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    
+
+    // Spy on clientLogger.error instead of console.error
+    const loggerSpy = vi.spyOn(clientLogger, 'error').mockImplementation(() => {});
+
     const queue = getOfflineQueue();
     expect(queue).toEqual([]);
     expect(localStorage.getItem('kidtasker_offline_queue')).toBeNull();
-    expect(consoleSpy).toHaveBeenCalled();
-    
-    consoleSpy.mockRestore();
+    expect(loggerSpy).toHaveBeenCalled();
+
+    loggerSpy.mockRestore();
   });
 
   it('returns empty array if nothing in storage', () => {

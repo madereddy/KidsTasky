@@ -8,6 +8,7 @@ import { logger } from '../../lib/logger.js';
 import { socketWrapper } from '../../socket.js';
 import type { MissionCompletedPayload, LeaderboardEntry, PowerMission } from '../../../types.js';
 import { getWeeklyXp } from './streakService.js';
+import { toErrorMessage } from '../../lib/toErrorMessage.js';
 
 export const tasksRouter = Router();
 
@@ -30,9 +31,9 @@ tasksRouter.post("/tasks", authenticateUser, requireRole('parent'), enforceEditU
     const parentId = getParentId(req);
     const id = taskServiceServer.createTask({ ...req.body, parentId });
     return res.json({ id });
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'tasks_route_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -51,9 +52,9 @@ tasksRouter.get("/kids/:kidId/tasks", authenticateUser, [
 
     const tasks = taskServiceServer.getKidsTasks(targetKidId);
     return res.json(tasks.map(mapTaskRow));
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'tasks_route_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -64,9 +65,9 @@ tasksRouter.get("/parents/:parentId/tasks", authenticateUser, assertParentScope,
   try {
     const tasks = taskServiceServer.getParentsTasks(req.params.parentId as string);
     return res.json(tasks.map(mapTaskRow));
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'tasks_route_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -81,9 +82,9 @@ tasksRouter.put("/tasks/:taskId/archive", authenticateUser, enforceEditUnlocked,
     if (task.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
     taskServiceServer.archiveTask(req.params.taskId as string);
     return res.json({ success: true });
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'tasks_route_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -101,9 +102,9 @@ tasksRouter.patch("/tasks/:taskId", authenticateUser, enforceEditUnlocked, [
     const ok = taskServiceServer.updateTask(req.params.taskId as string, userParentId, req.body || {});
     if (!ok) return res.status(400).json({ error: 'No valid task fields to update' });
     return res.json({ success: true });
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_update_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'tasks_update_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -144,9 +145,9 @@ tasksRouter.post("/completions", authenticateUser, enforceEditUnlocked, [
       socketWrapper.emitToFamily(task.parentId, 'mission-completed', payload);
     }
     return res.json({ id: result.id, approvalStatus: result.approvalStatus, created: result.created });
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'tasks_route_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -166,9 +167,9 @@ tasksRouter.delete("/completions/:completionId", authenticateUser, enforceEditUn
     }
     taskServiceServer.deleteCompletion(req.params.completionId as string);
     return res.json({ success: true });
-  } catch (error: any) {
-    logger.error({ error: error.message, params: req.params }, 'tasks_delete_completion_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), params: req.params }, 'tasks_delete_completion_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -194,9 +195,9 @@ tasksRouter.post("/tasks/:taskId/skip", authenticateUser, enforceEditUnlocked, [
       count: req.body.count,
     });
     return res.json(result);
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_skip_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'tasks_skip_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -226,9 +227,9 @@ tasksRouter.get("/kids/:kidId/completions", authenticateUser, [
       return res.status(400).json({ error: "Missing date query params" });
     }
     return res.json(completions.map(mapCompletionRow));
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'tasks_route_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -249,9 +250,9 @@ tasksRouter.get("/kids/:kidId/history", authenticateUser, [
     const limit = parseInt(req.query.limit as string) || 50;
     const history = taskServiceServer.getCompletionHistory(kidId, limit);
     return res.json(history.map(mapCompletionRow));
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'tasks_route_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -262,9 +263,9 @@ tasksRouter.get("/parents/:parentId/pending-completions", authenticateUser, asse
   try {
     const pending = taskServiceServer.getPendingCompletionsByParent(req.params.parentId as string);
     return res.json(pending.map(mapCompletionRow));
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'tasks_route_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'tasks_route_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -280,9 +281,9 @@ tasksRouter.patch("/completions/:completionId/approve", authenticateUser, requir
     if (task && task.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
     taskServiceServer.approveCompletion(req.params.completionId as string);
     return res.json({ success: true });
-  } catch (err: any) {
-    logger.error({ error: err.message, params: req.params }, 'tasks_approve_completion_error');
-    return res.status(400).json({ error: err.message });
+  } catch (err: unknown) {
+    logger.error({ error: toErrorMessage(err), params: req.params }, 'tasks_approve_completion_error');
+    return res.status(400).json({ error: toErrorMessage(err) });
   }
 });
 
@@ -298,9 +299,9 @@ tasksRouter.patch("/completions/:completionId/reject", authenticateUser, require
     if (task && task.parentId !== userParentId) return res.status(403).json({ error: 'Forbidden' });
     taskServiceServer.rejectCompletion(req.params.completionId as string);
     return res.json({ success: true });
-  } catch (error: any) {
-    logger.error({ error: error.message, params: req.params }, 'tasks_reject_completion_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), params: req.params }, 'tasks_reject_completion_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -338,9 +339,9 @@ tasksRouter.get('/parents/:parentId/leaderboard', authenticateUser, assertParent
       .sort((a, b) => b.weeklyXp - a.weeklyXp);
 
     return res.json(entries);
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'leaderboard_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error) }, 'leaderboard_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -350,8 +351,8 @@ tasksRouter.get('/parents/:parentId/power-mission', authenticateUser, assertPare
     const parentId = req.params.parentId as string;
     const payload = taskServiceServer.getPowerMission(parentId);
     return res.json(payload);
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'power_mission_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error) }, 'power_mission_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });

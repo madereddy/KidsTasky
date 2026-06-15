@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId, requireAuth } from '../../middleware/auth.js';
 import { listsService } from './service.js';
 import { logger } from '../../lib/logger.js';
+import { toErrorMessage } from '../../lib/toErrorMessage.js';
 
 export const listsRouter = Router();
 
@@ -9,9 +10,9 @@ listsRouter.get('/parents/:parentId/lists', authenticateUser, assertParentScope,
   try {
     const lists = listsService.getLists(String(req.params.parentId));
     return res.json(lists);
-  } catch (error: any) {
-    logger.error({ parentId: req.params.parentId, error: error.message }, 'get_lists_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ parentId: req.params.parentId, error: toErrorMessage(error) }, 'get_lists_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -19,9 +20,9 @@ listsRouter.get('/parents/:parentId/list-items', authenticateUser, assertParentS
   try {
     const items = listsService.getAllParentItems(String(req.params.parentId));
     return res.json(items);
-  } catch (error: any) {
-    logger.error({ parentId: req.params.parentId, error: error.message }, 'get_parent_items_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ parentId: req.params.parentId, error: toErrorMessage(error) }, 'get_parent_items_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -30,9 +31,9 @@ listsRouter.get('/parents/:parentId/frequent-items', authenticateUser, assertPar
     const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 5;
     const items = listsService.getFrequentItems(String(req.params.parentId), limit);
     return res.json(items);
-  } catch (error: any) {
-    logger.error({ parentId: req.params.parentId, error: error.message }, 'get_frequent_items_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ parentId: req.params.parentId, error: toErrorMessage(error) }, 'get_frequent_items_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -45,9 +46,9 @@ listsRouter.get('/lists/:listId/items', authenticateUser, (req, res) => {
 
     const items = listsService.getListItems(String(req.params.listId));
     return res.json(items);
-  } catch (error: any) {
-    logger.error({ listId: req.params.listId, error: error.message }, 'get_list_items_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ listId: req.params.listId, error: toErrorMessage(error) }, 'get_list_items_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -59,9 +60,9 @@ listsRouter.post('/lists', requireAuth, enforceEditUnlocked, (req, res) => {
     }
     const list = listsService.createList(getParentId(req), title, category, isRoutine, locationName);
     return res.status(201).json(list);
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'lists_mutation_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'lists_mutation_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -74,9 +75,9 @@ listsRouter.put('/lists/:id', requireAuth, enforceEditUnlocked, (req, res) => {
     const { title, category, isRoutine, locationName } = req.body;
     const updated = listsService.updateList(String(req.params.id), title, category, isRoutine, locationName);
     return res.json(updated);
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'lists_mutation_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'lists_mutation_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -87,9 +88,9 @@ listsRouter.delete('/lists/:id', requireAuth, enforceEditUnlocked, (req, res) =>
     if (list.parentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
     listsService.deleteList(String(req.params.id));
     return res.json({ success: true });
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'lists_mutation_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'lists_mutation_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -101,9 +102,9 @@ listsRouter.post('/lists/:listId/items', requireAuth, enforceEditUnlocked, (req,
     const { text, storeName, locationName } = req.body;
     const item = listsService.addItem(String(req.params.listId), text, storeName, locationName);
     return res.status(201).json(item);
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'lists_mutation_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'lists_mutation_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -128,9 +129,9 @@ listsRouter.post('/list-items/batch', requireAuth, enforceEditUnlocked, (req, re
 
     const items = listsService.addItemsToLists(uniqueListIds, text, storeName, locationName);
     return res.status(201).json(items);
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'lists_mutation_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'lists_mutation_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -142,9 +143,9 @@ listsRouter.put('/list-items/:itemId', requireAuth, enforceEditUnlocked, (req, r
     const { completed, text, storeName, locationName } = req.body;
     listsService.toggleItem(String(req.params.itemId), completed, text, storeName, locationName);
     return res.json({ success: true });
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'lists_mutation_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'lists_mutation_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -170,9 +171,9 @@ listsRouter.post('/list-items/:itemId/copy', requireAuth, enforceEditUnlocked, (
 
     const items = listsService.copyItemToLists(String(req.params.itemId), uniqueListIds);
     return res.status(201).json(items);
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'lists_mutation_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'lists_mutation_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -193,9 +194,9 @@ listsRouter.post('/list-items/:itemId/move', requireAuth, enforceEditUnlocked, (
 
     const updated = listsService.moveItemToList(String(req.params.itemId), targetListId);
     return res.json(updated);
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'lists_mutation_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'lists_mutation_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });
 
@@ -206,8 +207,8 @@ listsRouter.delete('/list-items/:itemId', requireAuth, enforceEditUnlocked, (req
     if (ownerParentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
     listsService.deleteItem(String(req.params.itemId));
     return res.json({ success: true });
-  } catch (error: any) {
-    logger.error({ error: error.message, body: req.body, params: req.params }, 'lists_mutation_error');
-    return res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    logger.error({ error: toErrorMessage(error), body: req.body, params: req.params }, 'lists_mutation_error');
+    return res.status(500).json({ error: toErrorMessage(error) });
   }
 });

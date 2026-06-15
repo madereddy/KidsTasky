@@ -6,6 +6,7 @@ import { HouseholdLocationOption } from '../lib/householdListPreferences';
 import { listsClientService } from '../services/lists';
 import { mealsClientService } from '../services/meals';
 import { calculateNextUp } from '../lib/dateTimePrefs';
+import { clientLogger } from '../services/clientLogger';
 
 interface UseMissionTodayOptions {
   profile: UserProfile;
@@ -73,7 +74,7 @@ export function useMissionTodayController({
         
         setMealData(mealInfo);
       } catch (error) {
-        console.error('Failed to fetch mission today intelligence', error);
+        clientLogger.error('Failed to fetch mission today intelligence', { error: error instanceof Error ? error.message : String(error) });
       }
     };
 
