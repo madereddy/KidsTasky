@@ -43,7 +43,13 @@ export function useSettingsController({ parentId, currentThemeId, onSaved, onClo
   const [locationLat, setLocationLat] = useState<number>(DEFAULT_LOCATION.lat);
   const [locationLon, setLocationLon] = useState<number>(DEFAULT_LOCATION.lon);
   const [locationPreset, setLocationPreset] = useState<string>(DEFAULT_LOCATION.id);
-  const [timezone, setTimezone] = useState('America/Chicago');
+  const [timezone, setTimezone] = useState(() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Chicago';
+    } catch {
+      return 'America/Chicago';
+    }
+  });
   const [temperatureUnit, setTemperatureUnit] = useState<'celsius' | 'fahrenheit'>('celsius');
   const [timeFormat, setTimeFormat] = useState<'12h' | '24h'>('12h');
   const [sleepStart, setSleepStart] = useState('21:00');
@@ -176,20 +182,11 @@ export function useSettingsController({ parentId, currentThemeId, onSaved, onClo
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('message', handleMessage);
     };
-  }, [loadBootstrapData, parentId]);
+  }, [loadBootstrapData]);
 
   useEffect(() => {
     if (!googlePhotosEnabled) setGoogleAlbumsError('');
   }, [parentId, googlePhotosEnabled]);
-
-  useEffect(() => {
-    try {
-      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (browserTimezone && TIMEZONES.includes(browserTimezone)) {
-        setTimezone(browserTimezone);
-      }
-    } catch {}
-  }, []);
 
   useEffect(() => {
     if (!pickerPolling || !pickerSessionId || !googlePhotosEnabled) return;
@@ -235,12 +232,13 @@ export function useSettingsController({ parentId, currentThemeId, onSaved, onClo
   }, [pickerPolling, pickerSessionId, googlePhotosEnabled, parentId]);
 
   const handleThemeChange = async (themeId: string) => {
+    const previous = activeThemeId;
     setActiveThemeId(themeId);
     try {
       await userService.updateUserTheme(parentId, themeId);
       onThemeChange?.(themeId);
     } catch {
-      setActiveThemeId(activeThemeId);
+      setActiveThemeId(previous);
     }
   };
 
@@ -447,7 +445,6 @@ export function useSettingsController({ parentId, currentThemeId, onSaved, onClo
     syncStatus,
     setSyncStatus,
     syncResult,
-    connectionId,
     lastSyncAt,
     lastSyncStatus,
     showDiagnostics,
