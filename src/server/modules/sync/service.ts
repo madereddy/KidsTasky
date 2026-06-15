@@ -1,6 +1,7 @@
 // src/server/modules/sync/service.ts
 import { db } from '../../db.js';
 import { google } from 'googleapis';
+import Database from 'better-sqlite3';
 import { CalendarEvent, SyncConnection } from '../../../types.js';
 import { encryptField, decryptField } from '../../lib/crypto.js';
 import { getSecretKey } from '../../config.js';
@@ -86,6 +87,116 @@ export function buildLocalGoogleEventId(externalId: string): string {
 
 export function toGoogleProviderEventId(externalId: string): string {
   return externalId.startsWith('ext_') ? externalId.slice(4) : externalId;
+}
+
+type ExistingEventRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  startTime: number;
+  endTime: number;
+  color: string | null;
+  sourceCalendarId: string | null;
+};
+
+type ReconcileStmts = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  insert: Database.Statement<any[]>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  update: Database.Statement<any[]>;
+};
+
+async function buildGoogleEventColorMap(
+  calendar: ReturnType<typeof getCalendarClient>
+): Promise<Record<string, string>> {
+  const colorMapResponse = await calendar.colors.get();
+  const apiEventColors = colorMapResponse.data.event ?? {};
+  const merged: Record<string, string> = { ...GOOGLE_EVENT_COLOR_MAP };
+  for (const [colorId, value] of Object.entries(apiEventColors)) {
+    if (value?.background) merged[colorId] = value.background;
+  }
+  return merged;
+}
+
+async function fetchAndUpsertCalendars(
+  calendar: ReturnType<typeof getCalendarClient>,
+  conn: SyncConnection
+): Promise<{ calendarIds: string[]; calendarColorById: Map<string, string> }> {
+  const upsertStmt = db.prepare(`
+    INSERT INTO sync_calendars (id, connectionId, parentId, calendarId, name, enabled, color, isSharedCalendar)
+    VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+    ON CONFLICT(connectionId, calendarId) DO UPDATE SET id = excluded.id, name = excluded.name, color = excluded.color, isSharedCalendar = excluded.isSharedCalendar
+  `);
+  const calList = await calendar.calendarList.list();
+  const allCals = (calList.data.items ?? []).filter(c => c.id && c.accessRole !== 'freeBusyReader');
+  const calendarColorById = new Map<string, string>();
+  for (const cal of allCals) {
+    if (cal.id) calendarColorById.set(cal.id, cal.backgroundColor ?? cal.foregroundColor ?? '#6366f1');
+    const id = buildSyncCalendarId(conn.id, cal.id!);
+    const color = cal.backgroundColor ?? cal.foregroundColor ?? '#6366f1';
+    const isShared = cal.accessRole !== 'owner' ? 1 : 0;
+    upsertStmt.run(id, conn.id, conn.parentId, cal.id!, cal.summary ?? cal.id!, color, isShared);
+  }
+  const calendarRows = db.prepare('SELECT calendarId, enabled FROM sync_calendars WHERE connectionId = ?')
+    .all(conn.id) as { calendarId: string; enabled: number }[];
+  const enabledRows = calendarRows.filter(r => r.enabled === 1);
+  const enabledIds = enabledRows.map(r => r.calendarId);
+  const calendarIds = calendarRows.length === 0 ? allCals.map(c => c.id!) : enabledIds;
+  if (calendarRows.length === 0 && calendarIds.length === 0) calendarIds.push('primary');
+  return { calendarIds, calendarColorById };
+}
+
+function loadExistingGoogleEvents(parentId: string): Map<string, ExistingEventRow> {
+  const rows = db.prepare(
+    "SELECT id, externalId, title, description, startTime, endTime, color, sourceCalendarId FROM events WHERE parentId = ? AND source = 'google' AND externalId IS NOT NULL"
+  ).all(parentId) as Array<ExistingEventRow & { externalId: string }>;
+  return new Map(rows.map(row => [row.externalId, {
+    id: row.id, title: row.title, description: row.description,
+    startTime: row.startTime, endTime: row.endTime, color: row.color, sourceCalendarId: row.sourceCalendarId
+  }]));
+}
+
+function reconcileCalendarEvents(
+  googleEvents: Array<{ id?: string | null; summary?: string | null; start?: { dateTime?: string | null } | null; end?: { dateTime?: string | null } | null; colorId?: string | null; description?: string | null }>,
+  existingMap: Map<string, ExistingEventRow>,
+  stmts: ReconcileStmts,
+  googleEventColors: Record<string, string>,
+  calendarColorById: Map<string, string>,
+  calId: string,
+  parentId: string
+): { imported: number; updated: number } {
+  let imported = 0;
+  let updated = 0;
+  for (const ev of googleEvents) {
+    if (!ev.id || !ev.summary || !ev.start?.dateTime || !ev.end?.dateTime) continue;
+    const externalId = ev.id;
+    const eId = buildLocalGoogleEventId(externalId);
+    const derivedColor = resolveEventColor(ev.colorId, googleEventColors, calendarColorById.get(calId));
+    const startTime = new Date(ev.start.dateTime).getTime();
+    const endTime = new Date(ev.end.dateTime).getTime();
+    const description = ev.description ?? '';
+    const existing = existingMap.get(externalId) ?? existingMap.get(eId);
+    if (!existing) {
+      stmts.insert.run(eId, parentId, ev.summary, description, startTime, endTime, null, derivedColor, externalId, 'google', calId);
+      existingMap.set(externalId, { id: eId, title: ev.summary, description, startTime, endTime, color: derivedColor, sourceCalendarId: calId });
+      imported += 1;
+    } else {
+      const hasChanges =
+        existing.title !== ev.summary ||
+        (existing.description ?? '') !== description ||
+        existing.startTime !== startTime ||
+        existing.endTime !== endTime ||
+        (existing.color ?? '') !== (derivedColor ?? '') ||
+        (existing.sourceCalendarId ?? '') !== calId ||
+        existingMap.get(eId)?.id === existing.id;
+      if (hasChanges) {
+        stmts.update.run(ev.summary, description, startTime, endTime, derivedColor, calId, externalId, existing.id);
+        existingMap.set(externalId, { id: existing.id, title: ev.summary, description, startTime, endTime, color: derivedColor, sourceCalendarId: calId });
+        updated += 1;
+      }
+    }
+  }
+  return { imported, updated };
 }
 
 async function withTokenRefresh<T>(
@@ -381,73 +492,15 @@ export const syncService = {
     try {
       await withTokenRefresh(connection, async (conn) => {
         const calendar = getCalendarClient(conn);
-        const upsertCalendarStmt = db.prepare(`
-          INSERT INTO sync_calendars (id, connectionId, parentId, calendarId, name, enabled, color, isSharedCalendar)
-          VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-          ON CONFLICT(connectionId, calendarId) DO UPDATE SET id = excluded.id, name = excluded.name, color = excluded.color, isSharedCalendar = excluded.isSharedCalendar
-        `);
-        const insertEventStmt = db.prepare('INSERT INTO events (id, parentId, title, description, startTime, endTime, assignedToId, color, externalId, source, sourceCalendarId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        const updateEventStmt = db.prepare('UPDATE events SET title = ?, description = ?, startTime = ?, endTime = ?, color = ?, sourceCalendarId = ?, externalId = ? WHERE id = ?');
-
-        const colorMapResponse = await calendar.colors.get();
-        const apiEventColors = colorMapResponse.data.event || {};
-        const googleEventColors: Record<string, string> = { ...GOOGLE_EVENT_COLOR_MAP };
-        for (const [colorId, value] of Object.entries(apiEventColors)) {
-          if (value?.background) googleEventColors[colorId] = value.background;
-        }
-
-        const calList = await calendar.calendarList.list();
-        const allCals = (calList.data.items || []).filter(c => c.id && c.accessRole !== 'freeBusyReader');
-        const calendarColorById = new Map<string, string>();
-        for (const cal of allCals) {
-          if (cal.id) {
-            calendarColorById.set(cal.id, cal.backgroundColor || cal.foregroundColor || '#6366f1');
-          }
-          const id = buildSyncCalendarId(conn.id, cal.id!);
-          const calColor = cal.backgroundColor || cal.foregroundColor || '#6366f1';
-          const isShared = cal.accessRole !== 'owner' ? 1 : 0;
-          upsertCalendarStmt.run(id, conn.id, conn.parentId, cal.id!, cal.summary || cal.id!, calColor, isShared);
-        }
-
-        const calendarRows = db.prepare('SELECT calendarId, enabled FROM sync_calendars WHERE connectionId = ?').all(conn.id) as { calendarId: string; enabled: number }[];
-        const enabledRows = calendarRows.filter(r => r.enabled === 1);
-        const enabledIds = enabledRows.map(r => r.calendarId);
-        const calendarIds = calendarRows.length === 0 ? allCals.map(c => c.id!) : enabledIds;
-        if (calendarRows.length === 0 && calendarIds.length === 0) calendarIds.push('primary');
-        const existingEvents = db.prepare(
-          "SELECT id, externalId, title, description, startTime, endTime, color, sourceCalendarId FROM events WHERE parentId = ? AND source = 'google' AND externalId IS NOT NULL"
-        ).all(conn.parentId) as Array<{
-          id: string;
-          externalId: string;
-          title: string;
-          description: string | null;
-          startTime: number;
-          endTime: number;
-          color: string | null;
-          sourceCalendarId: string | null;
-        }>;
-        const existingEventByExternalId = new Map<string, {
-          id: string;
-          title: string;
-          description: string | null;
-          startTime: number;
-          endTime: number;
-          color: string | null;
-          sourceCalendarId: string | null;
-        }>(
-          existingEvents.map((row) => [
-            row.externalId,
-            {
-              id: row.id,
-              title: row.title,
-              description: row.description,
-              startTime: row.startTime,
-              endTime: row.endTime,
-              color: row.color,
-              sourceCalendarId: row.sourceCalendarId,
-            },
-          ])
-        );
+        const [googleEventColors, { calendarIds, calendarColorById }] = await Promise.all([
+          buildGoogleEventColorMap(calendar),
+          fetchAndUpsertCalendars(calendar, conn),
+        ]);
+        const existingMap = loadExistingGoogleEvents(conn.parentId);
+        const stmts: ReconcileStmts = {
+          insert: db.prepare('INSERT INTO events (id, parentId, title, description, startTime, endTime, assignedToId, color, externalId, source, sourceCalendarId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+          update: db.prepare('UPDATE events SET title = ?, description = ?, startTime = ?, endTime = ?, color = ?, sourceCalendarId = ?, externalId = ? WHERE id = ?'),
+        };
 
         for (const calId of calendarIds) {
           try {
@@ -458,59 +511,13 @@ export const syncService = {
               singleEvents: true,
               orderBy: 'startTime',
             });
-            for (const ev of (res.data.items || [])) {
-              if (!ev.id || !ev.summary || !ev.start?.dateTime || !ev.end?.dateTime) continue;
-              const externalId = ev.id;
-              const eId = buildLocalGoogleEventId(externalId);
-              const derivedColor = resolveEventColor(ev.colorId, googleEventColors, calendarColorById.get(calId));
-              const startTime = new Date(ev.start.dateTime).getTime();
-              const endTime = new Date(ev.end.dateTime).getTime();
-              const description = ev.description || '';
-              const existing = existingEventByExternalId.get(externalId) ?? existingEventByExternalId.get(eId);
-              if (!existing) {
-                insertEventStmt.run(
-                  eId, conn.parentId, ev.summary, ev.description || '',
-                  startTime, endTime,
-                  null, derivedColor, externalId, 'google', calId
-                );
-                existingEventByExternalId.set(externalId, {
-                  id: eId,
-                  title: ev.summary,
-                  description,
-                  startTime,
-                  endTime,
-                  color: derivedColor,
-                  sourceCalendarId: calId,
-                });
-                imported += 1;
-              } else {
-                const hasChanges =
-                  existing.title !== ev.summary ||
-                  (existing.description || '') !== description ||
-                  existing.startTime !== startTime ||
-                  existing.endTime !== endTime ||
-                  (existing.color || '') !== (derivedColor || '') ||
-                  (existing.sourceCalendarId || '') !== (calId || '') ||
-                  existingEventByExternalId.get(eId)?.id === existing.id;
-                if (hasChanges) {
-                  updateEventStmt.run(
-                    ev.summary, description, startTime, endTime, derivedColor, calId, externalId, existing.id
-                  );
-                  existingEventByExternalId.set(externalId, {
-                    id: existing.id,
-                    title: ev.summary,
-                    description,
-                    startTime,
-                    endTime,
-                    color: derivedColor,
-                    sourceCalendarId: calId,
-                  });
-                  updated += 1;
-                }
-              }
-            }
+            const counts = reconcileCalendarEvents(
+              res.data.items ?? [], existingMap, stmts, googleEventColors, calendarColorById, calId, conn.parentId
+            );
+            imported += counts.imported;
+            updated += counts.updated;
             successCount += 1;
-          } catch (calErr: any) {
+          } catch (calErr: unknown) {
             failureCount += 1;
             const msg = calErr instanceof Error ? calErr.message : String(calErr);
             errors.push({ calendarId: calId, message: msg });
@@ -518,7 +525,7 @@ export const syncService = {
           }
         }
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
       failureCount += 1;
       const msg = e instanceof Error ? e.message : String(e);
       errors.push({ calendarId: 'connection', message: msg });
@@ -528,7 +535,6 @@ export const syncService = {
     const finishedAt = Date.now();
     const status = failureCount === 0 ? 'ok' : successCount > 0 ? 'partial' : 'error';
     persistSyncStatus(connection.id, status);
-
     return { successCount, failureCount, errors, startedAt, finishedAt, imported, updated };
   },
 };
