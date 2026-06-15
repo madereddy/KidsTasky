@@ -8,6 +8,35 @@ const XP_BY_DIFFICULTY: Record<string, number> = { easy: 10, medium: 25, hard: 5
 const xpForDifficulty = (difficulty?: string | null): number =>
   XP_BY_DIFFICULTY[String(difficulty || 'easy')] ?? XP_BY_DIFFICULTY.easy;
 
+type CreateCompletionInput = {
+  taskId: string;
+  kidId: string;
+  dateString: string;
+  count?: number | null;
+  proofAnswers?: unknown;
+};
+
+type CompletionTaskRow = {
+  id: string;
+  parentId: string;
+  starValue: number;
+  requiresApproval: number;
+  difficulty: string | null;
+};
+
+type KidRewardStateRow = {
+  currentStreak: number | null;
+  longestStreak: number | null;
+  lastMissionDate: string | null;
+  badges: string | null;
+};
+
+type CompletionRewardResult = {
+  streakDay: number;
+  badgesEarned: string[];
+  xpEarned: number;
+};
+
 // Apply an XP delta to a user and recompute level on the RuneScape-style curve.
 function adjustUserXp(kidId: string, delta: number) {
   const row = db.prepare('SELECT xp FROM users WHERE uid = ?').get(kidId) as { xp: number | null } | undefined;
@@ -15,6 +44,46 @@ function adjustUserXp(kidId: string, delta: number) {
   const newXp = Math.max(0, (row.xp || 0) + delta);
   const newLevel = levelForXp(newXp);
   db.prepare('UPDATE users SET xp = ?, level = ? WHERE uid = ?').run(newXp, newLevel, kidId);
+}
+
+function awardApprovedCompletionRewards(kidId: string, task: CompletionTaskRow | undefined): CompletionRewardResult {
+  const stars = task?.starValue ?? 1;
+  db.prepare('UPDATE users SET earnedStars = earnedStars + ? WHERE uid = ?').run(stars, kidId);
+  const baseXp = xpForDifficulty(task?.difficulty);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const kidUser = db.prepare(
+    'SELECT currentStreak, longestStreak, lastMissionDate, badges FROM users WHERE uid = ?',
+  ).get(kidId) as KidRewardStateRow | undefined;
+  const { newStreak, newLongest } = calculateStreakUpdate(
+    kidUser?.lastMissionDate ?? null,
+    today,
+    kidUser?.currentStreak ?? 0,
+    kidUser?.longestStreak ?? 0,
+  );
+  db.prepare('UPDATE users SET currentStreak = ?, longestStreak = ?, lastMissionDate = ? WHERE uid = ?')
+    .run(newStreak, newLongest, today, kidId);
+
+  const multiplier = getXpMultiplier(newStreak);
+  const xpEarned = Math.round(baseXp * multiplier);
+  adjustUserXp(kidId, xpEarned);
+  writeXpEvent(kidId, task?.parentId ?? '', xpEarned, 'mission_completion');
+
+  const completionCount = (db.prepare('SELECT COUNT(*) AS c FROM completions WHERE kidId = ? AND approvalStatus != ?').get(kidId, 'skipped') as { c: number }).c;
+  const powerMissionCount = (db.prepare("SELECT COUNT(*) AS c FROM xp_events WHERE userId = ? AND reason = 'power_mission'").get(kidId) as { c: number }).c;
+  const existingBadges: string[] = JSON.parse(kidUser?.badges ?? '[]');
+  const allEarned = evaluateBadges({
+    streak: newStreak,
+    completions: completionCount,
+    powerMissions: powerMissionCount,
+    isFamilyMvp: false,
+  });
+  const badgesEarned = allEarned.filter(b => !existingBadges.includes(b));
+  if (badgesEarned.length > 0) {
+    db.prepare('UPDATE users SET badges = ? WHERE uid = ?').run(JSON.stringify([...existingBadges, ...badgesEarned]), kidId);
+  }
+
+  return { streakDay: newStreak, badgesEarned, xpEarned };
 }
 
 export const taskServiceServer = {
@@ -102,9 +171,9 @@ export const taskServiceServer = {
     return result.changes > 0;
   },
   
-  createCompletion: db.transaction((data: any) => {
+  createCompletion: db.transaction((data: CreateCompletionInput) => {
     const id = `${data.taskId}_${data.dateString}_${data.count || 1}`;
-    const task = db.prepare('SELECT id, parentId, starValue, requiresApproval, difficulty FROM tasks WHERE id = ?').get(data.taskId) as { id: string; parentId: string; starValue: number; requiresApproval: number; difficulty: string } | undefined;
+    const task = db.prepare('SELECT id, parentId, starValue, requiresApproval, difficulty FROM tasks WHERE id = ?').get(data.taskId) as CompletionTaskRow | undefined;
     const needsApproval = Boolean(task?.requiresApproval);
     const approvalStatus = needsApproval ? 'pending' : 'approved';
     const proofAnswers = Array.isArray(data.proofAnswers) && data.proofAnswers.length > 0
@@ -122,33 +191,10 @@ export const taskServiceServer = {
 
     // Award stars + XP immediately if approval not required (otherwise granted on approval)
     if (result.changes > 0 && !needsApproval) {
-      const stars = task?.starValue ?? 1;
-      db.prepare('UPDATE users SET earnedStars = earnedStars + ? WHERE uid = ?').run(stars, data.kidId);
-      const baseXp = xpForDifficulty(task?.difficulty);
-
-      // Streak update
-      const today = new Date().toISOString().slice(0, 10);
-      const kidUser = db.prepare('SELECT currentStreak, longestStreak, lastMissionDate, badges FROM users WHERE uid = ?').get(data.kidId) as { currentStreak: number; longestStreak: number; lastMissionDate: string | null; badges: string } | undefined;
-      const { newStreak, newLongest } = calculateStreakUpdate(kidUser?.lastMissionDate ?? null, today, kidUser?.currentStreak ?? 0, kidUser?.longestStreak ?? 0);
-      db.prepare('UPDATE users SET currentStreak = ?, longestStreak = ?, lastMissionDate = ? WHERE uid = ?')
-        .run(newStreak, newLongest, today, data.kidId);
-
-      // XP with streak multiplier
-      const multiplier = getXpMultiplier(newStreak);
-      xpEarned = Math.round(baseXp * multiplier);
-      adjustUserXp(data.kidId, xpEarned);
-      writeXpEvent(data.kidId, task?.parentId ?? '', xpEarned, 'mission_completion');
-
-      // Badge evaluation
-      const completionCount = (db.prepare('SELECT COUNT(*) AS c FROM completions WHERE kidId = ? AND approvalStatus != ?').get(data.kidId, 'skipped') as { c: number }).c;
-      const powerMissionCount = (db.prepare("SELECT COUNT(*) AS c FROM xp_events WHERE userId = ? AND reason = 'power_mission'").get(data.kidId) as { c: number }).c;
-      const existingBadges: string[] = JSON.parse(kidUser?.badges ?? '[]');
-      const allEarned = evaluateBadges({ streak: newStreak, completions: completionCount, powerMissions: powerMissionCount, isFamilyMvp: false });
-      badgesEarned = allEarned.filter(b => !existingBadges.includes(b));
-      if (badgesEarned.length > 0) {
-        db.prepare('UPDATE users SET badges = ? WHERE uid = ?').run(JSON.stringify([...existingBadges, ...badgesEarned]), data.kidId);
-      }
-      streakDay = newStreak;
+      const rewards = awardApprovedCompletionRewards(data.kidId, task);
+      streakDay = rewards.streakDay;
+      badgesEarned = rewards.badgesEarned;
+      xpEarned = rewards.xpEarned;
     }
 
     return { id, approvalStatus, created: result.changes > 0, streakDay, badgesEarned, xpEarned, taskId: task?.id };
@@ -216,5 +262,31 @@ export const taskServiceServer = {
   
   getCompletionHistory: (kidId: string, limit: number) => {
     return db.prepare("SELECT * FROM completions WHERE kidId = ? ORDER BY completedAt DESC LIMIT ?").all(kidId, limit);
-  }
+  },
+
+  getFamilyMembers: (parentId: string): Array<{ uid: string; name: string; role: string }> => {
+    return db.prepare(
+      "SELECT uid, name, role FROM users WHERE (uid = ? OR parentId = ?) AND role IN ('parent','kid','coparent')"
+    ).all(parentId, parentId) as Array<{ uid: string; name: string; role: string }>;
+  },
+
+  getPowerMission: (parentId: string): import('../../../types.js').PowerMission | null => {
+    const parent = db.prepare('SELECT powerMissionId, powerMissionDate FROM users WHERE uid = ?')
+      .get(parentId) as { powerMissionId: string | null; powerMissionDate: string | null } | undefined;
+    const today = new Date().toISOString().slice(0, 10);
+    if (!parent?.powerMissionId || parent.powerMissionDate !== today) return null;
+    // tasks table has no xpReward column — use difficulty and derive XP via xpForDifficulty
+    const taskRow = db.prepare('SELECT title, difficulty, assignedKidId FROM tasks WHERE id = ?')
+      .get(parent.powerMissionId) as { title: string; difficulty: string | null; assignedKidId: string } | undefined;
+    if (!taskRow) return null;
+    const kid = db.prepare('SELECT name FROM users WHERE uid = ?')
+      .get(taskRow.assignedKidId ?? '') as { name: string } | undefined;
+    return {
+      taskId: parent.powerMissionId,
+      title: taskRow.title,
+      xpReward: xpForDifficulty(taskRow.difficulty),
+      assignedKidId: taskRow.assignedKidId ?? '',
+      assignedKidName: kid?.name ?? '',
+    };
+  },
 };

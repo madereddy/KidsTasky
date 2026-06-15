@@ -7,7 +7,6 @@ import { authenticateUser, assertParentScope, enforceEditUnlocked, getParentId, 
 import { logger } from '../../lib/logger.js';
 import { socketWrapper } from '../../socket.js';
 import type { MissionCompletedPayload, LeaderboardEntry, PowerMission } from '../../../types.js';
-import { db } from '../../db.js';
 import { getWeeklyXp } from './streakService.js';
 
 export const tasksRouter = Router();
@@ -320,8 +319,7 @@ tasksRouter.get('/parents/:parentId/leaderboard', authenticateUser, assertParent
     const lastWeekStart = new Date(weekStart);
     lastWeekStart.setDate(weekStart.getDate() - 7);
 
-    const members = db.prepare("SELECT uid, name, role FROM users WHERE (uid = ? OR parentId = ?) AND role IN ('parent','kid','coparent')")
-      .all(parentId, parentId) as Array<{ uid: string; name: string; role: string }>;
+    const members = taskServiceServer.getFamilyMembers(parentId);
 
     const currentXp = getWeeklyXp(parentId, weekStart.toISOString(), weekEnd.toISOString());
     const lastXp = getWeeklyXp(parentId, lastWeekStart.toISOString(), weekStart.toISOString());
@@ -350,23 +348,7 @@ tasksRouter.get('/parents/:parentId/leaderboard', authenticateUser, assertParent
 tasksRouter.get('/parents/:parentId/power-mission', authenticateUser, assertParentScope, (req: Request, res: Response) => {
   try {
     const parentId = req.params.parentId as string;
-    const parent = db.prepare('SELECT powerMissionId, powerMissionDate FROM users WHERE uid = ?').get(parentId) as { powerMissionId: string | null; powerMissionDate: string | null } | undefined;
-    const today = new Date().toISOString().slice(0, 10);
-    if (!parent?.powerMissionId || parent.powerMissionDate !== today) {
-      return res.json(null);
-    }
-    const task = taskServiceServer.getTaskById(parent.powerMissionId);
-    if (!task) return res.json(null);
-    const taskRow = db.prepare('SELECT title, xpReward, assignedKidId FROM tasks WHERE id = ?').get(parent.powerMissionId) as { title: string; xpReward: number | null; assignedKidId: string } | undefined;
-    if (!taskRow) return res.json(null);
-    const kid = db.prepare('SELECT name FROM users WHERE uid = ?').get(taskRow.assignedKidId ?? '') as { name: string } | undefined;
-    const payload: PowerMission = {
-      taskId: parent.powerMissionId,
-      title: taskRow.title,
-      xpReward: taskRow.xpReward ?? 0,
-      assignedKidId: taskRow.assignedKidId ?? '',
-      assignedKidName: kid?.name ?? '',
-    };
+    const payload = taskServiceServer.getPowerMission(parentId);
     return res.json(payload);
   } catch (error: any) {
     logger.error({ error: error.message }, 'power_mission_error');
