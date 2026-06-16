@@ -19,8 +19,6 @@ import { FrequentItemChips } from '../shared/FrequentItemChips';
 import { listsClientService } from '../../services/lists';
 import { XpCelebration } from './XpCelebration';
 import { FamilyLeaderboard } from './FamilyLeaderboard';
-import { PowerMissionCard } from './PowerMissionCard';
-import { GroceryChips } from './GroceryChips';
 import { clientLogger } from '../../services/clientLogger';
 
 interface Props {
@@ -321,7 +319,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
                       {Math.round(toDisplayTemp(todayWeather.minTemp, tempUnit))}°
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                  <p className="text-sm text-ui-muted mt-0.5">
                     {getWeatherInfo(todayWeather.weatherCode).label}
                   </p>
                 </div>
@@ -443,7 +441,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
 
           {dayGroups.length === 0 ? (
             <div className="flex items-center justify-center h-32">
-              <p className="text-lg text-gray-400">Nothing coming up</p>
+              <p className="text-lg text-ui-muted">Nothing coming up</p>
             </div>
           ) : (
             <div className="space-y-8 max-w-3xl">
