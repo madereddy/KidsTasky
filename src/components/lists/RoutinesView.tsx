@@ -86,7 +86,11 @@ export function RoutinesView({ parentId }: Props) {
 
   return (
     <div className="flex h-[calc(100vh-200px)] overflow-hidden rounded-2xl border border-ui bg-white shadow-sm">
-      <div className="flex w-64 shrink-0 flex-col border-r border-ui bg-ui-soft">
+      <div className={cn(
+        "shrink-0 flex-col border-r border-ui bg-ui-soft",
+        "md:flex md:w-64",
+        selectedListId ? "hidden" : "flex w-full",
+      )}>
         <div className="border-b border-ui p-4">
           <h2 className="text-lg font-bold text-ui-primary">Routines</h2>
           <p className="mt-1 text-xs text-ui-muted">Shared checklists and family routines</p>
@@ -149,11 +153,21 @@ export function RoutinesView({ parentId }: Props) {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden bg-white">
+      <div className={cn(
+        "flex-1 flex-col overflow-hidden bg-white",
+        selectedListId ? "flex" : "hidden md:flex",
+      )}>
         {selectedList ? (
           <>
             <div className="flex shrink-0 items-center justify-between border-b border-ui bg-white px-4 py-3">
               <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setSelectedListId('')}
+                  className="md:hidden mr-1 p-1.5 rounded-lg text-ui-muted hover:bg-ui-soft hover:text-ui-primary transition-colors"
+                  aria-label="Back to routines"
+                >
+                  ←
+                </button>
                 <h3 className="text-lg font-bold text-ui-primary">{selectedList.title}</h3>
                 {selectedList.isRoutine === 1 && (
                   <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold uppercase text-purple-700">Mission routine</span>

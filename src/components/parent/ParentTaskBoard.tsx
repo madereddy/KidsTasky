@@ -45,8 +45,8 @@ export function ParentTaskBoard({
 
   return (
     <>
-      <div className="flex justify-between items-center bg-ui-soft p-2 rounded-2xl">
-        <div className="flex gap-2 items-center">
+      <div className="flex flex-wrap justify-between items-center bg-ui-soft p-2 rounded-2xl gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           <div className={cn("flex gap-1 p-1 rounded-xl mr-2", isDarkMode ? "bg-ui-dark-50" : "bg-ui-soft-2")}>
             <button
               onClick={() => onSortByChange('time')}
