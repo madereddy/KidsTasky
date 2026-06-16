@@ -5,6 +5,7 @@ import { MealPlanWithRecipe } from '../../services/meals';
 import { DailyForecast } from '../../services/weather';
 import { getWeatherInfo } from '../../constants';
 import { TemperatureUnitPref, TimeFormatPref, formatTimeWithPrefs, toDisplayTemp } from '../../lib/dateTimePrefs';
+import { positionEvents } from '../../lib/calendarLayout';
 
 interface Props {
   events: CalendarEvent[];
@@ -123,7 +124,7 @@ export function CalendarDayView({
             />
           ))}
 
-          {dayEvents.map((ev) => {
+          {positionEvents(dayEvents).map((ev) => {
             const start = new Date(ev.startTime);
             const topPct = minuteOfDay(start) / 1440;
             const durMin = Math.max(30, (ev.endTime - ev.startTime) / 60000);
@@ -133,10 +134,12 @@ export function CalendarDayView({
               <button
                 key={ev.id}
                 onClick={() => onEventClick?.(ev)}
-                className="absolute left-2 right-2 rounded-lg text-left text-white text-xs font-semibold px-2 py-1 overflow-hidden shadow-sm"
+                className="absolute rounded-lg text-left text-white text-xs font-semibold px-2 py-1 overflow-hidden shadow-sm"
                 style={{
                   top: topPct * GRID_HEIGHT,
                   height: Math.max(24, heightPct * GRID_HEIGHT),
+                  left: `calc(${ev.left}% + 4px)`,
+                  width: `calc(${ev.width}% - 8px)`,
                   backgroundColor: color,
                   zIndex: 2,
                 }}

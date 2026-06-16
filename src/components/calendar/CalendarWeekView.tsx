@@ -5,6 +5,7 @@ import { cn } from '../../lib/utils';
 import { DailyForecast } from '../../services/weather';
 import { getWeatherInfo } from '../../constants';
 import { TemperatureUnitPref, TimeFormatPref, formatTimeWithPrefs, formatDateTimeWithPrefs, toDisplayTemp } from '../../lib/dateTimePrefs';
+import { positionEvents } from '../../lib/calendarLayout';
 
 interface Props {
   events: CalendarEvent[];
@@ -122,7 +123,7 @@ export function CalendarWeekView({
               {HOURS.map((h) => (
                 <div key={h} className="absolute w-full border-t border-ui-soft" style={{ top: (h / 24) * GRID_HEIGHT }} />
               ))}
-              {dayEvs.map((ev) => {
+              {positionEvents(dayEvs).map((ev) => {
                 const start = new Date(ev.startTime);
                 const topPct = minuteOfDay(start) / 1440;
                 const durMin = Math.max(30, (ev.endTime - ev.startTime) / 60000);
@@ -132,8 +133,15 @@ export function CalendarWeekView({
                   <button
                     key={ev.id}
                     onClick={() => onEventClick?.(ev)}
-                    className="absolute left-1 right-1 rounded text-left text-white text-[10px] font-semibold px-1 overflow-hidden shadow-sm"
-                    style={{ top: topPct * GRID_HEIGHT, height: Math.max(20, heightPct * GRID_HEIGHT), backgroundColor: color, zIndex: 2 }}
+                    className="absolute rounded text-left text-white text-[10px] font-semibold px-1 overflow-hidden shadow-sm"
+                    style={{
+                      top: topPct * GRID_HEIGHT,
+                      height: Math.max(20, heightPct * GRID_HEIGHT),
+                      left: `calc(${ev.left}% + 2px)`,
+                      width: `calc(${ev.width}% - 4px)`,
+                      backgroundColor: color,
+                      zIndex: 2
+                    }}
                   >
                     <p className="truncate">{ev.title}</p>
                     <p className="opacity-80">{formatTimeWithPrefs(start, timezone, timeFormat)}</p>
