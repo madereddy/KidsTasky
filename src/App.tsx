@@ -144,6 +144,14 @@ export default function App() {
   const [showUnlockPrompt, setShowUnlockPrompt] = useState(false);
   const [openSettingsAfterUnlock, setOpenSettingsAfterUnlock] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsRenderNonce, setSettingsRenderNonce] = useState(0);
+  const openSettings = useCallback(() => {
+    setShowSettings(true);
+    prefetchSettings();
+    import('./components/parent/SettingsView')
+      .catch(() => undefined)
+      .finally(() => setSettingsRenderNonce((value) => value + 1));
+  }, []);
   const [screensaverPreview, setScreensaverPreview] = useState(false);
   const [wallJustWoke, setWallJustWoke] = useState(0);
   const { syncing, isOffline } = useOfflineQueueSync();
@@ -308,7 +316,7 @@ export default function App() {
         showProfileSwitcher={showProfileSwitcher}
         parentSession={parentSession}
         onSectionSelect={goToSection}
-        onSettingsSelect={() => setShowSettings(true)}
+          onSettingsSelect={openSettings}
         onUnlockSelect={() => { setOpenSettingsAfterUnlock(true); setShowUnlockPrompt(true); }}
         onProfileSwitcherToggle={() => setShowProfileSwitcher(!showProfileSwitcher)}
         onKidSwitchSelect={(kid) => {
@@ -336,7 +344,7 @@ export default function App() {
         ) : (
           <>
             {isParentRole(profile.role) && activeSection === 'home' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="home" />}><WallHome parentId={familyParentId} profile={profile} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} onManage={() => goToSection('manage')} settings={familySettings} justWoke={wallJustWoke} /></Suspense>}
-            {isParentRole(profile.role) && activeSection === 'manage' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="manage" />}><ParentDashboard profile={profile} onOpenSettings={() => setShowSettings(true)} /></Suspense>}
+            {isParentRole(profile.role) && activeSection === 'manage' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="manage" />}><ParentDashboard profile={profile} onOpenSettings={openSettings} /></Suspense>}
             {isParentRole(profile.role) && activeSection === 'calendar' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="calendar" />}><CalendarView parentId={familyParentId} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} userRole={profile.role} /></Suspense>}
             {isParentRole(profile.role) && activeSection === 'tasks' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="tasks" />}><ParentTasksWorkspace parentId={familyParentId} kids={kids} categories={categories} selectedCategoryId={selectedCategoryId} isLocked={isLocked} isDarkMode={isDarkTheme} onCategoriesChange={setCategories} /></Suspense>}
             {isParentRole(profile.role) && activeSection === 'meals' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="meals" />}><MealPlanView parentId={familyParentId} /></Suspense>}
@@ -363,7 +371,7 @@ export default function App() {
         />
       )}
       {isParentRole(profile.role) && showUnlockPrompt && <ParentalLockOverlay parentId={familyParentId} onUnlock={() => { setIsLocked(false); setShowUnlockPrompt(false); if (openSettingsAfterUnlock) { setShowSettings(true); setOpenSettingsAfterUnlock(false); } }} onCancel={() => setShowUnlockPrompt(false)} />}
-      {isParentRole(profile.role) && showSettings && <Suspense fallback={<div className="fixed inset-0 z-[150] bg-white/80 backdrop-blur-md flex items-center justify-center"><div className="w-12 h-12 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin" /></div>}><SettingsView parentId={familyParentId} onClose={() => setShowSettings(false)} onLockNow={async () => { await settingsClientService.lockDisplay(familyParentId); setIsLocked(true); setShowSettings(false); }} onPreviewScreensaver={() => setScreensaverPreview(true)} currentThemeId={profile.themeId || 'space_commander'} onThemeChange={(themeId) => setProfile(prev => prev ? { ...prev, themeId } : prev)} /></Suspense>}
+      {isParentRole(profile.role) && showSettings && <Suspense fallback={<div className="fixed inset-0 z-[150] bg-white/80 backdrop-blur-md flex items-center justify-center"><div className="w-12 h-12 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin" /></div>}><SettingsView key={settingsRenderNonce} parentId={familyParentId} onClose={() => setShowSettings(false)} onLockNow={async () => { await settingsClientService.lockDisplay(familyParentId); setIsLocked(true); setShowSettings(false); }} onPreviewScreensaver={() => setScreensaverPreview(true)} currentThemeId={profile.themeId || 'space_commander'} onThemeChange={(themeId) => setProfile(prev => prev ? { ...prev, themeId } : prev)} /></Suspense>}
       {pendingKidSwitch && (
         <KidSwitchDialog
           pendingKidSwitch={pendingKidSwitch}
