@@ -96,24 +96,10 @@ export function ParentDashboard({
     { label: 'Active chores', value: todaySummary.activeChores, tone: 'text-emerald-600' },
   ];
 
-  const focusItem = summaryCards.reduce((current, item) => (item.value > current.value ? item : current), summaryCards[0]);
-
   return (
     <div className="space-y-8">
       <RewardManager parentId={familyId} rewards={rewards} onUpdate={refreshRewards} />
       <section className="space-y-3 sm:hidden">
-        <div className="rounded-3xl border border-ui bg-white p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted">Needs Attention Now</p>
-              <h3 className="mt-2 text-xl font-black text-ui-primary">{focusItem.value} {focusItem.label.toLowerCase()}</h3>
-              <p className="mt-1 text-sm text-ui-muted">Keep the family day moving with the highest-pressure items first.</p>
-            </div>
-            <span className={cn("rounded-full bg-ui-soft px-3 py-1 text-xs font-black uppercase tracking-wide", focusItem.tone)}>
-              Focus
-            </span>
-          </div>
-        </div>
         <div className="grid grid-cols-2 gap-3">
           {summaryCards.map((item) => (
             <div key={item.label} className="rounded-2xl border border-ui bg-white p-3">

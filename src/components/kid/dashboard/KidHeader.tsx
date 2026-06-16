@@ -70,7 +70,6 @@ export function KidHeader({
             <Settings className="w-6 h-6" />
           </button>
           <div className="text-right ml-4">
-            <p className={cn("text-xs uppercase font-bold", toneSecondary)}>{currentTheme.vocab?.streak || 'Streak'}</p>
             <p className={cn("text-3xl font-black leading-none", `text-${currentTheme.primary}`)}>{streak}</p>
           </div>
           <div className={cn(
@@ -97,21 +96,6 @@ export function KidHeader({
               <span className={cn("text-sm font-bold uppercase", isDarkMode ? "text-ui-muted-2" : "text-ui-muted-2")}>
                 / {xpStats.xpForLevelSpan} {currentTheme.vocab?.points || 'XP'}
               </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1">
-              <span className="text-amber-400 text-lg">⭐</span>
-              <span className={cn("font-bold text-lg", currentTheme.vocab?.textPrimary || "text-ui-primary")}>
-                {availableStars}
-              </span>
-              <span className={cn("text-xs", isDarkMode ? "text-ui-muted-2" : "text-ui-muted-2")}>stars</span>
-            </div>
-            <div className="text-right">
-              <p className={cn("text-[10px] uppercase font-bold mb-1", isDarkMode ? "text-ui-muted-2" : "text-ui-muted-2")}>Total</p>
-              <p className={cn("text-base font-bold leading-none", currentTheme.vocab?.textPrimary || "text-ui-primary")}>
-                {localXp} {currentTheme.vocab?.points || 'XP'}
-              </p>
             </div>
           </div>
         </div>
