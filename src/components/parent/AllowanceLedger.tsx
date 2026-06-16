@@ -11,10 +11,13 @@ interface Props {
 
 export function AllowanceLedger({ parentId }: Props) {
   const [entries, setEntries] = useState<AllowanceEntry[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [paying, setPaying] = useState<string | null>(null);
 
   useEffect(() => {
-    allowanceClientService.getPendingAllowances(parentId).then(e => setEntries(e || [])).catch(() => {});
+    allowanceClientService.getPendingAllowances(parentId)
+      .then(e => { setEntries(e || []); setLoaded(true); })
+      .catch(() => { setLoaded(true); });
   }, [parentId]);
 
   const handleMarkPaid = async (id: string) => {
@@ -28,6 +31,8 @@ export function AllowanceLedger({ parentId }: Props) {
   };
 
   const totalCents = entries.reduce((sum, e) => sum + e.amountCents, 0);
+
+  if (!loaded || entries.length === 0) return null;
 
   return (
     <div className="bg-white shadow-sm border border-ui-soft p-6 rounded-3xl">
@@ -43,14 +48,7 @@ export function AllowanceLedger({ parentId }: Props) {
         )}
       </div>
 
-      {entries.length === 0 ? (
-        <div className="text-center py-8 text-ui-muted-2">
-          <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-emerald-300" />
-          <p className="font-semibold">No allowances pending</p>
-          <p className="text-sm mt-1">You're all paid up!</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
+      <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-ui-soft">
@@ -92,7 +90,6 @@ export function AllowanceLedger({ parentId }: Props) {
             </tbody>
           </table>
         </div>
-      )}
     </div>
   );
 }
