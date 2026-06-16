@@ -292,14 +292,14 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
     }
 
     return (
-      <div className="flex overflow-hidden bg-white dark:bg-gray-950" style={{ minHeight: 'calc(100vh - 80px)' }}>
+      <div className="flex overflow-hidden bg-white dark:bg-ui-dark" style={{ minHeight: 'calc(100vh - 80px)' }}>
         <XpCelebration
           payload={celebration}
           kidName={kids.find(k => k.uid === celebration?.userId)?.name ?? ''}
         />
 
         {/* ── LEFT PANEL: Clock · Weather · Chores ── */}
-        <aside className="w-72 xl:w-80 shrink-0 flex flex-col border-r border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950">
+        <aside className="w-72 xl:w-80 shrink-0 flex flex-col border-r border-ui-soft bg-white dark:bg-ui-dark">
 
           {/* Clock + date */}
           <div className="px-8 pt-8 pb-6">
@@ -309,7 +309,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
           {/* Weather */}
           {todayWeather && (
             <>
-              <div className="mx-8 h-px bg-gray-100 dark:bg-gray-800" />
+              <div className="mx-8 h-px bg-ui-soft" />
               <div className="px-8 py-5 flex items-center gap-3">
                 <span className="text-4xl">{getWeatherInfo(todayWeather.weatherCode).icon}</span>
                 <div>
@@ -419,7 +419,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
           <div className="px-8 pb-6 mt-auto pt-4">
             <button
               onClick={onManage}
-              className="text-xs text-gray-400 hover:text-gray-500 transition-colors"
+              className="text-xs text-ui-muted hover:text-ui-primary transition-colors"
             >
               Manage family →
             </button>
@@ -427,22 +427,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
         </aside>
 
         {/* ── RIGHT PANEL: Agenda ── */}
-        <main className="flex-1 overflow-y-auto px-8 xl:px-12 py-8 bg-white dark:bg-gray-950">
-          <IntelligenceHeader data={intelligence} onAddIngredients={handleAddIngredients} />
-
-          {/* Power Mission — morning and afterschool */}
-          {(wallMode === 'morning' || wallMode === 'afterschool') && (
-            <div className="mb-4">
-              <PowerMissionCard mission={powerMission} isWallMode />
-            </div>
-          )}
-
-          {/* Grocery chips — all modes except night */}
-          {wallMode !== 'night' && (
-            <div className="mb-6">
-              <GroceryChips items={frequentItems} onAdd={handleQuickAdd} isWallMode />
-            </div>
-          )}
+        <main className="relative flex-1 overflow-y-auto px-8 xl:px-12 py-8 bg-white dark:bg-ui-dark">
 
           {loadError && (
             <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 flex items-center justify-between">
@@ -466,14 +451,14 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
                 <section key={label}>
                   {/* Day header + rule */}
                   <div className="flex items-center gap-4 mb-3">
-                    <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.15em] shrink-0">
+                    <span className="text-xs font-bold text-ui-muted-2 uppercase tracking-[0.15em] shrink-0">
                       {label}
                     </span>
-                    <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
+                    <div className="flex-1 h-px bg-ui-soft" />
                   </div>
 
                   {items.length === 0 ? (
-                    <p className="text-sm text-gray-400 dark:text-gray-500 pl-2">Nothing scheduled</p>
+                    <p className="text-sm text-ui-muted-2 pl-2">Nothing scheduled</p>
                   ) : (
                     <div className="space-y-2">
                       {items.map(item => {
@@ -485,20 +470,20 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
                             ? kids.find(k => k.uid === evt.assignedToId)?.name ?? null
                             : null;
                           return (
-                            <div key={evt.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50 dark:bg-white/5">
+                            <div key={evt.id} className="flex items-center gap-3 px-4 py-4 rounded-2xl bg-ui-soft">
                               <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: evtColor }} />
                               <div className="w-[72px] shrink-0">
-                                <span className="text-sm font-medium text-gray-500 dark:text-gray-400 tabular-nums">
+                                <span className="text-base font-medium text-ui-muted tabular-nums">
                                   {evt.isAllDay ? 'All day' : format(new Date(evt.startTime), 'h:mm a')}
                                 </span>
                               </div>
-                              <p className="flex-1 text-lg font-semibold text-gray-900 dark:text-white truncate">
+                              <p className="flex-1 text-xl font-bold text-ui-primary truncate">
                                 {evt.title}
                               </p>
                               {assignedName && (
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: evtColor }} />
-                                  <span className="text-sm text-gray-500 dark:text-gray-400">{assignedName}</span>
+                                  <span className="text-sm text-ui-muted">{assignedName}</span>
                                 </div>
                               )}
                             </div>
@@ -508,17 +493,17 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
                         // homework item
                         const hw = item.data;
                         return (
-                          <div key={hw.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/10">
+                          <div key={hw.id} className="flex items-center gap-3 px-4 py-4 rounded-2xl bg-amber-50">
                             <div className="w-1 self-stretch rounded-full shrink-0 bg-amber-400" />
                             <div className="w-[72px] shrink-0">
-                              <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Due</span>
+                              <span className="text-base font-medium text-amber-600">Due</span>
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-lg font-semibold text-gray-900 dark:text-white truncate">
+                              <p className="text-xl font-bold text-ui-primary truncate">
                                 📚 {hw.title}
                               </p>
                               {hw.subject && (
-                                <p className="text-xs text-gray-500 dark:text-gray-400">{hw.subject}</p>
+                                <p className="text-xs text-ui-muted">{hw.subject}</p>
                               )}
                             </div>
                           </div>
@@ -534,7 +519,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
           {/* Family Leaderboard — afterschool and evening */}
           {(wallMode === 'afterschool' || wallMode === 'evening') && leaderboard.length > 0 && (
             <section className="mt-8">
-              <h2 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.15em] mb-3">
+              <h2 className="text-xs font-bold text-ui-muted-2 uppercase tracking-[0.15em] mb-3">
                 This Week
               </h2>
               <FamilyLeaderboard entries={leaderboard} isWallMode />

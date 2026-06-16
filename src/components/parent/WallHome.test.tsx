@@ -180,5 +180,16 @@ describe('WallHome', () => {
     fireEvent.click(emmaCard.closest('[data-testid="kid-card-k1"]')!);
     expect(await screen.findByText('Make bed')).toBeInTheDocument();
   });
+
+  it('does not render IntelligenceHeader in resting wall mode', async () => {
+    render(
+      <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false }}>
+        <WallHome {...baseProps} isLocked={true} justWoke={false} />
+      </DisplayContext.Provider>
+    );
+    // Wait for load
+    await screen.findByTestId('wall-clock');
+    expect(screen.queryByText('IntelligenceHeader')).not.toBeInTheDocument();
+  });
 });
 
