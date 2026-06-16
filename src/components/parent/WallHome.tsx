@@ -7,7 +7,7 @@ import { WeeklyWeather } from '../calendar/WeeklyWeather';
 import { WeeklyChoreGrid } from '../shared/WeeklyChoreGrid';
 import { DisplayCarousel } from '../shared/DisplayCarousel';
 import { getWeatherInfo } from '../../constants';
-import { toDisplayTemp } from '../../lib/dateTimePrefs';
+import { getEffectiveEventEndTime, isEventCurrentOrUpcoming, toDisplayTemp } from '../../lib/dateTimePrefs';
 import { useSocketStaleData } from '../../hooks/useSocket';
 import { useDisplayMode } from '../../contexts/DisplayContext';
 import { cn } from '../../lib/utils';
@@ -31,6 +31,7 @@ interface Props {
   isLocked: boolean;
   onManage: () => void;
   settings?: any;
+  justWoke?: boolean;
 }
 
 // Original clock used in non-wall mode
@@ -61,14 +62,14 @@ function SkyLiveClock({ use24h = false }: { use24h?: boolean }) {
   }, []);
   return (
     <div data-testid="wall-clock">
-      <div className="text-7xl font-black tabular-nums leading-none text-gray-900 dark:text-white">
+      <div className="text-7xl font-black tabular-nums leading-none text-ui-primary">
         {format(now, use24h ? 'H:mm' : 'h:mm')}
-        {!use24h && <span className="text-3xl font-semibold ml-2 text-gray-400 dark:text-gray-500">{format(now, 'a')}</span>}
+        {!use24h && <span className="text-3xl font-semibold ml-2 text-ui-muted-2">{format(now, 'a')}</span>}
       </div>
-      <div className="mt-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.15em]">
+      <div className="mt-2 text-xs font-bold text-ui-muted-2 uppercase tracking-[0.15em]">
         {format(now, 'EEEE')}
       </div>
-      <div className="text-base font-semibold text-gray-600 dark:text-gray-300 mt-0.5">
+      <div className="text-base font-semibold text-ui-secondary mt-0.5">
         {format(now, 'MMMM d, yyyy')}
       </div>
     </div>
@@ -81,7 +82,8 @@ interface KidProgress {
   done: number;
 }
 
-export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, onManage, settings }: Props) {
+export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, onManage, settings, justWoke = false }: Props) {
+  const [expandedKidId, setExpandedKidId] = useState<string | null>(null);
   const { isWallMode } = useDisplayMode();
   useWakeLock(isWallMode);
   const {
@@ -127,8 +129,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
       const start = new Date(e.startTime);
       const isToday = format(start, 'yyyy-MM-dd') === today;
       if (!isToday) return false;
-      const endMs = e.endTime || e.startTime;
-      return endMs > Date.now();
+      return isEventCurrentOrUpcoming(e);
     })
     .sort((a, b) => a.startTime - b.startTime);
 
@@ -273,7 +274,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
       const dayEvts = events
         .filter(e => {
           const evDate = format(new Date(e.startTime), 'yyyy-MM-dd');
-          return evDate === dateStr && (d === 0 ? (e.endTime || e.startTime) > nowMs : true);
+          return evDate === dateStr && (d === 0 ? getEffectiveEventEndTime(e) > nowMs : true);
         })
         .sort((a, b) => a.startTime - b.startTime);
 
@@ -298,7 +299,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
         />
 
         {/* ── LEFT PANEL: Clock · Weather · Chores ── */}
-        <aside className="w-64 xl:w-72 shrink-0 flex flex-col border-r border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950">
+        <aside className="w-72 xl:w-80 shrink-0 flex flex-col border-r border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950">
 
           {/* Clock + date */}
           <div className="px-8 pt-8 pb-6">
@@ -331,33 +332,81 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
           {/* Chores */}
           {kids.length > 0 && (
             <>
-              <div className="mx-8 h-px bg-gray-100 dark:bg-gray-800" />
-              <div className="px-8 py-5 flex-1 min-h-0 overflow-y-auto">
-                <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.15em] mb-4">
+              <div className="mx-8 h-px bg-ui-soft" />
+              <div className="px-6 py-5 flex-1 min-h-0 overflow-y-auto">
+                <p className="text-xs font-bold text-ui-muted-2 uppercase tracking-[0.15em] mb-4">
                   Chores
                 </p>
-                <div className="space-y-4">
-                  {kidProgress.map(({ kid, total, done }) => {
-                    const pct = total === 0 ? 100 : Math.round((done / total) * 100);
-                    const color = memberColorMap[kid.uid] || '#6366f1';
+                <div className="space-y-3">
+                  {kids.map((kid) => {
+                    const tasks = (tasksByKid[kid.uid] || []).filter(t => t.status !== 'archived');
+                    const comps = completionsByKid[kid.uid] || [];
+                    const completedIds = new Set(comps.map(c => c.taskId));
+                    const done = tasks.filter(t => completedIds.has(t.id)).length;
+                    const total = tasks.length;
                     const allDone = total > 0 && done >= total;
+                    const remaining = total - done;
+                    const color = memberColorMap[kid.uid] || '#6366f1';
+                    const isExpanded = expandedKidId === kid.uid;
+
                     return (
-                      <div key={kid.uid}>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                            <span className="text-sm font-semibold text-gray-900 dark:text-white">{kid.name}</span>
-                          </div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {allDone ? '✓ Done' : `${done}/${total}`}
-                          </span>
-                        </div>
-                        <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800">
+                      <div
+                        key={kid.uid}
+                        data-testid={`kid-card-${kid.uid}`}
+                        className={cn(
+                          'rounded-2xl border-2 cursor-pointer min-h-[64px]',
+                          allDone ? 'border-emerald-500' : 'border-ui'
+                        )}
+                        onClick={() => setExpandedKidId(isExpanded ? null : kid.uid)}
+                      >
+                        {/* Card header */}
+                        <div className="flex items-center gap-3 px-3 py-3">
                           <div
-                            className="h-2 rounded-full transition-all duration-500"
-                            style={{ width: `${pct}%`, backgroundColor: allDone ? '#10b981' : color }}
-                          />
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-base shrink-0"
+                            style={{ backgroundColor: color }}
+                          >
+                            {kid.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-bold text-ui-primary">{kid.name}</div>
+                            <div className={cn('text-xs', allDone ? 'text-emerald-600 font-semibold' : 'text-ui-muted')}>
+                              {allDone ? 'All done!' : `${done} of ${total} done`}
+                            </div>
+                          </div>
+                          <div className={cn(
+                            'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0',
+                            allDone ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                          )}>
+                            {allDone ? '✓' : remaining}
+                          </div>
                         </div>
+
+                        {/* Expanded task rows */}
+                        {isExpanded && tasks.length > 0 && (
+                          <div className="pl-[52px] pr-3 pb-3 flex flex-col gap-1.5">
+                            {tasks.map(task => {
+                              const isDone = completedIds.has(task.id);
+                              return (
+                                <div key={task.id} className="flex items-center gap-2">
+                                  <div className={cn(
+                                    'w-[18px] h-[18px] rounded-full border-2 shrink-0 flex items-center justify-center',
+                                    isDone
+                                      ? 'border-emerald-500 bg-emerald-50'
+                                      : 'border-indigo-400'
+                                  )}>
+                                    {isDone && <span className="text-[10px] text-emerald-600">✓</span>}
+                                  </div>
+                                  <span className={cn(
+                                    'text-xs',
+                                    isDone ? 'line-through text-ui-muted-2' : 'text-ui-primary font-medium'
+                                  )}>
+                                    {task.title}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
