@@ -179,6 +179,10 @@ export default function App() {
     });
   }, []);
 
+  useEffect(() => {
+    if (profile) warmProfile(profile);
+  }, [profile, warmProfile]);
+
   const {
     showProfileSwitcher, setShowProfileSwitcher,
     pendingKidSwitch, setPendingKidSwitch,

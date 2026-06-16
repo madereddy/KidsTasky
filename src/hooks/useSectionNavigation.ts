@@ -9,7 +9,7 @@ export function useSectionNavigation() {
   const goToSection = useCallback((section: AppSection) => {
     setActiveSection(section);
     // Force re-render for lazy chunks that might have missed the Suspense retry ping
-    setTimeout(() => setNavRetryTick(t => t + 1), 50);
+    setTimeout(() => setNavRetryTick(t => t + 1), 500);
   }, []);
 
   return {

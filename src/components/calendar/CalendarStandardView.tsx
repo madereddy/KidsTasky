@@ -64,11 +64,11 @@ interface Props {
   onRoutineRefresh: () => void;
 }
 
-const VIEW_LABELS: { mode: ViewMode; label: string }[] = [
-  { mode: 'month', label: 'Month' },
-  { mode: 'week', label: 'Week' },
-  { mode: 'day', label: 'Day' },
-  { mode: 'agenda', label: 'Agenda' },
+const VIEW_LABELS: { mode: ViewMode; label: string; short: string }[] = [
+  { mode: 'month', label: 'Month', short: 'Mo' },
+  { mode: 'week', label: 'Week', short: 'Wk' },
+  { mode: 'day', label: 'Day', short: 'D' },
+  { mode: 'agenda', label: 'Agenda', short: 'Ag' },
 ];
 
 export function CalendarStandardView({
@@ -124,16 +124,17 @@ export function CalendarStandardView({
     <div className="flex flex-col h-[calc(100vh-200px)] bg-white rounded-2xl border border-ui overflow-hidden shadow-sm">
       <div className="flex items-center justify-between px-4 py-3 border-b border-ui bg-ui-soft shrink-0">
         <div className="flex items-center gap-1 bg-white border border-ui rounded-xl p-1">
-          {VIEW_LABELS.map(({ mode, label }) => (
+          {VIEW_LABELS.map(({ mode, label, short }) => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
               className={cn(
-                'px-3 py-1.5 rounded-lg text-sm font-semibold transition-all',
+                'px-2 sm:px-3 py-1.5 rounded-lg text-sm font-semibold transition-all',
                 viewMode === mode ? 'bg-blue-500 text-white shadow-sm' : 'text-ui-muted hover:text-ui-primary'
               )}
             >
-              {label}
+              <span className="sm:hidden">{short}</span>
+              <span className="hidden sm:inline">{label}</span>
             </button>
           ))}
         </div>
@@ -151,13 +152,13 @@ export function CalendarStandardView({
           <button onClick={navigateNext} className="p-2 hover:bg-ui-soft-3 rounded-full transition-colors">
             <ChevronRight size={18} />
           </button>
-          <span className="text-sm font-semibold text-ui-secondary text-center px-2 sm:min-w-[160px]">{getDateLabel()}</span>
+          <span className="hidden sm:inline text-sm font-semibold text-ui-secondary text-center px-2 sm:min-w-[160px]">{getDateLabel()}</span>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsWallMode((prev) => !prev)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-colors border bg-white text-ui-secondary border-ui hover:bg-ui-soft"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-colors border bg-white text-ui-secondary border-ui hover:bg-ui-soft"
             title="Toggle wall display mode"
           >
             <MonitorSmartphone size={16} /> Wall
@@ -170,7 +171,7 @@ export function CalendarStandardView({
               toggleFullscreen();
             }}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-colors border',
+              'hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-colors border',
               isKioskMode ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-ui-secondary border-ui hover:bg-ui-soft'
             )}
             title="Toggle kiosk / fullscreen mode"
@@ -181,9 +182,9 @@ export function CalendarStandardView({
           {!isLocked && (
             <button
               onClick={() => { setDefaultDate(currentDate); setDefaultStartTime(undefined); setShowAddModal(true); }}
-              className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 text-white rounded-xl text-sm font-semibold hover:bg-blue-600 transition-colors min-h-[44px] min-w-[100px]"
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 text-white rounded-xl text-sm font-semibold hover:bg-blue-600 transition-colors min-h-[44px] sm:min-w-[100px]"
             >
-              <Plus size={16} /> Quick Add
+              <Plus size={16} /> <span className="hidden sm:inline">Quick Add</span>
             </button>
           )}
         </div>
