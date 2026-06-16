@@ -130,7 +130,8 @@ export function CalendarStandardView({
               onClick={() => setViewMode(mode)}
               className={cn(
                 'px-2 sm:px-3 py-1.5 rounded-lg text-sm font-semibold transition-all',
-                viewMode === mode ? 'bg-blue-500 text-white shadow-sm' : 'text-ui-muted hover:text-ui-primary'
+                viewMode === mode ? 'bg-blue-500 text-white shadow-sm' : 'text-ui-muted hover:text-ui-primary',
+                mode === 'month' && 'hidden sm:flex'
               )}
             >
               <span className="sm:hidden">{short}</span>

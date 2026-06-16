@@ -33,6 +33,13 @@ export function CalendarView(props: Props) {
 function CalendarViewInner({ parentId, kids = [], memberColorMap = {}, isLocked = false, userRole = 'parent' }: Props) {
   const calendarSelectionStorageKey = `kidtasker:calendar:selected:${parentId}`;
   const [viewMode, setViewMode] = useState<ViewMode>('week');
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const guard = () => { if (mq.matches) setViewMode(v => v === 'month' ? 'week' : v); };
+    guard();
+    mq.addEventListener('change', guard);
+    return () => mq.removeEventListener('change', guard);
+  }, []);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);

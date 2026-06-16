@@ -123,6 +123,10 @@ export default function App() {
   } = useAppInitialization();
 
   const { activeSection, goToSection } = useSectionNavigation();
+  const [mountedSections, setMountedSections] = useState<Set<string>>(() => new Set(['home']));
+  useEffect(() => {
+    setMountedSections(prev => prev.has(activeSection) ? prev : new Set([...prev, activeSection]));
+  }, [activeSection]);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [showShoppingMode, setShowShoppingMode] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
@@ -343,20 +347,21 @@ export default function App() {
       />
 
       <main className={cn("mx-auto max-w-7xl px-4 sm:px-6", isMobile ? "pb-[calc(7.5rem+env(safe-area-inset-bottom))]" : "pb-10")}>
-        {isMobile && activeSection === 'home' ? (
-          <Suspense fallback={<SectionSkeleton role={profile.role === 'kid' ? 'kid' : 'parent'} activeSection="home" />}><MissionTodayView profile={profile} tasks={allTasks.filter(t => !hiddenMissionIds.has(`task_${t.id}`))} events={events.filter(e => !hiddenMissionIds.has(`event_${e.id}`))} completions={allCompletions} listItems={globalListItems.filter(l => !hiddenMissionIds.has(`list_${l.id}`))} lists={globalLists} frequentItems={frequentItems} kids={kids} categories={categories} onAction={handleMissionAction} onRefresh={refreshWallData} /></Suspense>
-        ) : (
-          <>
-            {isParentRole(profile.role) && activeSection === 'home' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="home" />}><WallHome parentId={familyParentId} profile={profile} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} onManage={() => goToSection('manage')} settings={familySettings} justWoke={wallJustWoke} /></Suspense>}
-            {isParentRole(profile.role) && activeSection === 'manage' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="manage" />}><ParentDashboard profile={profile} onOpenSettings={openSettings} /></Suspense>}
-            {isParentRole(profile.role) && activeSection === 'calendar' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="calendar" />}><CalendarView parentId={familyParentId} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} userRole={profile.role} /></Suspense>}
-            {isParentRole(profile.role) && activeSection === 'tasks' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="tasks" />}><ParentTasksWorkspace parentId={familyParentId} kids={kids} categories={categories} selectedCategoryId={selectedCategoryId} isLocked={isLocked} isDarkMode={isDarkTheme} onCategoriesChange={setCategories} /></Suspense>}
-            {isParentRole(profile.role) && activeSection === 'meals' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="meals" />}><MealPlanView parentId={familyParentId} /></Suspense>}
-            {isParentRole(profile.role) && activeSection === 'shopping' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="shopping" />}><ShoppingView parentId={familyParentId} /></Suspense>}
-            {isParentRole(profile.role) && activeSection === 'routines' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="routines" />}><RoutinesView parentId={familyParentId} /></Suspense>}
-            {!isParentRole(profile.role) && <Suspense fallback={<SectionSkeleton role="kid" activeSection="home" />}><KidDashboard profile={profile} onProgressChange={setProgress} categories={categories} selectedCategoryId={selectedCategoryId} onProfileUpdate={() => userService.getUserProfile(user.uid).then(setProfile)} kids={kids} memberColorMap={memberColorMap} activeSection={activeSection} /></Suspense>}
-          </>
-        )}
+        <>
+          {/* Home: MissionTodayView (mobile) or WallHome (desktop) — conditional, not kept-alive */}
+          {isMobile && activeSection === 'home' && <Suspense fallback={<SectionSkeleton role={profile.role === 'kid' ? 'kid' : 'parent'} activeSection="home" />}><MissionTodayView profile={profile} tasks={allTasks.filter(t => !hiddenMissionIds.has(`task_${t.id}`))} events={events.filter(e => !hiddenMissionIds.has(`event_${e.id}`))} completions={allCompletions} listItems={globalListItems.filter(l => !hiddenMissionIds.has(`list_${l.id}`))} lists={globalLists} frequentItems={frequentItems} kids={kids} categories={categories} onAction={handleMissionAction} onRefresh={refreshWallData} /></Suspense>}
+          {isParentRole(profile.role) && !isMobile && activeSection === 'home' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="home" />}><WallHome parentId={familyParentId} profile={profile} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} onManage={() => goToSection('manage')} settings={familySettings} justWoke={wallJustWoke} /></Suspense>}
+
+          {/* Non-home sections: mount on first visit, stay mounted (CSS hide when inactive) */}
+          {isParentRole(profile.role) && mountedSections.has('manage') && <div style={{ display: activeSection === 'manage' ? undefined : 'none' }}><Suspense fallback={<SectionSkeleton role="parent" activeSection="manage" />}><ParentDashboard profile={profile} onOpenSettings={openSettings} /></Suspense></div>}
+          {isParentRole(profile.role) && mountedSections.has('calendar') && <div style={{ display: activeSection === 'calendar' ? undefined : 'none' }}><Suspense fallback={<SectionSkeleton role="parent" activeSection="calendar" />}><CalendarView parentId={familyParentId} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} userRole={profile.role} /></Suspense></div>}
+          {isParentRole(profile.role) && mountedSections.has('tasks') && <div style={{ display: activeSection === 'tasks' ? undefined : 'none' }}><Suspense fallback={<SectionSkeleton role="parent" activeSection="tasks" />}><ParentTasksWorkspace parentId={familyParentId} kids={kids} categories={categories} selectedCategoryId={selectedCategoryId} isLocked={isLocked} isDarkMode={isDarkTheme} onCategoriesChange={setCategories} /></Suspense></div>}
+          {isParentRole(profile.role) && mountedSections.has('meals') && <div style={{ display: activeSection === 'meals' ? undefined : 'none' }}><Suspense fallback={<SectionSkeleton role="parent" activeSection="meals" />}><MealPlanView parentId={familyParentId} /></Suspense></div>}
+          {isParentRole(profile.role) && mountedSections.has('shopping') && <div style={{ display: activeSection === 'shopping' ? undefined : 'none' }}><Suspense fallback={<SectionSkeleton role="parent" activeSection="shopping" />}><ShoppingView parentId={familyParentId} /></Suspense></div>}
+          {isParentRole(profile.role) && mountedSections.has('routines') && <div style={{ display: activeSection === 'routines' ? undefined : 'none' }}><Suspense fallback={<SectionSkeleton role="parent" activeSection="routines" />}><RoutinesView parentId={familyParentId} /></Suspense></div>}
+
+          {!isParentRole(profile.role) && <Suspense fallback={<SectionSkeleton role="kid" activeSection="home" />}><KidDashboard profile={profile} onProgressChange={setProgress} categories={categories} selectedCategoryId={selectedCategoryId} onProfileUpdate={() => userService.getUserProfile(user.uid).then(setProfile)} kids={kids} memberColorMap={memberColorMap} activeSection={activeSection} /></Suspense>}
+        </>
       </main>
 
       {isMobile && <ActionBolt profile={profile} onAction={(type) => { if (type === 'task') goToSection('tasks'); else if (type === 'grocery') goToSection('shopping'); else if (type === 'shopping-mode') setShowShoppingMode(true); }} />}
