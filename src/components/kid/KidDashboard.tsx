@@ -1,7 +1,7 @@
 import { userService } from '../../services/users';
 import { tasksClientService } from '../../services/tasks';
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense, startTransition } from 'react';
-import { Clock, CalendarDays, History, Bell, Award } from 'lucide-react';
+import { Clock, CalendarDays, History, Bell, Award, SlidersHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, startOfToday } from 'date-fns';
 import { Task, TaskCompletion, UserProfile, Category } from '../../types';
@@ -28,17 +28,17 @@ import { CelebrationOverlays } from './dashboard/CelebrationOverlays';
 const CalendarView = lazy(() => import('../calendar/CalendarView').then(m => ({ default: m.CalendarView })));
 const HomeworkView = lazy(() => import('../homework/HomeworkView').then(m => ({ default: m.HomeworkView })));
 
-export function KidDashboard({ 
-  profile, 
-  onProgressChange, 
+export function KidDashboard({
+  profile,
+  onProgressChange,
   categories,
   selectedCategoryId,
   onProfileUpdate,
   kids,
   memberColorMap,
   activeSection
-}: { 
-  profile: UserProfile, 
+}: {
+  profile: UserProfile,
   onProgressChange: (p: number) => void,
   categories: Category[],
   selectedCategoryId: string | null,
@@ -57,6 +57,7 @@ export function KidDashboard({
   const today = format(startOfToday(), 'yyyy-MM-dd');
   const [sortBy, setSortBy] = useState<'time' | 'created'>('time');
   const [kidView, setKidView] = useState<'tasks' | 'calendar' | 'homework' | 'shop'>('tasks');
+  const [showFilters, setShowFilters] = useState(false);
   const [, setTabRetryTick] = useState(0);
 
   useEffect(() => {
@@ -226,169 +227,154 @@ export function KidDashboard({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <style>{`
         body {
           background-image: ${currentTheme.bg} !important;
         }
       `}</style>
+
       <KidHeader
         profile={profile}
         streak={streak}
         localXp={localXp}
-        availableStars={availableStars}
         localAvatar={localAvatar}
         currentTheme={currentTheme}
-        isDarkMode={isDarkMode}
-        toneSecondary={toneSecondary}
         onSetEditingAvatar={setEditingAvatar}
         onSetShowThemeSelector={setShowThemeSelector}
       />
-      <FamilyNote parentId={profile.parentId || profile.uid} readOnly={true} />
 
-      <div className={cn("flex justify-between items-center shadow-sm p-3 rounded-[2rem] border", currentTheme.vocab?.panelBg || "bg-white", currentTheme.vocab?.panelBorder || "border-ui-soft")}>
-        <div className="flex gap-2 items-center flex-wrap">
-          <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-ui-soft")}>
-            <button
-              onClick={() => goKidView('tasks')}
-              className={cn(
-                "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
-                kidView === 'tasks' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
-              )}
-            >
-              {currentTheme.vocab?.hub || 'My Chores'}
-            </button>
-            <button
-              onClick={() => goKidView('calendar')}
-              className={cn(
-                "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5",
-                kidView === 'calendar' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
-              )}
-            >
-              <CalendarDays className="w-4 h-4" /> Calendar
-            </button>
-            <button
-              onClick={() => goKidView('homework')}
-              className={cn(
-                "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
-                kidView === 'homework' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
-              )}
-            >
-              Homework
-            </button>
-            {rewards.length > 0 && (
-              <button
-                onClick={() => goKidView('shop')}
-                className={cn(
-                  "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider flex items-center gap-1",
-                  kidView === 'shop' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
-                )}
-              >
-                🛍 Shop
-              </button>
+      {/* Nav bar */}
+      <div className={cn("flex items-center justify-between gap-2 shadow-sm p-2 rounded-[2rem] border", currentTheme.vocab?.panelBg || "bg-white", currentTheme.vocab?.panelBorder || "border-ui-soft")}>
+        <div className={cn("flex gap-1 p-1 rounded-2xl overflow-x-auto", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-ui-soft")}>
+          <button
+            onClick={() => goKidView('tasks')}
+            className={cn(
+              "p-2.5 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider whitespace-nowrap",
+              kidView === 'tasks' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
             )}
-          </div>
-          <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-ui-soft")}>
-            <button 
-              onClick={() => setSortBy('time')}
-              className={cn(
-                "p-3 px-5 rounded-xl transition-all flex items-center gap-2 text-sm font-semibold",
-                sortBy === 'time' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
-              )}
-            >
-              <Clock className="w-4 h-4" /> Time
-            </button>
-            <button 
-              onClick={() => setSortBy('created')}
-              className={cn(
-                "p-3 px-5 rounded-xl transition-all flex items-center gap-2 text-sm font-semibold",
-                sortBy === 'created' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
-              )}
-            >
-              <CalendarDays className="w-4 h-4" /> New
-            </button>
-          </div>
-          <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-ui-soft")}>
+          >
+            {currentTheme.vocab?.hub || 'My Chores'}
+          </button>
+          <button
+            onClick={() => goKidView('calendar')}
+            className={cn(
+              "p-2.5 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap",
+              kidView === 'calendar' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
+            )}
+          >
+            <CalendarDays className="w-3.5 h-3.5" /> Calendar
+          </button>
+          <button
+            onClick={() => goKidView('homework')}
+            className={cn(
+              "p-2.5 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider whitespace-nowrap",
+              kidView === 'homework' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
+            )}
+          >
+            Homework
+          </button>
+          {rewards.length > 0 && (
             <button
-              onClick={() => setTaskView('all')}
+              onClick={() => goKidView('shop')}
               className={cn(
-                "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
-                taskView === 'all' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
+                "p-2.5 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider whitespace-nowrap",
+                kidView === 'shop' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
               )}
             >
-              All
+              🛍 Shop
             </button>
-            <button
-              onClick={() => setTaskView('upforgrabs')}
-              className={cn(
-                "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
-                taskView === 'upforgrabs' ? (isDarkMode ? "bg-fuchsia-800 text-white" : "bg-fuchsia-100 text-fuchsia-800 shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
-              )}
-            >
-              Up for Grabs
-            </button>
-            <button
-              onClick={() => setTaskView('assigned')}
-              className={cn(
-                "p-3 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
-                taskView === 'assigned' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
-              )}
-            >
-              Assigned
-            </button>
-          </div>
-        </div>
-
-        <button 
-          onClick={() => setShowHistory(true)}
-          className={cn(
-            "p-3 px-6 rounded-xl transition-all flex items-center gap-2 text-sm font-bold bg-ui-soft-2 text-ui-secondary hover:bg-ui-soft-3"
           )}
-        >
-          <History className="w-4 h-4" /> History
-        </button>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0 pr-1">
+          <button
+            onClick={() => setShowHistory(true)}
+            className={cn("p-2.5 rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold", isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")}
+          >
+            <History className="w-4 h-4" />
+          </button>
+          {kidView === 'tasks' && (
+            <button
+              onClick={() => setShowFilters(f => !f)}
+              className={cn(
+                "p-2.5 rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold border",
+                showFilters
+                  ? (isDarkMode ? "bg-ui-dark-2 text-white border-ui-dark-3" : "bg-white text-ui-primary shadow-sm border-ui")
+                  : (isDarkMode ? "text-ui-secondary border-transparent hover:text-white" : "text-ui-muted border-transparent hover:text-ui-secondary")
+              )}
+              aria-label="Toggle filters"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* Collapsible sort + filter — only visible when toggled */}
       <AnimatePresence>
-        {showHistory && (
-          <MissionHistoryModal 
-            profile={profile}
-            tasks={tasks}
-            categories={categories}
-            onClose={() => setShowHistory(false)}
-          />
-        )}
-        {showThemeSelector && (
-          <ThemeSelectorModal 
-            currentThemeId={profile.themeId || 'space'}
-            onSelect={handleThemeSelect}
-            onClose={() => setShowThemeSelector(false)}
-          />
-        )}
-        {editingAvatar && (
-          <div className="fixed inset-0 bg-ui-deep-80 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl p-6 w-80">
-              <h3 className="font-semibold mb-3 text-ui-primary">My Avatar</h3>
-              <AvatarPicker
-                uid={profile.uid}
-                current={{ ...profile, ...localAvatar, name: profile.name }}
-                onUpdated={(preset, url) => {
-                  setLocalAvatar({ preset: preset ?? undefined, url: url ?? undefined });
-                  setEditingAvatar(false);
-                }}
-              />
-              <button onClick={() => setEditingAvatar(false)} className="mt-3 text-sm text-ui-muted">Cancel</button>
+        {kidView === 'tasks' && showFilters && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="flex gap-2 flex-wrap pt-1">
+              <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-ui-soft")}>
+                <button
+                  onClick={() => setSortBy('time')}
+                  className={cn(
+                    "p-2.5 px-4 rounded-xl transition-all flex items-center gap-2 text-xs font-semibold",
+                    sortBy === 'time' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
+                  )}
+                >
+                  <Clock className="w-3.5 h-3.5" /> Time
+                </button>
+                <button
+                  onClick={() => setSortBy('created')}
+                  className={cn(
+                    "p-2.5 px-4 rounded-xl transition-all flex items-center gap-2 text-xs font-semibold",
+                    sortBy === 'created' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
+                  )}
+                >
+                  <CalendarDays className="w-3.5 h-3.5" /> Newest
+                </button>
+              </div>
+              <div className={cn("flex gap-1 p-1 rounded-2xl", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-ui-soft")}>
+                <button
+                  onClick={() => setTaskView('all')}
+                  className={cn(
+                    "p-2.5 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
+                    taskView === 'all' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
+                  )}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setTaskView('upforgrabs')}
+                  className={cn(
+                    "p-2.5 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
+                    taskView === 'upforgrabs' ? (isDarkMode ? "bg-fuchsia-800 text-white" : "bg-fuchsia-100 text-fuchsia-800 shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
+                  )}
+                >
+                  Up for Grabs
+                </button>
+                <button
+                  onClick={() => setTaskView('assigned')}
+                  className={cn(
+                    "p-2.5 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
+                    taskView === 'assigned' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
+                  )}
+                >
+                  Assigned
+                </button>
+              </div>
             </div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {kidView === 'tasks' && tasks.length > 0 && (
-        <div className={cn("rounded-2xl p-4 border shadow-sm mb-4", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-ui")}>
-          <h3 className="text-sm font-semibold text-ui-muted uppercase tracking-wide mb-3">This Week</h3>
-          <WeeklyChoreGrid tasks={tasks} kids={[profile]} completions={completions} compact />
-        </div>
-      )}
+      {/* Tasks — immediately visible */}
       {kidView === 'tasks' && (
         <KidTaskBoard
           sections={taskSections}
@@ -419,6 +405,16 @@ export function KidDashboard({
           />
         </Suspense>
       )}
+      {kidView === 'tasks' && tasks.length > 0 && (
+        <div className={cn("rounded-2xl p-4 border shadow-sm", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-ui")}>
+          <h3 className="text-sm font-semibold text-ui-muted uppercase tracking-wide mb-3">This Week</h3>
+          <WeeklyChoreGrid tasks={tasks} kids={[profile]} completions={completions} compact />
+        </div>
+      )}
+      {kidView === 'tasks' && (
+        <FamilyNote parentId={profile.parentId || profile.uid} readOnly={true} />
+      )}
+
       {kidView === 'calendar' && (
         <Suspense fallback={<div className="py-10 text-sm text-ui-muted">Loading calendar...</div>}>
           <CalendarView
@@ -454,7 +450,7 @@ export function KidDashboard({
       )}
 
       {progressPercent === 100 && totalSlots > 0 && (
-        <motion.div 
+        <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           className={cn("p-8 rounded-[3rem] text-center shadow-sm", currentTheme.vocab?.darkMode ? "bg-emerald-500/10 border border-emerald-500/30" : "bg-emerald-50 border border-emerald-100")}
@@ -465,7 +461,6 @@ export function KidDashboard({
         </motion.div>
       )}
 
-      {/* Alert Banner / Notification */}
       {tasks.some((t: Task) => getUrgency(t) === 'overdue') && (
         <div className={cn("flex items-center gap-4 p-4 rounded-2xl shadow-sm", currentTheme.vocab?.darkMode ? "bg-rose-500/10 border border-rose-500/30" : "bg-red-50 border border-red-100")}>
           <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", currentTheme.vocab?.darkMode ? "bg-rose-500/20 text-rose-500" : "bg-red-100 text-red-500")}>
@@ -484,6 +479,40 @@ export function KidDashboard({
         toneSecondary={toneSecondary}
         themeVocab={currentTheme.vocab}
       />
+
+      <AnimatePresence>
+        {showHistory && (
+          <MissionHistoryModal
+            profile={profile}
+            tasks={tasks}
+            categories={categories}
+            onClose={() => setShowHistory(false)}
+          />
+        )}
+        {showThemeSelector && (
+          <ThemeSelectorModal
+            currentThemeId={profile.themeId || 'space'}
+            onSelect={handleThemeSelect}
+            onClose={() => setShowThemeSelector(false)}
+          />
+        )}
+        {editingAvatar && (
+          <div className="fixed inset-0 bg-ui-deep-80 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl p-6 w-80">
+              <h3 className="font-semibold mb-3 text-ui-primary">My Avatar</h3>
+              <AvatarPicker
+                uid={profile.uid}
+                current={{ ...profile, ...localAvatar, name: profile.name }}
+                onUpdated={(preset, url) => {
+                  setLocalAvatar({ preset: preset ?? undefined, url: url ?? undefined });
+                  setEditingAvatar(false);
+                }}
+              />
+              <button onClick={() => setEditingAvatar(false)} className="mt-3 text-sm text-ui-muted">Cancel</button>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <CelebrationOverlays
         confirmTask={confirmTask}

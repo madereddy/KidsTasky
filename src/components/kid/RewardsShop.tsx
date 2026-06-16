@@ -30,7 +30,7 @@ export function RewardsShop({ rewards, claimedRewards, kidXP, kidStars, onClaim 
         </div>
         <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-2">
           <Star className="w-4 h-4 text-amber-500" />
-          <span className="font-bold text-amber-700">{kidStars} ⭐ stars</span>
+          <span className="font-bold text-amber-700">{kidStars} ⭐</span>
         </div>
       </div>
 

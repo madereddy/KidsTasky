@@ -178,7 +178,6 @@ export function CalendarStandardView({
             {isKioskMode ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
             Kiosk
           </button>
-          {isLocked && <span className="text-xs font-semibold text-ui-muted bg-ui-soft-3 rounded-full px-2 py-1">View only</span>}
           {!isLocked && (
             <button
               onClick={() => { setDefaultDate(currentDate); setDefaultStartTime(undefined); setShowAddModal(true); }}
