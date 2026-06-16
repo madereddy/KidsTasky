@@ -1,6 +1,9 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+vi.mock('./WallWakeOverlay', () => ({
+  WallWakeOverlay: () => <div data-testid="wall-wake-overlay">WakeOverlay</div>,
+}));
 import { WallHome } from './WallHome';
 import { DisplayContext } from '../../contexts/DisplayContext';
 import { dashboardClientService } from '../../services/dashboard';
@@ -190,6 +193,25 @@ describe('WallHome', () => {
     // Wait for load
     await screen.findByTestId('wall-clock');
     expect(screen.queryByText('IntelligenceHeader')).not.toBeInTheDocument();
+  });
+
+  it('shows WallWakeOverlay when justWoke is true in wall mode', async () => {
+    render(
+      <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false }}>
+        <WallHome {...baseProps} isLocked={true} justWoke={true} />
+      </DisplayContext.Provider>
+    );
+    expect(await screen.findByTestId('wall-wake-overlay')).toBeInTheDocument();
+  });
+
+  it('does not show WallWakeOverlay when justWoke is false', async () => {
+    render(
+      <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false }}>
+        <WallHome {...baseProps} isLocked={true} justWoke={false} />
+      </DisplayContext.Provider>
+    );
+    await screen.findByTestId('wall-clock');
+    expect(screen.queryByTestId('wall-wake-overlay')).not.toBeInTheDocument();
   });
 });
 

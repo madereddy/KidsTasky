@@ -19,6 +19,8 @@ import { FrequentItemChips } from '../shared/FrequentItemChips';
 import { listsClientService } from '../../services/lists';
 import { XpCelebration } from './XpCelebration';
 import { FamilyLeaderboard } from './FamilyLeaderboard';
+import { AnimatePresence } from 'motion/react';
+import { WallWakeOverlay } from './WallWakeOverlay';
 import { clientLogger } from '../../services/clientLogger';
 
 interface Props {
@@ -82,6 +84,14 @@ interface KidProgress {
 
 export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, onManage, settings, justWoke = false }: Props) {
   const [expandedKidId, setExpandedKidId] = useState<string | null>(null);
+  const [showWakeOverlay, setShowWakeOverlay] = useState(false);
+  useEffect(() => {
+    if (!justWoke) return;
+    setShowWakeOverlay(true);
+    const t = setTimeout(() => setShowWakeOverlay(false), 5000);
+    return () => clearTimeout(t);
+  }, [justWoke]);
+
   const { isWallMode } = useDisplayMode();
   useWakeLock(isWallMode);
   const {
@@ -426,6 +436,19 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
 
         {/* ── RIGHT PANEL: Agenda ── */}
         <main className="relative flex-1 overflow-y-auto px-8 xl:px-12 py-8 bg-white dark:bg-ui-dark">
+          <AnimatePresence>
+            {showWakeOverlay && (
+              <WallWakeOverlay
+                onDismiss={() => setShowWakeOverlay(false)}
+                intelligence={intelligence}
+                powerMission={powerMission}
+                frequentItems={frequentItems}
+                wallMode={wallMode}
+                onAddIngredients={handleAddIngredients}
+                onQuickAdd={handleQuickAdd}
+              />
+            )}
+          </AnimatePresence>
 
           {loadError && (
             <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 flex items-center justify-between">
