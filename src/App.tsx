@@ -144,6 +144,7 @@ export default function App() {
   const [showUnlockPrompt, setShowUnlockPrompt] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [screensaverPreview, setScreensaverPreview] = useState(false);
+  const [wallJustWoke, setWallJustWoke] = useState(false);
   const { syncing, isOffline } = useOfflineQueueSync();
 
   const warmProfile = useCallback((u: UserProfile) => {
@@ -333,7 +334,7 @@ export default function App() {
           <Suspense fallback={<SectionSkeleton role={profile.role === 'kid' ? 'kid' : 'parent'} activeSection="home" />}><MissionTodayView profile={profile} tasks={allTasks.filter(t => !hiddenMissionIds.has(`task_${t.id}`))} events={events.filter(e => !hiddenMissionIds.has(`event_${e.id}`))} completions={allCompletions} listItems={globalListItems.filter(l => !hiddenMissionIds.has(`list_${l.id}`))} lists={globalLists} frequentItems={frequentItems} kids={kids} categories={categories} onAction={handleMissionAction} onRefresh={refreshWallData} /></Suspense>
         ) : (
           <>
-            {isParentRole(profile.role) && activeSection === 'home' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="home" />}><WallHome parentId={familyParentId} profile={profile} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} onManage={() => goToSection('manage')} settings={familySettings} /></Suspense>}
+            {isParentRole(profile.role) && activeSection === 'home' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="home" />}><WallHome parentId={familyParentId} profile={profile} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} onManage={() => goToSection('manage')} settings={familySettings} justWoke={wallJustWoke} /></Suspense>}
             {isParentRole(profile.role) && activeSection === 'manage' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="manage" />}><ParentDashboard profile={profile} onOpenSettings={() => setShowSettings(true)} /></Suspense>}
             {isParentRole(profile.role) && activeSection === 'calendar' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="calendar" />}><CalendarView parentId={familyParentId} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} userRole={profile.role} /></Suspense>}
             {isParentRole(profile.role) && activeSection === 'tasks' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="tasks" />}><ParentTasksWorkspace parentId={familyParentId} kids={kids} categories={categories} selectedCategoryId={selectedCategoryId} isLocked={isLocked} isDarkMode={isDarkTheme} onCategoriesChange={setCategories} /></Suspense>}
@@ -396,7 +397,21 @@ export default function App() {
           }}
         />
       )}
-      <PhotoScreensaver parentId={profile.parentId || profile.uid} idleMinutes={5} forceIdle={screensaverPreview} onDismiss={screensaverPreview ? () => setScreensaverPreview(false) : undefined} shuffleEnabled={screensaverShuffle} displayDurationSec={screensaverDurationSec} showCaptions={screensaverCaptions} />
+      <PhotoScreensaver
+        parentId={profile.parentId || profile.uid}
+        idleMinutes={5}
+        forceIdle={screensaverPreview}
+        onDismiss={() => {
+          if (screensaverPreview) {
+            setScreensaverPreview(false);
+          } else {
+            setWallJustWoke(true);
+          }
+        }}
+        shuffleEnabled={screensaverShuffle}
+        displayDurationSec={screensaverDurationSec}
+        showCaptions={screensaverCaptions}
+      />
       <footer className="mt-20 pt-10 border-t border-ui mx-6 pb-6 hidden md:block"><div className="max-w-7xl mx-auto flex justify-between items-center"><div className="flex items-center gap-4"><div className="w-8 h-8 rounded-full bg-ui-soft-2 flex items-center justify-center text-emerald-500"><Activity className="w-4 h-4" /></div><p className="text-xs text-ui-muted font-medium">Synced</p><div className="h-3 w-[1px] bg-ui-soft-3 mx-2" /><p className="text-[10px] text-ui-muted-2 font-mono tabular-nums">{__BUILD_VERSION__}</p></div></div></footer>
     </div>
     </DisplayContext.Provider>
