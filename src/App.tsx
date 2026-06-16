@@ -1,20 +1,18 @@
-import { fetchAPI } from './services/http';
-import { getOfflineQueue, popOfflineAction } from './lib/offline-queue';
 import { authService } from './services/auth';
 import { userService } from './services/users';
 import { subscribeToPush, unsubscribeFromPush } from './services/push';
-import { clientLogger } from './services/clientLogger';
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { format } from 'date-fns';
 import { UserProfile, MissionItem } from './types';
 import { cn } from './lib/utils';
 import { THEMES, MEMBER_COLORS } from './constants';
-import { useSocketStaleData } from './hooks/useSocket';
 import { useSleepMode } from './hooks/useSleepMode';
 import { DisplayContext } from './contexts/DisplayContext';
 import { FamilyDataContext } from './contexts/FamilyDataContext';
 import { useAppInitialization } from './hooks/useAppInitialization';
 import { useSectionNavigation } from './hooks/useSectionNavigation';
+import { useHiddenMissions } from './hooks/useHiddenMissions';
+import { useOfflineQueueSync } from './hooks/useOfflineQueueSync';
 
 import { ShareTargetHandler } from './components/shared/ShareTargetHandler';
 import { ParentalLockOverlay } from './components/shared/ParentalLockOverlay';
@@ -31,11 +29,12 @@ import { MissionTodayView } from './components/shared/MissionTodayView';
 import { ActionBolt } from './components/shared/ActionBolt';
 import { BottomNav } from './components/shared/BottomNav';
 import { ToolsMenu } from './components/shared/ToolsMenu';
+import { AppHeader } from './components/shared/AppHeader';
+import { KidSwitchDialog, ParentSwitchDialog, ProfileSwitcherSheet } from './components/shared/ProfileSwitchDialogs';
 import { useWallHomeController } from './hooks/useWallHomeController';
 import { useListsController } from './hooks/useListsController';
 import { useProfileSwitchController } from './hooks/useProfileSwitchController';
-import { Rocket, Activity, CalendarDays, List, UtensilsCrossed, Settings, Lock, User as UserIcon, LogOut } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Activity } from 'lucide-react';
 import { settingsClientService } from './services/settings';
 import { tasksClientService } from './services/tasks';
 import { listsClientService } from './services/lists';
@@ -127,22 +126,7 @@ export default function App() {
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [showShoppingMode, setShowShoppingMode] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
-  const [hiddenMissionIds, setHiddenMissionIds] = useState<Set<string>>(() => {
-    const stored = localStorage.getItem('kidtasker_hidden_missions');
-    const today = format(new Date(), 'yyyy-MM-dd');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (parsed.date === today && Array.isArray(parsed.ids)) return new Set(parsed.ids);
-      } catch {}
-    }
-    return new Set();
-  });
-
-  useEffect(() => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    localStorage.setItem('kidtasker_hidden_missions', JSON.stringify({ date: today, ids: Array.from(hiddenMissionIds) }));
-  }, [hiddenMissionIds]);
+  const { hiddenMissionIds, setHiddenMissionIds } = useHiddenMissions();
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 767px)');
@@ -151,8 +135,8 @@ export default function App() {
     return () => mediaQuery.removeEventListener('change', handleResize);
   }, []);
 
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
+  const [selectedCategoryId] = useState<string | null>(null);
+  const [, setProgress] = useState(0);
   const { isSleeping: isSleepScheduled } = useSleepMode({ sleepStart, sleepEnd });
   const [sleepDismissed, setSleepDismissed] = useState(false);
   const isSleepMode = isSleepScheduled && !sleepDismissed;
@@ -160,46 +144,7 @@ export default function App() {
   const [showUnlockPrompt, setShowUnlockPrompt] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [screensaverPreview, setScreensaverPreview] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  const flushQueue = useCallback(async () => {
-    if (syncing || isOffline) return;
-    const queue = getOfflineQueue();
-    if (queue.length === 0) return;
-    setSyncing(true);
-    try {
-      while (getOfflineQueue().length > 0) {
-        const action = popOfflineAction();
-        if (!action) break;
-        try {
-          await fetchAPI(action.endpoint, { method: action.method, body: action.body, skipQueue: true }, 0);
-        } catch (e: any) {
-          if (e.status === 0) {
-            const currentQueue = getOfflineQueue();
-            localStorage.setItem('kidtasker_offline_queue', JSON.stringify([action, ...currentQueue]));
-            break;
-          }
-        }
-      }
-      window.dispatchEvent(new CustomEvent('kidtasker:offline-sync-complete'));
-    } finally {
-      setSyncing(false);
-    }
-  }, [syncing, isOffline]);
-
-  useEffect(() => { if (!isOffline) void flushQueue(); }, [isOffline, flushQueue]);
+  const { syncing, isOffline } = useOfflineQueueSync();
 
   const warmProfile = useCallback((u: UserProfile) => {
     const parentId = u.parentId || u.uid;
@@ -231,7 +176,6 @@ export default function App() {
     showParentSwitchPin, setShowParentSwitchPin,
     parentSwitchPin, setParentSwitchPin,
     switchError, setSwitchError,
-    switchingProfileLabel, setSwitchingProfileLabel,
     switchToKidProfile, switchToParentProfile,
   } = useProfileSwitchController({
     profile, user, parentSession, persistParentSession, loadProfileData, warmProfile,
@@ -349,53 +293,40 @@ export default function App() {
     <ShareTargetHandler />
     <SleepModeOverlay isActive={isSleepMode} use24h={timeFormat === '24h'} onDismiss={() => setSleepDismissed(true)} />
     <div className={cn("min-h-screen selection:bg-sky-500/30 [overflow-x:clip] pb-12 transition-colors duration-500", currentTheme.vocab?.darkMode ? "text-white theme-dark" : "text-ui-primary theme-light", isLocked && "wall-mode")} style={{ background: currentTheme.bg }}>
-      <header className={cn("sticky top-0 z-[60] backdrop-blur-xl border-b mx-4 mt-4 rounded-[2rem] px-6 py-3 mb-8 shadow-sm", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-ui")}>
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
-              <div className={cn("p-2 rounded-xl bg-gradient-to-br", `from-${currentTheme.primary} to-${currentTheme.accent}`, "shadow-sm")}>
-                <Rocket className="w-6 h-6 text-white" />
-              </div>
-              <h1 className={cn("text-xl font-bold tracking-tight hidden sm:block", currentTheme.vocab?.textPrimary || "text-ui-primary")}>
-                {isParentRole(profile.role) ? 'Family Hub' : currentTheme.vocab?.hub || 'My Chores'}
-              </h1>
-              {isOffline && <div className="px-2 py-1 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full animate-pulse ml-2 whitespace-nowrap"><span>☁️ Offline</span></div>}
-              {syncing && <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-[10px] font-bold rounded-full ml-2 whitespace-nowrap"><Activity className="w-3 h-3 animate-spin" /><span>Syncing...</span></div>}
-            </div>
-            {isParentRole(profile?.role) && (
-              <nav className={cn("hidden md:flex gap-1 p-1 rounded-2xl", isDarkTheme ? "bg-ui-dark-50" : "bg-ui-soft-2")}>
-                {(['home', 'tasks', 'calendar', 'shopping', 'routines', 'meals'] as const).map(sec => (
-                  <button key={sec} onClick={() => goToSection(sec)} className={cn("px-4 py-2 rounded-xl text-sm font-semibold transition-all", activeSection === sec ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary"))}>
-                    {sec.charAt(0).toUpperCase() + sec.slice(1)}
-                  </button>
-                ))}
-              </nav>
-            )}
-          </div>
-          <div className="flex items-center gap-4">
-            {isParentRole(profile?.role) && isLocked && (
-              <div className={cn("hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl border z-[61]", isDarkTheme ? "bg-amber-500/10 text-amber-200 border-amber-400/50" : "bg-amber-50 text-amber-900 border-amber-300")}>
-                <Lock className="w-4 h-4" /><span className="text-xs font-black uppercase tracking-[0.18em]">Locked</span>
-              </div>
-            )}
-            {isParentRole(profile?.role) && (
-              <button onClick={() => isLocked ? setShowUnlockPrompt(true) : setShowSettings(true)} className={cn("p-2 rounded-xl border transition-colors flex items-center gap-2 z-[61]", isLocked ? (isDarkTheme ? "text-amber-200 border-amber-400/50 bg-amber-500/10" : "text-amber-900 border-amber-300 bg-amber-50") : (isDarkTheme ? "text-ui-secondary border-ui-dark-3 hover:text-white" : "text-ui-muted-2 border-ui hover:text-ui-primary hover:bg-ui-soft"))}>
-                {isLocked ? <Lock className="w-5 h-5" /> : <Settings className="w-5 h-5" />}<span className="text-xs font-bold hidden xs:inline">{isLocked ? 'Unlock' : 'Settings'}</span>
-              </button>
-            )}
-            <div className="relative">
-              <button onClick={() => setShowProfileSwitcher(!showProfileSwitcher)} className="w-10 h-10 bg-ui-soft-2 border border-ui rounded-full flex items-center justify-center text-ui-muted-2 hover:text-sky-500 transition-colors"><UserIcon className="w-5 h-5" /></button>
-              {showProfileSwitcher && (
-                <div className={cn("absolute right-0 mt-2 w-64 rounded-2xl border shadow-xl z-50 p-2", isDarkTheme ? "bg-ui-deep border-ui-dark" : "bg-white border-ui")}>
-                  {kids.filter(k => k.uid !== profile.uid).map(k => <button key={k.uid} onClick={() => { setPendingKidSwitch(k); setShowParentSwitchPin(false); setSwitchError(''); }} className={cn("w-full text-left px-3 py-2 rounded-xl text-sm font-medium hover:bg-ui-soft", isDarkTheme && "hover:bg-ui-dark-2")}>{k.name} <span className="text-xs text-ui-muted">Kid</span></button>)}
-                  {parentSession && profile.role === 'kid' && <button onClick={() => { setShowParentSwitchPin(true); setPendingKidSwitch(null); setSwitchError(''); }} className={cn("w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-ui-soft", isDarkTheme && "hover:bg-ui-dark-2")}>{parentSession.profile.name} <span className="text-xs text-ui-muted">Parent</span></button>}
-                </div>
-              )}
-            </div>
-            <button onClick={async () => { await unsubscribeFromPush().catch(() => {}); localStorage.removeItem('kidtasker_token'); persistParentSession(null); setUser(null); setProfile(null); }} className="p-2 text-ui-muted-2 hover:text-rose-500 transition-colors hover:bg-rose-50 rounded-full"><LogOut className="w-5 h-5" /></button>
-          </div>
-        </div>
-      </header>
+      <AppHeader
+        profile={profile}
+        kids={kids}
+        currentTheme={currentTheme}
+        activeSection={activeSection}
+        isDarkTheme={isDarkTheme}
+        isLocked={isLocked}
+        isOffline={isOffline}
+        syncing={syncing}
+        isMobile={isMobile}
+        showProfileSwitcher={showProfileSwitcher}
+        parentSession={parentSession}
+        onSectionSelect={goToSection}
+        onSettingsSelect={() => setShowSettings(true)}
+        onUnlockSelect={() => setShowUnlockPrompt(true)}
+        onProfileSwitcherToggle={() => setShowProfileSwitcher(!showProfileSwitcher)}
+        onKidSwitchSelect={(kid) => {
+          setPendingKidSwitch(kid);
+          setShowParentSwitchPin(false);
+          setSwitchError('');
+        }}
+        onParentSwitchSelect={() => {
+          setShowParentSwitchPin(true);
+          setPendingKidSwitch(null);
+          setSwitchError('');
+        }}
+        onLogout={async () => {
+          await unsubscribeFromPush().catch(() => {});
+          localStorage.removeItem('kidtasker_token');
+          persistParentSession(null);
+          setUser(null);
+          setProfile(null);
+        }}
+      />
 
       <main className={cn("mx-auto max-w-7xl px-4 sm:px-6", isMobile ? "pb-[calc(7.5rem+env(safe-area-inset-bottom))]" : "pb-10")}>
         {isMobile && activeSection === 'home' ? (
@@ -417,13 +348,56 @@ export default function App() {
       {isMobile && <ActionBolt profile={profile} onAction={(type) => { if (type === 'task') goToSection('tasks'); else if (type === 'grocery') goToSection('shopping'); else if (type === 'shopping-mode') setShowShoppingMode(true); }} />}
       {showShoppingMode && <ShoppingModeOverlay parentId={familyParentId} onClose={() => setShowShoppingMode(false)} />}
       {isMobile && <BottomNav activeTab={activeSection} role={profile.role} onTabSelect={(tab) => { if (tab === 'tools') setShowToolsMenu(true); else if (tab === 'switch') setShowProfileSwitcher(!showProfileSwitcher); else goToSection(tab as any); }} />}
-      {isParentRole(profile.role) && <ToolsMenu activeSection={activeSection} isOpen={showToolsMenu} onClose={() => setShowToolsMenu(false)} onSelect={(s) => goToSection(s as any)} />}
+      {isParentRole(profile.role) && <ToolsMenu activeSection={activeSection} isOpen={showToolsMenu} isDarkTheme={isDarkTheme} onClose={() => setShowToolsMenu(false)} onSelect={(s) => goToSection(s as any)} />}
+      {isMobile && showProfileSwitcher && (
+        <ProfileSwitcherSheet
+          profile={profile}
+          kids={kids}
+          parentSession={parentSession}
+          isDarkTheme={isDarkTheme}
+          onKidSelect={(kid) => { setPendingKidSwitch(kid); setShowParentSwitchPin(false); setSwitchError(''); setShowProfileSwitcher(false); }}
+          onParentSelect={() => { setShowParentSwitchPin(true); setPendingKidSwitch(null); setSwitchError(''); setShowProfileSwitcher(false); }}
+          onClose={() => setShowProfileSwitcher(false)}
+        />
+      )}
       {isParentRole(profile.role) && showUnlockPrompt && <ParentalLockOverlay parentId={familyParentId} onUnlock={() => { setIsLocked(false); setShowUnlockPrompt(false); }} onCancel={() => setShowUnlockPrompt(false)} />}
       {isParentRole(profile.role) && showSettings && <Suspense fallback={<div className="fixed inset-0 z-[150] bg-white/80 backdrop-blur-md flex items-center justify-center"><div className="w-12 h-12 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin" /></div>}><SettingsView parentId={familyParentId} onClose={() => setShowSettings(false)} onLockNow={async () => { await settingsClientService.lockDisplay(familyParentId); setIsLocked(true); setShowSettings(false); }} onPreviewScreensaver={() => setScreensaverPreview(true)} currentThemeId={profile.themeId || 'space_commander'} onThemeChange={(themeId) => setProfile(prev => prev ? { ...prev, themeId } : prev)} /></Suspense>}
-      {pendingKidSwitch && <div className="fixed inset-0 z-[210] bg-black/60 flex items-center justify-center p-4"><div className={cn("w-full max-w-sm rounded-2xl p-5 border", isDarkTheme ? "bg-ui-deep border-ui-dark text-white" : "bg-white border-ui")}><h3 className="text-lg font-bold">Switch to {pendingKidSwitch.name}</h3><input type="password" value={kidSwitchPin} onChange={(e) => setKidSwitchPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="4-digit PIN" className="w-full px-3 py-2 rounded-xl border border-ui mt-3" />{switchError && <p className="text-sm text-rose-500 mt-2">{switchError}</p>}<div className="flex gap-2 mt-4"><button className="flex-1 px-3 py-2 rounded-xl border" onClick={() => { setPendingKidSwitch(null); setKidSwitchPin(''); }}>Cancel</button><button className="flex-1 px-3 py-2 rounded-xl bg-sky-500 text-white" onClick={async () => { try { await switchToKidProfile(pendingKidSwitch, kidSwitchPin); } catch(e:any){ setSwitchError(e.message); } }}>Switch</button></div></div></div>}
-      {showParentSwitchPin && <div className="fixed inset-0 z-[210] bg-black/60 flex items-center justify-center p-4"><div className={cn("w-full max-w-sm rounded-2xl p-5 border", isDarkTheme ? "bg-ui-deep border-ui-dark text-white" : "bg-white border-ui")}><h3 className="text-lg font-bold">Parent Unlock Required</h3><input type="password" value={parentSwitchPin} onChange={(e) => setParentSwitchPin(e.target.value)} placeholder="PIN or password" className="w-full px-3 py-2 rounded-xl border border-ui mt-3" />{switchError && <p className="text-sm text-rose-500 mt-2">{switchError}</p>}<div className="flex gap-2 mt-4"><button className="flex-1 px-3 py-2 rounded-xl border" onClick={() => { setShowParentSwitchPin(false); setParentSwitchPin(''); }}>Cancel</button><button className="flex-1 px-3 py-2 rounded-xl bg-sky-500 text-white" onClick={async () => { try { await switchToParentProfile(parentSwitchPin); } catch { setSwitchError('Incorrect PIN or password'); } }}>Switch</button></div></div></div>}
+      {pendingKidSwitch && (
+        <KidSwitchDialog
+          pendingKidSwitch={pendingKidSwitch}
+          kidSwitchPin={kidSwitchPin}
+          switchError={switchError}
+          isDarkTheme={isDarkTheme}
+          onPinChange={setKidSwitchPin}
+          onCancel={() => { setPendingKidSwitch(null); setKidSwitchPin(''); }}
+          onSwitch={async () => {
+            try {
+              await switchToKidProfile(pendingKidSwitch, kidSwitchPin);
+            } catch (e: any) {
+              setSwitchError(e.message);
+            }
+          }}
+        />
+      )}
+      {showParentSwitchPin && parentSession && (
+        <ParentSwitchDialog
+          parentName={parentSession.profile.name}
+          parentSwitchPin={parentSwitchPin}
+          switchError={switchError}
+          isDarkTheme={isDarkTheme}
+          onPinChange={setParentSwitchPin}
+          onCancel={() => { setShowParentSwitchPin(false); setParentSwitchPin(''); }}
+          onSwitch={async () => {
+            try {
+              await switchToParentProfile(parentSwitchPin);
+            } catch {
+              setSwitchError('Incorrect PIN or password');
+            }
+          }}
+        />
+      )}
       <PhotoScreensaver parentId={profile.parentId || profile.uid} idleMinutes={5} forceIdle={screensaverPreview} onDismiss={screensaverPreview ? () => setScreensaverPreview(false) : undefined} shuffleEnabled={screensaverShuffle} displayDurationSec={screensaverDurationSec} showCaptions={screensaverCaptions} />
-      <footer className="mt-20 pt-10 border-t border-ui mx-6 pb-6"><div className="max-w-7xl mx-auto flex justify-between items-center"><div className="flex items-center gap-4"><div className="w-8 h-8 rounded-full bg-ui-soft-2 flex items-center justify-center text-emerald-500"><Activity className="w-4 h-4" /></div><p className="text-xs text-ui-muted font-medium">Synced</p><div className="h-3 w-[1px] bg-ui-soft-3 mx-2" /><p className="text-[10px] text-ui-muted-2 font-mono tabular-nums">{__BUILD_VERSION__}</p></div></div></footer>
+      <footer className="mt-20 pt-10 border-t border-ui mx-6 pb-6 hidden md:block"><div className="max-w-7xl mx-auto flex justify-between items-center"><div className="flex items-center gap-4"><div className="w-8 h-8 rounded-full bg-ui-soft-2 flex items-center justify-center text-emerald-500"><Activity className="w-4 h-4" /></div><p className="text-xs text-ui-muted font-medium">Synced</p><div className="h-3 w-[1px] bg-ui-soft-3 mx-2" /><p className="text-[10px] text-ui-muted-2 font-mono tabular-nums">{__BUILD_VERSION__}</p></div></div></footer>
     </div>
     </DisplayContext.Provider>
     </FamilyDataContext.Provider>
