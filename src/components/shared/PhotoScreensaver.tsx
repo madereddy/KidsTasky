@@ -103,6 +103,7 @@ export function PhotoScreensaver({ photos = [], parentId, idleMinutes = 5, force
       return;
     }
     setIsIdle(false);
+    onDismiss?.();
   };
   return (
     <div

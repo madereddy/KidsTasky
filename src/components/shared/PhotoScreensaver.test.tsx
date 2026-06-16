@@ -60,4 +60,21 @@ describe.skip('PhotoScreensaver', () => {
     render(<PhotoScreensaver photos={[{ id: '1', url: STUB_URL, caption: 'Summer 2025' }]} forceIdle={true} showCaptions={false} />);
     expect(screen.queryByText('Summer 2025')).not.toBeInTheDocument();
   });
+
+  it('calls onDismiss when user taps screensaver in normal (non-preview) mode', async () => {
+    const onDismiss = vi.fn();
+    render(
+      <PhotoScreensaver
+        photos={[{ id: '1', url: STUB_URL }]}
+        forceIdle={false}
+        onDismiss={onDismiss}
+        idleMinutes={5}
+      />
+    );
+    // Advance time AFTER render so the idle timer inside the component fires
+    vi.advanceTimersByTime(5 * 60 * 1000);
+    const img = await screen.findByRole('img');
+    fireEvent.click(img);
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
 });
