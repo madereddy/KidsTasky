@@ -142,6 +142,7 @@ export default function App() {
   const isSleepMode = isSleepScheduled && !sleepDismissed;
   useEffect(() => { if (!isSleepScheduled) setSleepDismissed(false); }, [isSleepScheduled]);
   const [showUnlockPrompt, setShowUnlockPrompt] = useState(false);
+  const [openSettingsAfterUnlock, setOpenSettingsAfterUnlock] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [screensaverPreview, setScreensaverPreview] = useState(false);
   const [wallJustWoke, setWallJustWoke] = useState(0);
@@ -308,7 +309,7 @@ export default function App() {
         parentSession={parentSession}
         onSectionSelect={goToSection}
         onSettingsSelect={() => setShowSettings(true)}
-        onUnlockSelect={() => setShowUnlockPrompt(true)}
+        onUnlockSelect={() => { setOpenSettingsAfterUnlock(true); setShowUnlockPrompt(true); }}
         onProfileSwitcherToggle={() => setShowProfileSwitcher(!showProfileSwitcher)}
         onKidSwitchSelect={(kid) => {
           setPendingKidSwitch(kid);
@@ -361,7 +362,7 @@ export default function App() {
           onClose={() => setShowProfileSwitcher(false)}
         />
       )}
-      {isParentRole(profile.role) && showUnlockPrompt && <ParentalLockOverlay parentId={familyParentId} onUnlock={() => { setIsLocked(false); setShowUnlockPrompt(false); }} onCancel={() => setShowUnlockPrompt(false)} />}
+      {isParentRole(profile.role) && showUnlockPrompt && <ParentalLockOverlay parentId={familyParentId} onUnlock={() => { setIsLocked(false); setShowUnlockPrompt(false); if (openSettingsAfterUnlock) { setShowSettings(true); setOpenSettingsAfterUnlock(false); } }} onCancel={() => setShowUnlockPrompt(false)} />}
       {isParentRole(profile.role) && showSettings && <Suspense fallback={<div className="fixed inset-0 z-[150] bg-white/80 backdrop-blur-md flex items-center justify-center"><div className="w-12 h-12 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin" /></div>}><SettingsView parentId={familyParentId} onClose={() => setShowSettings(false)} onLockNow={async () => { await settingsClientService.lockDisplay(familyParentId); setIsLocked(true); setShowSettings(false); }} onPreviewScreensaver={() => setScreensaverPreview(true)} currentThemeId={profile.themeId || 'space_commander'} onThemeChange={(themeId) => setProfile(prev => prev ? { ...prev, themeId } : prev)} /></Suspense>}
       {pendingKidSwitch && (
         <KidSwitchDialog

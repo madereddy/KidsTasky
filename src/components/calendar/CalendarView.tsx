@@ -200,7 +200,11 @@ function CalendarViewInner({ parentId, kids = [], memberColorMap = {}, isLocked 
     if (wallFilter === 'today') {
       const dayStart = startOfDay(now).getTime();
       const dayEnd = endOfDay(now).getTime();
-      return evs.filter((e) => e.startTime <= dayEnd && e.endTime >= dayStart);
+      const todayEvs = evs.filter((e) => e.startTime <= dayEnd && e.endTime >= dayStart);
+      if (todayEvs.length > 0) return todayEvs;
+      // Fall back to next 7 days when today is empty so wall display isn't blank
+      const weekEnd = endOfDay(new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)).getTime();
+      return evs.filter((e) => e.startTime >= dayStart && e.startTime <= weekEnd);
     }
     if (wallFilter === 'week') {
       const wStart = startOfWeek(now, { weekStartsOn: 1 }).getTime();
