@@ -1,9 +1,10 @@
 ﻿// src/server/modules/photos/api.test.ts
 // @vitest-environment node
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import { app } from '../../../../server.js';
 import { db } from '../../db.js';
+import { syncService } from '../sync/service.js';
 
 import { randomBytes } from 'crypto';
 
@@ -21,16 +22,18 @@ async function createParentAuth() {
 }
 
 function seedGoogleConnection(parentId: string) {
+  const id = `sync_test_${Date.now()}_${randomBytes(3).toString('hex')}`;
   db.prepare(`
     INSERT INTO sync_connections (id, parentId, provider, accessToken, refreshToken, createdAt)
     VALUES (?, ?, 'google', ?, ?, ?)
   `).run(
-    `sync_test_${Date.now()}_${randomBytes(3).toString('hex')}`,
+    id,
     parentId,
     'test_access_token',
     'test_refresh_token',
     Date.now()
   );
+  return id;
 }
 
 describe('Photos API', () => {
@@ -163,6 +166,49 @@ describe('Photos API', () => {
     expect(second.body.imported).toBe(0);
     expect(second.body.skipped).toBe(1);
 
+    db.prepare('DELETE FROM users WHERE email = ?').run(email);
+  });
+
+  it('refreshes and retries Google Photos Picker session creation after an expired access token', async () => {
+    const { token, parentId, email } = await createParentAuth();
+    const connectionId = seedGoogleConnection(parentId);
+    const refreshSpy = vi.spyOn(syncService, 'refreshGoogleConnectionTokens').mockResolvedValue({
+      id: connectionId,
+      parentId,
+      provider: 'google',
+      accessToken: 'fresh_access_token',
+      refreshToken: 'test_refresh_token',
+    } as any);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response('Unauthenticated', { status: 401 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: 'picker_session_1',
+        pickerUri: 'https://photos.google.test/picker',
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }));
+
+    const res = await request(app)
+      .post(`/api/parents/${parentId}/google-photos/picker/session`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      sessionId: 'picker_session_1',
+      pickerUri: 'https://photos.google.test/picker',
+    });
+    expect(refreshSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls[0]?.[1]).toMatchObject({
+      headers: expect.objectContaining({ Authorization: 'Bearer test_access_token' }),
+    });
+    expect(fetchSpy.mock.calls[1]?.[1]).toMatchObject({
+      headers: expect.objectContaining({ Authorization: 'Bearer fresh_access_token' }),
+    });
+
+    fetchSpy.mockRestore();
+    refreshSpy.mockRestore();
     db.prepare('DELETE FROM users WHERE email = ?').run(email);
   });
 });
