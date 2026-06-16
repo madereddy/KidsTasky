@@ -4,7 +4,7 @@ import { MonitorSmartphone, Maximize2, Minimize2, RefreshCw } from 'lucide-react
 import { CalendarEvent, UserProfile, AppList } from '../../types';
 import { DailyForecast } from '../../services/weather';
 import { MealPlanWithRecipe } from '../../services/meals';
-import { TemperatureUnitPref, toDisplayTemp } from '../../lib/dateTimePrefs';
+import { getEffectiveEventEndTime, isEventCurrentOrUpcoming, TemperatureUnitPref, toDisplayTemp } from '../../lib/dateTimePrefs';
 import { cn } from '../../lib/utils';
 import { CalSkyLiveClock } from './CalSkyLiveClock';
 import { PhotoScreensaver } from '../shared/PhotoScreensaver';
@@ -90,7 +90,7 @@ export function CalendarWallView({
     const dayEvts = events
       .filter((e) => {
         const evDateStr = format(new Date(e.startTime), 'yyyy-MM-dd');
-        if (d === 0) return evDateStr === dateStr && e.startTime >= nowMs;
+        if (d === 0) return evDateStr === dateStr && isEventCurrentOrUpcoming(e, nowMs);
         return evDateStr === dateStr;
       })
       .sort((a, b) => a.startTime - b.startTime);
@@ -263,7 +263,8 @@ export function CalendarWallView({
                   const color = (e.assignedToId && memberColorMap[e.assignedToId]) || e.color || '#6366f1';
                   const assignedKid = e.assignedToId ? kids.find((k) => k.uid === e.assignedToId) : null;
                   const timeStr = use24h ? format(new Date(e.startTime), 'H:mm') : format(new Date(e.startTime), 'h:mm a');
-                  const endTimeStr = (e.endTime && e.endTime !== e.startTime) ? (use24h ? format(new Date(e.endTime), 'H:mm') : format(new Date(e.endTime), 'h:mm a')) : null;
+                  const effectiveEndTime = getEffectiveEventEndTime(e);
+                  const endTimeStr = effectiveEndTime !== e.startTime ? (use24h ? format(new Date(effectiveEndTime), 'H:mm') : format(new Date(effectiveEndTime), 'h:mm a')) : null;
                   return (
                     <div key={e.id} onClick={() => setSelectedEvent(e)} className="flex items-stretch gap-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 px-2 py-1.5 cursor-pointer">
                       <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: color }} />

@@ -144,7 +144,7 @@ export default function App() {
   const [showUnlockPrompt, setShowUnlockPrompt] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [screensaverPreview, setScreensaverPreview] = useState(false);
-  const [wallJustWoke, setWallJustWoke] = useState(false);
+  const [wallJustWoke, setWallJustWoke] = useState(0);
   const { syncing, isOffline } = useOfflineQueueSync();
 
   const warmProfile = useCallback((u: UserProfile) => {
@@ -405,7 +405,7 @@ export default function App() {
           if (screensaverPreview) {
             setScreensaverPreview(false);
           } else {
-            setWallJustWoke(true);
+            setWallJustWoke(Date.now());
           }
         }}
         shuffleEnabled={screensaverShuffle}

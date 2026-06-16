@@ -40,6 +40,26 @@ export function formatDateTimeWithPrefs(
   }).format(date);
 }
 
+const DEFAULT_EVENT_DURATION_MS = 60 * 60 * 1000;
+
+export function getEffectiveEventEndTime(event: CalendarEvent): number {
+  if (typeof event.endTime === "number" && Number.isFinite(event.endTime) && event.endTime > event.startTime) {
+    return event.endTime;
+  }
+
+  if (event.isAllDay) {
+    const end = new Date(event.startTime);
+    end.setHours(23, 59, 59, 999);
+    return end.getTime();
+  }
+
+  return event.startTime + DEFAULT_EVENT_DURATION_MS;
+}
+
+export function isEventCurrentOrUpcoming(event: CalendarEvent, nowMs = Date.now()): boolean {
+  return getEffectiveEventEndTime(event) > nowMs;
+}
+
 export const calculateNextUp = (
   allEvents: CalendarEvent[], 
   familyKids: UserProfile[], 

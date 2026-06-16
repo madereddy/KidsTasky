@@ -31,7 +31,7 @@ interface Props {
   isLocked: boolean;
   onManage: () => void;
   settings?: any;
-  justWoke?: boolean;
+  justWoke?: number;
 }
 
 // Original clock used in non-wall mode
@@ -82,11 +82,12 @@ interface KidProgress {
   done: number;
 }
 
-export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, onManage, settings, justWoke = false }: Props) {
+export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, onManage, settings, justWoke = 0 }: Props) {
   const [expandedKidId, setExpandedKidId] = useState<string | null>(null);
   const [showWakeOverlay, setShowWakeOverlay] = useState(false);
   useEffect(() => {
-    if (!justWoke) return;
+    if (justWoke <= 0) return;
+
     setShowWakeOverlay(true);
     const t = setTimeout(() => setShowWakeOverlay(false), 5000);
     return () => clearTimeout(t);

@@ -59,7 +59,7 @@ const baseProps = {
   memberColorMap: {},
   isLocked: false,
   onManage: vi.fn(),
-  justWoke: false,
+  justWoke: 0,
 };
 
 describe('WallHome', () => {
@@ -187,7 +187,7 @@ describe('WallHome', () => {
   it('does not render IntelligenceHeader in resting wall mode', async () => {
     render(
       <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false }}>
-        <WallHome {...baseProps} isLocked={true} justWoke={false} />
+        <WallHome {...baseProps} isLocked={true} justWoke={0} />
       </DisplayContext.Provider>
     );
     // Wait for load
@@ -195,19 +195,19 @@ describe('WallHome', () => {
     expect(screen.queryByText('IntelligenceHeader')).not.toBeInTheDocument();
   });
 
-  it('shows WallWakeOverlay when justWoke is true in wall mode', async () => {
+  it('shows WallWakeOverlay when justWoke is > 0 in wall mode', async () => {
     render(
       <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false }}>
-        <WallHome {...baseProps} isLocked={true} justWoke={true} />
+        <WallHome {...baseProps} isLocked={true} justWoke={Date.now()} />
       </DisplayContext.Provider>
     );
     expect(await screen.findByTestId('wall-wake-overlay')).toBeInTheDocument();
   });
 
-  it('does not show WallWakeOverlay when justWoke is false', async () => {
+  it('does not show WallWakeOverlay when justWoke is 0', async () => {
     render(
       <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false }}>
-        <WallHome {...baseProps} isLocked={true} justWoke={false} />
+        <WallHome {...baseProps} isLocked={true} justWoke={0} />
       </DisplayContext.Provider>
     );
     await screen.findByTestId('wall-clock');

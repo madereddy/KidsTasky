@@ -1,0 +1,185 @@
+<h2>Approach 2 — Skylight Wall Redesign</h2>
+<p class="subtitle">Left panel: clock + weather + expandable kid cards only. Right panel: agenda only, big text. Click Emma's card to expand.</p>
+
+<div class="mockup" style="max-width:900px">
+  <div class="mockup-header">Wall Display (tablet ~10–15" or TV)</div>
+  <div class="mockup-body" style="padding:0;overflow:hidden">
+
+    <div style="display:flex;min-height:520px;background:#ffffff;font-family:sans-serif">
+
+      <!-- LEFT PANEL -->
+      <div style="width:260px;flex-shrink:0;border-right:1px solid #f3f4f6;display:flex;flex-direction:column;padding:28px 24px;gap:0">
+
+        <!-- Clock -->
+        <div style="margin-bottom:24px">
+          <div style="font-size:52px;font-weight:900;color:#111;line-height:1;letter-spacing:-2px">7:42</div>
+          <div style="font-size:10px;font-weight:700;color:#9ca3af;letter-spacing:.15em;text-transform:uppercase;margin-top:6px">TUESDAY</div>
+          <div style="font-size:13px;font-weight:600;color:#6b7280;margin-top:2px">June 17, 2026</div>
+        </div>
+
+        <!-- Divider -->
+        <div style="height:1px;background:#f3f4f6;margin-bottom:20px"></div>
+
+        <!-- Weather -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+          <span style="font-size:36px">⛅</span>
+          <div>
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span style="font-size:24px;font-weight:700;color:#f97316">82°</span>
+              <span style="font-size:18px;font-weight:600;color:#60a5fa">65°</span>
+            </div>
+            <div style="font-size:12px;color:#9ca3af;margin-top:1px">Partly cloudy</div>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div style="height:1px;background:#f3f4f6;margin-bottom:20px"></div>
+
+        <!-- Kid cards label -->
+        <div style="font-size:10px;font-weight:700;color:#9ca3af;letter-spacing:.15em;text-transform:uppercase;margin-bottom:12px">Chores</div>
+
+        <!-- Emma — EXPANDED (click toggles) -->
+        <div id="emma-card" onclick="toggleKid('emma')" style="border-radius:14px;border:2px solid #e5e7eb;margin-bottom:10px;cursor:pointer;transition:border-color .2s">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px">
+            <div style="width:40px;height:40px;border-radius:50%;background:#6366f1;display:flex;align-items:center;justify-content:center;color:white;font-size:17px;font-weight:700;flex-shrink:0">E</div>
+            <div style="flex:1">
+              <div style="font-size:15px;font-weight:700;color:#111">Emma</div>
+              <div style="font-size:11px;color:#9ca3af">2 of 4 done</div>
+            </div>
+            <div style="width:30px;height:30px;border-radius:50%;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <span style="font-size:12px;font-weight:700;color:#d97706">2</span>
+            </div>
+          </div>
+          <!-- Expanded tasks -->
+          <div id="emma-tasks" style="padding:0 14px 12px 66px;display:flex;flex-direction:column;gap:7px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:18px;height:18px;border-radius:50%;background:#d1fae5;border:2px solid #10b981;flex-shrink:0;display:flex;align-items:center;justify-content:center"><span style="font-size:10px;color:#10b981">✓</span></div>
+              <span style="font-size:12px;color:#9ca3af;text-decoration:line-through">Make bed</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:18px;height:18px;border-radius:50%;border:2px solid #6366f1;flex-shrink:0"></div>
+              <span style="font-size:12px;color:#111;font-weight:500">Dishes</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:18px;height:18px;border-radius:50%;border:2px solid #6366f1;flex-shrink:0"></div>
+              <span style="font-size:12px;color:#111;font-weight:500">Take out trash</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:18px;height:18px;border-radius:50%;background:#d1fae5;border:2px solid #10b981;flex-shrink:0;display:flex;align-items:center;justify-content:center"><span style="font-size:10px;color:#10b981">✓</span></div>
+              <span style="font-size:12px;color:#9ca3af;text-decoration:line-through">Feed dog</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Jake — DONE, collapsed -->
+        <div id="jake-card" onclick="toggleKid('jake')" style="border-radius:14px;border:2px solid #10b981;margin-bottom:10px;cursor:pointer">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px">
+            <div style="width:40px;height:40px;border-radius:50%;background:#f59e0b;display:flex;align-items:center;justify-content:center;color:white;font-size:17px;font-weight:700;flex-shrink:0">J</div>
+            <div style="flex:1">
+              <div style="font-size:15px;font-weight:700;color:#111">Jake</div>
+              <div style="font-size:11px;color:#10b981;font-weight:600">All done!</div>
+            </div>
+            <div style="width:30px;height:30px;border-radius:50%;background:#d1fae5;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <span style="font-size:14px">✓</span>
+            </div>
+          </div>
+          <div id="jake-tasks" style="display:none;padding:0 14px 12px 66px;flex-direction:column;gap:7px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:18px;height:18px;border-radius:50%;background:#d1fae5;border:2px solid #10b981;flex-shrink:0;display:flex;align-items:center;justify-content:center"><span style="font-size:10px;color:#10b981">✓</span></div>
+              <span style="font-size:12px;color:#9ca3af;text-decoration:line-through">Clean room</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:18px;height:18px;border-radius:50%;background:#d1fae5;border:2px solid #10b981;flex-shrink:0;display:flex;align-items:center;justify-content:center"><span style="font-size:10px;color:#10b981">✓</span></div>
+              <span style="font-size:12px;color:#9ca3af;text-decoration:line-through">Homework</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Manage link -->
+        <div style="margin-top:auto;padding-top:16px">
+          <span style="font-size:11px;color:#d1d5db">Manage family →</span>
+        </div>
+      </div>
+
+      <!-- RIGHT PANEL — Agenda only -->
+      <div style="flex:1;padding:28px 32px;overflow-y:auto">
+
+        <!-- Day section: Today -->
+        <div style="margin-bottom:32px">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+            <span style="font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:.15em;text-transform:uppercase;white-space:nowrap">Today</span>
+            <div style="flex:1;height:1px;background:#f3f4f6"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:16px;background:#f9fafb">
+              <div style="width:4px;align-self:stretch;border-radius:2px;background:#6366f1;flex-shrink:0"></div>
+              <div style="width:80px;flex-shrink:0">
+                <span style="font-size:14px;font-weight:500;color:#9ca3af">9:00 AM</span>
+              </div>
+              <p style="font-size:20px;font-weight:700;color:#111;flex:1;margin:0">Soccer practice</p>
+              <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                <div style="width:8px;height:8px;border-radius:50%;background:#6366f1"></div>
+                <span style="font-size:13px;color:#9ca3af">Emma</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:16px;background:#f9fafb">
+              <div style="width:4px;align-self:stretch;border-radius:2px;background:#10b981;flex-shrink:0"></div>
+              <div style="width:80px;flex-shrink:0">
+                <span style="font-size:14px;font-weight:500;color:#9ca3af">3:30 PM</span>
+              </div>
+              <p style="font-size:20px;font-weight:700;color:#111;flex:1;margin:0">Dentist — Jake</p>
+              <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                <div style="width:8px;height:8px;border-radius:50%;background:#f59e0b"></div>
+                <span style="font-size:13px;color:#9ca3af">Jake</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Day section: Tomorrow -->
+        <div style="margin-bottom:32px">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+            <span style="font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:.15em;text-transform:uppercase;white-space:nowrap">Tomorrow</span>
+            <div style="flex:1;height:1px;background:#f3f4f6"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:16px;background:#f9fafb">
+              <div style="width:4px;align-self:stretch;border-radius:2px;background:#f59e0b;flex-shrink:0"></div>
+              <div style="width:80px;flex-shrink:0">
+                <span style="font-size:14px;font-weight:500;color:#9ca3af">All day</span>
+              </div>
+              <p style="font-size:20px;font-weight:700;color:#111;flex:1;margin:0">School field trip</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Day section: Wed -->
+        <div>
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+            <span style="font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:.15em;text-transform:uppercase;white-space:nowrap">Wed, Jun 19</span>
+            <div style="flex:1;height:1px;background:#f3f4f6"></div>
+          </div>
+          <p style="font-size:14px;color:#d1d5db;padding-left:2px">Nothing scheduled</p>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:16px;text-align:center">IntelligenceHeader / GroceryChips / PowerMission → appear as a 5-second overlay on wake from screensaver, then auto-fade. Not shown here in resting state.</p>
+
+<script>
+function toggleKid(kid) {
+  const tasks = document.getElementById(kid + '-tasks');
+  const card = document.getElementById(kid + '-card');
+  if (tasks.style.display === 'none' || tasks.style.display === '') {
+    tasks.style.display = 'flex';
+  } else {
+    tasks.style.display = 'none';
+  }
+}
+// Emma starts expanded
+document.getElementById('emma-tasks').style.display = 'flex';
+</script>
