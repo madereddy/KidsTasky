@@ -267,6 +267,15 @@ if (!process.env.VITEST && process.env.NODE_ENV !== 'test') {
 }
 
 // API Routes
+app.use("/api", (_req, res, next) => {
+  delete _req.headers["if-none-match"];
+  delete _req.headers["if-modified-since"];
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.removeHeader("ETag");
+  next();
+});
 app.use("/api", apiRouter);
 
 // Share Target Route (must be before SPA catch-all)

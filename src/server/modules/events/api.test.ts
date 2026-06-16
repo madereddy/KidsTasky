@@ -54,6 +54,34 @@ describe('Events API', () => {
     expect(getRes.body[0].title).toBe('Dentist Appt');
   });
 
+  it('does not return 304 for API event reads with conditional cache headers', async () => {
+    await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'Cached Event',
+        startTime: Date.now(),
+        endTime: Date.now() + 3600000,
+        color: '#6366f1'
+      });
+
+    const first = await request(app)
+      .get(`/api/parents/${parentId}/events`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(first.status).toBe(200);
+    expect(first.headers['cache-control']).toContain('no-store');
+
+    const second = await request(app)
+      .get(`/api/parents/${parentId}/events`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('If-None-Match', first.headers.etag || '"cached"');
+
+    expect(second.status).toBe(200);
+    expect(second.body).toHaveLength(1);
+    expect(second.body[0].title).toBe('Cached Event');
+  });
+
   it('should create an all-day event', async () => {
     const res = await request(app)
       .post('/api/events')

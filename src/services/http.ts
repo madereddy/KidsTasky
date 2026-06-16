@@ -35,6 +35,7 @@ export async function fetchAPI(endpoint: string, options?: FetchOptions, retries
 
       const res = await fetch(API_BASE + endpoint, {
         ...options,
+        cache: options?.cache ?? 'no-store',
         headers,
         signal
       });
