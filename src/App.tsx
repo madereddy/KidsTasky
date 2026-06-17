@@ -122,11 +122,7 @@ export default function App() {
     refreshCategories
   } = useAppInitialization();
 
-  const { activeSection, goToSection } = useSectionNavigation();
-  const [mountedSections, setMountedSections] = useState<Set<string>>(() => new Set(['home']));
-  useEffect(() => {
-    setMountedSections(prev => prev.has(activeSection) ? prev : new Set([...prev, activeSection]));
-  }, [activeSection]);
+  const { activeSection, mountedSections, goToSection } = useSectionNavigation();
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [showShoppingMode, setShowShoppingMode] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);

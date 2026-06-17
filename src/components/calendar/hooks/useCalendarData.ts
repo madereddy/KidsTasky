@@ -12,6 +12,8 @@ import { TemperatureUnitPref, TimeFormatPref } from '../../../lib/dateTimePrefs'
 import { format } from 'date-fns';
 
 export function useCalendarData(parentId: string, kids: UserProfile[], isWallMode: boolean) {
+  const kidsRef = useRef(kids);
+  useEffect(() => { kidsRef.current = kids; }, [kids]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [syncCalendars, setSyncCalendars] = useState<SyncCalendar[]>([]);
   const [calendarVisibility, setCalendarVisibility] = useState<Record<string, boolean>>({});
@@ -39,9 +41,9 @@ export function useCalendarData(parentId: string, kids: UserProfile[], isWallMod
 
   const fetchWallData = useCallback(async () => {
     if (!isWallMode) return;
-    
+
     routinesClientService.getTemplates(parentId).then(setRoutineTemplates).catch(() => {});
-    
+
     listsClientService.getLists(parentId).then(async (lists) => {
       const topLists = (lists || []).slice(0, 2);
       const summaries = await Promise.all(topLists.map(async (list) => {
@@ -55,7 +57,8 @@ export function useCalendarData(parentId: string, kids: UserProfile[], isWallMod
 
     tasksClientService.getTasksForParent(parentId).then(async (allTasks) => {
       const todayStr = format(new Date(), 'yyyy-MM-dd');
-      const progress = await Promise.all(kids.map(async (kid) => {
+      const currentKids = kidsRef.current;
+      const progress = await Promise.all(currentKids.map(async (kid) => {
         const kidTasks = (allTasks || []).filter((t: Task) =>
           (t.assignedKidId === kid.uid || t.assignedKidId === 'all') && t.status !== 'archived'
         );
@@ -69,7 +72,7 @@ export function useCalendarData(parentId: string, kids: UserProfile[], isWallMod
     photosClientService.getPhotos(parentId).then((photos) => {
       setWallPhotos((photos || []).map((p: any) => ({ id: p.id, url: p.url, caption: p.caption })));
     }).catch(() => {});
-  }, [parentId, isWallMode, kids]);
+  }, [parentId, isWallMode]);
 
   useEffect(() => {
     const init = async () => {

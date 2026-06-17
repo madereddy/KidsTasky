@@ -4,14 +4,17 @@ export type AppSection = 'home' | 'tasks' | 'calendar' | 'shopping' | 'routines'
 
 export function useSectionNavigation() {
   const [activeSection, setActiveSection] = useState<AppSection | string>('home');
+  const [mountedSections, setMountedSections] = useState<Set<string>>(() => new Set(['home']));
 
   const goToSection = useCallback((section: AppSection) => {
+    setMountedSections(prev => prev.has(section) ? prev : new Set([...prev, section]));
     setActiveSection(section);
   }, []);
 
   return {
     activeSection,
     setActiveSection,
+    mountedSections,
     goToSection
   };
 }
