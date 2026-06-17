@@ -16,6 +16,7 @@ import { AvatarDisplay, AvatarPicker } from '../shared/AvatarPicker';
 import { useParentDashboardController } from '../../hooks/useParentDashboardController';
 import { clientLogger } from '../../services/clientLogger';
 import { fetchAPI } from '../../services/http';
+import { ParentDashboardSkeleton } from '../shared/Skeleton';
 
 export function ParentDashboard({
   profile,
@@ -75,7 +76,7 @@ export function ParentDashboard({
     fetchData().catch((e) => clientLogger.errorWithException('parent_dashboard_full_refresh_failed', e, { familyId, signal }));
   });
 
-  if (loading) return null;
+  if (loading) return <ParentDashboardSkeleton />;
 
   const summaryCards = [
     { label: 'Pending approvals', value: todaySummary.pendingApprovals, tone: 'text-amber-600' },

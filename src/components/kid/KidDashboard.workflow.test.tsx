@@ -146,20 +146,20 @@ describe('KidDashboard completion workflow', () => {
     expect(await screen.findByText('Brush Teeth')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Mark Done/i }));
-    expect(await screen.findByRole('button', { name: /Undo Completion/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^Undo$/i })).toBeInTheDocument();
 
     firstRender.unmount();
 
     const secondRender = renderDashboard();
-    expect(await screen.findByRole('button', { name: /Undo Completion/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^Undo$/i })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Undo Completion/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Undo$/i }));
     await waitFor(() => expect(screen.getByRole('button', { name: /Mark Done/i })).toBeInTheDocument());
 
     secondRender.unmount();
 
     renderDashboard();
     expect(await screen.findByRole('button', { name: /Mark Done/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Undo Completion/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Undo$/i })).not.toBeInTheDocument();
   });
 });

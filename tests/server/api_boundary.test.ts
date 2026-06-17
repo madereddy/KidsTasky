@@ -4,7 +4,6 @@ import { app } from '../../server.js';
 import { socketWrapper } from '../../src/server/socket.js';
 import { db } from '../../src/server/db.js';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
 
 vi.mock('../../src/server/socket.js', () => ({
   socketWrapper: {
@@ -22,7 +21,7 @@ vi.mock('../../src/server/modules/tasks/service.js', () => ({
 }));
 
 describe('API Boundary and Middleware', () => {
-  const jwtSecret = crypto.randomBytes(32).toString('hex');
+  const jwtSecret = process.env.JWT_SECRET ?? 'test-secret';
   const parentId = 'family-1';
   const token = jwt.sign({ uid: parentId, role: 'parent', parentId }, jwtSecret);
 

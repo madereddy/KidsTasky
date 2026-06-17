@@ -8,7 +8,6 @@ const { serviceMock } = vi.hoisted(() => ({
     uploadPhoto: vi.fn(),
     updateCaption: vi.fn(),
     deletePhoto: vi.fn(),
-    getGoogleAlbumMedia: vi.fn(),
   },
 }));
 

@@ -40,10 +40,10 @@ describe('TaskCard done-state footers by approvalStatus', () => {
     expect(screen.getByRole('button', { name: /^Undo$/i })).toBeInTheDocument();
   });
 
-  it('approved/none keeps the "Completed!" success footer', () => {
+  it('approved/none shows done status and Undo button', () => {
     renderCard(undefined);
-    expect(screen.getByText(/Completed!/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Undo Completion/i })).toBeInTheDocument();
+    expect(screen.getByText(/^Done$/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Undo$/i })).toBeInTheDocument();
   });
 
   it('"Try Again" triggers onToggle (undo → re-do path)', () => {
