@@ -11,6 +11,7 @@ interface Props {
   events: CalendarEvent[];
   weekStart: Date;
   onEventClick: (event: CalendarEvent) => void;
+  onRoutineClick?: (event: CalendarEvent) => void;
   memberColorMap: Record<string, string>;
   forecast: DailyForecast[];
   temperatureUnit: TemperatureUnitPref;
@@ -30,6 +31,7 @@ export function CalendarWeekView({
   events,
   weekStart,
   onEventClick,
+  onRoutineClick,
   memberColorMap,
   forecast = [],
   temperatureUnit = 'celsius',
@@ -74,9 +76,9 @@ export function CalendarWeekView({
             return (
               <div key={di} className="flex-1 border-l border-ui-soft p-1 min-h-[44px]">
                 {dayAllDay.map((ev) => (
-                  <button
-                    key={ev.id}
-                    onClick={() => onEventClick?.(ev)}
+                <button
+                  key={ev.id}
+                  onClick={() => onEventClick?.(ev)}
                     className="w-full text-xs px-1.5 py-0.5 rounded text-white truncate font-semibold mb-0.5"
                     style={{ backgroundColor: (ev.assignedToId && memberColorMap[ev.assignedToId]) || ev.color || '#6366f1' }}
                   >
@@ -145,6 +147,17 @@ export function CalendarWeekView({
                   >
                     <p className="truncate">{ev.title}</p>
                     <p className="opacity-80">{formatTimeWithPrefs(start, timezone, timeFormat)}</p>
+                    {ev.routineListId && (
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRoutineClick?.(ev);
+                        }}
+                        className="mt-0.5 inline-flex rounded bg-white/90 px-1 py-0.5 text-[9px] font-bold text-purple-700"
+                      >
+                        Routine
+                      </span>
+                    )}
                   </button>
                 );
               })}

@@ -5,8 +5,22 @@ import { describe, it, expect, vi } from 'vitest';
 import { MissionTodayView } from './MissionTodayView';
 
 vi.mock('./SwipeableRow', () => ({
-  SwipeableRow: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
-    <div onClick={onClick}>{children}</div>
+  SwipeableRow: ({
+    children,
+    onClick,
+    onSwipeLeft,
+    onSwipeRight,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    onSwipeLeft?: () => void;
+    onSwipeRight?: () => void;
+  }) => (
+    <div onClick={onClick}>
+      {onSwipeLeft && <button type="button" aria-label="swipe-left" onClick={onSwipeLeft} />}
+      {onSwipeRight && <button type="button" aria-label="swipe-right" onClick={onSwipeRight} />}
+      {children}
+    </div>
   ),
 }));
 import { UserProfile, Task, CalendarEvent, AppListItem, AppList, Category, TaskCompletion } from '../../types';
@@ -134,5 +148,95 @@ describe('MissionTodayView', () => {
       expect.objectContaining({ id: 'list_item2' }),
       'complete'
     );
+  });
+
+  it('shows routine checklist items immediately on mobile', () => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 390 });
+
+    const onAction = vi.fn();
+    render(
+      <MissionTodayView
+        profile={mockProfile}
+        tasks={[]}
+        events={[]}
+        completions={[]}
+        listItems={mockListItems}
+        lists={mockLists}
+        kids={[]}
+        categories={[]}
+        onAction={onAction}
+      />
+    );
+
+    expect(screen.getByText('Brush Teeth')).toBeInTheDocument();
+    expect(screen.getByText('Make Bed')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Brush Teeth'));
+
+    expect(onAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'list_item1',
+        title: 'Brush Teeth'
+      }),
+      'complete'
+    );
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: originalWidth });
+  });
+
+  it('disables dismiss swipe for routine cards on mobile', () => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 390 });
+
+    render(
+      <MissionTodayView
+        profile={mockProfile}
+        tasks={[]}
+        events={[]}
+        completions={[]}
+        listItems={mockListItems}
+        lists={mockLists}
+        kids={[]}
+        categories={[]}
+        onAction={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'swipe-left' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'swipe-right' })).toBeInTheDocument();
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: originalWidth });
+  });
+
+  it('shows reset action for completed routines on mobile and calls reset handler', () => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 390 });
+
+    const onRoutineReset = vi.fn();
+    render(
+      <MissionTodayView
+        profile={mockProfile}
+        tasks={[]}
+        events={[]}
+        completions={[]}
+        listItems={[
+          { id: 'item1', listId: 'routine1', text: 'Brush Teeth', completed: 1 },
+          { id: 'item2', listId: 'routine1', text: 'Make Bed', completed: 1 },
+        ]}
+        lists={mockLists}
+        kids={[]}
+        categories={[]}
+        onAction={vi.fn()}
+        onRoutineReset={onRoutineReset}
+      />
+    );
+
+    expect(screen.getByText('Completed. Ready to reset.')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('RESET ROUTINE'));
+
+    expect(onRoutineReset).toHaveBeenCalledWith(expect.objectContaining({ id: 'routine1' }));
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: originalWidth });
   });
 });

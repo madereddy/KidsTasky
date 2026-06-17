@@ -11,6 +11,7 @@ interface Props {
   currentMonth: Date;
   onDayClick: (date: Date) => void;
   onEventClick: (event: CalendarEvent) => void;
+  onRoutineClick?: (event: CalendarEvent) => void;
   memberColorMap: Record<string, string>;
   forecast: DailyForecast[];
   temperatureUnit: TemperatureUnitPref;
@@ -19,7 +20,7 @@ interface Props {
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export function CalendarMonthView({ events, currentMonth, onDayClick, onEventClick, memberColorMap, forecast = [], temperatureUnit = 'celsius' }: Props) {
+export function CalendarMonthView({ events, currentMonth, onDayClick, onEventClick, onRoutineClick, memberColorMap, forecast = [], temperatureUnit = 'celsius' }: Props) {
   const today = new Date();
   const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
@@ -77,11 +78,22 @@ export function CalendarMonthView({ events, currentMonth, onDayClick, onEventCli
                     <div
                       key={ev.id}
                       onClick={(e) => { e.stopPropagation(); onEventClick?.(ev); }}
-                      className="text-[10px] px-1.5 py-0.5 rounded-full truncate text-white font-medium"
+                      className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full truncate text-white font-medium"
                       style={{ backgroundColor: color }}
                       title={ev.title}
                     >
-                      {ev.title}
+                      <span className="truncate">{ev.title}</span>
+                      {ev.routineListId && (
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRoutineClick?.(ev);
+                          }}
+                          className="shrink-0 rounded-full bg-white/90 px-1 text-[9px] font-black text-purple-700"
+                        >
+                          R
+                        </span>
+                      )}
                     </div>
                   );
                 })}

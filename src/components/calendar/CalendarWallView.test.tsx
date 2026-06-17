@@ -1,10 +1,11 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CalendarWallView } from './CalendarWallView';
 import { CalendarEvent } from '../../types';
 
 vi.mock('./EventDetailModal', () => ({ EventDetailModal: () => <div /> }));
+vi.mock('./EventRoutineSheet', () => ({ EventRoutineSheet: ({ event }: { event: CalendarEvent }) => <div>Routine sheet: {event.title}</div> }));
 vi.mock('../shared/PhotoScreensaver', () => ({ PhotoScreensaver: () => <div /> }));
 vi.mock('../shared/ParentalLockOverlay', () => ({ ParentalLockOverlay: () => <div /> }));
 
@@ -69,5 +70,23 @@ describe('CalendarWallView', () => {
 
     expect(screen.getByText('Piano lesson')).toBeInTheDocument();
     expect(screen.queryByText('Old appointment')).not.toBeInTheDocument();
+  });
+
+  it('opens the attached routine directly from the wall event row', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-17T10:30:00'));
+
+    renderWall([
+      baseEvent({
+        title: 'Soccer Practice',
+        routineListId: 'routine_1',
+        startTime: new Date('2026-06-17T10:00:00').getTime(),
+        endTime: new Date('2026-06-17T11:00:00').getTime(),
+      }),
+    ]);
+
+    fireEvent.click(screen.getByText('Open Routine'));
+
+    expect(screen.getByText('Routine sheet: Soccer Practice')).toBeInTheDocument();
   });
 });

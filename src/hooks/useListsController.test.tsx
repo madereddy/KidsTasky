@@ -65,6 +65,27 @@ describe('useListsController', () => {
     expect(result.current.shoppingItems.map(i => i.text)).toContain('Nails');
   });
 
+  it('scopes frequentItems to the active category so routines do not suggest shopping history', async () => {
+    const completedAt = new Date('2026-06-10T12:00:00.000Z').getTime();
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-06-17T12:00:00.000Z').getTime());
+    vi.mocked(listsClientService.getLists).mockResolvedValueOnce([
+      { id: 'shop-1', parentId: 'p1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },
+      { id: 'routine-1', parentId: 'p1', title: 'Morning', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
+    ]);
+    vi.mocked(listsClientService.getItems).mockResolvedValueOnce([]);
+    vi.mocked(listsClientService.getParentItems).mockResolvedValueOnce([
+      { id: 'i1', listId: 'shop-1', text: 'Milk', completed: 1, completedAt },
+      { id: 'i2', listId: 'routine-1', text: 'Brush Teeth', completed: 1, completedAt },
+    ]);
+
+    const { result } = renderHook(() => useListsController({ parentId: 'p1', preferredCategory: 'routine' }));
+
+    await waitFor(() => expect(result.current.loadingLists).toBe(false));
+
+    expect(result.current.frequentItems.map((item) => item.text)).toEqual(['Brush Teeth']);
+    nowSpy.mockRestore();
+  });
+
   it('selects the first list on initial load', async () => {
     vi.mocked(listsClientService.getLists).mockResolvedValueOnce([
       { id: 'l1', parentId: 'p1', title: 'Groceries', category: 'shopping', isRoutine: 0, createdAt: '', updatedAt: '' },

@@ -174,15 +174,17 @@ export function useMissionTodayController({
     lists.forEach(list => {
       if (!list.isRoutine || list.category !== 'routine') return;
       
-      const routineItems = listItems.filter(i => i.listId === list.id && !i.completed);
-      if (routineItems.length === 0) return;
+      const allRoutineItems = listItems.filter(i => i.listId === list.id);
+      if (allRoutineItems.length === 0) return;
+      const routineItems = allRoutineItems.filter(i => !i.completed);
+      const routineCompleted = routineItems.length === 0;
 
       items.push({
         id: `routine_${list.id}`,
         type: 'routine',
         title: list.title,
-        subtitle: `${routineItems.length} items remaining`,
-        status: 'pending',
+        subtitle: routineCompleted ? 'Completed. Ready to reset.' : `${routineItems.length} items remaining`,
+        status: routineCompleted ? 'completed' : 'pending',
         locationName: list.locationName,
         listCategory: list.category,
         originalData: list

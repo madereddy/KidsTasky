@@ -129,7 +129,7 @@ export function RoutinesView({ parentId }: Props) {
                       {itemCount}
                     </span>
                   )}
-                  {list.isRoutine === 1 && <span className="text-[10px]">Loop</span>}
+                  {list.isRoutine === 1 && <span className="text-[10px]">Today</span>}
                 </div>
               </button>
             );
@@ -160,7 +160,7 @@ export function RoutinesView({ parentId }: Props) {
         {selectedList ? (
           <>
             <div className="flex shrink-0 items-center justify-between border-b border-ui bg-white px-4 py-3">
-              <div className="flex items-center gap-3">
+              <div className="min-w-0 flex items-center gap-3">
                 <button
                   onClick={() => setSelectedListId('')}
                   className="md:hidden mr-1 p-1.5 rounded-lg text-ui-muted hover:bg-ui-soft hover:text-ui-primary transition-colors"
@@ -168,12 +168,24 @@ export function RoutinesView({ parentId }: Props) {
                 >
                   ←
                 </button>
-                <h3 className="text-lg font-bold text-ui-primary">{selectedList.title}</h3>
+                <div className="min-w-0">
+                  <h3 className="truncate text-lg font-bold text-ui-primary">{selectedList.title}</h3>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 md:hidden">
+                    {selectedList.isRoutine === 1 && (
+                      <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold uppercase text-purple-700">Mission routine</span>
+                    )}
+                    {selectedList.locationName && (
+                      <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600">
+                        <MapPin size={10} /> {selectedList.locationName}
+                      </span>
+                    )}
+                  </div>
+                </div>
                 {selectedList.isRoutine === 1 && (
-                  <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold uppercase text-purple-700">Mission routine</span>
+                  <span className="hidden rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold uppercase text-purple-700 md:inline-flex">Mission routine</span>
                 )}
                 {selectedList.locationName && (
-                  <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600">
+                  <span className="hidden items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600 md:inline-flex">
                     <MapPin size={10} /> {selectedList.locationName}
                   </span>
                 )}
@@ -191,7 +203,7 @@ export function RoutinesView({ parentId }: Props) {
                 <button
                   onClick={handleCopyItems}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-all",
+                    "hidden items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-all md:flex",
                     copied ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-ui bg-white text-ui-muted hover:bg-ui-soft",
                   )}
                 >
@@ -222,7 +234,7 @@ export function RoutinesView({ parentId }: Props) {
                     </button>
                   </div>
                 </div>
-                <div>
+                <div className="hidden md:block">
                   <label className="mb-2 block text-xs font-bold uppercase text-ui-muted">Tab</label>
                   <div className="flex gap-2">
                     <button
@@ -262,7 +274,7 @@ export function RoutinesView({ parentId }: Props) {
                     ))}
                   </div>
                 </div>
-                <div>
+                <div className="hidden md:block">
                   <label className="mb-2 block text-xs font-bold uppercase text-ui-muted">Quick Locations</label>
                   <HouseholdTagManager
                     title="Routine location chips"
@@ -276,8 +288,8 @@ export function RoutinesView({ parentId }: Props) {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col">
-                    <span className="text-sm font-bold text-ui-primary">Daily Routine</span>
-                    <span className="text-xs text-ui-muted">Pins this routine into Mission Today.</span>
+                    <span className="text-sm font-bold text-ui-primary">Show in Mission Today</span>
+                    <span className="text-xs text-ui-muted">Keeps this routine on the kid checklist screen.</span>
                   </div>
                   <button
                     onClick={() => void updateList(selectedList.id, selectedList.title, 'routine', selectedList.isRoutine ? 0 : 1, selectedList.locationName)}
@@ -316,6 +328,8 @@ export function RoutinesView({ parentId }: Props) {
                 storeNames={storeNames}
                 locationOptions={locationOptions}
                 hideShoppingElements={true}
+                hideHeader={true}
+                mobileChecklistMode={true}
                 onToggleItem={(itemId, completed) => void toggleItem(itemId, completed)}
                 onAddItem={handleAddItem}
                 onAddItemToLists={(listIds, text, store, location) => void addItemToLists(listIds, text, store, location)}

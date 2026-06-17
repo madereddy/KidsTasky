@@ -13,6 +13,7 @@ import { AgendaView } from './AgendaView';
 import { QuickAddModal } from './QuickAddModal';
 import { RoutineTemplatesModal } from './RoutineTemplatesModal';
 import { EventDetailModal } from './EventDetailModal';
+import { EventRoutineSheet } from './EventRoutineSheet';
 
 type ViewMode = 'month' | 'week' | 'day' | 'agenda';
 
@@ -51,6 +52,7 @@ interface Props {
   showRoutinesModal: boolean;
   setShowRoutinesModal: (b: boolean) => void;
   routineTemplates: RoutineTemplate[];
+  routineLists: AppList[];
   setRoutineTemplates: (t: RoutineTemplate[]) => void;
   defaultDate?: Date;
   setDefaultDate: (d: Date) => void;
@@ -106,6 +108,7 @@ export function CalendarStandardView({
   showRoutinesModal,
   setShowRoutinesModal,
   routineTemplates,
+  routineLists,
   setRoutineTemplates,
   defaultDate,
   setDefaultDate,
@@ -119,6 +122,7 @@ export function CalendarStandardView({
   onRoutineRefresh
 }: Props) {
   const weekStart = startOfWeek(currentDate);
+  const [selectedRoutineEvent, setSelectedRoutineEvent] = React.useState<CalendarEvent | null>(null);
 
   return (
     <div className="flex flex-col h-[calc(100vh-200px)] bg-white rounded-2xl border border-ui overflow-hidden shadow-sm">
@@ -264,6 +268,7 @@ export function CalendarStandardView({
             currentMonth={currentDate}
             onDayClick={handleDayClick}
             onEventClick={setSelectedEvent}
+            onRoutineClick={setSelectedRoutineEvent}
             memberColorMap={memberColorMap}
             forecast={forecast}
             temperatureUnit={temperatureUnit}
@@ -274,6 +279,7 @@ export function CalendarStandardView({
             events={filteredEvents}
             weekStart={weekStart}
             onEventClick={setSelectedEvent}
+            onRoutineClick={setSelectedRoutineEvent}
             memberColorMap={memberColorMap}
             forecast={forecast}
             temperatureUnit={temperatureUnit}
@@ -286,6 +292,7 @@ export function CalendarStandardView({
             events={filteredEvents}
             day={currentDate}
             onEventClick={setSelectedEvent}
+            onRoutineClick={setSelectedRoutineEvent}
             memberColorMap={memberColorMap}
             onTimeSlotClick={handleTimeSlotClick}
             dayMeals={dayMeals}
@@ -300,6 +307,7 @@ export function CalendarStandardView({
             events={filteredEvents}
             startDate={currentDate}
             onEventClick={setSelectedEvent}
+            onRoutineClick={setSelectedRoutineEvent}
             memberColorMap={memberColorMap}
             members={kids}
             timeFormat={timeFormat}
@@ -314,6 +322,7 @@ export function CalendarStandardView({
           onSubmit={fetchEvents}
           kids={kids}
           parentId={parentId}
+          routineLists={routineLists}
           defaultDate={defaultDate}
           defaultStartTime={defaultStartTime}
         />
@@ -322,9 +331,17 @@ export function CalendarStandardView({
         <EventDetailModal
           event={selectedEvent}
           kids={kids}
+          routineLists={routineLists}
           userRole={userRole || 'parent'}
           onClose={() => setSelectedEvent(null)}
           onUpdated={() => { setSelectedEvent(null); fetchEvents(); }}
+        />
+      )}
+      {selectedRoutineEvent && (
+        <EventRoutineSheet
+          event={selectedRoutineEvent}
+          routineLists={routineLists}
+          onClose={() => setSelectedRoutineEvent(null)}
         />
       )}
       {showRoutinesModal && (

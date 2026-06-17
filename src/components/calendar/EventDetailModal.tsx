@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { X, Edit2, Trash2, UserCheck, UserX, HelpCircle, UserPlus } from 'lucide-react';
+import { X, Edit2, Trash2, UserCheck, UserX, HelpCircle, UserPlus, CheckSquare, Check } from 'lucide-react';
 import { eventsClientService } from '../../services/events';
-import { CalendarEvent, UserProfile } from '../../types';
+import { listsClientService } from '../../services/lists';
+import { AppList, AppListItem, CalendarEvent, UserProfile } from '../../types';
 import { cn } from '../../lib/utils';
 import { useDialogA11y } from '../../hooks/useDialogA11y';
 
@@ -12,6 +13,7 @@ const REMINDER_LABELS: Record<number, string> = { 0: 'At time', 5: '5 min before
 interface Props {
   event: CalendarEvent;
   kids: UserProfile[];
+  routineLists?: AppList[];
   userRole: 'parent' | 'kid' | 'coparent';
   onClose: () => void;
   onUpdated: () => void;
@@ -24,31 +26,60 @@ const RSVP_OPTIONS = [
   { value: 'maybe', label: 'Maybe', icon: HelpCircle, color: 'text-amber-500 bg-amber-50 border-amber-200' },
 ] as const;
 
-export function EventDetailModal({ event, kids, userRole, onClose, onUpdated }: Props) {
+export function EventDetailModal({ event, kids, routineLists = [], userRole, onClose, onUpdated }: Props) {
   const { dialogRef, onKeyDown } = useDialogA11y(true, onClose);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(event.title);
   const [description, setDescription] = useState(event.description || '');
   const [color, setColor] = useState(event.color);
   const [assignedToId, setAssignedToId] = useState(event.assignedToId || '');
+  const [routineListId, setRoutineListId] = useState(event.routineListId || '');
   const [reminderMinutes, setReminderMinutes] = useState<number | null>(event.reminderMinutes ?? null);
   const [isCountdown, setIsCountdown] = useState(Boolean(event.isCountdown));
   const [saving, setSaving] = useState(false);
   const [rsvpSavingFor, setRsvpSavingFor] = useState<string | null>(null);
   const [showDeleteScope, setShowDeleteScope] = useState(false);
   const [showEditScope, setShowEditScope] = useState(false);
+  const [attachedRoutineItems, setAttachedRoutineItems] = useState<AppListItem[]>([]);
+  const [routineLoading, setRoutineLoading] = useState(false);
   const isRecurring = Boolean(event.masterId);
   const isParent = userRole === 'parent';
+  const attachedRoutine = useMemo(
+    () => routineLists.find((routine) => routine.id === (routineListId || event.routineListId)) ?? null,
+    [event.routineListId, routineListId, routineLists],
+  );
+
+  useEffect(() => {
+    const targetRoutineId = routineListId || event.routineListId;
+    if (!targetRoutineId) {
+      setAttachedRoutineItems([]);
+      return;
+    }
+    setRoutineLoading(true);
+    listsClientService.getItems(targetRoutineId)
+      .then((items) => setAttachedRoutineItems(items || []))
+      .catch(() => setAttachedRoutineItems([]))
+      .finally(() => setRoutineLoading(false));
+  }, [event.routineListId, routineListId]);
 
   const handleSave = async (scope: 'one' | 'future' = 'one') => {
     setSaving(true);
     try {
-      await eventsClientService.updateEvent(event.id, { title, description, color, assignedToId: assignedToId || undefined, reminderMinutes: reminderMinutes ?? undefined, isCountdown: isCountdown ? 1 : 0 }, scope);
+      await eventsClientService.updateEvent(event.id, { title, description, color, assignedToId: assignedToId || undefined, routineListId: routineListId || null, reminderMinutes: reminderMinutes ?? undefined, isCountdown: isCountdown ? 1 : 0 }, scope);
       onUpdated();
       onClose();
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleRoutineToggle = async (item: AppListItem, completed: boolean) => {
+    await listsClientService.toggleItem(item.id, completed, item.text, item.storeName, item.locationName);
+    setAttachedRoutineItems((prev) => prev.map((existing) => (
+      existing.id === item.id
+        ? { ...existing, completed: completed ? 1 : 0 }
+        : existing
+    )));
   };
 
   const handleDelete = async (scope: DeleteScope) => {
@@ -106,6 +137,10 @@ export function EventDetailModal({ event, kids, userRole, onClose, onUpdated }: 
                 <option value="">Everyone</option>
                 {kids.map(k => <option key={k.uid} value={k.uid}>{k.name}</option>)}
               </select>
+              <select value={routineListId} onChange={e => setRoutineListId(e.target.value)} className="w-full border border-ui rounded-lg px-3 py-2 text-sm">
+                <option value="">No attached routine</option>
+                {routineLists.map((routine) => <option key={routine.id} value={routine.id}>{routine.title}</option>)}
+              </select>
               <select value={reminderMinutes ?? ''} onChange={e => setReminderMinutes(e.target.value === '' ? null : Number(e.target.value))} className="w-full border border-ui rounded-lg px-3 py-2 text-sm">
                 <option value="">No reminder</option>
                 {Object.entries(REMINDER_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -119,9 +154,45 @@ export function EventDetailModal({ event, kids, userRole, onClose, onUpdated }: 
             <>
               {event.description && <p className="text-sm text-ui-secondary">{event.description}</p>}
               {assignee && <p className="text-sm text-ui-muted">Assigned to: {assignee.name}</p>}
+              {attachedRoutine && <p className="text-sm text-ui-muted">Attached routine: {attachedRoutine.title}</p>}
               {event.reminderMinutes != null && <p className="text-sm text-ui-muted">Reminder: {REMINDER_LABELS[event.reminderMinutes] || `${event.reminderMinutes} min before`}</p>}
               {event.isCountdown ? <p className="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-lg inline-block">Countdown event</p> : null}
             </>
+          )}
+
+          {attachedRoutine && (
+            <div className="border-t border-ui pt-4 mt-4">
+              <div className="mb-3 flex items-center gap-2">
+                <CheckSquare size={16} className="text-purple-500" />
+                <p className="text-xs font-bold uppercase tracking-widest text-ui-muted">Routine Checklist</p>
+              </div>
+              {routineLoading ? (
+                <p className="text-sm text-ui-muted">Loading routine...</p>
+              ) : attachedRoutineItems.length === 0 ? (
+                <p className="text-sm text-ui-muted">No checklist items in this routine yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {attachedRoutineItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => void handleRoutineToggle(item, item.completed !== 1)}
+                      className="flex w-full items-center justify-between gap-3 rounded-xl border border-ui bg-ui-soft px-3 py-3 text-left"
+                    >
+                      <span className={cn("text-sm font-medium", item.completed === 1 ? "text-ui-muted line-through" : "text-ui-primary")}>
+                        {item.text}
+                      </span>
+                      <span className={cn(
+                        "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2",
+                        item.completed === 1 ? "border-emerald-500 bg-emerald-500 text-white" : "border-ui-soft-3 bg-white text-transparent",
+                      )}>
+                        <Check size={14} />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {attendees.length > 0 && (

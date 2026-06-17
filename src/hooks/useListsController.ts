@@ -315,12 +315,24 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     return moved;
   };
 
+  const listCategoryById = useMemo(
+    () => new Map(lists.map((list) => [list.id, list.category])),
+    [lists],
+  );
+
+  const categoryScopedHistory = useMemo(() => {
+    if (!preferredCategory) return globalHistory;
+    return globalHistory.filter((item) => listCategoryById.get(item.listId) === preferredCategory);
+  }, [globalHistory, listCategoryById, preferredCategory]);
+
   const frequentItems = useMemo(() => {
     const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
     const now = Date.now();
 
     const activeTexts = new Set(
-      items.filter(i => i.completed === 0).map(i => i.text.toLowerCase())
+      categoryScopedHistory
+        .filter((item) => item.completed === 0)
+        .map((item) => item.text.toLowerCase())
     );
 
     const counts = new Map<string, { 
@@ -331,7 +343,7 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
       locationNames: Set<string>
     }>();
 
-    globalHistory.forEach(item => {
+    categoryScopedHistory.forEach(item => {
       if (item.completed === 1 && item.completedAt && (now - item.completedAt) <= THIRTY_DAYS_MS) {
         const textKey = item.text.toLowerCase();
         if (!activeTexts.has(textKey)) {
@@ -363,7 +375,7 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
         storeNames: Array.from(entry.storeNames), 
         locationNames: Array.from(entry.locationNames) 
       }));
-  }, [items, globalHistory]);
+  }, [categoryScopedHistory]);
 
   const selectedList = useMemo(
     () => lists.find((list) => list.id === selectedListId) ?? null,

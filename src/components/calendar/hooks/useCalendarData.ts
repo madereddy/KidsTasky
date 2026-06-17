@@ -22,6 +22,7 @@ export function useCalendarData(parentId: string, kids: UserProfile[], isWallMod
   const [timeFormat, setTimeFormat] = useState<TimeFormatPref>('12h');
   const [forecast, setForecast] = useState<DailyForecast[]>([]);
   const [routineTemplates, setRoutineTemplates] = useState<RoutineTemplate[]>([]);
+  const [routineLists, setRoutineLists] = useState<AppList[]>([]);
   const [listsSummary, setListsSummary] = useState<Array<{ list: AppList; total: number; done: number }>>([]);
   const [wallKidProgress, setWallKidProgress] = useState<Array<{ kid: UserProfile; done: number; total: number }>>([]);
   const [wallPhotos, setWallPhotos] = useState<{ id: string; url: string; caption?: string }[]>([]);
@@ -45,6 +46,7 @@ export function useCalendarData(parentId: string, kids: UserProfile[], isWallMod
     routinesClientService.getTemplates(parentId).then(setRoutineTemplates).catch(() => {});
 
     listsClientService.getLists(parentId).then(async (lists) => {
+      setRoutineLists((lists || []).filter((list) => list.category === 'routine'));
       const topLists = (lists || []).slice(0, 2);
       const summaries = await Promise.all(topLists.map(async (list) => {
         const items = await listsClientService.getItems(list.id).catch(() => [] as AppListItem[]);
@@ -86,6 +88,9 @@ export function useCalendarData(parentId: string, kids: UserProfile[], isWallMod
       try {
         await Promise.allSettled([
           fetchEvents(),
+          listsClientService.getLists(parentId).then((lists) => {
+            setRoutineLists((lists || []).filter((list) => list.category === 'routine'));
+          }),
           settingsClientService.getCalendars(parentId).then(setSyncCalendars),
           settingsClientService.getCalendarVisibility().then(rows => {
             const map: Record<string, boolean> = {};
@@ -130,6 +135,7 @@ export function useCalendarData(parentId: string, kids: UserProfile[], isWallMod
     timeFormat,
     forecast,
     routineTemplates,
+    routineLists,
     listsSummary,
     wallKidProgress,
     wallPhotos,

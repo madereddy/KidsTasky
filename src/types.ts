@@ -153,6 +153,7 @@ export interface CalendarEvent {
   recurrenceEnd?: string;   // YYYY-MM-DD
   isCountdown?: number;     // 0 or 1
   reminderMinutes?: number | null;
+  routineListId?: string | null;
   attendees?: EventAttendee[];
 }
 

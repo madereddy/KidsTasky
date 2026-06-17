@@ -9,7 +9,7 @@ eventsRouter.post('/events', authenticateUser, requireRole('parent'), enforceEdi
   try {
     const parentId = getParentId(req);
     const allowed: Record<string, any> = {};
-    const { title, description, startTime, endTime, assignedToId, color, isAllDay, recurrence, recurrenceEnd, isCountdown, reminderMinutes } = req.body;
+    const { title, description, startTime, endTime, assignedToId, color, isAllDay, recurrence, recurrenceEnd, isCountdown, reminderMinutes, routineListId } = req.body;
     if (title !== undefined) allowed.title = title;
     if (description !== undefined) allowed.description = description;
     if (startTime !== undefined) allowed.startTime = startTime;
@@ -21,6 +21,7 @@ eventsRouter.post('/events', authenticateUser, requireRole('parent'), enforceEdi
     if (recurrenceEnd !== undefined) allowed.recurrenceEnd = recurrenceEnd;
     if (isCountdown !== undefined) allowed.isCountdown = isCountdown;
     if (reminderMinutes !== undefined) allowed.reminderMinutes = reminderMinutes;
+    if (routineListId !== undefined) allowed.routineListId = routineListId;
     const eventData = { ...allowed, parentId };
 
     let ids: string[];
@@ -59,7 +60,7 @@ eventsRouter.put('/events/:id', authenticateUser, requireRole('parent'), enforce
 
     const scope = (req.query.scope as string) === 'future' ? 'future' : 'one';
     const allowed: Record<string, any> = {};
-    const { title, description, startTime, endTime, assignedToId, color, isAllDay, recurrence, recurrenceEnd, isCountdown, reminderMinutes } = req.body;
+    const { title, description, startTime, endTime, assignedToId, color, isAllDay, recurrence, recurrenceEnd, isCountdown, reminderMinutes, routineListId } = req.body;
     if (title !== undefined) allowed.title = title;
     if (description !== undefined) allowed.description = description;
     if (startTime !== undefined) allowed.startTime = startTime;
@@ -71,6 +72,7 @@ eventsRouter.put('/events/:id', authenticateUser, requireRole('parent'), enforce
     if (recurrenceEnd !== undefined) allowed.recurrenceEnd = recurrenceEnd;
     if (isCountdown !== undefined) allowed.isCountdown = isCountdown;
     if (reminderMinutes !== undefined) allowed.reminderMinutes = reminderMinutes;
+    if (routineListId !== undefined) allowed.routineListId = routineListId;
 
     const affectedIds = eventsService.updateEvent(req.params.id as string, allowed, scope);
 

@@ -17,6 +17,8 @@ describe('Events API', () => {
   beforeEach(() => {
     db.prepare('DELETE FROM events').run();
     db.prepare('DELETE FROM event_attendees').run();
+    db.prepare('DELETE FROM list_items').run();
+    db.prepare('DELETE FROM lists').run();
     db.prepare('DELETE FROM users WHERE uid = ?').run(parentId);
     db.prepare('DELETE FROM users WHERE uid = ?').run(otherParentId);
     db.prepare('DELETE FROM users WHERE uid = ?').run(kidId);
@@ -97,6 +99,28 @@ describe('Events API', () => {
     expect(res.status).toBe(200);
     const events = await request(app).get(`/api/parents/${parentId}/events`).set('Authorization', `Bearer ${token}`);
     expect(events.body[0].isAllDay).toBe(1);
+  });
+
+  it('stores an attached routine list on an event', async () => {
+    db.prepare('INSERT INTO lists (id, parentId, title, category, isRoutine, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run('routine_list_1', parentId, 'Morning Routine', 'routine', 1, new Date().toISOString(), new Date().toISOString());
+
+    const res = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'School Morning',
+        startTime: new Date('2026-06-01T08:00:00').getTime(),
+        endTime: new Date('2026-06-01T09:00:00').getTime(),
+        color: '#ff0000',
+        routineListId: 'routine_list_1'
+      });
+
+    expect(res.status).toBe(200);
+
+    const events = await request(app).get(`/api/parents/${parentId}/events`).set('Authorization', `Bearer ${token}`);
+    expect(events.body[0].routineListId).toBe('routine_list_1');
   });
 
   it('should create a weekly recurring event and expand to multiple rows', async () => {

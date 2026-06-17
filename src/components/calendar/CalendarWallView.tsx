@@ -10,6 +10,7 @@ import { CalSkyLiveClock } from './CalSkyLiveClock';
 import { PhotoScreensaver } from '../shared/PhotoScreensaver';
 import { ParentalLockOverlay } from '../shared/ParentalLockOverlay';
 import { EventDetailModal } from './EventDetailModal';
+import { EventRoutineSheet } from './EventRoutineSheet';
 
 type WallFilter = 'today' | 'week' | 'allday';
 
@@ -23,6 +24,7 @@ interface Props {
   todaysMeals: MealPlanWithRecipe[];
   wallKidProgress: Array<{ kid: UserProfile; done: number; total: number }>;
   listsSummary: Array<{ list: AppList; total: number; done: number }>;
+  routineLists?: AppList[];
   wallPhotos: { id: string; url: string; caption?: string }[];
   temperatureUnit: TemperatureUnitPref;
   timeFormat: '12h' | '24h';
@@ -51,6 +53,7 @@ export function CalendarWallView({
   todaysMeals,
   wallKidProgress,
   listsSummary,
+  routineLists = [],
   wallPhotos,
   temperatureUnit,
   timeFormat,
@@ -70,6 +73,7 @@ export function CalendarWallView({
 }: Props) {
   const exitHoldRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showPinToExit, setShowPinToExit] = React.useState(false);
+  const [selectedRoutineEvent, setSelectedRoutineEvent] = React.useState<CalendarEvent | null>(null);
   const use24h = timeFormat === '24h';
   const nowMs = Date.now();
 
@@ -279,6 +283,18 @@ export function CalendarWallView({
                           )}
                         </div>
                         {!e.isAllDay ? <div className="text-xs text-gray-400">{timeStr}{endTimeStr ? ` – ${endTimeStr}` : ''}</div> : <div className="text-xs text-gray-400">All day</div>}
+                        {e.routineListId && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedRoutineEvent(e);
+                            }}
+                            className="mt-1 inline-flex rounded-full border border-purple-200 bg-purple-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-purple-700"
+                          >
+                            Open Routine
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -293,9 +309,17 @@ export function CalendarWallView({
         <EventDetailModal
           event={selectedEvent}
           kids={kids}
+          routineLists={routineLists}
           userRole={userRole || 'parent'}
           onClose={() => setSelectedEvent(null)}
           onUpdated={() => { setSelectedEvent(null); void fetchEvents(); }}
+        />
+      )}
+      {selectedRoutineEvent && (
+        <EventRoutineSheet
+          event={selectedRoutineEvent}
+          routineLists={routineLists}
+          onClose={() => setSelectedRoutineEvent(null)}
         />
       )}
 

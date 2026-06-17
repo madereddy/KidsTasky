@@ -16,8 +16,8 @@ function clampToMonth(year: number, month: number, day: number): Date {
 
 const INSERT_EVENT = `
   INSERT INTO events (id, parentId, title, description, startTime, endTime, assignedToId, color,
-    isAllDay, masterId, recurrence, recurrenceEnd, isCountdown, reminderMinutes)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    isAllDay, masterId, recurrence, recurrenceEnd, isCountdown, reminderMinutes, routineListId)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 export const eventsService = {
@@ -37,7 +37,8 @@ export const eventsService = {
       event.recurrence || 'none',
       event.recurrenceEnd || null,
       event.isCountdown ?? 0,
-      event.reminderMinutes ?? null
+      event.reminderMinutes ?? null,
+      event.routineListId ?? null
     );
     return id;
   },
@@ -68,7 +69,8 @@ export const eventsService = {
         recurrence,
         recurrenceEnd,
         master.isCountdown ?? 0,
-        master.reminderMinutes ?? null
+        master.reminderMinutes ?? null,
+        master.routineListId ?? null
       );
       ids.push(id);
 
@@ -157,11 +159,12 @@ export const eventsService = {
       recurrenceEnd: data.recurrenceEnd ?? existing.recurrenceEnd,
       reminderMinutes: data.reminderMinutes !== undefined ? data.reminderMinutes : existing.reminderMinutes,
       isCountdown: data.isCountdown ?? existing.isCountdown,
+      routineListId: data.routineListId !== undefined ? data.routineListId : existing.routineListId,
     };
 
     if (scope === 'one' || !existing.masterId) {
-      db.prepare(`UPDATE events SET title=?,description=?,startTime=?,endTime=?,assignedToId=?,color=?,isAllDay=?,recurrence=?,recurrenceEnd=?,reminderMinutes=?,isCountdown=? WHERE id=?`)
-        .run(merged.title, merged.description, merged.startTime, merged.endTime, merged.assignedToId, merged.color, merged.isAllDay, merged.recurrence, merged.recurrenceEnd, merged.reminderMinutes, merged.isCountdown, id);
+      db.prepare(`UPDATE events SET title=?,description=?,startTime=?,endTime=?,assignedToId=?,color=?,isAllDay=?,recurrence=?,recurrenceEnd=?,reminderMinutes=?,isCountdown=?,routineListId=? WHERE id=?`)
+        .run(merged.title, merged.description, merged.startTime, merged.endTime, merged.assignedToId, merged.color, merged.isAllDay, merged.recurrence, merged.recurrenceEnd, merged.reminderMinutes, merged.isCountdown, merged.routineListId, id);
       return [id];
     }
 
@@ -172,9 +175,9 @@ export const eventsService = {
     const affectedIds = (db.prepare('SELECT id FROM events WHERE masterId=? AND startTime>=? ORDER BY startTime ASC')
       .all(existing.masterId, existing.startTime) as { id: string }[]).map(r => r.id);
 
-    const stmt = db.prepare(`UPDATE events SET title=?,description=?,assignedToId=?,color=?,isAllDay=?,recurrence=?,recurrenceEnd=?,reminderMinutes=?,isCountdown=?,startTime=startTime+?,endTime=endTime+? WHERE id=?`);
+    const stmt = db.prepare(`UPDATE events SET title=?,description=?,assignedToId=?,color=?,isAllDay=?,recurrence=?,recurrenceEnd=?,reminderMinutes=?,isCountdown=?,routineListId=?,startTime=startTime+?,endTime=endTime+? WHERE id=?`);
     for (const aid of affectedIds) {
-      stmt.run(merged.title, merged.description, merged.assignedToId, merged.color, merged.isAllDay, merged.recurrence, merged.recurrenceEnd, merged.reminderMinutes, merged.isCountdown, startDelta, endDelta, aid);
+      stmt.run(merged.title, merged.description, merged.assignedToId, merged.color, merged.isAllDay, merged.recurrence, merged.recurrenceEnd, merged.reminderMinutes, merged.isCountdown, merged.routineListId, startDelta, endDelta, aid);
     }
 
     // Cap the predecessor's recurrenceEnd if this is not the first instance

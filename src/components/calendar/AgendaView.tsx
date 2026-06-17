@@ -8,6 +8,7 @@ interface Props {
   events: CalendarEvent[];
   startDate: Date;
   onEventClick: (event: CalendarEvent) => void;
+  onRoutineClick?: (event: CalendarEvent) => void;
   memberColorMap: Record<string, string>;
   members: UserProfile[];
   timeFormat?: TimeFormatPref;
@@ -19,6 +20,7 @@ export function AgendaView({
   events,
   startDate,
   onEventClick,
+  onRoutineClick,
   memberColorMap,
   members = [],
   timeFormat = '12h',
@@ -79,6 +81,18 @@ export function AgendaView({
                           : `${formatTimeWithPrefs(new Date(ev.startTime), timezone, timeFormat)} - ${formatTimeWithPrefs(new Date(ev.endTime), timezone, timeFormat)}`}
                       </p>
                       {ev.description && <p className="text-xs text-ui-muted-2 mt-1 truncate">{ev.description}</p>}
+                      {ev.routineListId && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRoutineClick?.(ev);
+                          }}
+                          className="mt-2 inline-flex rounded-full border border-purple-200 bg-purple-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-purple-700"
+                        >
+                          Open Routine
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

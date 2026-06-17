@@ -11,6 +11,7 @@ interface Props {
   events: CalendarEvent[];
   day: Date;
   onEventClick: (event: CalendarEvent) => void;
+  onRoutineClick?: (event: CalendarEvent) => void;
   memberColorMap: Record<string, string>;
   onTimeSlotClick: (time: string) => void;
   dayMeals?: MealPlanWithRecipe[];
@@ -32,6 +33,7 @@ export function CalendarDayView({
   events,
   day,
   onEventClick,
+  onRoutineClick,
   memberColorMap,
   onTimeSlotClick,
   dayMeals,
@@ -69,11 +71,22 @@ export function CalendarDayView({
       {allDayEvents.length > 0 && (
         <div className="flex gap-1 px-4 py-2 border-b border-ui-soft bg-blue-50 flex-wrap">
           {allDayEvents.map(ev => (
-            <button key={ev.id} onClick={() => onEventClick?.(ev)}
+            <div key={ev.id} className="flex max-w-[180px] items-center gap-1">
+            <button onClick={() => onEventClick?.(ev)}
               className="px-2 py-1 rounded text-xs font-semibold text-white truncate max-w-[150px]"
               style={{ backgroundColor: (ev.assignedToId && memberColorMap[ev.assignedToId]) || ev.color || '#6366f1' }}>
               {ev.title}
             </button>
+            {ev.routineListId && (
+              <button
+                type="button"
+                onClick={() => onRoutineClick?.(ev)}
+                className="rounded bg-white px-1.5 py-1 text-[10px] font-bold text-purple-700 border border-purple-200"
+              >
+                Routine
+              </button>
+            )}
+            </div>
           ))}
         </div>
       )}
@@ -148,6 +161,17 @@ export function CalendarDayView({
                 <p className="opacity-80 text-xs">
                   {formatTimeWithPrefs(start, timezone, timeFormat)} - {formatTimeWithPrefs(new Date(ev.endTime), timezone, timeFormat)}
                 </p>
+                {ev.routineListId && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRoutineClick?.(ev);
+                    }}
+                    className="mt-1 inline-flex rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-purple-700"
+                  >
+                    Routine
+                  </span>
+                )}
               </button>
             );
           })}

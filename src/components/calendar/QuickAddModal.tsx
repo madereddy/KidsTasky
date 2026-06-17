@@ -16,6 +16,7 @@ interface Props {
   onSubmit: () => void;
   kids: UserProfile[];
   parentId: string;
+  routineLists?: AppList[];
   defaultDate?: Date;
   defaultStartTime?: string;
   userRole?: 'parent' | 'kid' | 'coparent';
@@ -23,7 +24,7 @@ interface Props {
 
 type TabType = 'event' | 'task' | 'list';
 
-export function QuickAddModal({ onClose, onSubmit, kids, parentId, defaultDate, defaultStartTime }: Props) {
+export function QuickAddModal({ onClose, onSubmit, kids, parentId, routineLists = [], defaultDate, defaultStartTime }: Props) {
   const { dialogRef, onKeyDown } = useDialogA11y(true, onClose);
   const [activeTab, setActiveTab] = useState<TabType>('event');
   const [saving, setSaving] = useState(false);
@@ -35,6 +36,7 @@ export function QuickAddModal({ onClose, onSubmit, kids, parentId, defaultDate, 
   const [eventEndTime, setEventEndTime] = useState('10:00');
   const [eventColor, setEventColor] = useState(PRESET_COLORS[0]);
   const [eventAssignedToId, setEventAssignedToId] = useState('');
+  const [eventRoutineListId, setEventRoutineListId] = useState('');
   const [isAllDay, setIsAllDay] = useState(false);
 
   // Task Form State
@@ -71,6 +73,7 @@ export function QuickAddModal({ onClose, onSubmit, kids, parentId, defaultDate, 
         endTime: endMs > startMs ? endMs : startMs + 3600000,
         color: eventColor,
         assignedToId: eventAssignedToId || undefined,
+        routineListId: eventRoutineListId || undefined,
         isAllDay: isAllDay ? 1 : 0,
         recurrence: 'none',
       });
@@ -242,6 +245,18 @@ export function QuickAddModal({ onClose, onSubmit, kids, parentId, defaultDate, 
                 >
                   <option value="">Everyone</option>
                   {kids.map(k => <option key={k.uid} value={k.uid}>{k.name}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-ui-muted uppercase tracking-wider mb-1.5">Attached Routine</label>
+                <select
+                  value={eventRoutineListId}
+                  onChange={e => setEventRoutineListId(e.target.value)}
+                  className="w-full border border-ui rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-ui-soft/30"
+                >
+                  <option value="">None</option>
+                  {routineLists.map((routine) => <option key={routine.id} value={routine.id}>{routine.title}</option>)}
                 </select>
               </div>
 

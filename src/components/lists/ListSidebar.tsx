@@ -1,6 +1,6 @@
 // src/components/lists/ListSidebar.tsx
 import React, { useMemo, useState } from 'react';
-import { X, Plus, Trash2, MapPin } from 'lucide-react';
+import { X, Plus, Trash2, MapPin, Check } from 'lucide-react';
 import { AppList, AppListItem } from '../../types';
 import { cn } from '../../lib/utils';
 import { getDefaultLocationOptions, getDefaultStoreNames, HouseholdLocationOption } from '../../lib/householdListPreferences';
@@ -34,6 +34,8 @@ interface Props {
   storeNames?: string[];
   locationOptions?: HouseholdLocationOption[];
   hideShoppingElements?: boolean;
+  hideHeader?: boolean;
+  mobileChecklistMode?: boolean;
 }
 
 export function ListSidebar({
@@ -56,6 +58,8 @@ export function ListSidebar({
   storeNames = getDefaultStoreNames(),
   locationOptions = getDefaultLocationOptions(),
   hideShoppingElements = false,
+  hideHeader = false,
+  mobileChecklistMode = false,
 }: Props) {
   const [newItemText, setNewItemText] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -170,29 +174,31 @@ export function ListSidebar({
 
   return (
     <div className={containerClass}>
-      <div className="p-4 border-b border-ui flex justify-between items-center bg-ui-soft shrink-0">
-        <h2 className="text-xl font-bold truncate flex-1 text-ui-primary">{listTitle}</h2>
-        <div className="flex items-center gap-1 shrink-0">
-          {onDeleteList && (
-            confirmDelete ? (
-              <div className="flex gap-1 items-center">
-                <span className="text-xs text-red-500 font-semibold">Delete?</span>
-                <button onClick={onDeleteList} className="px-2 py-1 bg-red-500 text-white text-xs rounded-lg font-semibold">Yes</button>
-                <button onClick={() => setConfirmDelete(false)} className="px-2 py-1 bg-ui-soft-3 text-xs rounded-lg font-semibold">No</button>
-              </div>
-            ) : (
-              <button onClick={() => setConfirmDelete(true)} className="p-2 hover:bg-red-100 text-ui-muted-2 hover:text-red-500 rounded-full transition-colors">
-                <Trash2 size={16} />
+      {!hideHeader && (
+        <div className="p-4 border-b border-ui flex justify-between items-center bg-ui-soft shrink-0">
+          <h2 className="text-xl font-bold truncate flex-1 text-ui-primary">{listTitle}</h2>
+          <div className="flex items-center gap-1 shrink-0">
+            {onDeleteList && (
+              confirmDelete ? (
+                <div className="flex gap-1 items-center">
+                  <span className="text-xs text-red-500 font-semibold">Delete?</span>
+                  <button onClick={onDeleteList} className="px-2 py-1 bg-red-500 text-white text-xs rounded-lg font-semibold">Yes</button>
+                  <button onClick={() => setConfirmDelete(false)} className="px-2 py-1 bg-ui-soft-3 text-xs rounded-lg font-semibold">No</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmDelete(true)} className="p-2 hover:bg-red-100 text-ui-muted-2 hover:text-red-500 rounded-full transition-colors">
+                  <Trash2 size={16} />
+                </button>
+              )
+            )}
+            {onClose && (
+              <button onClick={onClose} className="p-2 hover:bg-ui-soft-3 rounded-full">
+                <X size={20} />
               </button>
-            )
-          )}
-          {onClose && (
-            <button onClick={onClose} className="p-2 hover:bg-ui-soft-3 rounded-full">
-              <X size={20} />
-            </button>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="p-4 overflow-y-auto flex-1">
         {items.length === 0 ? (
@@ -200,8 +206,11 @@ export function ListSidebar({
         ) : (
           <ul className="space-y-2">
             {items.map((item) => (
-              <li key={item.id} className="rounded-xl border border-ui bg-white px-3 py-2">
-                <div className="flex items-center gap-3">
+              <li key={item.id} className={cn(
+                "rounded-xl border border-ui bg-white px-3 py-2",
+                mobileChecklistMode && "md:px-3 md:py-2 px-0 py-0 overflow-hidden"
+              )}>
+                <div className={cn("flex items-center gap-3", mobileChecklistMode && "hidden md:flex")}>
                   <input
                     type="checkbox"
                     checked={item.completed === 1}
@@ -217,6 +226,38 @@ export function ListSidebar({
                     </button>
                   )}
                 </div>
+                {mobileChecklistMode && (
+                  <div className="flex items-center gap-2 md:hidden">
+                    <button
+                      type="button"
+                      onClick={() => onToggleItem(item.id, item.completed !== 1)}
+                      className="flex min-h-14 flex-1 items-center gap-3 px-4 py-3 text-left"
+                    >
+                      <span className={cn(
+                        "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
+                        item.completed === 1 ? "border-emerald-500 bg-emerald-500 text-white" : "border-ui-soft-3 bg-white text-transparent",
+                      )}>
+                        <Check size={14} />
+                      </span>
+                      <span className={cn(
+                        "flex-1 text-base font-semibold break-words",
+                        item.completed === 1 ? "text-ui-muted line-through" : "text-ui-primary",
+                      )}>
+                        {item.text}
+                      </span>
+                    </button>
+                    {onDeleteItem && (
+                      <button
+                        type="button"
+                        onClick={() => onDeleteItem(item.id)}
+                        className="mr-3 rounded-full p-2 text-ui-muted-2 transition-colors hover:bg-red-50 hover:text-red-400"
+                        aria-label={`Delete ${item.text}`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   {item.locationName && item.completed !== 1 && (
                     <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-100 text-slate-600 text-[9px] font-bold uppercase rounded border border-slate-200">
@@ -228,7 +269,7 @@ export function ListSidebar({
                       {item.storeName}
                     </span>
                   )}
-                  {(onCopyItem || onMoveItem) && getTransferOptions(item.listId).length > 0 && (
+                  {!mobileChecklistMode && (onCopyItem || onMoveItem) && getTransferOptions(item.listId).length > 0 && (
                     <>
                       <select
                         value={transferTargets[item.id] ?? getTransferOptions(item.listId)[0]?.id ?? ''}
@@ -274,19 +315,21 @@ export function ListSidebar({
 
       {onAddItem && (
         <div className="p-3 border-t border-ui bg-white flex flex-col gap-2 shrink-0">
-          <QuickItemTemplatesPanel
-            templates={templates}
-            draftText={quickInputAnalysis.cleanText}
-            onApply={(text) => submitFrequentItem({ text })}
-            onSave={(name, text, pinned) => void saveTemplate(name, text, pinned)}
-            onRemove={(id) => void removeTemplate(id)}
-            onTogglePin={(id, pinned) => void pinTemplate(id, pinned)}
-          />
+          <div className={cn(mobileChecklistMode && "hidden md:block")}>
+            <QuickItemTemplatesPanel
+              templates={templates}
+              draftText={quickInputAnalysis.cleanText}
+              onApply={(text) => submitFrequentItem({ text })}
+              onSave={(name, text, pinned) => void saveTemplate(name, text, pinned)}
+              onRemove={(id) => void removeTemplate(id)}
+              onTogglePin={(id, pinned) => void pinTemplate(id, pinned)}
+            />
+          </div>
 
           {secondaryLists.length > 0 && (
             <div className="space-y-1">
-              <div className="px-1 text-[10px] font-black uppercase tracking-wider text-ui-muted">Also add to</div>
-              <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+              <div className={cn("px-1 text-[10px] font-black uppercase tracking-wider text-ui-muted", mobileChecklistMode && "hidden md:block")}>Also add to</div>
+              <div className={cn("flex gap-2 overflow-x-auto hide-scrollbar pb-1", mobileChecklistMode && "hidden md:flex")}>
                 {secondaryLists.map((list) => {
                   const manualSelected = extraTargetListIds.includes(list.id);
                   const inferredSelected = quickInputAnalysis.inferredExtraListIds.includes(list.id);
@@ -314,7 +357,7 @@ export function ListSidebar({
             </div>
           )}
 
-          {(quickInputAnalysis.inferredExtraListIds.length > 0 || 
+          {!mobileChecklistMode && (quickInputAnalysis.inferredExtraListIds.length > 0 || 
             quickInputAnalysis.inferredStoreNames.length > 0 || 
             quickInputAnalysis.inferredLocationNames.length > 0) && (
             <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-800">
@@ -352,7 +395,7 @@ export function ListSidebar({
                 ))}
               </div>
             )}
-            <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+            <div className={cn("flex gap-2 overflow-x-auto hide-scrollbar pb-1", mobileChecklistMode && "hidden md:flex")}>
               {locationOptions.map((loc) => (
                 <button
                   key={loc.id}

@@ -7,6 +7,8 @@ import { EventDetailModal } from './EventDetailModal';
 const updateRsvp = vi.fn((..._args: any[]) => Promise.resolve({ success: true }));
 const addAttendee = vi.fn((..._args: any[]) => Promise.resolve({ success: true }));
 const removeAttendee = vi.fn((..._args: any[]) => Promise.resolve({ success: true }));
+const getItems = vi.fn((..._args: any[]) => Promise.resolve([]));
+const toggleItem = vi.fn((..._args: any[]) => Promise.resolve());
 
 vi.mock('../../services/events', () => ({
   eventsClientService: {
@@ -15,6 +17,13 @@ vi.mock('../../services/events', () => ({
     removeAttendee: (...args: any[]) => removeAttendee(...args),
     updateEvent: vi.fn(() => Promise.resolve({ success: true })),
     deleteEvent: vi.fn(() => Promise.resolve({ success: true })),
+  },
+}));
+
+vi.mock('../../services/lists', () => ({
+  listsClientService: {
+    getItems: (...args: any[]) => getItems(...args),
+    toggleItem: (...args: any[]) => toggleItem(...args),
   },
 }));
 
@@ -56,5 +65,28 @@ describe('EventDetailModal permissions UX', () => {
     expect(screen.getByRole('button', { name: /Saving/i })).toBeDisabled();
     release();
     await waitFor(() => expect(updateRsvp).toHaveBeenCalled());
+  });
+
+  it('shows attached routine items and toggles them', async () => {
+    getItems.mockResolvedValueOnce([
+      { id: 'item1', listId: 'routine1', text: 'Brush Teeth', completed: 0 },
+      { id: 'item2', listId: 'routine1', text: 'Pack Backpack', completed: 1 },
+    ]);
+
+    render(
+      <EventDetailModal
+        event={{ ...baseEvent, routineListId: 'routine1' }}
+        kids={kids}
+        routineLists={[{ id: 'routine1', parentId: 'p1', title: 'Morning Routine', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' }]}
+        userRole="kid"
+        onClose={() => {}}
+        onUpdated={() => {}}
+      />
+    );
+
+    expect(await screen.findByText('Attached routine: Morning Routine')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Brush Teeth'));
+
+    await waitFor(() => expect(toggleItem).toHaveBeenCalledWith('item1', true, 'Brush Teeth', undefined, undefined));
   });
 });

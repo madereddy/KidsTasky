@@ -65,6 +65,7 @@ function CalendarViewInner({ parentId, kids = [], memberColorMap = {}, isLocked 
     timeFormat,
     forecast,
     routineTemplates,
+    routineLists,
     listsSummary,
     wallKidProgress,
     wallPhotos,
@@ -240,6 +241,7 @@ function CalendarViewInner({ parentId, kids = [], memberColorMap = {}, isLocked 
         todaysMeals={dayMeals} // This should be synced from useCalendarData ideally or handle separately
         wallKidProgress={wallKidProgress}
         listsSummary={listsSummary}
+        routineLists={routineLists}
         wallPhotos={wallPhotos}
         temperatureUnit={temperatureUnit}
         timeFormat={timeFormat === '24h' ? '24h' : '12h'}
@@ -296,6 +298,7 @@ function CalendarViewInner({ parentId, kids = [], memberColorMap = {}, isLocked 
       showRoutinesModal={showRoutinesModal}
       setShowRoutinesModal={setShowRoutinesModal}
       routineTemplates={routineTemplates}
+      routineLists={routineLists}
       setRoutineTemplates={setRoutineTemplates}
       defaultDate={defaultDate}
       setDefaultDate={setDefaultDate}

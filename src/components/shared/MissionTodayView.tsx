@@ -22,6 +22,8 @@ interface MissionTodayViewProps {
   kids: UserProfile[];
   categories: Category[];
   onAction: (item: MissionItem, action: 'complete' | 'dismiss') => void;
+  onRoutineItemToggle?: (item: AppListItem, completed: boolean) => void;
+  onRoutineReset?: (list: AppList) => void;
   onRefresh?: () => void;
 }
 
@@ -34,8 +36,10 @@ export function MissionTodayView({
   lists, 
   frequentItems = [],
   kids, 
-  categories, 
+  categories,
   onAction,
+  onRoutineItemToggle,
+  onRoutineReset,
   onRefresh
 }: MissionTodayViewProps) {
   const familyParentId = profile.parentId || profile.uid;
@@ -55,6 +59,7 @@ export function MissionTodayView({
   });
   const [activeLocation, setActiveLocation] = useState<string | null>(null);
   const [expandedRoutineId, setExpandedRoutineId] = useState<string | null>(null);
+  const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 768;
 
   const handleQuickAdd = useCallback(async (text: string) => {
     let shoppingList = lists.find(l => l.category === 'shopping');
@@ -128,13 +133,21 @@ export function MissionTodayView({
           : (item.type === 'event' ? 'text-blue-500' : item.type === 'task' ? 'text-emerald-500' : 'text-amber-500');
         const iconStyle = isHex ? { color: item.color } : {};
         const isExpanded = expandedRoutineId === item.id;
+        const showRoutineChecklist = item.type === 'routine' && (isMobileViewport || isExpanded);
+        const disableRoutineDismissSwipe = item.type === 'routine' && isMobileViewport;
+        const routineList = item.type === 'routine' ? item.originalData as AppList : null;
+        const routineChecklistItems = routineList
+          ? listItems.filter((listItem) => listItem.listId === routineList.id)
+          : [];
+        const remainingRoutineItems = routineChecklistItems.filter((listItem) => !listItem.completed);
+        const routineCompleted = item.type === 'routine' && remainingRoutineItems.length === 0;
 
         return (
           <SwipeableRow 
             key={item.id} 
             onSwipeRight={() => onAction(item, 'complete')}
-            onSwipeLeft={() => onAction(item, 'dismiss')}
-            onClick={item.type === 'routine' ? () => setExpandedRoutineId(isExpanded ? null : item.id) : undefined}
+            onSwipeLeft={disableRoutineDismissSwipe ? undefined : () => onAction(item, 'dismiss')}
+            onClick={item.type === 'routine' && !isMobileViewport ? () => setExpandedRoutineId(isExpanded ? null : item.id) : undefined}
           >
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-4">
@@ -185,50 +198,101 @@ export function MissionTodayView({
                       </div>
                     )}
                   </div>
-                  {item.subtitle && <div className="text-xs font-bold text-sky-500 uppercase mt-0.5">{item.subtitle}</div>}
+                  {item.subtitle && (
+                    <div className={cn(
+                      "mt-0.5 text-xs font-bold uppercase",
+                      item.status === 'completed' ? "text-emerald-600" : "text-sky-500",
+                    )}>
+                      {item.subtitle}
+                    </div>
+                  )}
                 </div>
-                {item.type === 'routine' && (
+                {item.type === 'routine' && !isMobileViewport && (
                   <div className="text-ui-muted">
                     {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                   </div>
                 )}
               </div>
 
-              {item.type === 'routine' && isExpanded && (
-                <div className="mt-2 pl-12 flex flex-col gap-2 border-l-2 border-ui-soft ml-4">
-                  {listItems
-                    .filter(i => i.listId === (item.originalData as AppList).id && !i.completed)
-                    .map(subItem => (
-                      <div 
+              {showRoutineChecklist && (
+                <div className={cn(
+                  "flex flex-col gap-2",
+                  isMobileViewport ? "mt-1" : "mt-2 ml-4 border-l-2 border-ui-soft pl-12",
+                )}>
+                  {routineChecklistItems.map(subItem => (
+                      <button
+                        type="button"
                         key={subItem.id} 
-                        className="flex items-center justify-between p-2 rounded-lg hover:bg-ui-soft transition-colors cursor-pointer group"
+                        className={cn(
+                          "group flex items-center justify-between rounded-lg transition-colors",
+                          isMobileViewport
+                            ? "min-h-14 border border-ui bg-white px-4 py-3 text-left hover:bg-ui-soft"
+                            : "cursor-pointer p-2 hover:bg-ui-soft",
+                          subItem.completed === 1 && "bg-ui-soft/70",
+                        )}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onAction({
-                            id: `list_${subItem.id}`,
-                            type: 'list_item',
-                            title: subItem.text,
-                            status: 'pending',
-                            originalData: subItem
-                          }, 'complete');
+                          if (onRoutineItemToggle) {
+                            onRoutineItemToggle(subItem, subItem.completed !== 1);
+                            return;
+                          }
+                          if (subItem.completed !== 1) {
+                            onAction({
+                              id: `list_${subItem.id}`,
+                              type: 'list_item',
+                              title: subItem.text,
+                              status: 'pending',
+                              originalData: subItem
+                            }, 'complete');
+                          }
                         }}
                       >
-                        <span className="font-medium text-ui">{subItem.text}</span>
-                        <div className="w-6 h-6 rounded-full border-2 border-ui-soft flex items-center justify-center group-hover:border-emerald-500 transition-colors">
-                          <Check size={14} className="text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <span className={cn(
+                          "font-medium text-ui",
+                          isMobileViewport && "text-base font-semibold",
+                          subItem.completed === 1 && "text-ui-muted line-through",
+                        )}>
+                          {subItem.text}
+                        </span>
+                        <div className={cn(
+                          "flex items-center justify-center transition-colors",
+                          isMobileViewport
+                            ? "h-7 w-7 rounded-md border-2 bg-ui-soft"
+                            : "h-6 w-6 rounded-full border-2",
+                          subItem.completed === 1
+                            ? "border-emerald-500 bg-emerald-500 text-white"
+                            : isMobileViewport
+                              ? "border-ui-soft-3"
+                              : "border-ui-soft group-hover:border-emerald-500",
+                        )}>
+                          <Check size={14} className={cn(
+                            "transition-opacity",
+                            subItem.completed === 1
+                              ? "opacity-100 text-white"
+                              : isMobileViewport
+                                ? "opacity-100 text-emerald-500"
+                                : "opacity-0 text-emerald-500 group-hover:opacity-100",
+                          )} />
                         </div>
-                      </div>
-                    ))
-                  }
+                      </button>
+                    ))}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (routineCompleted) {
+                        onRoutineReset?.(item.originalData as AppList);
+                        return;
+                      }
                       handleCompleteAll((item.originalData as AppList).id);
                     }}
-                    className="mt-2 py-2 px-4 bg-purple-500 text-white font-bold rounded-lg text-sm hover:bg-purple-600 transition-colors flex items-center justify-center gap-2"
+                    className={cn(
+                      "mt-2 flex items-center justify-center gap-2 rounded-lg bg-purple-500 px-4 py-2 font-bold text-white transition-colors hover:bg-purple-600",
+                      isMobileViewport ? "min-h-12 text-base" : "text-sm",
+                      routineCompleted && "bg-emerald-500 hover:bg-emerald-600",
+                    )}
                   >
                     <CheckCircle2 size={16} />
-                    COMPLETE ALL
+                    {routineCompleted ? 'RESET ROUTINE' : 'COMPLETE ALL'}
                   </button>
                 </div>
               )}

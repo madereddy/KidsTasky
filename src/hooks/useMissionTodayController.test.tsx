@@ -310,6 +310,33 @@ describe('useMissionTodayController', () => {
     expect(result.current.missionItems.map((item) => item.id)).not.toContain('routine_library-routine');
   });
 
+  it('keeps completed mission routines visible so they can be reused', () => {
+    const lists: AppList[] = [
+      { id: 'daily-routine', parentId: 'parent1', title: 'Morning Routine', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
+    ];
+    const listItems: AppListItem[] = [
+      { id: 'daily-item-1', listId: 'daily-routine', text: 'Fill water bottle', completed: 1 },
+      { id: 'daily-item-2', listId: 'daily-routine', text: 'Brush teeth', completed: 1 },
+    ];
+
+    const { result } = renderHook(() => useMissionTodayController({
+      profile: mockProfile,
+      tasks: [],
+      events: [],
+      completions: [],
+      listItems,
+      lists,
+      kids: mockKids,
+      categories: mockCategories
+    }));
+
+    expect(result.current.missionItems.find((item) => item.id === 'routine_daily-routine')).toMatchObject({
+      type: 'routine',
+      status: 'completed',
+      subtitle: 'Completed. Ready to reset.'
+    });
+  });
+
   it('populates time for tasks with reminderTime', () => {
     const taskWithTime: Task = {
         ...getMockTasks()[0],

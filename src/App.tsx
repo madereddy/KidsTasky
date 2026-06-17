@@ -238,6 +238,17 @@ export default function App() {
     }
   }, [profile, refreshWallData, toggleListItem, globalListItems]);
 
+  const handleRoutineItemToggle = useCallback(async (item: { id: string }, completed: boolean) => {
+    await toggleListItem(item.id, completed);
+    refreshWallData();
+  }, [refreshWallData, toggleListItem]);
+
+  const handleRoutineReset = useCallback(async (list: { id: string }) => {
+    const routineItems = globalListItems.filter((li) => li.listId === list.id && li.completed === 1);
+    await Promise.all(routineItems.map((li) => toggleListItem(li.id, false)));
+    refreshWallData();
+  }, [globalListItems, refreshWallData, toggleListItem]);
+
   useEffect(() => {
     if (!profile || profile.role !== 'kid' || !parentSession) return;
     let timer: ReturnType<typeof setTimeout>;
@@ -355,7 +366,7 @@ export default function App() {
       <main className={cn("mx-auto max-w-7xl px-4 sm:px-6", isMobile ? "pb-[calc(7.5rem+env(safe-area-inset-bottom))]" : "pb-10")}>
         <>
           {/* Home: MissionTodayView (mobile) or WallHome (desktop) — conditional, not kept-alive */}
-          {isMobile && activeSection === 'home' && <Suspense fallback={<SectionSkeleton role={profile.role === 'kid' ? 'kid' : 'parent'} activeSection="home" />}><MissionTodayView profile={profile} tasks={allTasks.filter(t => !hiddenMissionIds.has(`task_${t.id}`))} events={events.filter(e => !hiddenMissionIds.has(`event_${e.id}`))} completions={allCompletions} listItems={globalListItems.filter(l => !hiddenMissionIds.has(`list_${l.id}`))} lists={globalLists} frequentItems={frequentItems} kids={kids} categories={categories} onAction={handleMissionAction} onRefresh={refreshWallData} /></Suspense>}
+          {isMobile && activeSection === 'home' && <Suspense fallback={<SectionSkeleton role={profile.role === 'kid' ? 'kid' : 'parent'} activeSection="home" />}><MissionTodayView profile={profile} tasks={allTasks.filter(t => !hiddenMissionIds.has(`task_${t.id}`))} events={events.filter(e => !hiddenMissionIds.has(`event_${e.id}`))} completions={allCompletions} listItems={globalListItems.filter(l => !hiddenMissionIds.has(`list_${l.id}`))} lists={globalLists} frequentItems={frequentItems} kids={kids} categories={categories} onAction={handleMissionAction} onRoutineItemToggle={handleRoutineItemToggle} onRoutineReset={handleRoutineReset} onRefresh={refreshWallData} /></Suspense>}
           {isParentRole(profile.role) && !isMobile && activeSection === 'home' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="home" />}><WallHome parentId={familyParentId} profile={profile} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} onManage={() => goToSection('manage')} settings={familySettings} justWoke={wallJustWoke} /></Suspense>}
 
           {/* Non-home sections: mount on first visit, stay mounted (CSS hide when inactive) */}
