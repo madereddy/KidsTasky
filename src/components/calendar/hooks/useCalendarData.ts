@@ -94,14 +94,16 @@ export function useCalendarData(parentId: string, kids: UserProfile[], isWallMod
             }
             setCalendarVisibility(map);
           }),
-          settingsClientService.getSettings(parentId).then(async (settings) => {
+          settingsClientService.getSettings(parentId).then((settings) => {
             if (!settings) return;
             setTimezone(settings.timezone || 'America/Chicago');
             setTemperatureUnit((settings.temperatureUnit as TemperatureUnitPref) || 'celsius');
             setTimeFormat((settings.timeFormat as TimeFormatPref) || '12h');
+            // Fire weather independently — don't block the loading gate on a network call
             if (typeof settings.locationLat === 'number' && typeof settings.locationLon === 'number') {
-              const wx = await weatherClientService.getForecast(settings.locationLat, settings.locationLon);
-              setForecast(wx || []);
+              weatherClientService.getForecast(settings.locationLat, settings.locationLon)
+                .then(wx => setForecast(wx || []))
+                .catch(() => {});
             }
           })
         ]);

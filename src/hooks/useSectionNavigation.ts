@@ -11,10 +11,15 @@ export function useSectionNavigation() {
     setActiveSection(section);
   }, []);
 
+  const premountSection = useCallback((section: AppSection) => {
+    setMountedSections(prev => prev.has(section) ? prev : new Set([...prev, section]));
+  }, []);
+
   return {
     activeSection,
     setActiveSection,
     mountedSections,
-    goToSection
+    goToSection,
+    premountSection
   };
 }

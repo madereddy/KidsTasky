@@ -122,7 +122,7 @@ export default function App() {
     refreshCategories
   } = useAppInitialization();
 
-  const { activeSection, mountedSections, goToSection } = useSectionNavigation();
+  const { activeSection, mountedSections, goToSection, premountSection } = useSectionNavigation();
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [showShoppingMode, setShowShoppingMode] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
@@ -182,6 +182,16 @@ export default function App() {
   useEffect(() => {
     if (profile) warmProfile(profile);
   }, [profile, warmProfile]);
+
+  // Eagerly pre-mount common mobile tabs in background so they're ready on first tap
+  useEffect(() => {
+    if (!profile || !isMobile) return;
+    const timer = setTimeout(() => {
+      premountSection('calendar');
+      premountSection('shopping');
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [profile, isMobile, premountSection]);
 
   const {
     showProfileSwitcher, setShowProfileSwitcher,
