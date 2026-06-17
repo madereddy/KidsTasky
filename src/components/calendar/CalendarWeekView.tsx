@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { format, addDays, isSameDay, startOfDay } from 'date-fns';
 import { CalendarEvent } from '../../types';
 import { cn } from '../../lib/utils';
@@ -77,7 +77,7 @@ export function CalendarWeekView({
                   <button
                     key={ev.id}
                     onClick={() => onEventClick?.(ev)}
-                    className="w-full text-[10px] px-1.5 py-0.5 rounded text-white truncate font-semibold mb-0.5"
+                    className="w-full text-xs px-1.5 py-0.5 rounded text-white truncate font-semibold mb-0.5"
                     style={{ backgroundColor: (ev.assignedToId && memberColorMap[ev.assignedToId]) || ev.color || '#6366f1' }}
                   >
                     {ev.title}
@@ -95,10 +95,10 @@ export function CalendarWeekView({
           const dayForecast = forecast.find((f) => f.date === format(day, 'yyyy-MM-dd'));
           return (
             <div key={di} className={cn('flex-1 border-l border-ui-soft py-2 text-center', isSameDay(day, today) && 'bg-blue-50')}>
-              <p className="text-[10px] font-bold text-ui-muted uppercase">{format(day, 'EEE')}</p>
+              <p className="text-xs font-bold text-ui-muted uppercase">{format(day, 'EEE')}</p>
               <p className={cn('text-lg font-bold', isSameDay(day, today) ? 'text-blue-500' : 'text-ui-secondary')}>{format(day, 'd')}</p>
               {dayForecast && (
-                <p className="text-[10px] text-ui-muted">
+                <p className="text-xs text-ui-muted">
                   {getWeatherInfo(dayForecast.weatherCode).icon} {Math.round(toDisplayTemp(dayForecast.maxTemp, temperatureUnit))}°/{Math.round(toDisplayTemp(dayForecast.minTemp, temperatureUnit))}°
                 </p>
               )}
@@ -111,7 +111,7 @@ export function CalendarWeekView({
         <div className="w-14 shrink-0 relative" style={{ height: GRID_HEIGHT }}>
           {HOURS.map((h) => (
             <div key={h} className="absolute w-full pr-1 text-right" style={{ top: (h / 24) * GRID_HEIGHT - 8 }}>
-              <span className="text-[10px] text-ui-muted-2 font-medium">{h === 0 ? '' : (timeFormat === '24h' ? `${String(h).padStart(2, '0')}:00` : `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`)}</span>
+              <span className="text-xs text-ui-muted-2 font-medium">{h === 0 ? '' : (timeFormat === '24h' ? `${String(h).padStart(2, '0')}:00` : `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`)}</span>
             </div>
           ))}
         </div>
@@ -123,7 +123,7 @@ export function CalendarWeekView({
               {HOURS.map((h) => (
                 <div key={h} className="absolute w-full border-t border-ui-soft" style={{ top: (h / 24) * GRID_HEIGHT }} />
               ))}
-              {positionEvents(dayEvs).map((ev) => {
+              {useMemo(() => positionEvents(dayEvs), [dayEvs]).map((ev) => {
                 const start = new Date(ev.startTime);
                 const topPct = minuteOfDay(start) / 1440;
                 const durMin = Math.max(30, (ev.endTime - ev.startTime) / 60000);
@@ -133,7 +133,7 @@ export function CalendarWeekView({
                   <button
                     key={ev.id}
                     onClick={() => onEventClick?.(ev)}
-                    className="absolute rounded text-left text-white text-[10px] font-semibold px-1 overflow-hidden shadow-sm"
+                    className="absolute rounded text-left text-white text-xs font-semibold px-1 overflow-hidden shadow-sm"
                     style={{
                       top: topPct * GRID_HEIGHT,
                       height: Math.max(20, heightPct * GRID_HEIGHT),

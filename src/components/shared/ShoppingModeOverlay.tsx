@@ -15,6 +15,15 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
   const [activeStore, setActiveStore] = useState<string | null>(null);
   const [stagedOriginalIds, setStagedOriginalIds] = useState<Set<string>>(new Set());
 
+  // Lock body scroll when overlay is active
+  React.useEffect(() => {
+    const originalStyle = window.getComputedStyle(document.body).overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalStyle;
+    };
+  }, []);
+
   const handleToggle = (item: { originalIds: string[] }) => {
     const isStaged = item.originalIds.every(id => stagedOriginalIds.has(id));
     setStagedOriginalIds(prev => {
@@ -102,30 +111,43 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
   }, [activeStore, deduplicatedItems, stagedOriginalIds]);
 
   return (
-    <div className="fixed inset-0 z-[200] flex flex-col bg-white">
+    <div className="fixed inset-0 z-[200] flex flex-col bg-ui-soft">
       {/* Header */}
-      <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
+      <header className="flex h-16 shrink-0 items-center justify-between border-b bg-white dark:bg-ui-dark px-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-white shadow-sm">
-            <ShoppingCart size={24} />
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-ui-soft border border-ui text-ui-primary shadow-sm">
+            <ShoppingCart size={24} aria-hidden="true" />
           </div>
-          <div>
-            <h2 className="text-xl font-black text-ui-primary leading-tight">Shopping Mode</h2>
-            <p className="text-[10px] font-black uppercase tracking-widest text-ui-muted">
+          <div className="min-w-0">
+            <h2 className="text-xl font-black text-ui-primary leading-tight truncate">Shopping Mode</h2>
+            <p className="text-xs font-black uppercase tracking-widest text-ui-muted truncate">
               {activeStore ? `Browsing ${activeStore}` : 'All Stores'}
             </p>
           </div>
         </div>
         <button
           onClick={handleClose}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-ui-soft text-ui-muted transition-colors hover:bg-ui-soft-3 hover:text-ui-primary"
+          aria-label={stagedOriginalIds.size > 0 ? `Done and check off ${stagedOriginalIds.size} items` : "Close shopping mode"}
+          className={cn(
+            "flex h-11 min-w-[44px] items-center justify-center gap-2 rounded-xl transition-all active:scale-95",
+            stagedOriginalIds.size > 0 
+              ? "bg-emerald-500 px-4 text-white shadow-md hover:bg-emerald-600" 
+              : "bg-ui-soft px-2 text-ui-muted hover:bg-ui-soft-3 hover:text-ui-primary"
+          )}
         >
-          <X size={24} />
+          {stagedOriginalIds.size > 0 ? (
+            <>
+              <CheckCircle2 size={20} />
+              <span className="text-xs font-black uppercase tracking-widest">Done</span>
+            </>
+          ) : (
+            <X size={24} />
+          )}
         </button>
       </header>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto bg-ui-soft/30 p-4">
+      <div className="flex-1 overflow-y-auto bg-ui-soft-2/40 p-4">
         <AnimatePresence mode="popLayout">
           {filteredItems.length === 0 ? (
             <motion.div 
@@ -154,15 +176,15 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
                     exit={{ opacity: 0, scale: 0.9, x: -20 }}
                     className={cn(
                       "group relative flex items-center gap-3 rounded-2xl border border-ui p-4 shadow-sm transition-all active:scale-[0.98]",
-                      isStaged ? "bg-ui-soft/50 opacity-60" : "bg-white"
+                      isStaged ? "bg-ui-soft/50 opacity-60" : "bg-white dark:bg-ui-dark-2"
                     )}
                     onClick={() => handleToggle(item)}
                   >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center">
                       {isStaged ? (
-                        <CheckCircle2 className="text-emerald-500" size={26} />
+                        <CheckCircle2 className="text-emerald-500" size={32} />
                       ) : (
-                        <Circle className="text-ui-soft-3 group-active:text-emerald-500 transition-colors" size={26} />
+                        <Circle className="text-ui-soft-3 group-active:text-emerald-500 transition-colors" size={32} />
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -172,22 +194,22 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
                       )}>
                         {item.text}
                       </p>
-                      <div className="mt-0.5 flex flex-wrap gap-2">
+                      <div className="mt-1 flex flex-wrap gap-2">
                         {!activeStore && item.allStoreNames.map(store => (
-                          <span key={store} className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 px-1.5 rounded">
+                          <span key={store} className="text-xs font-black uppercase tracking-wider text-ui-primary bg-ui-soft border border-ui px-1.5 py-0.5 rounded">
                             {store}
                           </span>
                         ))}
                         {item.allLocationNames.map(loc => (
-                          <span key={loc} className="text-[10px] font-black uppercase tracking-wider text-ui-muted">
-                            📍 {loc}
+                          <span key={loc} className="text-xs font-black uppercase tracking-wider text-ui-muted flex items-center gap-1">
+                            <span>📍</span> {loc}
                           </span>
                         ))}
                       </div>
                     </div>
                     {!isStaged && (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full text-ui-soft-3 group-active:text-emerald-500">
-                        <CheckCircle2 size={28} />
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full text-ui-soft-3 group-active:text-emerald-500">
+                        <CheckCircle2 size={32} />
                       </div>
                     )}
                   </motion.li>
@@ -199,14 +221,14 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
       </div>
 
       {/* Store Selector */}
-      <div className="flex shrink-0 gap-2 overflow-x-auto border-t bg-ui-soft p-3 hide-scrollbar">
+      <div className="flex shrink-0 gap-3 overflow-x-auto border-t bg-ui-soft-2 p-4 hide-scrollbar">
         <button
           onClick={() => setActiveStore(null)}
           className={cn(
-            "whitespace-nowrap rounded-full border px-5 py-2 text-sm font-black transition-all active:scale-95",
+            "whitespace-nowrap rounded-full border px-6 min-h-[44px] text-sm font-black transition-all active:scale-95 flex items-center justify-center",
             activeStore === null
               ? "border-ui-primary bg-ui-primary text-white shadow-md"
-              : "border-ui bg-white text-ui-primary hover:bg-ui-soft-2"
+              : "border-ui bg-white dark:bg-ui-dark-2 text-ui-primary hover:bg-ui-soft-3"
           )}
         >
           All <span className="ml-1 opacity-60">({deduplicatedItems.length})</span>
@@ -218,10 +240,10 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
               key={store}
               onClick={() => setActiveStore(store)}
               className={cn(
-                "whitespace-nowrap rounded-full border px-5 py-2 text-sm font-black transition-all active:scale-95",
+                "whitespace-nowrap rounded-full border px-6 min-h-[44px] text-sm font-black transition-all active:scale-95 flex items-center justify-center",
                 activeStore === store
                   ? "border-ui-primary bg-ui-primary text-white shadow-md"
-                  : "border-ui bg-white text-ui-primary hover:bg-ui-soft-2",
+                  : "border-ui bg-white dark:bg-ui-dark-2 text-ui-primary hover:bg-ui-soft-3",
                 count === 0 && activeStore !== store && "opacity-40"
               )}
             >
@@ -232,7 +254,7 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
       </div>
 
       {/* Footer / Info */}
-      <footer className="shrink-0 border-t bg-white p-4 text-center shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
+      <footer className="shrink-0 border-t bg-white dark:bg-ui-dark p-4 text-center shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
         <p className="text-xs font-bold text-ui-muted">
           {stagedOriginalIds.size > 0 
             ? `${stagedOriginalIds.size} item${stagedOriginalIds.size === 1 ? '' : 's'} ready to check off.`

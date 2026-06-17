@@ -230,8 +230,8 @@ export function ShoppingView({ parentId }: Props) {
       <section className="rounded-[1.5rem] border border-ui bg-white p-4 shadow-sm sm:rounded-[2rem] sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-amber-700">
-              <ShoppingCart size={12} />
+            <div className="inline-flex items-center gap-2 rounded-full bg-ui-soft px-3 py-1 text-xs font-black uppercase tracking-[0.2em] text-ui-primary border border-ui">
+              <ShoppingCart size={12} aria-hidden="true" />
               Shopping
             </div>
             <div>
@@ -250,7 +250,7 @@ export function ShoppingView({ parentId }: Props) {
                 filteredItems.length === 0 && "cursor-not-allowed opacity-50",
               )}
             >
-              {copied ? <ClipboardCheck size={16} /> : <Clipboard size={16} />}
+              {copied ? <ClipboardCheck size={16} aria-hidden="true" /> : <Clipboard size={16} aria-hidden="true" />}
               {copied ? 'Copied' : 'Copy queue'}
             </button>
             {selectedList && (
@@ -259,7 +259,7 @@ export function ShoppingView({ parentId }: Props) {
                 onClick={() => void handleDeleteList(selectedList.id)}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 sm:min-h-0"
               >
-                <Trash2 size={16} />
+                <Trash2 size={16} aria-hidden="true" />
                 Delete list
               </button>
             )}
@@ -271,7 +271,7 @@ export function ShoppingView({ parentId }: Props) {
             
             <div className="space-y-3">
               {(quickInputAnalysis.inferredExtraListIds.length > 0 || quickInputAnalysis.inferredStoreName || quickInputAnalysis.inferredLocationName) && (
-                <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-semibold text-sky-800">
+                <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-800">
                   <span>Quick match:</span>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
                     {quickInputAnalysis.inferredExtraListIds.length > 0 && (
@@ -304,14 +304,14 @@ export function ShoppingView({ parentId }: Props) {
                   disabled={!selectedList || !newItemText.trim()}
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-ui-primary px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-ui-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-ui-soft-3 disabled:text-ui-muted sm:min-h-0"
                 >
-                  <Plus size={16} />
+                  <Plus size={16} aria-hidden="true" />
                   Add item
                 </button>
               </form>
             </div>
             
             <div className="space-y-3">
-              <label className="text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted">Primary shopping list</label>
+              <label className="text-xs font-black uppercase tracking-[0.18em] text-ui-muted">Primary shopping list</label>
               <div className="grid gap-2 sm:flex sm:flex-wrap">
                 {shoppingLists.map((list) => (
                   <button
@@ -336,7 +336,7 @@ export function ShoppingView({ parentId }: Props) {
 
             {selectedList && shoppingLists.length > 1 && (
               <div className="space-y-3">
-                <label className="text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted">Also add to</label>
+                <label className="text-xs font-black uppercase tracking-[0.18em] text-ui-muted">Also add to</label>
                 <div className="grid gap-2 sm:flex sm:flex-wrap">
                   {shoppingLists.filter((list) => list.id !== selectedList.id).map((list) => {
                     const isSelected = extraTargetListIds.includes(list.id);
@@ -421,7 +421,7 @@ export function ShoppingView({ parentId }: Props) {
                   disabled={!editingListTitle.trim() || editingListTitle.trim() === selectedList.title}
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-ui bg-white px-4 py-3 text-sm font-bold text-ui-primary transition-colors hover:bg-ui-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
                 >
-                  <Edit3 size={14} />
+                  <Edit3 size={14} aria-hidden="true" />
                   Rename
                 </button>
               </div>
@@ -441,7 +441,7 @@ export function ShoppingView({ parentId }: Props) {
           </div>
 
           <div className="min-w-0 rounded-[1.5rem] border border-ui bg-white p-4">
-            <label className="mb-3 block text-[11px] font-black uppercase tracking-[0.18em] text-ui-muted">Create shopping lists</label>
+            <label className="mb-3 block text-xs font-black uppercase tracking-[0.18em] text-ui-muted">Create shopping lists</label>
             <form onSubmit={handleCreateList} className="flex flex-col gap-2 sm:flex-row">
               <input
                 value={newListTitle}
@@ -588,12 +588,12 @@ export function ShoppingView({ parentId }: Props) {
                         {item.allListIds.map((id: string) => listTitlesById.get(id)).filter(Boolean).join(', ') || 'Shopping'}
                       </span>
                       {item.allStoreNames.map((storeName: string) => (
-                        <span key={storeName} className="rounded-full bg-blue-100 px-2 py-1 text-xs font-black uppercase tracking-wide text-blue-700">
+                        <span key={storeName} className="rounded-full bg-ui-soft-3 px-2 py-1 text-xs font-black uppercase tracking-wide text-ui-primary border border-ui">
                           {storeName}
                         </span>
                       ))}
                       {item.allLocationNames.filter(loc => !item.allStoreNames.includes(loc)).map((locName: string) => (
-                        <span key={locName} className="rounded-full bg-slate-100 px-2 py-1 text-xs font-black uppercase tracking-wide text-slate-600">
+                        <span key={locName} className="rounded-full bg-ui-soft px-2 py-1 text-xs font-black uppercase tracking-wide text-ui-muted border border-ui">
                           {locName}
                         </span>
                       ))}
@@ -645,7 +645,7 @@ export function ShoppingView({ parentId }: Props) {
                     className="self-end rounded-full p-2 text-ui-muted transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-primary focus-visible:ring-offset-2 sm:self-auto"
                     aria-label={`Delete ${item.text}`}
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={16} aria-hidden="true" />
                   </button>
                 </li>
               ))}

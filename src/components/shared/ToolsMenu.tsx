@@ -30,7 +30,7 @@ export function ToolsMenu({ activeSection, isOpen, isDarkTheme, onClose, onSelec
       >
         <div className="mb-4 flex items-start justify-between">
           <div>
-            <div className={cn("inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em]", isDarkTheme ? "bg-ui-dark-2 text-ui-secondary" : "bg-ui-soft text-ui-muted")}>
+            <div className={cn("inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.18em]", isDarkTheme ? "bg-ui-dark-2 text-ui-secondary" : "bg-ui-soft text-ui-muted")}>
               <ShoppingBag size={12} />
               Tools
             </div>

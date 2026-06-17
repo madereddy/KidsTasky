@@ -93,7 +93,7 @@ export function ParentDashboard({
       <section className="grid grid-cols-2 gap-3 sm:hidden">
         {summaryCards.map((item) => (
           <div key={item.label} className="rounded-2xl border border-ui bg-white p-3">
-            <p className="text-[11px] font-bold uppercase text-ui-muted">{item.label}</p>
+            <p className="text-xs font-bold uppercase text-ui-muted">{item.label}</p>
             <p className={cn("mt-2 text-2xl font-black", item.tone)}>{item.value}</p>
           </div>
         ))}
@@ -103,7 +103,7 @@ export function ParentDashboard({
       <div className="hidden gap-3 sm:grid sm:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((item) => (
           <div key={item.label} className="rounded-2xl border border-ui bg-white p-3">
-            <p className="text-[11px] uppercase text-ui-muted font-bold">{item.label}</p>
+            <p className="text-xs uppercase text-ui-muted font-bold">{item.label}</p>
             <p className={cn("text-2xl font-black", item.tone)}>{item.value}</p>
           </div>
         ))}
@@ -121,7 +121,7 @@ export function ParentDashboard({
                 onClick={() => setShowNotifications(!showNotifications)}
                 aria-label={showNotifications ? 'Hide notifications' : 'Show notifications'}
                 aria-expanded={showNotifications}
-                className="relative p-2.5 rounded-xl border border-ui bg-ui-soft transition-colors hover:border-amber-400"
+                className="relative p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-ui bg-ui-soft transition-colors hover:border-amber-400"
               >
                 <Bell className={cn('w-5 h-5', notifications.length > 0 ? 'text-amber-500 animate-pulse' : 'text-ui-muted')} />
                 {notifications.length > 0 && (

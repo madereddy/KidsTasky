@@ -35,7 +35,7 @@ function CalendarViewInner({ parentId, kids = [], memberColorMap = {}, isLocked 
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 639px)');
-    const guard = () => { if (mq.matches) setViewMode(v => v === 'month' ? 'week' : v); };
+    const guard = () => { if (mq.matches) setViewMode(v => (v === 'month' || v === 'week') ? 'day' : v); };
     guard();
     mq.addEventListener('change', guard);
     return () => mq.removeEventListener('change', guard);

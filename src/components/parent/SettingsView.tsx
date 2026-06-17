@@ -116,10 +116,10 @@ export function SettingsView({ parentId, onClose, onSaved, onLockNow, onPreviewS
   return (
     <div className="fixed inset-0 z-[150] flex">
       <div className="flex-1 bg-ui-deep-50" onClick={onClose} />
-      <div className="w-full max-w-md bg-white shadow-2xl flex flex-col overflow-hidden border-l border-ui rounded-l-2xl">
+      <div className="w-full sm:max-w-md bg-white shadow-2xl flex flex-col overflow-hidden sm:border-l border-ui sm:rounded-l-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b bg-ui-soft shrink-0">
           <h2 className="text-lg font-bold text-ui-primary">Family Settings</h2>
-          <button onClick={onClose} className="p-2 hover:bg-ui-soft-3 rounded-full transition-colors">
+          <button onClick={onClose} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-ui-soft-3 rounded-full transition-colors">
             <X size={18} />
           </button>
         </div>

@@ -86,7 +86,7 @@ export function AppHeader({
                 <button
                   key={sec}
                   onClick={() => onSectionSelect(sec)}
-                  className={cn("px-4 py-2 rounded-xl text-sm font-semibold transition-all", activeSection === sec ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary"))}
+                  className={cn("px-4 py-2 min-h-[44px] flex items-center rounded-xl text-sm font-semibold transition-all", activeSection === sec ? cn(`bg-${currentTheme.primary} text-white shadow-sm`) : (isDarkTheme ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-primary"))}
                 >
                   {sec.charAt(0).toUpperCase() + sec.slice(1)}
                 </button>
@@ -96,12 +96,12 @@ export function AppHeader({
         </div>
         <div className="flex items-center gap-4">
           {isParentRole(profile.role) ? (
-            <button onClick={isLocked ? onUnlockSelect : onSettingsSelect} className={cn("p-2 rounded-xl border transition-colors flex items-center gap-2 z-[61]", isLocked ? (isDarkTheme ? "text-amber-200 border-amber-400/50 bg-amber-500/10" : "text-amber-900 border-amber-300 bg-amber-50") : (isDarkTheme ? "text-ui-secondary border-ui-dark-3 hover:text-white" : "text-ui-muted-2 border-ui hover:text-ui-primary hover:bg-ui-soft"))}>
+            <button onClick={isLocked ? onUnlockSelect : onSettingsSelect} className={cn("p-2 min-w-[44px] min-h-[44px] justify-center rounded-xl border transition-colors flex items-center gap-2 z-[61]", isLocked ? (isDarkTheme ? "text-amber-200 border-amber-400/50 bg-amber-500/10" : "text-amber-900 border-amber-300 bg-amber-50") : (isDarkTheme ? "text-ui-secondary border-ui-dark-3 hover:text-white" : "text-ui-muted-2 border-ui hover:text-ui-primary hover:bg-ui-soft"))}>
               {isLocked ? <Lock className="w-5 h-5" /> : <Settings className="w-5 h-5" />}
             </button>
           ) : null}
           <div className="relative">
-            <button onClick={onProfileSwitcherToggle} className="w-10 h-10 bg-ui-soft-2 border border-ui rounded-full flex items-center justify-center text-ui-muted-2 hover:text-sky-500 transition-colors"><UserIcon className="w-5 h-5" /></button>
+            <button onClick={onProfileSwitcherToggle} className="w-11 h-11 bg-ui-soft-2 border border-ui rounded-full flex items-center justify-center text-ui-muted-2 hover:text-sky-500 transition-colors"><UserIcon className="w-5 h-5" /></button>
             {showProfileSwitcher && !isMobile ? (
               <div className={cn("absolute right-0 mt-2 w-64 rounded-2xl border shadow-xl z-50 p-2", isDarkTheme ? "bg-ui-deep border-ui-dark" : "bg-white border-ui")}>
                 {kids.filter(k => k.uid !== profile.uid).map(k => (
@@ -117,7 +117,7 @@ export function AppHeader({
               </div>
             ) : null}
           </div>
-          <button onClick={() => void onLogout()} className="p-2 text-ui-muted-2 hover:text-rose-500 transition-colors hover:bg-rose-50 rounded-full"><LogOut className="w-5 h-5" /></button>
+          <button onClick={() => void onLogout()} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-ui-muted-2 hover:text-rose-500 transition-colors hover:bg-rose-50 rounded-full"><LogOut className="w-5 h-5" /></button>
         </div>
       </div>
     </header>

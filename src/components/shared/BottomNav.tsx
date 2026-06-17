@@ -48,7 +48,7 @@ export function BottomNav({ activeTab, onTabSelect, role }: BottomNavProps) {
               )}
             >
               <Icon size={22} />
-              <span className="text-[11px] font-bold leading-none">{tab.label}</span>
+              <span className="text-xs font-bold leading-none">{tab.label}</span>
             </button>
           );
         })}

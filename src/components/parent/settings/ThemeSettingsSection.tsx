@@ -27,7 +27,7 @@ export function ThemeSettingsSection({ activeThemeId, onThemeChange }: ThemeSett
                 style={{ background: theme.bg }}
               />
               <span className="text-base leading-none">{theme.icon}</span>
-              <span className={`text-[11px] font-semibold text-center leading-tight ${active ? 'text-blue-600' : 'text-ui-secondary'}`}>{theme.name}</span>
+              <span className={`text-xs font-semibold text-center leading-tight ${active ? 'text-blue-600' : 'text-ui-secondary'}`}>{theme.name}</span>
             </button>
           );
         })}

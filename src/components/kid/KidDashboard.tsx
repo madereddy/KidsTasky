@@ -245,12 +245,12 @@ export function KidDashboard({
       />
 
       {/* Nav bar */}
-      <div className={cn("flex items-center justify-between gap-2 shadow-sm p-2 rounded-[2rem] border", currentTheme.vocab?.panelBg || "bg-white", currentTheme.vocab?.panelBorder || "border-ui-soft")}>
+      <div className={cn("flex items-center justify-between gap-2 shadow-sm px-4 py-2 rounded-[2rem] border", currentTheme.vocab?.panelBg || "bg-white", currentTheme.vocab?.panelBorder || "border-ui-soft")}>
         <div className={cn("flex gap-1 p-1 rounded-2xl overflow-x-auto", currentTheme.vocab?.darkMode ? "bg-ui-dark-30" : "bg-ui-soft")}>
           <button
             onClick={() => goKidView('tasks')}
             className={cn(
-              "p-2.5 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider whitespace-nowrap",
+              "p-2.5 px-4 min-h-[44px] flex items-center rounded-xl transition-all text-xs font-semibold uppercase tracking-wider whitespace-nowrap",
               kidView === 'tasks' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
             )}
           >
@@ -259,7 +259,7 @@ export function KidDashboard({
           <button
             onClick={() => goKidView('calendar')}
             className={cn(
-              "p-2.5 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap",
+              "p-2.5 px-4 min-h-[44px] flex items-center rounded-xl transition-all text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap",
               kidView === 'calendar' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
             )}
           >
@@ -268,7 +268,7 @@ export function KidDashboard({
           <button
             onClick={() => goKidView('homework')}
             className={cn(
-              "p-2.5 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider whitespace-nowrap",
+              "p-2.5 px-4 min-h-[44px] flex items-center rounded-xl transition-all text-xs font-semibold uppercase tracking-wider whitespace-nowrap",
               kidView === 'homework' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
             )}
           >
@@ -278,7 +278,7 @@ export function KidDashboard({
             <button
               onClick={() => goKidView('shop')}
               className={cn(
-                "p-2.5 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider whitespace-nowrap",
+                "p-2.5 px-4 min-h-[44px] flex items-center rounded-xl transition-all text-xs font-semibold uppercase tracking-wider whitespace-nowrap",
                 kidView === 'shop' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
               )}
             >
@@ -289,7 +289,7 @@ export function KidDashboard({
         <div className="flex items-center gap-2 flex-shrink-0 pr-1">
           <button
             onClick={() => setShowHistory(true)}
-            className={cn("p-2.5 rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold", isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")}
+            className={cn("p-2.5 min-h-[44px] min-w-[44px] flex justify-center items-center rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold", isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")}
           >
             <History className="w-4 h-4" />
           </button>
@@ -297,7 +297,7 @@ export function KidDashboard({
             <button
               onClick={() => setShowFilters(f => !f)}
               className={cn(
-                "p-2.5 rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold border",
+                "p-2.5 min-h-[44px] min-w-[44px] flex justify-center items-center rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold border",
                 showFilters
                   ? (isDarkMode ? "bg-ui-dark-2 text-white border-ui-dark-3" : "bg-white text-ui-primary shadow-sm border-ui")
                   : (isDarkMode ? "text-ui-secondary border-transparent hover:text-white" : "text-ui-muted border-transparent hover:text-ui-secondary")
@@ -324,7 +324,7 @@ export function KidDashboard({
                 <button
                   onClick={() => setSortBy('time')}
                   className={cn(
-                    "p-2.5 px-4 rounded-xl transition-all flex items-center gap-2 text-xs font-semibold",
+                    "p-2.5 px-4 min-h-[44px] flex items-center rounded-xl transition-all flex items-center gap-2 text-xs font-semibold",
                     sortBy === 'time' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
                   )}
                 >
@@ -333,7 +333,7 @@ export function KidDashboard({
                 <button
                   onClick={() => setSortBy('created')}
                   className={cn(
-                    "p-2.5 px-4 rounded-xl transition-all flex items-center gap-2 text-xs font-semibold",
+                    "p-2.5 px-4 min-h-[44px] flex items-center rounded-xl transition-all flex items-center gap-2 text-xs font-semibold",
                     sortBy === 'created' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
                   )}
                 >
@@ -344,7 +344,7 @@ export function KidDashboard({
                 <button
                   onClick={() => setTaskView('all')}
                   className={cn(
-                    "p-2.5 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
+                    "p-2.5 px-4 min-h-[44px] flex items-center rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
                     taskView === 'all' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
                   )}
                 >
@@ -353,7 +353,7 @@ export function KidDashboard({
                 <button
                   onClick={() => setTaskView('upforgrabs')}
                   className={cn(
-                    "p-2.5 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
+                    "p-2.5 px-4 min-h-[44px] flex items-center rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
                     taskView === 'upforgrabs' ? (isDarkMode ? "bg-fuchsia-800 text-white" : "bg-fuchsia-100 text-fuchsia-800 shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
                   )}
                 >
@@ -362,7 +362,7 @@ export function KidDashboard({
                 <button
                   onClick={() => setTaskView('assigned')}
                   className={cn(
-                    "p-2.5 px-4 rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
+                    "p-2.5 px-4 min-h-[44px] flex items-center rounded-xl transition-all text-xs font-semibold uppercase tracking-wider",
                     taskView === 'assigned' ? (isDarkMode ? "bg-ui-dark-2 text-white" : "bg-white text-ui-primary shadow-sm") : (isDarkMode ? "text-ui-secondary hover:text-white" : "text-ui-muted hover:text-ui-secondary")
                   )}
                 >
@@ -437,7 +437,7 @@ export function KidDashboard({
         </Suspense>
       )}
       {kidView === 'shop' && (
-        <div className={cn("p-6 rounded-[3rem] border", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-ui")}>
+        <div className={cn("p-6 rounded-3xl sm:rounded-[3rem] border", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-ui")}>
           <h3 className={cn("text-2xl font-bold mb-6", `text-${currentTheme.primary}`)}>{currentTheme.vocab?.rewards || 'Rewards Shop'}</h3>
           <RewardsShop
             rewards={rewards}
@@ -453,7 +453,7 @@ export function KidDashboard({
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className={cn("p-8 rounded-[3rem] text-center shadow-sm", currentTheme.vocab?.darkMode ? "bg-emerald-500/10 border border-emerald-500/30" : "bg-emerald-50 border border-emerald-100")}
+          className={cn("p-8 rounded-3xl sm:rounded-[3rem] text-center shadow-sm", currentTheme.vocab?.darkMode ? "bg-emerald-500/10 border border-emerald-500/30" : "bg-emerald-50 border border-emerald-100")}
         >
           <Award className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
           <h3 className={cn("text-2xl font-bold mb-2", currentTheme.vocab?.darkMode ? "text-emerald-400" : "text-emerald-700")}>{currentTheme.vocab?.allDone || 'All Done!'}</h3>

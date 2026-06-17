@@ -317,7 +317,7 @@ export function ListSidebar({
           {(quickInputAnalysis.inferredExtraListIds.length > 0 || 
             quickInputAnalysis.inferredStoreNames.length > 0 || 
             quickInputAnalysis.inferredLocationNames.length > 0) && (
-            <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-semibold text-sky-800">
+            <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-800">
               <span>Quick match:</span>
               {quickInputAnalysis.inferredExtraListIds.length > 0 && (
                 <span className="ml-2">lists {availableLists.filter((list) => quickInputAnalysis.inferredExtraListIds.includes(list.id)).map((list) => list.title).join(', ')}</span>

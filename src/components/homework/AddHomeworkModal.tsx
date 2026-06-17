@@ -187,7 +187,7 @@ export function AddHomeworkModal({ kids, onClose, onSubmit, initialValues, title
         </div>
         <div className="space-y-1">
           <label className="block text-xs font-semibold text-ui-secondary">Verification (Optional)</label>
-          <p className="text-[11px] text-ui-muted">Kid answers these when marking homework done.</p>
+          <p className="text-xs text-ui-muted">Kid answers these when marking homework done.</p>
         </div>
         <textarea
           className="w-full border border-ui rounded-lg px-3 py-2 text-sm"
@@ -197,7 +197,7 @@ export function AddHomeworkModal({ kids, onClose, onSubmit, initialValues, title
           onChange={(e) => setCompletionQuestionsText(e.target.value)}
         />
         <div className="flex items-center gap-2 -mt-1">
-          <span className="text-[11px] text-ui-muted">Template mode:</span>
+          <span className="text-xs text-ui-muted">Template mode:</span>
           <button
             type="button"
             onClick={() => setTemplateApplyMode('append')}

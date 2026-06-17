@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { format, isSameDay, startOfDay } from 'date-fns';
 import { CalendarEvent } from '../../types';
 import { MealPlanWithRecipe } from '../../services/meals';
@@ -107,7 +107,7 @@ export function CalendarDayView({
         <div className="w-14 shrink-0 relative" style={{ height: GRID_HEIGHT }}>
           {HOURS.map((h) => (
             <div key={h} className="absolute w-full pr-1 text-right" style={{ top: (h / 24) * GRID_HEIGHT - 8 }}>
-              <span className="text-[10px] text-ui-muted-2 font-medium">
+              <span className="text-xs text-ui-muted-2 font-medium">
                 {h === 0 ? '' : (timeFormat === '24h' ? `${String(h).padStart(2, '0')}:00` : `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`)}
               </span>
             </div>
@@ -124,7 +124,7 @@ export function CalendarDayView({
             />
           ))}
 
-          {positionEvents(dayEvents).map((ev) => {
+          {useMemo(() => positionEvents(dayEvents), [dayEvents]).map((ev) => {
             const start = new Date(ev.startTime);
             const topPct = minuteOfDay(start) / 1440;
             const durMin = Math.max(30, (ev.endTime - ev.startTime) / 60000);
@@ -145,7 +145,7 @@ export function CalendarDayView({
                 }}
               >
                 <p className="font-bold truncate">{ev.title}</p>
-                <p className="opacity-80 text-[10px]">
+                <p className="opacity-80 text-xs">
                   {formatTimeWithPrefs(start, timezone, timeFormat)} - {formatTimeWithPrefs(new Date(ev.endTime), timezone, timeFormat)}
                 </p>
               </button>

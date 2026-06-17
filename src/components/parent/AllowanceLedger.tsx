@@ -48,7 +48,43 @@ export function AllowanceLedger({ parentId }: Props) {
         )}
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Mobile Card Layout */}
+      <div className="sm:hidden space-y-3">
+        <AnimatePresence>
+          {entries.map(entry => (
+            <motion.div
+              key={entry.id}
+              initial={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="p-4 rounded-2xl border border-ui-soft bg-ui-soft/30 space-y-3"
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-bold text-ui-primary">{entry.kidName}</p>
+                  <p className="text-sm text-ui-secondary truncate max-w-[200px]">{entry.rewardTitle}</p>
+                </div>
+                <p className="font-black text-emerald-600 text-lg">${(entry.amountCents / 100).toFixed(2)}</p>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-ui-soft/50">
+                <p className="text-ui-muted-2 text-xs">
+                  Claimed {format(new Date(entry.claimedAt), 'MMM d')}
+                </p>
+                <button
+                  onClick={() => handleMarkPaid(entry.id)}
+                  disabled={paying === entry.id}
+                  className="flex items-center gap-2 px-4 py-2 min-h-[44px] bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-colors disabled:opacity-60"
+                >
+                  <CheckCircle2 size={16} />
+                  {paying === entry.id ? 'Marking…' : 'Mark Paid'}
+                </button>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* Desktop Table Layout */}
+      <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-ui-soft">
@@ -78,9 +114,9 @@ export function AllowanceLedger({ parentId }: Props) {
                       <button
                         onClick={() => handleMarkPaid(entry.id)}
                         disabled={paying === entry.id}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-bold hover:bg-emerald-600 transition-colors disabled:opacity-60 ml-auto"
+                        className="flex items-center gap-1 px-4 py-2 min-h-[44px] bg-emerald-500 text-white rounded-lg text-sm font-bold hover:bg-emerald-600 transition-colors disabled:opacity-60 ml-auto"
                       >
-                        <CheckCircle2 size={12} />
+                        <CheckCircle2 size={16} />
                         {paying === entry.id ? 'Marking…' : 'Mark Paid'}
                       </button>
                     </td>
@@ -93,5 +129,3 @@ export function AllowanceLedger({ parentId }: Props) {
     </div>
   );
 }
-
-

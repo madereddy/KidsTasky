@@ -260,7 +260,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
 
           <div>
             <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-1 block">Repeats</label>
-            <p className="text-[11px] text-ui-muted mb-2">Choose when this task should automatically show up.</p>
+            <p className="text-xs text-ui-muted mb-2">Choose when this task should automatically show up.</p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {(['daily', 'weekdays', 'twice-daily', 'weekly', 'bi-weekly', 'custom'] as TaskFrequency[]).map(f => (
                 <button
@@ -407,9 +407,9 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
 
           <div>
             <label className="text-xs font-bold uppercase tracking-widest text-ui-muted mb-1 block">Verification (Optional)</label>
-            <p className="text-[11px] text-ui-muted mb-2">Kids answer these when marking complete.</p>
+            <p className="text-xs text-ui-muted mb-2">Kids answer these when marking complete.</p>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[11px] text-ui-muted">Template mode:</span>
+              <span className="text-xs text-ui-muted">Template mode:</span>
               <button
                 type="button"
                 onClick={() => setTemplateApplyMode('append')}
