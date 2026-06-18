@@ -16,7 +16,7 @@ export class CalendarErrorBoundary extends React.Component<{ children: React.Rea
         <div className="p-12 text-center bg-white rounded-2xl border border-rose-200">
           <h2 className="text-xl font-bold text-rose-600 mb-2">Calendar Unavailable</h2>
           <p className="text-ui-muted mb-4">Something went wrong while loading the calendar.</p>
-          <button onClick={() => window.location.reload()} className="px-4 py-2 bg-ui-soft rounded-lg font-bold">Retry</button>
+          <button onClick={() => this.setState({ hasError: false })} className="px-4 py-2 bg-ui-soft rounded-lg font-bold">Try again</button>
         </div>
       );
     }

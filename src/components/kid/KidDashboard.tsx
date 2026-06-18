@@ -1,6 +1,6 @@
 import { userService } from '../../services/users';
 import { tasksClientService } from '../../services/tasks';
-import React, { useState, useEffect, useCallback, useRef, lazy, Suspense, startTransition } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense, startTransition } from 'react';
 import { Clock, CalendarDays, History, Bell, Award, SlidersHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, startOfToday } from 'date-fns';
@@ -22,11 +22,12 @@ import { useKidMilestones } from '../../hooks/useKidMilestones';
 import { useKidRewardsController } from '../../hooks/useKidRewardsController';
 import { KidDashboardSkeleton } from '../shared/Skeleton';
 import { clientLogger } from '../../services/clientLogger';
+import { lazyWithRetry } from '../../lib/lazyWithRetry';
 import { BadgeCollection } from './dashboard/BadgeCollection';
 import { CelebrationOverlays } from './dashboard/CelebrationOverlays';
 
-const CalendarView = lazy(() => import('../calendar/CalendarView').then(m => ({ default: m.CalendarView })));
-const HomeworkView = lazy(() => import('../homework/HomeworkView').then(m => ({ default: m.HomeworkView })));
+const CalendarView = lazyWithRetry(() => import('../calendar/CalendarView').then(m => ({ default: m.CalendarView })), 'kid-calendar');
+const HomeworkView = lazyWithRetry(() => import('../homework/HomeworkView').then(m => ({ default: m.HomeworkView })), 'kid-homework');
 
 export function KidDashboard({
   profile,
@@ -394,16 +395,6 @@ export function KidDashboard({
           onToggleTask={(taskId, currentStatus, count) => void toggleTask(taskId, currentStatus, count, isTaskLocked)}
           onSkipTask={skipTask}
         />
-      )}
-      {kidView === 'tasks' && (
-        <Suspense fallback={<div className="py-10 text-sm text-ui-muted">Loading homework...</div>}>
-          <HomeworkView
-            parentId={profile.parentId || profile.uid}
-            kids={kids}
-            userRole="kid"
-            currentUserId={profile.uid}
-          />
-        </Suspense>
       )}
       {kidView === 'tasks' && tasks.length > 0 && (
         <div className={cn("rounded-2xl p-4 border shadow-sm", currentTheme.vocab?.panelBg || "bg-white/80", currentTheme.vocab?.panelBorder || "border-ui")}>

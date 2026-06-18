@@ -1,10 +1,11 @@
 import { authService } from './services/auth';
 import { userService } from './services/users';
 import { subscribeToPush, unsubscribeFromPush } from './services/push';
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { format } from 'date-fns';
 import { UserProfile, MissionItem } from './types';
 import { cn } from './lib/utils';
+import { lazyWithRetry, safePrefetch } from './lib/lazyWithRetry';
 import { THEMES, MEMBER_COLORS } from './constants';
 import { useSleepMode } from './hooks/useSleepMode';
 import { DisplayContext } from './contexts/DisplayContext';
@@ -24,6 +25,7 @@ import { OnboardingView } from './components/onboarding/OnboardingView';
 import { WallHome } from './components/parent/WallHome';
 import { KidDashboard } from './components/kid/KidDashboard';
 import { Skeleton, WallSkeleton } from './components/shared/Skeleton';
+import { SectionErrorBoundary } from './components/shared/SectionErrorBoundary';
 import { SectionSkeleton } from './components/shared/SectionSkeleton';
 import { MissionTodayView } from './components/shared/MissionTodayView';
 import { ActionBolt } from './components/shared/ActionBolt';
@@ -42,38 +44,6 @@ import { eventsClientService } from './services/events';
 import { homeworkClientService } from './services/homework';
 import { mealsClientService } from './services/meals';
 
-const lazyWithRetry = <T extends React.ComponentType<any>>(
-  importer: () => Promise<{ default: T }>,
-  key: string
-) => lazy(async () => {
-  await new Promise<void>(resolve => setTimeout(resolve, 0));
-  const retryKey = `kidtasker:lazy-retry:${key}`;
-  try {
-    const mod = await importer();
-    sessionStorage.removeItem(retryKey);
-    return mod;
-  } catch (error) {
-    if (sessionStorage.getItem(retryKey) !== '1') {
-      sessionStorage.setItem(retryKey, '1');
-      if (typeof window !== 'undefined') {
-        if ('serviceWorker' in navigator) {
-          try {
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            await Promise.all(registrations.map((registration) => registration.update().catch(() => undefined)));
-          } catch {}
-        }
-        if ('caches' in window) {
-          try {
-            const keys = await caches.keys();
-            await Promise.all(keys.map((cacheKey) => caches.delete(cacheKey)));
-          } catch {}
-        }
-      }
-      window.location.reload();
-    }
-    throw error;
-  }
-});
 
 const ParentDashboard = lazyWithRetry(() => import('./components/parent/ParentDashboard').then(m => ({ default: m.ParentDashboard })), 'parent-dashboard');
 const ParentTasksWorkspace = lazyWithRetry(() => import('./components/parent/ParentTasksWorkspace').then(m => ({ default: m.ParentTasksWorkspace })), 'parent-tasks');
@@ -86,12 +56,12 @@ const SettingsView = lazyWithRetry(() => import('./components/parent/SettingsVie
 const KID_IDLE_RETURN_MS = 5 * 60 * 1000;
 const isParentRole = (role?: UserProfile['role']) => role === 'parent' || role === 'coparent';
 
-const prefetchParentTasks = () => { import('./components/parent/ParentTasksWorkspace'); };
-const prefetchCalendar = () => { import('./components/calendar/CalendarView'); };
-const prefetchShopping = () => { import('./components/lists/ShoppingView'); };
-const prefetchRoutines = () => { import('./components/lists/RoutinesView'); };
-const prefetchMeals = () => { import('./components/parent/MealPlanView'); };
-const prefetchSettings = () => { import('./components/parent/SettingsView'); };
+const prefetchParentTasks = () => safePrefetch(() => import('./components/parent/ParentTasksWorkspace'));
+const prefetchCalendar = () => safePrefetch(() => import('./components/calendar/CalendarView'));
+const prefetchShopping = () => safePrefetch(() => import('./components/lists/ShoppingView'));
+const prefetchRoutines = () => safePrefetch(() => import('./components/lists/RoutinesView'));
+const prefetchMeals = () => safePrefetch(() => import('./components/parent/MealPlanView'));
+const prefetchSettings = () => safePrefetch(() => import('./components/parent/SettingsView'));
 
 function runIdle(task: () => void) {
   const anyWindow = window as any;
@@ -147,7 +117,6 @@ export default function App() {
   const [settingsRenderNonce, setSettingsRenderNonce] = useState(0);
   const openSettings = useCallback(() => {
     setShowSettings(true);
-    prefetchSettings();
     import('./components/parent/SettingsView')
       .catch(() => undefined)
       .finally(() => setSettingsRenderNonce((value) => value + 1));
@@ -366,18 +335,18 @@ export default function App() {
       <main className={cn("mx-auto max-w-7xl px-4 sm:px-6", isMobile ? "pb-[calc(7.5rem+env(safe-area-inset-bottom))]" : "pb-10")}>
         <>
           {/* Home: MissionTodayView (mobile) or WallHome (desktop) — conditional, not kept-alive */}
-          {isMobile && activeSection === 'home' && <Suspense fallback={<SectionSkeleton role={profile.role === 'kid' ? 'kid' : 'parent'} activeSection="home" />}><MissionTodayView profile={profile} tasks={allTasks.filter(t => !hiddenMissionIds.has(`task_${t.id}`))} events={events.filter(e => !hiddenMissionIds.has(`event_${e.id}`))} completions={allCompletions} listItems={globalListItems.filter(l => !hiddenMissionIds.has(`list_${l.id}`))} lists={globalLists} frequentItems={frequentItems} kids={kids} categories={categories} onAction={handleMissionAction} onRoutineItemToggle={handleRoutineItemToggle} onRoutineReset={handleRoutineReset} onRefresh={refreshWallData} /></Suspense>}
-          {isParentRole(profile.role) && !isMobile && activeSection === 'home' && <Suspense fallback={<SectionSkeleton role="parent" activeSection="home" />}><WallHome parentId={familyParentId} profile={profile} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} onManage={() => goToSection('manage')} settings={familySettings} justWoke={wallJustWoke} /></Suspense>}
+          {isMobile && activeSection === 'home' && <SectionErrorBoundary label="Home"><Suspense fallback={<SectionSkeleton role={profile.role === 'kid' ? 'kid' : 'parent'} activeSection="home" />}><MissionTodayView profile={profile} tasks={allTasks.filter(t => !hiddenMissionIds.has(`task_${t.id}`))} events={events.filter(e => !hiddenMissionIds.has(`event_${e.id}`))} completions={allCompletions} listItems={globalListItems.filter(l => !hiddenMissionIds.has(`list_${l.id}`))} lists={globalLists} frequentItems={frequentItems} kids={kids} categories={categories} onAction={handleMissionAction} onRoutineItemToggle={handleRoutineItemToggle} onRoutineReset={handleRoutineReset} onRefresh={refreshWallData} /></Suspense></SectionErrorBoundary>}
+          {isParentRole(profile.role) && !isMobile && activeSection === 'home' && <SectionErrorBoundary label="Home"><Suspense fallback={<SectionSkeleton role="parent" activeSection="home" />}><WallHome parentId={familyParentId} profile={profile} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} onManage={() => goToSection('manage')} settings={familySettings} justWoke={wallJustWoke} /></Suspense></SectionErrorBoundary>}
 
           {/* Non-home sections: mount on first visit, stay mounted (CSS hide when inactive) */}
-          {isParentRole(profile.role) && mountedSections.has('manage') && <div style={{ display: activeSection === 'manage' ? undefined : 'none' }}><Suspense fallback={<SectionSkeleton role="parent" activeSection="manage" />}><ParentDashboard profile={profile} onOpenSettings={openSettings} /></Suspense></div>}
-          {isParentRole(profile.role) && mountedSections.has('calendar') && <div style={{ display: activeSection === 'calendar' ? undefined : 'none' }}><Suspense fallback={<SectionSkeleton role="parent" activeSection="calendar" />}><CalendarView parentId={familyParentId} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} userRole={profile.role} /></Suspense></div>}
-          {isParentRole(profile.role) && mountedSections.has('tasks') && <div style={{ display: activeSection === 'tasks' ? undefined : 'none' }}><Suspense fallback={<SectionSkeleton role="parent" activeSection="tasks" />}><ParentTasksWorkspace parentId={familyParentId} kids={kids} categories={categories} selectedCategoryId={selectedCategoryId} isLocked={isLocked} isDarkMode={isDarkTheme} onCategoriesChange={setCategories} /></Suspense></div>}
-          {isParentRole(profile.role) && mountedSections.has('meals') && <div style={{ display: activeSection === 'meals' ? undefined : 'none' }}><Suspense fallback={<SectionSkeleton role="parent" activeSection="meals" />}><MealPlanView parentId={familyParentId} /></Suspense></div>}
-          {isParentRole(profile.role) && mountedSections.has('shopping') && <div style={{ display: activeSection === 'shopping' ? undefined : 'none' }}><Suspense fallback={<SectionSkeleton role="parent" activeSection="shopping" />}><ShoppingView parentId={familyParentId} /></Suspense></div>}
-          {isParentRole(profile.role) && mountedSections.has('routines') && <div style={{ display: activeSection === 'routines' ? undefined : 'none' }}><Suspense fallback={<SectionSkeleton role="parent" activeSection="routines" />}><RoutinesView parentId={familyParentId} /></Suspense></div>}
+          {isParentRole(profile.role) && mountedSections.has('manage') && <div style={{ display: activeSection === 'manage' ? undefined : 'none' }}><SectionErrorBoundary label="Dashboard"><Suspense fallback={<SectionSkeleton role="parent" activeSection="manage" />}><ParentDashboard profile={profile} onOpenSettings={openSettings} /></Suspense></SectionErrorBoundary></div>}
+          {isParentRole(profile.role) && mountedSections.has('calendar') && <div style={{ display: activeSection === 'calendar' ? undefined : 'none' }}><SectionErrorBoundary label="Calendar"><Suspense fallback={<SectionSkeleton role="parent" activeSection="calendar" />}><CalendarView parentId={familyParentId} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} userRole={profile.role} /></Suspense></SectionErrorBoundary></div>}
+          {isParentRole(profile.role) && mountedSections.has('tasks') && <div style={{ display: activeSection === 'tasks' ? undefined : 'none' }}><SectionErrorBoundary label="Tasks"><Suspense fallback={<SectionSkeleton role="parent" activeSection="tasks" />}><ParentTasksWorkspace parentId={familyParentId} kids={kids} categories={categories} selectedCategoryId={selectedCategoryId} isLocked={isLocked} isDarkMode={isDarkTheme} onCategoriesChange={setCategories} /></Suspense></SectionErrorBoundary></div>}
+          {isParentRole(profile.role) && mountedSections.has('meals') && <div style={{ display: activeSection === 'meals' ? undefined : 'none' }}><SectionErrorBoundary label="Meals"><Suspense fallback={<SectionSkeleton role="parent" activeSection="meals" />}><MealPlanView parentId={familyParentId} /></Suspense></SectionErrorBoundary></div>}
+          {isParentRole(profile.role) && mountedSections.has('shopping') && <div style={{ display: activeSection === 'shopping' ? undefined : 'none' }}><SectionErrorBoundary label="Shopping"><Suspense fallback={<SectionSkeleton role="parent" activeSection="shopping" />}><ShoppingView parentId={familyParentId} /></Suspense></SectionErrorBoundary></div>}
+          {isParentRole(profile.role) && mountedSections.has('routines') && <div style={{ display: activeSection === 'routines' ? undefined : 'none' }}><SectionErrorBoundary label="Routines"><Suspense fallback={<SectionSkeleton role="parent" activeSection="routines" />}><RoutinesView parentId={familyParentId} /></Suspense></SectionErrorBoundary></div>}
 
-          {!isParentRole(profile.role) && <Suspense fallback={<SectionSkeleton role="kid" activeSection="home" />}><KidDashboard profile={profile} onProgressChange={setProgress} categories={categories} selectedCategoryId={selectedCategoryId} onProfileUpdate={() => userService.getUserProfile(user.uid).then(setProfile)} kids={kids} memberColorMap={memberColorMap} activeSection={activeSection} /></Suspense>}
+          {!isParentRole(profile.role) && <SectionErrorBoundary label="Kid Dashboard"><Suspense fallback={<SectionSkeleton role="kid" activeSection="home" />}><KidDashboard profile={profile} onProgressChange={setProgress} categories={categories} selectedCategoryId={selectedCategoryId} onProfileUpdate={() => userService.getUserProfile(user.uid).then(setProfile)} kids={kids} memberColorMap={memberColorMap} activeSection={activeSection} /></Suspense></SectionErrorBoundary>}
         </>
       </main>
 
@@ -397,7 +366,7 @@ export default function App() {
         />
       )}
       {isParentRole(profile.role) && showUnlockPrompt && <ParentalLockOverlay parentId={familyParentId} onUnlock={() => { setIsLocked(false); setShowUnlockPrompt(false); if (openSettingsAfterUnlock) { setShowSettings(true); setOpenSettingsAfterUnlock(false); } }} onCancel={() => setShowUnlockPrompt(false)} />}
-      {isParentRole(profile.role) && showSettings && <Suspense fallback={<div className="fixed inset-0 z-[150] bg-white/80 backdrop-blur-md flex items-center justify-center"><div className="w-12 h-12 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin" /></div>}><SettingsView key={settingsRenderNonce} parentId={familyParentId} onClose={() => setShowSettings(false)} onLockNow={async () => { await settingsClientService.lockDisplay(familyParentId); setIsLocked(true); setShowSettings(false); }} onPreviewScreensaver={() => setScreensaverPreview(true)} currentThemeId={profile.themeId || 'space_commander'} onThemeChange={(themeId) => setProfile(prev => prev ? { ...prev, themeId } : prev)} /></Suspense>}
+      {isParentRole(profile.role) && showSettings && <SectionErrorBoundary label="Settings"><Suspense fallback={<div className="fixed inset-0 z-[150] bg-white/80 backdrop-blur-md flex items-center justify-center"><div className="w-12 h-12 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin" /></div>}><SettingsView key={settingsRenderNonce} parentId={familyParentId} onClose={() => setShowSettings(false)} onLockNow={async () => { await settingsClientService.lockDisplay(familyParentId); setIsLocked(true); setShowSettings(false); }} onPreviewScreensaver={() => setScreensaverPreview(true)} currentThemeId={profile.themeId || 'space_commander'} onThemeChange={(themeId) => setProfile(prev => prev ? { ...prev, themeId } : prev)} /></Suspense></SectionErrorBoundary>}
       {pendingKidSwitch && (
         <KidSwitchDialog
           pendingKidSwitch={pendingKidSwitch}
