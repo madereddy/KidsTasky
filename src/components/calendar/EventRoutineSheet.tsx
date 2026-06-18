@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Check, CheckSquare, RotateCcw, X } from 'lucide-react';
-import { listsClientService } from '../../services/lists';
-import { AppList, AppListItem, CalendarEvent } from '../../types';
+import { eventsClientService } from '../../services/events';
+import { AppList, EventRoutineItem, CalendarEvent } from '../../types';
 import { cn } from '../../lib/utils';
 import { useDialogA11y } from '../../hooks/useDialogA11y';
 
@@ -13,7 +13,7 @@ interface Props {
 
 export function EventRoutineSheet({ event, routineLists, onClose }: Props) {
   const { dialogRef, onKeyDown } = useDialogA11y(true, onClose);
-  const [items, setItems] = useState<AppListItem[]>([]);
+  const [items, setItems] = useState<EventRoutineItem[]>([]);
   const [loading, setLoading] = useState(true);
   const routine = useMemo(
     () => routineLists.find((entry) => entry.id === event.routineListId) ?? null,
@@ -27,16 +27,16 @@ export function EventRoutineSheet({ event, routineLists, onClose }: Props) {
       return;
     }
     setLoading(true);
-    listsClientService.getItems(event.routineListId)
+    eventsClientService.getRoutineItems(event.id)
       .then((nextItems) => setItems(nextItems || []))
       .finally(() => setLoading(false));
-  }, [event.routineListId]);
+  }, [event.id, event.routineListId]);
 
   const completedCount = items.filter((item) => item.completed === 1).length;
   const isComplete = items.length > 0 && completedCount === items.length;
 
-  const handleToggle = async (item: AppListItem, completed: boolean) => {
-    await listsClientService.toggleItem(item.id, completed, item.text, item.storeName, item.locationName);
+  const handleToggle = async (item: EventRoutineItem, completed: boolean) => {
+    await eventsClientService.setRoutineItemCompleted(event.id, item.id, completed);
     setItems((prev) => prev.map((existing) => (
       existing.id === item.id ? { ...existing, completed: completed ? 1 : 0 } : existing
     )));
@@ -45,7 +45,7 @@ export function EventRoutineSheet({ event, routineLists, onClose }: Props) {
   const handleReset = async () => {
     await Promise.all(
       items.filter((item) => item.completed === 1).map((item) => (
-        listsClientService.toggleItem(item.id, false, item.text, item.storeName, item.locationName)
+        eventsClientService.setRoutineItemCompleted(event.id, item.id, false)
       ))
     );
     setItems((prev) => prev.map((item) => ({ ...item, completed: 0 })));

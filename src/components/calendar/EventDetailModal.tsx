@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { X, Edit2, Trash2, UserCheck, UserX, HelpCircle, UserPlus, CheckSquare, Check } from 'lucide-react';
 import { eventsClientService } from '../../services/events';
-import { listsClientService } from '../../services/lists';
-import { AppList, AppListItem, CalendarEvent, UserProfile } from '../../types';
+import { AppList, CalendarEvent, EventRoutineItem, UserProfile } from '../../types';
 import { cn } from '../../lib/utils';
 import { useDialogA11y } from '../../hooks/useDialogA11y';
 
@@ -40,27 +39,26 @@ export function EventDetailModal({ event, kids, routineLists = [], userRole, onC
   const [rsvpSavingFor, setRsvpSavingFor] = useState<string | null>(null);
   const [showDeleteScope, setShowDeleteScope] = useState(false);
   const [showEditScope, setShowEditScope] = useState(false);
-  const [attachedRoutineItems, setAttachedRoutineItems] = useState<AppListItem[]>([]);
+  const [attachedRoutineItems, setAttachedRoutineItems] = useState<EventRoutineItem[]>([]);
   const [routineLoading, setRoutineLoading] = useState(false);
   const isRecurring = Boolean(event.masterId);
   const isParent = userRole === 'parent';
   const attachedRoutine = useMemo(
-    () => routineLists.find((routine) => routine.id === (routineListId || event.routineListId)) ?? null,
-    [event.routineListId, routineListId, routineLists],
+    () => routineLists.find((routine) => routine.id === routineListId) ?? null,
+    [routineListId, routineLists],
   );
 
   useEffect(() => {
-    const targetRoutineId = routineListId || event.routineListId;
-    if (!targetRoutineId) {
+    if (!routineListId || routineListId !== event.routineListId) {
       setAttachedRoutineItems([]);
       return;
     }
     setRoutineLoading(true);
-    listsClientService.getItems(targetRoutineId)
+    eventsClientService.getRoutineItems(event.id)
       .then((items) => setAttachedRoutineItems(items || []))
       .catch(() => setAttachedRoutineItems([]))
       .finally(() => setRoutineLoading(false));
-  }, [event.routineListId, routineListId]);
+  }, [event.id, event.routineListId, routineListId]);
 
   const handleSave = async (scope: 'one' | 'future' = 'one') => {
     setSaving(true);
@@ -73,8 +71,8 @@ export function EventDetailModal({ event, kids, routineLists = [], userRole, onC
     }
   };
 
-  const handleRoutineToggle = async (item: AppListItem, completed: boolean) => {
-    await listsClientService.toggleItem(item.id, completed, item.text, item.storeName, item.locationName);
+  const handleRoutineToggle = async (item: EventRoutineItem, completed: boolean) => {
+    await eventsClientService.setRoutineItemCompleted(event.id, item.id, completed);
     setAttachedRoutineItems((prev) => prev.map((existing) => (
       existing.id === item.id
         ? { ...existing, completed: completed ? 1 : 0 }
@@ -256,7 +254,15 @@ export function EventDetailModal({ event, kids, routineLists = [], userRole, onC
           <div className="flex gap-2 p-4 border-t">
             {editing ? (
               <>
-                <button onClick={() => setEditing(false)} className="flex-1 py-2 bg-ui-soft-2 text-ui-secondary rounded-xl text-sm font-semibold">Cancel</button>
+                <button
+                  onClick={() => {
+                    setRoutineListId(event.routineListId || '');
+                    setEditing(false);
+                  }}
+                  className="flex-1 py-2 bg-ui-soft-2 text-ui-secondary rounded-xl text-sm font-semibold"
+                >
+                  Cancel
+                </button>
                 {isRecurring && !showEditScope ? (
                   <button onClick={() => setShowEditScope(true)} disabled={saving} className="flex-1 py-2 bg-blue-500 text-white rounded-xl text-sm font-semibold">Save</button>
                 ) : isRecurring && showEditScope ? (

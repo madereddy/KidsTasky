@@ -7,23 +7,19 @@ import { EventDetailModal } from './EventDetailModal';
 const updateRsvp = vi.fn((..._args: any[]) => Promise.resolve({ success: true }));
 const addAttendee = vi.fn((..._args: any[]) => Promise.resolve({ success: true }));
 const removeAttendee = vi.fn((..._args: any[]) => Promise.resolve({ success: true }));
-const getItems = vi.fn((..._args: any[]) => Promise.resolve([]));
-const toggleItem = vi.fn((..._args: any[]) => Promise.resolve());
+const updateEvent = vi.fn((..._args: any[]) => Promise.resolve({ success: true }));
+const getRoutineItems = vi.fn((..._args: any[]) => Promise.resolve([]));
+const setRoutineItemCompleted = vi.fn((..._args: any[]) => Promise.resolve());
 
 vi.mock('../../services/events', () => ({
   eventsClientService: {
     updateRsvp: (...args: any[]) => updateRsvp(...args),
     addAttendee: (...args: any[]) => addAttendee(...args),
     removeAttendee: (...args: any[]) => removeAttendee(...args),
-    updateEvent: vi.fn(() => Promise.resolve({ success: true })),
+    updateEvent: (...args: any[]) => updateEvent(...args),
     deleteEvent: vi.fn(() => Promise.resolve({ success: true })),
-  },
-}));
-
-vi.mock('../../services/lists', () => ({
-  listsClientService: {
-    getItems: (...args: any[]) => getItems(...args),
-    toggleItem: (...args: any[]) => toggleItem(...args),
+    getRoutineItems: (...args: any[]) => getRoutineItems(...args),
+    setRoutineItemCompleted: (...args: any[]) => setRoutineItemCompleted(...args),
   },
 }));
 
@@ -68,9 +64,9 @@ describe('EventDetailModal permissions UX', () => {
   });
 
   it('shows attached routine items and toggles them', async () => {
-    getItems.mockResolvedValueOnce([
-      { id: 'item1', listId: 'routine1', text: 'Brush Teeth', completed: 0 },
-      { id: 'item2', listId: 'routine1', text: 'Pack Backpack', completed: 1 },
+    getRoutineItems.mockResolvedValueOnce([
+      { id: 'item1', eventId: 'evt_1', listId: 'routine1', text: 'Brush Teeth', completed: 0 },
+      { id: 'item2', eventId: 'evt_1', listId: 'routine1', text: 'Pack Backpack', completed: 1 },
     ]);
 
     render(
@@ -87,6 +83,34 @@ describe('EventDetailModal permissions UX', () => {
     expect(await screen.findByText('Attached routine: Morning Routine')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Brush Teeth'));
 
-    await waitFor(() => expect(toggleItem).toHaveBeenCalledWith('item1', true, 'Brush Teeth', undefined, undefined));
+    await waitFor(() => expect(setRoutineItemCompleted).toHaveBeenCalledWith('evt_1', 'item1', true));
+    expect(getRoutineItems).toHaveBeenCalledWith('evt_1');
+  });
+
+  it('hides the current routine immediately when parent selects no attached routine', async () => {
+    getRoutineItems.mockResolvedValueOnce([
+      { id: 'item1', eventId: 'evt_1', listId: 'routine1', text: 'Brush Teeth', completed: 0 },
+    ]);
+
+    render(
+      <EventDetailModal
+        event={{ ...baseEvent, routineListId: 'routine1' }}
+        kids={kids}
+        routineLists={[{ id: 'routine1', parentId: 'p1', title: 'Morning Routine', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' }]}
+        userRole="parent"
+        onClose={() => {}}
+        onUpdated={() => {}}
+      />
+    );
+
+    expect(await screen.findByText('Attached routine: Morning Routine')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Edit/i }));
+    fireEvent.change(screen.getByDisplayValue('Morning Routine'), { target: { value: '' } });
+
+    expect(screen.queryByText('Attached routine: Morning Routine')).not.toBeInTheDocument();
+    expect(screen.queryByText('Brush Teeth')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Save/i }));
+
+    await waitFor(() => expect(updateEvent).toHaveBeenCalledWith('evt_1', expect.objectContaining({ routineListId: null }), 'one'));
   });
 });

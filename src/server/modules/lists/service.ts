@@ -82,6 +82,11 @@ export const listsService = {
     };
   },
   deleteList: (id: string) => {
+    db.prepare(`
+      DELETE FROM event_routine_item_completions
+      WHERE listItemId IN (SELECT id FROM list_items WHERE listId = ?)
+    `).run(id);
+    db.prepare('UPDATE events SET routineListId = NULL WHERE routineListId = ?').run(id);
     db.prepare('DELETE FROM list_items WHERE listId = ?').run(id);
     db.prepare('DELETE FROM lists WHERE id = ?').run(id);
   },
@@ -161,6 +166,7 @@ export const listsService = {
     `).run(completed ? 1 : 0, newText, newStoreName || null, newLocationName || null, newCompletedAt, itemId);
   },
   deleteItem: (itemId: string) => {
+    db.prepare('DELETE FROM event_routine_item_completions WHERE listItemId = ?').run(itemId);
     db.prepare('DELETE FROM list_items WHERE id = ?').run(itemId);
   },
   getFrequentItems: (parentId: string, limit = 5): string[] => {

@@ -1,7 +1,7 @@
 // src/server/modules/events/service.ts
 import { addDays, addWeeks, addMonths, addYears, parseISO, format } from 'date-fns';
 import { db } from '../../db.js';
-import { CalendarEvent, EventAttendee, RsvpStatus } from '../../../types.js';
+import { AppListItem, CalendarEvent, EventAttendee, EventRoutineItem, RsvpStatus } from '../../../types.js';
 
 import { randomUUID } from 'crypto';
 
@@ -21,6 +21,14 @@ const INSERT_EVENT = `
 `;
 
 export const eventsService = {
+  isValidRoutineListForParent: (routineListId: string | null | undefined, parentId: string): boolean => {
+    if (!routineListId) return true;
+    const row = db.prepare(
+      "SELECT id FROM lists WHERE id = ? AND parentId = ? AND category = 'routine'"
+    ).get(routineListId, parentId) as { id: string } | undefined;
+    return Boolean(row);
+  },
+
   createEvent: (event: Omit<CalendarEvent, 'id'>) => {
     const id = generateId();
     db.prepare(INSERT_EVENT).run(
@@ -141,6 +149,53 @@ export const eventsService = {
 
   getEventById: (id: string): CalendarEvent | undefined => {
     return db.prepare('SELECT * FROM events WHERE id = ?').get(id) as CalendarEvent | undefined;
+  },
+
+  getEventRoutineItems: (eventId: string): EventRoutineItem[] => {
+    const event = eventsService.getEventById(eventId);
+    if (!event?.routineListId) return [];
+
+    return db.prepare(`
+      SELECT
+        i.id,
+        i.listId,
+        i.text,
+        COALESCE(p.completed, 0) AS completed,
+        i.storeName,
+        i.locationName,
+        p.completedAt,
+        i.usageCount,
+        ? AS eventId
+      FROM list_items i
+      LEFT JOIN event_routine_item_completions p
+        ON p.listItemId = i.id AND p.eventId = ?
+      WHERE i.listId = ?
+      ORDER BY i.rowid ASC
+    `).all(eventId, eventId, event.routineListId) as EventRoutineItem[];
+  },
+
+  setEventRoutineItemCompleted: (eventId: string, itemId: string, completed: boolean): EventRoutineItem | undefined => {
+    const event = eventsService.getEventById(eventId);
+    if (!event?.routineListId) return undefined;
+
+    const item = db.prepare('SELECT * FROM list_items WHERE id = ? AND listId = ?')
+      .get(itemId, event.routineListId) as AppListItem | undefined;
+    if (!item) return undefined;
+
+    const completedAt = completed ? Date.now() : null;
+    db.prepare(`
+      INSERT INTO event_routine_item_completions (eventId, listItemId, completed, completedAt)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(eventId, listItemId)
+      DO UPDATE SET completed = excluded.completed, completedAt = excluded.completedAt
+    `).run(eventId, itemId, completed ? 1 : 0, completedAt);
+
+    return {
+      ...item,
+      eventId,
+      completed: completed ? 1 : 0,
+      completedAt: completedAt ?? undefined,
+    };
   },
 
   updateEvent: (id: string, data: Partial<CalendarEvent>, scope: 'one' | 'future' = 'one') => {

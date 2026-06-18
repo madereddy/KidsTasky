@@ -15,6 +15,7 @@ describe('Events API', () => {
   const kidToken = jwt.sign({ uid: kidId, role: 'kid', parentId }, getJwtSecret());
 
   beforeEach(() => {
+    db.prepare('DELETE FROM event_routine_item_completions').run();
     db.prepare('DELETE FROM events').run();
     db.prepare('DELETE FROM event_attendees').run();
     db.prepare('DELETE FROM list_items').run();
@@ -121,6 +122,137 @@ describe('Events API', () => {
 
     const events = await request(app).get(`/api/parents/${parentId}/events`).set('Authorization', `Bearer ${token}`);
     expect(events.body[0].routineListId).toBe('routine_list_1');
+  });
+
+  it('rejects invalid routine list attachments', async () => {
+    db.prepare('INSERT INTO lists (id, parentId, title, category, isRoutine, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run('shopping_list_1', parentId, 'Groceries', 'shopping', 0, new Date().toISOString(), new Date().toISOString());
+    db.prepare('INSERT INTO lists (id, parentId, title, category, isRoutine, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run('other_routine_1', otherParentId, 'Other Routine', 'routine', 1, new Date().toISOString(), new Date().toISOString());
+
+    const shoppingRes = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'Bad Shopping Attach',
+        startTime: new Date('2026-06-01T08:00:00').getTime(),
+        endTime: new Date('2026-06-01T09:00:00').getTime(),
+        color: '#ff0000',
+        routineListId: 'shopping_list_1'
+      });
+
+    expect(shoppingRes.status).toBe(400);
+    expect(shoppingRes.body.error).toBe('Invalid routine list');
+
+    const otherFamilyRes = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'Bad Family Attach',
+        startTime: new Date('2026-06-01T08:00:00').getTime(),
+        endTime: new Date('2026-06-01T09:00:00').getTime(),
+        color: '#ff0000',
+        routineListId: 'other_routine_1'
+      });
+
+    expect(otherFamilyRes.status).toBe(400);
+    expect(otherFamilyRes.body.error).toBe('Invalid routine list');
+  });
+
+  it('stores routine checklist completion per event without changing the routine template item', async () => {
+    db.prepare('INSERT INTO lists (id, parentId, title, category, isRoutine, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run('routine_list_1', parentId, 'Morning Routine', 'routine', 1, new Date().toISOString(), new Date().toISOString());
+    db.prepare('INSERT INTO list_items (id, listId, text, completed) VALUES (?, ?, ?, ?)')
+      .run('routine_item_1', 'routine_list_1', 'Brush Teeth', 0);
+
+    const createA = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'School Morning',
+        startTime: new Date('2026-06-01T08:00:00').getTime(),
+        endTime: new Date('2026-06-01T09:00:00').getTime(),
+        color: '#ff0000',
+        routineListId: 'routine_list_1'
+      });
+    const createB = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'Weekend Morning',
+        startTime: new Date('2026-06-02T08:00:00').getTime(),
+        endTime: new Date('2026-06-02T09:00:00').getTime(),
+        color: '#ff0000',
+        routineListId: 'routine_list_1'
+      });
+
+    const eventA = createA.body.ids[0];
+    const eventB = createB.body.ids[0];
+
+    const toggle = await request(app)
+      .put(`/api/events/${eventA}/routine-items/routine_item_1`)
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ completed: true });
+
+    expect(toggle.status).toBe(200);
+    expect(toggle.body.completed).toBe(1);
+
+    const eventAItems = await request(app)
+      .get(`/api/events/${eventA}/routine-items`)
+      .set('Authorization', `Bearer ${kidToken}`);
+    const eventBItems = await request(app)
+      .get(`/api/events/${eventB}/routine-items`)
+      .set('Authorization', `Bearer ${kidToken}`);
+
+    expect(eventAItems.body[0].completed).toBe(1);
+    expect(eventBItems.body[0].completed).toBe(0);
+
+    const templateItem = db.prepare('SELECT completed FROM list_items WHERE id = ?').get('routine_item_1') as { completed: number };
+    expect(templateItem.completed).toBe(0);
+  });
+
+  it('detaches events and clears event routine progress when an attached routine list is deleted', async () => {
+    db.prepare('INSERT INTO lists (id, parentId, title, category, isRoutine, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run('routine_list_1', parentId, 'Morning Routine', 'routine', 1, new Date().toISOString(), new Date().toISOString());
+    db.prepare('INSERT INTO list_items (id, listId, text, completed) VALUES (?, ?, ?, ?)')
+      .run('routine_item_1', 'routine_list_1', 'Brush Teeth', 0);
+
+    const create = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        parentId,
+        title: 'School Morning',
+        startTime: new Date('2026-06-01T08:00:00').getTime(),
+        endTime: new Date('2026-06-01T09:00:00').getTime(),
+        color: '#ff0000',
+        routineListId: 'routine_list_1'
+      });
+    const eventId = create.body.ids[0];
+
+    await request(app)
+      .put(`/api/events/${eventId}/routine-items/routine_item_1`)
+      .set('Authorization', `Bearer ${kidToken}`)
+      .send({ completed: true });
+
+    const del = await request(app)
+      .delete('/api/lists/routine_list_1')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(del.status).toBe(200);
+
+    const events = await request(app)
+      .get(`/api/parents/${parentId}/events`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(events.body[0].routineListId).toBeNull();
+
+    const progressRows = db.prepare('SELECT * FROM event_routine_item_completions WHERE listItemId = ?')
+      .all('routine_item_1');
+    expect(progressRows).toHaveLength(0);
   });
 
   it('should create a weekly recurring event and expand to multiple rows', async () => {

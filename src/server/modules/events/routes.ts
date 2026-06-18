@@ -24,6 +24,10 @@ eventsRouter.post('/events', authenticateUser, requireRole('parent'), enforceEdi
     if (routineListId !== undefined) allowed.routineListId = routineListId;
     const eventData = { ...allowed, parentId };
 
+    if (!eventsService.isValidRoutineListForParent(eventData.routineListId, parentId)) {
+      return res.status(400).json({ error: 'Invalid routine list' });
+    }
+
     let ids: string[];
     if (allowed.recurrence && allowed.recurrence !== 'none' && allowed.recurrenceEnd) {
       ids = eventsService.createRecurringEvents(eventData as any, allowed.recurrence, allowed.recurrenceEnd);
@@ -74,6 +78,10 @@ eventsRouter.put('/events/:id', authenticateUser, requireRole('parent'), enforce
     if (reminderMinutes !== undefined) allowed.reminderMinutes = reminderMinutes;
     if (routineListId !== undefined) allowed.routineListId = routineListId;
 
+    if (!eventsService.isValidRoutineListForParent(allowed.routineListId, event.parentId)) {
+      return res.status(400).json({ error: 'Invalid routine list' });
+    }
+
     const affectedIds = eventsService.updateEvent(req.params.id as string, allowed, scope);
 
     // Sync each affected event to Google
@@ -108,6 +116,37 @@ eventsRouter.delete('/events/:id', authenticateUser, requireRole('parent'), enfo
     }
 
     return res.json({ success: true });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+eventsRouter.get('/events/:id/routine-items', authenticateUser, (req, res) => {
+  try {
+    const event = eventsService.getEventById(req.params.id as string);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    if (event.parentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
+
+    return res.json(eventsService.getEventRoutineItems(req.params.id as string));
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+eventsRouter.put('/events/:id/routine-items/:itemId', authenticateUser, async (req, res) => {
+  try {
+    const event = eventsService.getEventById(req.params.id as string);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    if (event.parentId !== getParentId(req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const item = eventsService.setEventRoutineItemCompleted(
+      req.params.id as string,
+      req.params.itemId as string,
+      Boolean(req.body.completed),
+    );
+    if (!item) return res.status(404).json({ error: 'Routine item not found' });
+
+    return res.json(item);
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }

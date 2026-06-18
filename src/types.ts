@@ -269,6 +269,10 @@ export interface AppListItem {
   completedAt?: number;
   usageCount?: number;
 }
+
+export interface EventRoutineItem extends AppListItem {
+  eventId: string;
+}
 export interface Recipe {
   id: string;
   parentId: string;

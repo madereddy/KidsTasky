@@ -1,4 +1,4 @@
-import { CalendarEvent } from '../types';
+import { CalendarEvent, EventRoutineItem } from '../types';
 import { fetchAPI } from './http';
 import { clientLogger } from './clientLogger';
 
@@ -62,5 +62,16 @@ export const eventsClientService = {
 
   removeAttendee: async (eventId: string, userId: string): Promise<{ success: boolean }> => {
     return fetchAPI(`/events/${eventId}/attendees/${userId}`, { method: 'DELETE' });
+  },
+
+  getRoutineItems: async (eventId: string): Promise<EventRoutineItem[]> => {
+    return fetchAPI(`/events/${eventId}/routine-items`);
+  },
+
+  setRoutineItemCompleted: async (eventId: string, itemId: string, completed: boolean): Promise<EventRoutineItem> => {
+    return fetchAPI(`/events/${eventId}/routine-items/${itemId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ completed }),
+    });
   },
 };
