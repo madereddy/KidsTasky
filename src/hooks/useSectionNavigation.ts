@@ -1,4 +1,4 @@
-import { useState, useCallback, startTransition } from 'react';
+import { useState, useCallback } from 'react';
 
 export type AppSection = 'home' | 'tasks' | 'calendar' | 'shopping' | 'routines' | 'meals' | 'manage';
 
@@ -7,10 +7,8 @@ export function useSectionNavigation() {
   const [mountedSections, setMountedSections] = useState<Set<string>>(() => new Set(['home']));
 
   const goToSection = useCallback((section: AppSection) => {
-    startTransition(() => {
-      setMountedSections(prev => prev.has(section) ? prev : new Set([...prev, section]));
-      setActiveSection(section);
-    });
+    setMountedSections(prev => prev.has(section) ? prev : new Set([...prev, section]));
+    setActiveSection(section);
   }, []);
 
   const premountSection = useCallback((section: AppSection) => {
