@@ -5,10 +5,12 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  xmldom: npm:@xmldom/xmldom@^0.9.10
-  semver: ^7.8.1
-  dav>xmldom: npm:@xmldom/xmldom@^0.9.10
-  utf7>semver: ^7.8.1
+  ws: ^8.21.0
+  qs: ^6.15.2
+  protobufjs: ^7.6.1
+  '@protobufjs/utf8': ^1.1.1
+  nodemailer: ^8.0.9
+  utf7>semver: ^7.8.5
 
 importers:
 
@@ -117,7 +119,7 @@ importers:
         specifier: ^19.2.7
         version: 19.2.7(react@19.2.7)
       semver:
-        specifier: ^7.8.5
+        specifier: ^7.8.1
         version: 7.8.5
       socket.io:
         specifier: ^4.8.3
