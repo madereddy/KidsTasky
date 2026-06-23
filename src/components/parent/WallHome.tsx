@@ -305,7 +305,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
     }
 
     return (
-      <div className="flex overflow-hidden" style={{ minHeight: 'calc(100vh - 80px)', background: '#ffffff', color: '#0f172a' }}>
+      <div className="flex overflow-hidden" style={{ minHeight: '100vh', background: '#ffffff', color: '#0f172a' }}>
         <XpCelebration
           payload={celebration}
           kidName={kids.find(k => k.uid === celebration?.userId)?.name ?? ''}
@@ -501,12 +501,12 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
               <p className="text-lg text-ui-muted">Nothing coming up</p>
             </div>
           ) : (
-            <div className="space-y-8 max-w-3xl">
+            <div className="space-y-8">
               {dayGroups.map(({ label, items }) => (
                 <section key={label}>
                   {/* Day header + rule */}
                   <div className="flex items-center gap-4 mb-3">
-                    <span className="text-xs font-bold text-ui-muted-2 uppercase tracking-[0.15em] shrink-0">
+                    <span className="text-sm font-bold text-ui-secondary uppercase tracking-[0.12em] shrink-0">
                       {label}
                     </span>
                     <div className="flex-1 h-px bg-ui-soft" />
@@ -515,7 +515,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
                   {items.length === 0 ? (
                     <p className="text-sm text-ui-muted-2 pl-2">Nothing scheduled</p>
                   ) : (
-                    <div className="space-y-2">
+                    <div>
                       {items.map(item => {
                         if (item.type === 'event') {
                           const evt = item.data;
@@ -525,13 +525,13 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
                             ? kids.find(k => k.uid === evt.assignedToId)?.name ?? null
                             : null;
                           return (
-                            <div key={evt.id} className="flex items-center gap-3 px-4 py-4 rounded-2xl bg-ui-soft">
-                              <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: evtColor }} />
-                              <div className="w-[72px] shrink-0">
-                                <span className="text-base font-medium text-ui-muted tabular-nums">
+                            <div key={evt.id} className="flex items-center gap-4 py-3.5 border-b border-ui-soft last:border-0">
+                              <div className="w-[80px] shrink-0 text-right">
+                                <span className="text-sm font-semibold text-ui-secondary tabular-nums">
                                   {evt.isAllDay ? 'All day' : format(new Date(evt.startTime), 'h:mm a')}
                                 </span>
                               </div>
+                              <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: evtColor }} />
                               <p className="flex-1 text-xl font-bold text-ui-primary truncate">
                                 {evt.title}
                               </p>
@@ -548,11 +548,11 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
                         // homework item
                         const hw = item.data;
                         return (
-                          <div key={hw.id} className="flex items-center gap-3 px-4 py-4 rounded-2xl bg-amber-50">
-                            <div className="w-1 self-stretch rounded-full shrink-0 bg-amber-400" />
-                            <div className="w-[72px] shrink-0">
-                              <span className="text-base font-medium text-amber-600">Due</span>
+                          <div key={hw.id} className="flex items-center gap-4 py-3.5 border-b border-ui-soft last:border-0">
+                            <div className="w-[80px] shrink-0 text-right">
+                              <span className="text-sm font-semibold text-amber-600 tabular-nums">Due</span>
                             </div>
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0 bg-amber-400" />
                             <div className="flex-1 min-w-0">
                               <p className="text-xl font-bold text-ui-primary truncate">
                                 📚 {hw.title}

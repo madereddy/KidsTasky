@@ -298,7 +298,7 @@ export default function App() {
     <ShareTargetHandler />
     <SleepModeOverlay isActive={isSleepMode} use24h={timeFormat === '24h'} onDismiss={() => setSleepDismissed(true)} />
     <div className={cn("min-h-screen selection:bg-sky-500/30 [overflow-x:clip] pb-12 transition-colors duration-500", isLocked ? "text-ui-primary theme-light" : (currentTheme.vocab?.darkMode ? "text-white theme-dark" : "text-ui-primary theme-light"), isLocked && "wall-mode")} style={{ background: isLocked ? '#ffffff' : currentTheme.bg }}>
-      {!isKioskMode && <AppHeader
+      {!isKioskMode && !isLocked && <AppHeader
         profile={profile}
         kids={kids}
         currentTheme={currentTheme}
@@ -333,7 +333,7 @@ export default function App() {
         }}
       />}
 
-      <main className={cn("mx-auto max-w-7xl px-4 sm:px-6", isMobile ? "pb-[calc(7.5rem+env(safe-area-inset-bottom))]" : "pb-10")}>
+      <main className={cn(!isLocked && "mx-auto max-w-7xl px-4 sm:px-6", isMobile ? "pb-[calc(7.5rem+env(safe-area-inset-bottom))]" : (isLocked ? "pb-0" : "pb-10"))}>
         <>
           {/* Home: MissionTodayView (mobile) or WallHome (desktop) — conditional, not kept-alive */}
           {isMobile && activeSection === 'home' && <SectionErrorBoundary label="Home"><Suspense fallback={<SectionSkeleton role={profile.role === 'kid' ? 'kid' : 'parent'} activeSection="home" />}><MissionTodayView profile={profile} tasks={allTasks.filter(t => !hiddenMissionIds.has(`task_${t.id}`))} events={events.filter(e => !hiddenMissionIds.has(`event_${e.id}`))} completions={allCompletions} listItems={globalListItems.filter(l => !hiddenMissionIds.has(`list_${l.id}`))} lists={globalLists} frequentItems={frequentItems} kids={kids} categories={categories} onAction={handleMissionAction} onRoutineItemToggle={handleRoutineItemToggle} onRoutineReset={handleRoutineReset} onRefresh={refreshWallData} /></Suspense></SectionErrorBoundary>}
@@ -417,7 +417,7 @@ export default function App() {
         displayDurationSec={screensaverDurationSec}
         showCaptions={screensaverCaptions}
       />
-      <footer className="mt-20 pt-10 border-t border-ui mx-6 pb-6 hidden md:block"><div className="max-w-7xl mx-auto flex justify-between items-center"><div className="flex items-center gap-4"><div className="w-8 h-8 rounded-full bg-ui-soft-2 flex items-center justify-center text-emerald-500"><Activity className="w-4 h-4" /></div><p className="text-xs text-ui-muted font-medium">Synced</p><div className="h-3 w-[1px] bg-ui-soft-3 mx-2" /><p className="text-[10px] text-ui-muted-2 font-mono tabular-nums">{__BUILD_VERSION__}</p></div></div></footer>
+      {!isLocked && <footer className="mt-20 pt-10 border-t border-ui mx-6 pb-6 hidden md:block"><div className="max-w-7xl mx-auto flex justify-between items-center"><div className="flex items-center gap-4"><div className="w-8 h-8 rounded-full bg-ui-soft-2 flex items-center justify-center text-emerald-500"><Activity className="w-4 h-4" /></div><p className="text-xs text-ui-muted font-medium">Synced</p><div className="h-3 w-[1px] bg-ui-soft-3 mx-2" /><p className="text-[10px] text-ui-muted-2 font-mono tabular-nums">{__BUILD_VERSION__}</p></div></div></footer>}
     </div>
     </DisplayContext.Provider>
     </FamilyDataContext.Provider>

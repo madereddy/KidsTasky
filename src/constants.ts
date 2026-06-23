@@ -268,27 +268,27 @@ export const THEMES = [
 ];
 
 export const WMO_WEATHER: Record<number, { icon: string; label: string }> = {
-  0: { icon: "sun", label: "Clear" },
-  1: { icon: "fair", label: "Mostly Clear" },
-  2: { icon: "cloud-sun", label: "Partly Cloudy" },
-  3: { icon: "cloud", label: "Overcast" },
-  45: { icon: "fog", label: "Fog" },
-  48: { icon: "fog", label: "Icy Fog" },
-  51: { icon: "drizzle", label: "Light Drizzle" },
-  53: { icon: "drizzle", label: "Drizzle" },
-  55: { icon: "rain", label: "Heavy Drizzle" },
-  61: { icon: "rain", label: "Light Rain" },
-  63: { icon: "rain", label: "Rain" },
-  65: { icon: "rain", label: "Heavy Rain" },
-  71: { icon: "snow", label: "Light Snow" },
-  73: { icon: "snow", label: "Snow" },
-  75: { icon: "snow", label: "Heavy Snow" },
-  80: { icon: "showers", label: "Showers" },
-  81: { icon: "showers", label: "Rain Showers" },
-  82: { icon: "storm", label: "Violent Showers" },
-  85: { icon: "snow", label: "Snow Showers" },
-  95: { icon: "storm", label: "Thunderstorm" },
-  99: { icon: "storm", label: "Thunderstorm with Hail" }
+  0: { icon: "☀️", label: "Clear" },
+  1: { icon: "🌤️", label: "Mostly Clear" },
+  2: { icon: "⛅", label: "Partly Cloudy" },
+  3: { icon: "☁️", label: "Overcast" },
+  45: { icon: "🌫️", label: "Fog" },
+  48: { icon: "🌫️", label: "Icy Fog" },
+  51: { icon: "🌦️", label: "Light Drizzle" },
+  53: { icon: "🌧️", label: "Drizzle" },
+  55: { icon: "🌧️", label: "Heavy Drizzle" },
+  61: { icon: "🌧️", label: "Light Rain" },
+  63: { icon: "🌧️", label: "Rain" },
+  65: { icon: "🌧️", label: "Heavy Rain" },
+  71: { icon: "🌨️", label: "Light Snow" },
+  73: { icon: "❄️", label: "Snow" },
+  75: { icon: "❄️", label: "Heavy Snow" },
+  80: { icon: "🌦️", label: "Showers" },
+  81: { icon: "🌦️", label: "Rain Showers" },
+  82: { icon: "⛈️", label: "Violent Showers" },
+  85: { icon: "🌨️", label: "Snow Showers" },
+  95: { icon: "⛈️", label: "Thunderstorm" },
+  99: { icon: "⛈️", label: "Thunderstorm with Hail" }
 };
 
 export function getWeatherInfo(code: number): { icon: string; label: string } {
