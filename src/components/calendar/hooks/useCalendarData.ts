@@ -77,53 +77,49 @@ export function useCalendarData(parentId: string, kids: UserProfile[], isWallMod
   }, [parentId, isWallMode]);
 
   useEffect(() => {
+    let cancelled = false;
     const init = async () => {
       if (isInitialMount.current) {
-        setLoading(true);
+        if (!cancelled) setLoading(true);
         isInitialMount.current = false;
       }
-      
-      const timer = setTimeout(() => setLoading(false), 5000);
-
+      // Safety net: always clear loading within 2s regardless of API state
+      const timer = setTimeout(() => { if (!cancelled) setLoading(false); }, 2000);
       try {
         await Promise.allSettled([
           fetchEvents(),
           listsClientService.getLists(parentId).then((lists) => {
-            setRoutineLists((lists || []).filter((list) => list.category === 'routine'));
+            if (!cancelled) setRoutineLists((lists || []).filter((list) => list.category === 'routine'));
           }),
-          settingsClientService.getCalendars(parentId).then(setSyncCalendars),
+          settingsClientService.getCalendars(parentId).then((v) => { if (!cancelled) setSyncCalendars(v); }),
           settingsClientService.getCalendarVisibility().then(rows => {
+            if (cancelled) return;
             const map: Record<string, boolean> = {};
-            if (Array.isArray(rows)) {
-              rows.forEach(r => map[r.calendarId] = Number(r.isVisible) === 1);
-            }
+            if (Array.isArray(rows)) rows.forEach(r => { map[r.calendarId] = Number(r.isVisible) === 1; });
             setCalendarVisibility(map);
           }),
           settingsClientService.getSettings(parentId).then((settings) => {
-            if (!settings) return;
+            if (!settings || cancelled) return;
             setTimezone(settings.timezone || 'America/Chicago');
             setTemperatureUnit((settings.temperatureUnit as TemperatureUnitPref) || 'celsius');
             setTimeFormat((settings.timeFormat as TimeFormatPref) || '12h');
-            // Fire weather independently — don't block the loading gate on a network call
             if (typeof settings.locationLat === 'number' && typeof settings.locationLon === 'number') {
               weatherClientService.getForecast(settings.locationLat, settings.locationLon)
-                .then(wx => setForecast(wx || []))
+                .then(wx => { if (!cancelled) setForecast(wx || []); })
                 .catch(() => {});
             }
           })
         ]);
-        
-        if (isWallMode) {
-          await fetchWallData();
-        }
+        if (isWallMode && !cancelled) await fetchWallData();
       } catch (err) {
         clientLogger.errorWithException('calendar_initialization_failed', err, { parentId });
       } finally {
         clearTimeout(timer);
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     init();
+    return () => { cancelled = true; };
   }, [parentId, fetchEvents, isWallMode, fetchWallData]);
 
   return {

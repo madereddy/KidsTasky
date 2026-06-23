@@ -95,6 +95,7 @@ export default function App() {
   const { activeSection, mountedSections, goToSection, premountSection } = useSectionNavigation();
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [showShoppingMode, setShowShoppingMode] = useState(false);
+  const [isKioskMode, setIsKioskMode] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
   const { hiddenMissionIds, setHiddenMissionIds } = useHiddenMissions();
 
@@ -293,11 +294,11 @@ export default function App() {
 
   return (
     <FamilyDataContext.Provider value={{ kids, categories, memberColorMap, refreshKids, refreshCategories }}>
-    <DisplayContext.Provider value={{ isWallMode: isLocked, isSleepMode }}>
+    <DisplayContext.Provider value={{ isWallMode: isLocked, isSleepMode, isKioskMode }}>
     <ShareTargetHandler />
     <SleepModeOverlay isActive={isSleepMode} use24h={timeFormat === '24h'} onDismiss={() => setSleepDismissed(true)} />
     <div className={cn("min-h-screen selection:bg-sky-500/30 [overflow-x:clip] pb-12 transition-colors duration-500", currentTheme.vocab?.darkMode ? "text-white theme-dark" : "text-ui-primary theme-light", isLocked && "wall-mode")} style={{ background: currentTheme.bg }}>
-      <AppHeader
+      {!isKioskMode && <AppHeader
         profile={profile}
         kids={kids}
         currentTheme={currentTheme}
@@ -310,7 +311,7 @@ export default function App() {
         showProfileSwitcher={showProfileSwitcher}
         parentSession={parentSession}
         onSectionSelect={goToSection}
-          onSettingsSelect={openSettings}
+        onSettingsSelect={openSettings}
         onUnlockSelect={() => { setOpenSettingsAfterUnlock(true); setShowUnlockPrompt(true); }}
         onProfileSwitcherToggle={() => setShowProfileSwitcher(!showProfileSwitcher)}
         onKidSwitchSelect={(kid) => {
@@ -330,13 +331,13 @@ export default function App() {
           setUser(null);
           setProfile(null);
         }}
-      />
+      />}
 
       <main className={cn("mx-auto max-w-7xl px-4 sm:px-6", isMobile ? "pb-[calc(7.5rem+env(safe-area-inset-bottom))]" : "pb-10")}>
         <>
           {/* Home: MissionTodayView (mobile) or WallHome (desktop) — conditional, not kept-alive */}
           {isMobile && activeSection === 'home' && <SectionErrorBoundary label="Home"><Suspense fallback={<SectionSkeleton role={profile.role === 'kid' ? 'kid' : 'parent'} activeSection="home" />}><MissionTodayView profile={profile} tasks={allTasks.filter(t => !hiddenMissionIds.has(`task_${t.id}`))} events={events.filter(e => !hiddenMissionIds.has(`event_${e.id}`))} completions={allCompletions} listItems={globalListItems.filter(l => !hiddenMissionIds.has(`list_${l.id}`))} lists={globalLists} frequentItems={frequentItems} kids={kids} categories={categories} onAction={handleMissionAction} onRoutineItemToggle={handleRoutineItemToggle} onRoutineReset={handleRoutineReset} onRefresh={refreshWallData} /></Suspense></SectionErrorBoundary>}
-          {isParentRole(profile.role) && !isMobile && activeSection === 'home' && <SectionErrorBoundary label="Home"><Suspense fallback={<SectionSkeleton role="parent" activeSection="home" />}><WallHome parentId={familyParentId} profile={profile} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} onManage={() => goToSection('manage')} settings={familySettings} justWoke={wallJustWoke} /></Suspense></SectionErrorBoundary>}
+          {isParentRole(profile.role) && !isMobile && activeSection === 'home' && <SectionErrorBoundary label="Home"><Suspense fallback={<SectionSkeleton role="parent" activeSection="home" />}><WallHome parentId={familyParentId} profile={profile} kids={kids} memberColorMap={memberColorMap} isLocked={isLocked} onManage={() => goToSection('manage')} settings={familySettings} justWoke={wallJustWoke} onToggleWall={() => setIsLocked(true)} onToggleKiosk={() => { setIsKioskMode(true); setIsLocked(true); }} onExitKiosk={() => { setIsKioskMode(false); setIsLocked(false); }} /></Suspense></SectionErrorBoundary>}
 
           {/* Non-home sections: mount on first visit, stay mounted (CSS hide when inactive) */}
           {isParentRole(profile.role) && mountedSections.has('manage') && <div style={{ display: activeSection === 'manage' ? undefined : 'none' }}><SectionErrorBoundary label="Dashboard"><Suspense fallback={<SectionSkeleton role="parent" activeSection="manage" />}><ParentDashboard profile={profile} onOpenSettings={openSettings} /></Suspense></SectionErrorBoundary></div>}
@@ -352,7 +353,7 @@ export default function App() {
 
       {isMobile && <ActionBolt profile={profile} onAction={(type) => { if (type === 'task') goToSection('tasks'); else if (type === 'grocery') goToSection('shopping'); else if (type === 'shopping-mode') setShowShoppingMode(true); }} />}
       {showShoppingMode && <ShoppingModeOverlay parentId={familyParentId} onClose={() => setShowShoppingMode(false)} />}
-      {isMobile && <BottomNav activeTab={activeSection} role={profile.role} onTabSelect={(tab) => { if (tab === 'tools') setShowToolsMenu(true); else if (tab === 'switch') setShowProfileSwitcher(!showProfileSwitcher); else goToSection(tab as any); }} />}
+      {isMobile && !isKioskMode && <BottomNav activeTab={activeSection} role={profile.role} onTabSelect={(tab) => { if (tab === 'tools') setShowToolsMenu(true); else if (tab === 'switch') setShowProfileSwitcher(!showProfileSwitcher); else goToSection(tab as any); }} />}
       {isParentRole(profile.role) && <ToolsMenu activeSection={activeSection} isOpen={showToolsMenu} isDarkTheme={isDarkTheme} onClose={() => setShowToolsMenu(false)} onSelect={(s) => goToSection(s as any)} />}
       {isMobile && showProfileSwitcher && (
         <ProfileSwitcherSheet

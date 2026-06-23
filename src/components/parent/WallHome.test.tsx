@@ -74,7 +74,7 @@ describe('WallHome', () => {
 
   it('renders wall-clock testid', async () => {
     render(
-      <DisplayContext.Provider value={{ isWallMode: false, isSleepMode: false }}>
+      <DisplayContext.Provider value={{ isWallMode: false, isSleepMode: false, isKioskMode: false }}>
         <WallHome {...baseProps} />
       </DisplayContext.Provider>
     );
@@ -83,7 +83,7 @@ describe('WallHome', () => {
 
   it('clock uses large text in wall mode', async () => {
     render(
-      <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false }}>
+      <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false, isKioskMode: false }}>
         <WallHome {...baseProps} isLocked={true} />
       </DisplayContext.Provider>
     );
@@ -93,7 +93,7 @@ describe('WallHome', () => {
 
   it('clock uses normal text when not in wall mode', async () => {
     render(
-      <DisplayContext.Provider value={{ isWallMode: false, isSleepMode: false }}>
+      <DisplayContext.Provider value={{ isWallMode: false, isSleepMode: false, isKioskMode: false }}>
         <WallHome {...baseProps} />
       </DisplayContext.Provider>
     );
@@ -122,7 +122,7 @@ describe('WallHome', () => {
     });
 
     render(
-      <DisplayContext.Provider value={{ isWallMode: false, isSleepMode: false }}>
+      <DisplayContext.Provider value={{ isWallMode: false, isSleepMode: false, isKioskMode: false }}>
         <WallHome {...baseProps} />
       </DisplayContext.Provider>
     );
@@ -144,7 +144,7 @@ describe('WallHome', () => {
     });
 
     render(
-      <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false }}>
+      <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false, isKioskMode: false }}>
         <WallHome
           {...baseProps}
           isLocked={true}
@@ -170,7 +170,7 @@ describe('WallHome', () => {
     });
 
     render(
-      <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false }}>
+      <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false, isKioskMode: false }}>
         <WallHome
           {...baseProps}
           isLocked={true}
@@ -186,7 +186,7 @@ describe('WallHome', () => {
 
   it('does not render IntelligenceHeader in resting wall mode', async () => {
     render(
-      <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false }}>
+      <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false, isKioskMode: false }}>
         <WallHome {...baseProps} isLocked={true} justWoke={0} />
       </DisplayContext.Provider>
     );
@@ -197,7 +197,7 @@ describe('WallHome', () => {
 
   it('shows WallWakeOverlay when justWoke is > 0 in wall mode', async () => {
     render(
-      <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false }}>
+      <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false, isKioskMode: false }}>
         <WallHome {...baseProps} isLocked={true} justWoke={Date.now()} />
       </DisplayContext.Provider>
     );
@@ -206,7 +206,7 @@ describe('WallHome', () => {
 
   it('does not show WallWakeOverlay when justWoke is 0', async () => {
     render(
-      <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false }}>
+      <DisplayContext.Provider value={{ isWallMode: true, isSleepMode: false, isKioskMode: false }}>
         <WallHome {...baseProps} isLocked={true} justWoke={0} />
       </DisplayContext.Provider>
     );

@@ -97,7 +97,7 @@ describe('WallHome Deduplication', () => {
     ]);
 
     render(
-      <DisplayContext.Provider value={{ isWallMode: false, isSleepMode: false }}>
+      <DisplayContext.Provider value={{ isWallMode: false, isSleepMode: false, isKioskMode: false }}>
         <WallHome {...baseProps} />
       </DisplayContext.Provider>
     );
@@ -147,7 +147,7 @@ describe('WallHome Deduplication', () => {
     ]);
 
     render(
-      <DisplayContext.Provider value={{ isWallMode: false, isSleepMode: false }}>
+      <DisplayContext.Provider value={{ isWallMode: false, isSleepMode: false, isKioskMode: false }}>
         <WallHome {...baseProps} />
       </DisplayContext.Provider>
     );

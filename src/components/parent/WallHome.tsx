@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
+import { MonitorSmartphone, Maximize2, LogOut } from 'lucide-react';
 import { CalendarEvent, Homework, UserProfile } from '../../types';
 import { HourlyForecastEntry } from '../../services/weather';
 import { FamilyNote } from '../shared/FamilyNote';
@@ -32,6 +33,9 @@ interface Props {
   onManage: () => void;
   settings?: any;
   justWoke?: number;
+  onToggleWall?: () => void;
+  onToggleKiosk?: () => void;
+  onExitKiosk?: () => void;
 }
 
 // Original clock used in non-wall mode
@@ -82,7 +86,7 @@ interface KidProgress {
   done: number;
 }
 
-export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, onManage, settings, justWoke = 0 }: Props) {
+export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, onManage, settings, justWoke = 0, onToggleWall, onToggleKiosk, onExitKiosk }: Props) {
   const [expandedKidId, setExpandedKidId] = useState<string | null>(null);
   const [showWakeOverlay, setShowWakeOverlay] = useState(false);
   useEffect(() => {
@@ -93,7 +97,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
     return () => clearTimeout(t);
   }, [justWoke]);
 
-  const { isWallMode } = useDisplayMode();
+  const { isWallMode, isKioskMode } = useDisplayMode();
   useWakeLock(isWallMode);
   const {
     today,
@@ -301,14 +305,14 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
     }
 
     return (
-      <div className="flex overflow-hidden bg-white dark:bg-ui-dark" style={{ minHeight: 'calc(100vh - 80px)' }}>
+      <div className="flex overflow-hidden" style={{ minHeight: 'calc(100vh - 80px)', background: '#ffffff', color: '#0f172a' }}>
         <XpCelebration
           payload={celebration}
           kidName={kids.find(k => k.uid === celebration?.userId)?.name ?? ''}
         />
 
         {/* ── LEFT PANEL: Clock · Weather · Chores ── */}
-        <aside className="w-72 xl:w-80 shrink-0 flex flex-col border-r border-ui-soft bg-white dark:bg-ui-dark">
+        <aside className="w-72 xl:w-80 shrink-0 flex flex-col border-r border-ui-soft bg-white">
 
           {/* Clock + date */}
           <div className="px-8 pt-8 pb-6">
@@ -424,19 +428,21 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
             </>
           )}
 
-          {/* Manage link */}
-          <div className="px-8 pb-6 mt-auto pt-4">
-            <button
-              onClick={onManage}
-              className="text-xs text-ui-muted hover:text-ui-primary transition-colors"
-            >
-              Manage family →
-            </button>
-          </div>
+          {/* Manage link — hidden in kiosk mode */}
+          {!isKioskMode && (
+            <div className="px-8 pb-6 mt-auto pt-4">
+              <button
+                onClick={onManage}
+                className="text-xs text-ui-muted hover:text-ui-primary transition-colors"
+              >
+                Manage family →
+              </button>
+            </div>
+          )}
         </aside>
 
         {/* ── RIGHT PANEL: Agenda ── */}
-        <main className="relative flex-1 overflow-y-auto px-8 xl:px-12 py-8 bg-white dark:bg-ui-dark">
+        <main className="relative flex-1 overflow-y-auto px-8 xl:px-12 py-8 bg-white">
           <AnimatePresence>
             {showWakeOverlay && (
               <WallWakeOverlay
@@ -462,6 +468,33 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
               </button>
             </div>
           )}
+
+          {/* Countdown chips for events marked isCountdown */}
+          {(() => {
+            const nowMs = Date.now();
+            const countdownEvts = events
+              .filter(e => Boolean(e.isCountdown) && e.startTime > nowMs)
+              .sort((a, b) => a.startTime - b.startTime)
+              .slice(0, 3);
+            if (countdownEvts.length === 0) return null;
+            return (
+              <div className="flex flex-wrap gap-3 mb-8">
+                {countdownEvts.map(e => {
+                  const daysLeft = Math.ceil((e.startTime - nowMs) / (1000 * 60 * 60 * 24));
+                  const color = e.color || '#6366f1';
+                  return (
+                    <div key={e.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl border-2" style={{ borderColor: color }}>
+                      <div className="text-3xl font-black tabular-nums" style={{ color }}>{daysLeft}</div>
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color }}>days</div>
+                        <div className="text-sm font-semibold text-ui-primary">{e.title}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           {dayGroups.length === 0 ? (
             <div className="flex items-center justify-center h-32">
@@ -548,6 +581,16 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
             </section>
           )}
         </main>
+
+        {/* Exit kiosk — fixed bottom-right, only in kiosk mode */}
+        {isKioskMode && onExitKiosk && (
+          <button
+            onClick={onExitKiosk}
+            className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5 px-4 py-2 bg-black/60 text-white rounded-full text-xs font-bold backdrop-blur-sm hover:bg-black/80 transition-colors"
+          >
+            <LogOut size={12} /> Exit
+          </button>
+        )}
       </div>
     );
   }
@@ -555,6 +598,27 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
 
   return (
     <div className="space-y-6">
+      {/* Wall / Kiosk entry buttons — only for desktop parents */}
+      {(onToggleWall || onToggleKiosk) && (
+        <div className="flex justify-end gap-2">
+          {onToggleWall && (
+            <button
+              onClick={onToggleWall}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-ui-soft border border-ui text-xs font-semibold text-ui-secondary hover:bg-ui-soft-3 transition-colors"
+            >
+              <MonitorSmartphone size={14} /> Wall Display
+            </button>
+          )}
+          {onToggleKiosk && (
+            <button
+              onClick={onToggleKiosk}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-ui-soft border border-ui text-xs font-semibold text-ui-secondary hover:bg-ui-soft-3 transition-colors"
+            >
+              <Maximize2 size={14} /> Kiosk
+            </button>
+          )}
+        </div>
+      )}
       <IntelligenceHeader data={intelligence} onAddIngredients={handleAddIngredients} />
       <div className="-mx-2">
         <FrequentItemChips items={frequentItems} onAdd={handleQuickAdd} />

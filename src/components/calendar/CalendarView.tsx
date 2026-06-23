@@ -8,7 +8,6 @@ import { useCalendarData } from './hooks/useCalendarData';
 import { useIdleTimers } from './hooks/useIdleTimers';
 import { CalendarSkeleton } from '../shared/Skeleton';
 import { CalendarErrorBoundary } from './CalendarErrorBoundary';
-import { CalendarWallView } from './CalendarWallView';
 import { CalendarStandardView } from './CalendarStandardView';
 
 type ViewMode = 'month' | 'week' | 'day' | 'agenda';
@@ -66,9 +65,6 @@ function CalendarViewInner({ parentId, kids = [], memberColorMap = {}, isLocked 
     forecast,
     routineTemplates,
     routineLists,
-    listsSummary,
-    wallKidProgress,
-    wallPhotos,
     lastRefreshedAt,
     loading,
     fetchEvents,
@@ -228,39 +224,6 @@ function CalendarViewInner({ parentId, kids = [], memberColorMap = {}, isLocked 
   const filteredEvents = applyWallFilter(calendarFilteredEvents);
 
   if (loading) return <CalendarSkeleton />;
-
-  if (isWallMode) {
-    return (
-      <CalendarWallView
-        parentId={parentId}
-        kids={kids}
-        memberColorMap={memberColorMap}
-        userRole={userRole}
-        events={calendarFilteredEvents}
-        forecast={forecast}
-        todaysMeals={dayMeals} // This should be synced from useCalendarData ideally or handle separately
-        wallKidProgress={wallKidProgress}
-        listsSummary={listsSummary}
-        routineLists={routineLists}
-        wallPhotos={wallPhotos}
-        temperatureUnit={temperatureUnit}
-        timeFormat={timeFormat === '24h' ? '24h' : '12h'}
-        lastRefreshedAt={lastRefreshedAt}
-        isKioskMode={isKioskMode}
-        isCalSleeping={isCalSleeping}
-        wallFilter={wallFilter}
-        setWallFilter={setWallFilter}
-        setIsWallMode={setIsWallMode}
-        setIsKioskMode={setIsKioskMode}
-        setIsCalSleeping={setIsCalSleeping}
-        toggleFullscreen={toggleFullscreen}
-        resetIdleTimers={resetIdleTimers}
-        fetchEvents={fetchEvents}
-        setSelectedEvent={setSelectedEvent}
-        selectedEvent={selectedEvent}
-      />
-    );
-  }
 
   return (
     <CalendarStandardView
