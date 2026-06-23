@@ -297,7 +297,7 @@ export default function App() {
     <DisplayContext.Provider value={{ isWallMode: isLocked, isSleepMode, isKioskMode }}>
     <ShareTargetHandler />
     <SleepModeOverlay isActive={isSleepMode} use24h={timeFormat === '24h'} onDismiss={() => setSleepDismissed(true)} />
-    <div className={cn("min-h-screen selection:bg-sky-500/30 [overflow-x:clip] pb-12 transition-colors duration-500", currentTheme.vocab?.darkMode ? "text-white theme-dark" : "text-ui-primary theme-light", isLocked && "wall-mode")} style={{ background: currentTheme.bg }}>
+    <div className={cn("min-h-screen selection:bg-sky-500/30 [overflow-x:clip] pb-12 transition-colors duration-500", isLocked ? "text-ui-primary theme-light" : (currentTheme.vocab?.darkMode ? "text-white theme-dark" : "text-ui-primary theme-light"), isLocked && "wall-mode")} style={{ background: isLocked ? '#ffffff' : currentTheme.bg }}>
       {!isKioskMode && <AppHeader
         profile={profile}
         kids={kids}
