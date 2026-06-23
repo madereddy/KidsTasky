@@ -8,7 +8,7 @@ const updateRsvp = vi.fn((..._args: any[]) => Promise.resolve({ success: true })
 const addAttendee = vi.fn((..._args: any[]) => Promise.resolve({ success: true }));
 const removeAttendee = vi.fn((..._args: any[]) => Promise.resolve({ success: true }));
 const updateEvent = vi.fn((..._args: any[]) => Promise.resolve({ success: true }));
-const getRoutineItems = vi.fn((..._args: any[]) => Promise.resolve([]));
+const getRoutineItems = vi.fn((..._args: any[]): Promise<any> => Promise.resolve([]));
 const setRoutineItemCompleted = vi.fn((..._args: any[]) => Promise.resolve());
 
 vi.mock('../../services/events', () => ({

@@ -24,7 +24,7 @@ eventsRouter.post('/events', authenticateUser, requireRole('parent'), enforceEdi
     if (routineListId !== undefined) allowed.routineListId = routineListId;
     const eventData = { ...allowed, parentId };
 
-    if (!eventsService.isValidRoutineListForParent(eventData.routineListId, parentId)) {
+    if (!eventsService.isValidRoutineListForParent(allowed.routineListId, parentId)) {
       return res.status(400).json({ error: 'Invalid routine list' });
     }
 
