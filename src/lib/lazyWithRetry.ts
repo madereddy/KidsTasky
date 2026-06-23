@@ -4,7 +4,6 @@ export const lazyWithRetry = <T extends React.ComponentType<any>>(
   importer: () => Promise<{ default: T }>,
   key: string
 ) => lazy(async () => {
-  await new Promise<void>(resolve => setTimeout(resolve, 0));
   const retryKey = `kidtasker:lazy-retry:${key}`;
   try {
     const mod = await importer();

@@ -6,25 +6,29 @@ interface StoreFilterBarProps {
   items: AppListItem[];
   activeStore: string | null;
   onSelectStore: (store: string | null) => void;
+  listTitlesById?: Map<string, string>;
 }
 
-export function StoreFilterBar({ items, activeStore, onSelectStore }: StoreFilterBarProps) {
-  // Get unique store names from uncompleted items (including allStoreNames from deduplicated items)
+export function StoreFilterBar({ items, activeStore, onSelectStore, listTitlesById }: StoreFilterBarProps) {
   const stores = useMemo(() => {
     const storeSet = new Set<string>();
     for (const item of items.filter(i => i.completed === 0)) {
-      // Check for allStoreNames (from deduplicated items)
-      const allStoreNames = (item as any).allStoreNames;
-      if (Array.isArray(allStoreNames)) {
+      const allStoreNames = (item as any).allStoreNames as string[] | undefined;
+      const allLocationNames = (item as any).allLocationNames as string[] | undefined;
+      const allListIds = (item as any).allListIds as string[] | undefined;
+
+      if (Array.isArray(allStoreNames) && allStoreNames.length > 0) {
         allStoreNames.forEach(s => storeSet.add(s));
-      }
-      // Also check direct storeName field
-      if (item.storeName) {
+      } else if (Array.isArray(allLocationNames) && allLocationNames.length > 0) {
+        allLocationNames.forEach(l => storeSet.add(l));
+      } else if (listTitlesById && Array.isArray(allListIds) && allListIds.length > 0) {
+        allListIds.forEach(id => { const t = listTitlesById.get(id); if (t) storeSet.add(t); });
+      } else if (item.storeName) {
         storeSet.add(item.storeName);
       }
     }
     return Array.from(storeSet);
-  }, [items]);
+  }, [items, listTitlesById]);
 
   if (stores.length === 0) return null;
 
@@ -47,7 +51,8 @@ export function StoreFilterBar({ items, activeStore, onSelectStore }: StoreFilte
         const count = items.filter(i => i.completed === 0 && (
           (i as any).allStoreNames?.includes(store) ||
           (i as any).allLocationNames?.includes(store) ||
-          i.storeName === store
+          i.storeName === store ||
+          (listTitlesById && (i as any).allListIds?.some((id: string) => listTitlesById.get(id) === store))
         )).length;
         return (
           <button

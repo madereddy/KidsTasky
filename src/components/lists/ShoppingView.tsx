@@ -132,10 +132,11 @@ export function ShoppingView({ parentId }: Props) {
   const filteredItems = useMemo(() => {
     if (!activeStoreFilter) return deduplicatedItems;
     return deduplicatedItems.filter((item) => (
-      item.allStoreNames.includes(activeStoreFilter) || 
-      item.allLocationNames.includes(activeStoreFilter)
+      item.allStoreNames.includes(activeStoreFilter) ||
+      item.allLocationNames.includes(activeStoreFilter) ||
+      item.allListIds.some((id: string) => listTitlesById.get(id) === activeStoreFilter)
     ));
-  }, [activeStoreFilter, deduplicatedItems]);
+  }, [activeStoreFilter, deduplicatedItems, listTitlesById]);
 
   const quickInputAnalysis = useMemo(
     () => analyzeQuickListInput(newItemText, shoppingLists, selectedListId, {
@@ -520,7 +521,7 @@ export function ShoppingView({ parentId }: Props) {
             </div>
           </div>
         </div>
-        <StoreFilterBar items={deduplicatedItems} activeStore={activeStoreFilter} onSelectStore={setActiveStoreFilter} />
+        <StoreFilterBar items={deduplicatedItems} activeStore={activeStoreFilter} onSelectStore={setActiveStoreFilter} listTitlesById={listTitlesById} />
         <div className="p-4 sm:p-5">
           {filteredItems.length === 0 ? (
             <div className="rounded-[1.5rem] border border-dashed border-ui bg-ui-soft px-6 py-12 text-center">
