@@ -9,9 +9,21 @@ interface StoreFilterBarProps {
 }
 
 export function StoreFilterBar({ items, activeStore, onSelectStore }: StoreFilterBarProps) {
-  // Get unique store names from uncompleted items
+  // Get unique store names from uncompleted items (including allStoreNames from deduplicated items)
   const stores = useMemo(() => {
-    return Array.from(new Set(items.filter(i => i.completed === 0 && i.storeName).map(i => i.storeName as string)));
+    const storeSet = new Set<string>();
+    for (const item of items.filter(i => i.completed === 0)) {
+      // Check for allStoreNames (from deduplicated items)
+      const allStoreNames = (item as any).allStoreNames;
+      if (Array.isArray(allStoreNames)) {
+        allStoreNames.forEach(s => storeSet.add(s));
+      }
+      // Also check direct storeName field
+      if (item.storeName) {
+        storeSet.add(item.storeName);
+      }
+    }
+    return Array.from(storeSet);
   }, [items]);
 
   if (stores.length === 0) return null;
@@ -32,7 +44,11 @@ export function StoreFilterBar({ items, activeStore, onSelectStore }: StoreFilte
         All
       </button>
       {stores.map(store => {
-        const count = items.filter(i => i.completed === 0 && i.storeName === store).length;
+        const count = items.filter(i => i.completed === 0 && (
+          (i as any).allStoreNames?.includes(store) ||
+          (i as any).allLocationNames?.includes(store) ||
+          i.storeName === store
+        )).length;
         return (
           <button
             key={store}

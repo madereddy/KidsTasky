@@ -6,9 +6,9 @@
   "packageManager": "pnpm@11.5.1",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
-    "start": "NODE_ENV=production node --import @opentelemetry/instrumentation/hook.mjs dist/server.js",
+    "start": "NODE_ENV=production node dist/server.js",
     "test": "vitest run",
-    "dev": "node --import @opentelemetry/instrumentation/hook.mjs --import tsx/esm server.ts",
+    "dev": "node --import tsx/esm server.ts",
     "build": "vite build && pnpm run build:server",
     "build:server": "esbuild server.ts --bundle --platform=node --target=node24 --outfile=dist/server.js --format=esm --packages=external --loader:.sql=text && node --input-type=commonjs -e \"require('fs').cpSync('src/server/migrations','dist/migrations',{recursive:true})\"",
     "preview": "vite preview",
