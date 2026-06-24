@@ -588,7 +588,9 @@ export function ShoppingView({ parentId }: Props) {
                       <span className="rounded-full bg-white px-2 py-1 text-xs font-black uppercase tracking-wide text-ui-muted">
                         {item.allListIds.map((id: string) => listTitlesById.get(id)).filter(Boolean).join(', ') || 'Shopping'}
                       </span>
-                      {item.allStoreNames.map((storeName: string) => (
+                      {item.allStoreNames.filter((storeName: string) =>
+                        !item.allListIds.map((id: string) => listTitlesById.get(id)).includes(storeName)
+                      ).map((storeName: string) => (
                         <span key={storeName} className="rounded-full bg-ui-soft-3 px-2 py-1 text-xs font-black uppercase tracking-wide text-ui-primary border border-ui">
                           {storeName}
                         </span>

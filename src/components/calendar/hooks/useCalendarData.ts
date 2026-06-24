@@ -40,12 +40,12 @@ export function useCalendarData(parentId: string, kids: UserProfile[], isWallMod
     }
   }, [parentId]);
 
-  const fetchWallData = useCallback(async () => {
+  const fetchWallData = useCallback(async (prefetchedLists?: AppList[]) => {
     if (!isWallMode) return;
 
     routinesClientService.getTemplates(parentId).then(setRoutineTemplates).catch(() => {});
 
-    listsClientService.getLists(parentId).then(async (lists) => {
+    const processLists = async (lists: AppList[]) => {
       setRoutineLists((lists || []).filter((list) => list.category === 'routine'));
       const topLists = (lists || []).slice(0, 2);
       const summaries = await Promise.all(topLists.map(async (list) => {
@@ -55,7 +55,13 @@ export function useCalendarData(parentId: string, kids: UserProfile[], isWallMod
         return { list, total, done };
       }));
       setListsSummary(summaries);
-    }).catch(() => {});
+    };
+
+    if (prefetchedLists !== undefined) {
+      processLists(prefetchedLists).catch(() => {});
+    } else {
+      listsClientService.getLists(parentId).then(processLists).catch(() => {});
+    }
 
     tasksClientService.getTasksForParent(parentId).then(async (allTasks) => {
       const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -86,10 +92,12 @@ export function useCalendarData(parentId: string, kids: UserProfile[], isWallMod
       // Safety net: always clear loading within 2s regardless of API state
       const timer = setTimeout(() => { if (!cancelled) setLoading(false); }, 2000);
       try {
+        let initLists: AppList[] | undefined;
         await Promise.allSettled([
           fetchEvents(),
           listsClientService.getLists(parentId).then((lists) => {
-            if (!cancelled) setRoutineLists((lists || []).filter((list) => list.category === 'routine'));
+            initLists = lists || [];
+            if (!cancelled) setRoutineLists(initLists.filter((list) => list.category === 'routine'));
           }),
           settingsClientService.getCalendars(parentId).then((v) => { if (!cancelled) setSyncCalendars(v); }),
           settingsClientService.getCalendarVisibility().then(rows => {
@@ -110,7 +118,7 @@ export function useCalendarData(parentId: string, kids: UserProfile[], isWallMod
             }
           })
         ]);
-        if (isWallMode && !cancelled) await fetchWallData();
+        if (isWallMode && !cancelled) await fetchWallData(initLists);
       } catch (err) {
         clientLogger.errorWithException('calendar_initialization_failed', err, { parentId });
       } finally {

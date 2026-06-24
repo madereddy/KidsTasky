@@ -20,7 +20,7 @@ export function useAppInitialization() {
   const [initError, setInitError] = useState(false);
   const [kids, setKids] = useState<UserProfile[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [isLocked, setIsLocked] = useState(false);
+  const [isLocked, setIsLocked] = useState(() => ['/wall', '/kiosk'].includes(window.location.pathname));
   const [sleepStart, setSleepStart] = useState<string | undefined>();
   const [sleepEnd, setSleepEnd] = useState<string | undefined>();
   const [screensaverShuffle, setScreensaverShuffle] = useState(false);

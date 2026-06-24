@@ -145,7 +145,7 @@ export function CalendarStandardView({
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={navigatePrev} className="p-2 hover:bg-ui-soft-3 rounded-full transition-colors">
+          <button aria-label="Previous" onClick={navigatePrev} className="p-2 hover:bg-ui-soft-3 rounded-full transition-colors">
             <ChevronLeft size={18} />
           </button>
           <button
@@ -154,7 +154,7 @@ export function CalendarStandardView({
           >
             Today
           </button>
-          <button onClick={navigateNext} className="p-2 hover:bg-ui-soft-3 rounded-full transition-colors">
+          <button aria-label="Next" onClick={navigateNext} className="p-2 hover:bg-ui-soft-3 rounded-full transition-colors">
             <ChevronRight size={18} />
           </button>
           <span className="hidden sm:inline text-sm font-semibold text-ui-secondary text-center px-2 sm:min-w-[160px]">{getDateLabel()}</span>
