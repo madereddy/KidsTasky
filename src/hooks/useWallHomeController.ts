@@ -42,9 +42,12 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
   const [celebration, setCelebration] = useState<MissionCompletedPayload | null>(null);
 
   const today = format(new Date(), 'yyyy-MM-dd');
-  const kidIds = useMemo(() => kids.map(k => k.uid).join(','), [kids]);
   // Capture initialSettings once at mount — prevents dep-array instability from re-triggering fetch
   const initialSettingsRef = useRef(initialSettings);
+  // Capture kids in a ref so fetchFamilyData can read current kids without them being a dep
+  // (kids changing reference would otherwise re-trigger the effect on every socket refresh)
+  const kidsRef = useRef(kids);
+  kidsRef.current = kids;
 
   // Update wall mode every minute
   useEffect(() => {
@@ -138,16 +141,17 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
       // Map tasks and completions by kid
       const tMap: Record<string, Task[]> = {};
       const cMap: Record<string, TaskCompletion[]> = {};
-      
+      const currentKids = kidsRef.current;
+
       // Initialize maps for all kids
-      kids.forEach(k => {
+      currentKids.forEach(k => {
         tMap[k.uid] = [];
         cMap[k.uid] = [];
       });
 
       dashboardData.tasks.forEach((t: Task) => {
         if (t.assignedKidId === 'all') {
-          kids.forEach(k => {
+          currentKids.forEach(k => {
             if (!tMap[k.uid]) tMap[k.uid] = [];
             tMap[k.uid].push(t);
           });
@@ -175,7 +179,7 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
     } finally {
       setLoading(false);
     }
-  }, [parentId, kidIds, today]); // initialSettings captured in ref at mount — no dep needed
+  }, [parentId, today]); // kids via kidsRef.current — no dep needed; initialSettings captured in ref
 
   useEffect(() => {
     void fetchFamilyData();
