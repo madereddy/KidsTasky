@@ -53,7 +53,7 @@ export function AvatarDisplay({ avatarPreset, avatarUrl, name, size = 40 }: Avat
   }
   return (
     <div
-      className="bg-blue-500 text-white"
+      className="bg-ui-soft-2 text-ui-primary"
       style={{ ...style, fontSize: size * 0.4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
     >
       {name.charAt(0).toUpperCase()}

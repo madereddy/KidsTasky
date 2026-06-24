@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { CalendarEvent, Homework, Task, TaskCompletion, UserProfile, AppList, AppListItem, DailyIntelligence, MealPlan, Recipe, WallMode, LeaderboardEntry, PowerMission, MissionCompletedPayload } from '../types';
 import { dashboardClientService } from '../services/dashboard';
@@ -43,6 +43,8 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const kidIds = useMemo(() => kids.map(k => k.uid).join(','), [kids]);
+  // Capture initialSettings once at mount — prevents dep-array instability from re-triggering fetch
+  const initialSettingsRef = useRef(initialSettings);
 
   // Update wall mode every minute
   useEffect(() => {
@@ -72,7 +74,7 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
       setLoading(true);
       setLoadError('');
       
-      const settings = initialSettings || await settingsClientService.getSettings(parentId).catch(() => null);
+      const settings = initialSettingsRef.current || await settingsClientService.getSettings(parentId).catch(() => null);
       
       if (settings?.temperatureUnit) setTempUnit(settings.temperatureUnit);
       if (settings?.timeFormat) setTimeFormat(settings.timeFormat);
@@ -173,7 +175,7 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
     } finally {
       setLoading(false);
     }
-  }, [parentId, kidIds, today, initialSettings]); // initialSettings is likely stable or memoized by parent
+  }, [parentId, kidIds, today]); // initialSettings captured in ref at mount — no dep needed
 
   useEffect(() => {
     void fetchFamilyData();
@@ -189,7 +191,7 @@ export function useWallHomeController({ parentId, kids, initialSettings }: UseWa
     };
     socket.on('mission-completed', handler);
     return () => { socket.off('mission-completed', handler); };
-  });
+  }, []);
 
   const nextUp = useMemo(() => calculateNextUp(events, kids), [events, kids]);
 

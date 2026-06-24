@@ -292,5 +292,5 @@ export const WMO_WEATHER: Record<number, { icon: string; label: string }> = {
 };
 
 export function getWeatherInfo(code: number): { icon: string; label: string } {
-  return WMO_WEATHER[code] ?? { icon: "weather", label: "Weather" };
+  return WMO_WEATHER[code] ?? { icon: "⛅", label: "Weather" };
 }
