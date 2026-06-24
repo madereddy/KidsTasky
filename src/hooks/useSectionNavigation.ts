@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, startTransition } from 'react';
 
 export type AppSection = 'home' | 'tasks' | 'calendar' | 'shopping' | 'routines' | 'meals' | 'manage';
 
@@ -17,8 +17,10 @@ export function useSectionNavigation() {
   });
 
   const goToSection = useCallback((section: AppSection) => {
-    setMountedSections(prev => prev.has(section) ? prev : new Set([...prev, section]));
-    setActiveSection(section);
+    startTransition(() => {
+      setMountedSections(prev => prev.has(section) ? prev : new Set([...prev, section]));
+      setActiveSection(section);
+    });
     const newPath = section === 'home' ? '/' : `/${section}`;
     if (window.location.pathname !== newPath) {
       window.history.pushState(null, '', newPath);

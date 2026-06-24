@@ -41,17 +41,19 @@ export const weatherService = {
       if (!res?.ok) throw new Error('Weather fetch failed');
 
       const data = await res.json();
+      const today = new Date().toISOString().slice(0, 10);
       const daily: DailyForecast[] = [];
 
       for (let i = 0; i < data.daily.time.length; i++) {
-        daily.push({
-          date: data.daily.time[i],
-          maxTemp: data.daily.temperature_2m_max[i],
-          minTemp: data.daily.temperature_2m_min[i],
-          weatherCode: data.daily.weathercode[i]
-        });
+        if (data.daily.time[i] >= today) {
+          daily.push({
+            date: data.daily.time[i],
+            maxTemp: data.daily.temperature_2m_max[i],
+            minTemp: data.daily.temperature_2m_min[i],
+            weatherCode: data.daily.weathercode[i]
+          });
+        }
       }
-      const today = new Date().toISOString().slice(0, 10);
       const hourlyToday: HourlyForecastEntry[] = [];
       if (Array.isArray(data.hourly?.time)) {
         for (let i = 0; i < data.hourly.time.length; i++) {
