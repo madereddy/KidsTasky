@@ -38,11 +38,13 @@ export function ShoppingModeOverlay({ parentId, onClose }: ShoppingModeOverlayPr
   };
 
   const handleClose = async () => {
-    const idsToComplete = Array.from(stagedOriginalIds);
-    // Fire off completion updates without blocking the UI close
-    idsToComplete.forEach(id => {
-      void toggleItem(id, true);
-    });
+    if (stagedOriginalIds.size > 0) {
+      try {
+        await Promise.all(Array.from(stagedOriginalIds).map(id => toggleItem(id, true)));
+      } catch {
+        // close regardless of toggle errors
+      }
+    }
     onClose();
   };
 
