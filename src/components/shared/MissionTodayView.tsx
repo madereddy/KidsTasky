@@ -133,7 +133,7 @@ export function MissionTodayView({
           : (item.type === 'event' ? 'text-blue-500' : item.type === 'task' ? 'text-emerald-500' : 'text-amber-500');
         const iconStyle = isHex ? { color: item.color } : {};
         const isExpanded = expandedRoutineId === item.id;
-        const showRoutineChecklist = item.type === 'routine' && isExpanded;
+        const showRoutineChecklist = item.type === 'routine' && (isExpanded || isMobileViewport);
         const disableRoutineDismissSwipe = item.type === 'routine' && isMobileViewport;
         const routineList = item.type === 'routine' ? item.originalData as AppList : null;
         const routineChecklistItems = routineList
@@ -146,7 +146,7 @@ export function MissionTodayView({
           <SwipeableRow
             key={item.id}
             onSwipeRight={() => onAction(item, 'complete')}
-            onSwipeLeft={disableRoutineDismissSwipe ? () => {} : () => onAction(item, 'dismiss')}
+            onSwipeLeft={disableRoutineDismissSwipe ? undefined : () => onAction(item, 'dismiss')}
             onClick={item.type === 'routine' && !isMobileViewport ? () => setExpandedRoutineId(isExpanded ? null : item.id) : undefined}
           >
             <div className="flex flex-col gap-4">

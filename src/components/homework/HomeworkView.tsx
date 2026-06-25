@@ -67,14 +67,14 @@ export function HomeworkView({ parentId, kids, userRole, currentUserId }: Props)
         )}
         {(userRole === 'kid' ? pendingHomework : visibleHomework).map((item) => {
           const completionState = getHomeworkCompletionState(item);
-          const isOverdue = completionState !== 'done' && isBefore(new Date(item.dueDate), startOfDay(new Date()));
+          const isOverdue = completionState !== 'done' && isBefore(new Date(item.dueDate + 'T00:00:00'), startOfDay(new Date()));
           const assignee = getAssigneeName(item);
           return (
             <div key={item.id} className={`flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-center sm:justify-between ${userRole === 'kid' ? 'border-2 border-ui-soft bg-white shadow-sm' : 'border-ui'}`}>
               <div>
                 <p className="font-semibold text-ui-primary">{item.title}</p>
                 <p className="text-xs text-ui-muted">
-                  {item.subject} • Due {format(new Date(item.dueDate), 'MMM d, yyyy')} • {assignee}
+                  {item.subject} • Due {format(new Date(item.dueDate + 'T00:00:00'), 'MMM d, yyyy')} • {assignee}
                   {item.recurrence && item.recurrence !== 'none' ? ` • Repeats: ${item.recurrence === 'weekdays' ? 'weekdays' : 'daily'}` : ''}
                 </p>
                 {isOverdue && <p className="text-xs text-rose-600 font-semibold">Overdue</p>}

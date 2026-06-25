@@ -11,7 +11,7 @@ export function WeeklyWeather({ forecast = [], temperatureUnit = 'celsius' }: { 
       {forecast.map((day) => (
         <div key={day.date} className="flex flex-col items-center min-w-[60px] p-2 border-r last:border-r-0">
           <span className="text-xs font-medium text-ui-muted">
-            {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}
+            {new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' })}
           </span>
           <span className="text-[10px] text-ui-muted mt-1">{getWeatherInfo(day.weatherCode).icon}</span>
           <div className="flex flex-col mt-1 font-semibold text-center">

@@ -11,13 +11,13 @@ describe('Weather Service', () => {
       ok: true,
       json: async () => ({
         daily: {
-          time: ['2026-04-25'],
+          time: ['2026-12-25'],
           temperature_2m_max: [75],
           temperature_2m_min: [55],
           weathercode: [3]
         },
         hourly: {
-          time: ['2026-04-25T10:00'],
+          time: ['2026-12-25T10:00'],
           temperature_2m: [68],
           weathercode: [2]
         }

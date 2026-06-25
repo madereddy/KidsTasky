@@ -13,4 +13,11 @@ describe('WeeklyWeather', () => {
     expect(screen.getByText('75°')).toBeInTheDocument();
     expect(screen.getByText('55°')).toBeInTheDocument();
   });
+
+  it('displays correct weekday name for date string (no UTC off-by-one)', () => {
+    // 2026-04-25 is Saturday. Parsing as UTC midnight shifts to Friday in UTC-offset timezones.
+    const forecast = [{ date: '2026-04-25', maxTemp: 80, minTemp: 60, weatherCode: 0 }];
+    render(<WeeklyWeather forecast={forecast} />);
+    expect(screen.getByText('Sat')).toBeInTheDocument();
+  });
 });

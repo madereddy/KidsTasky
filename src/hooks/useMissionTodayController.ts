@@ -170,29 +170,26 @@ export function useMissionTodayController({
       });
     });
 
-    // 4. Process Routines themselves (as summaries) - only for parents
-    const isParentRole = profile.role === 'parent' || profile.role === 'coparent';
-    if (isParentRole) {
-      lists.forEach(list => {
-        if (!list.isRoutine || list.category !== 'routine') return;
+    // 4. Process Routines themselves (as summaries) - all roles see their checklists
+    lists.forEach(list => {
+      if (!list.isRoutine || list.category !== 'routine') return;
 
-        const allRoutineItems = listItems.filter(i => i.listId === list.id);
-        if (allRoutineItems.length === 0) return;
-        const routineItems = allRoutineItems.filter(i => !i.completed);
-        const routineCompleted = routineItems.length === 0;
+      const allRoutineItems = listItems.filter(i => i.listId === list.id);
+      if (allRoutineItems.length === 0) return;
+      const routineItems = allRoutineItems.filter(i => !i.completed);
+      const routineCompleted = routineItems.length === 0;
 
-        items.push({
-          id: `routine_${list.id}`,
-          type: 'routine',
-          title: list.title,
-          subtitle: routineCompleted ? 'Completed. Ready to reset.' : `${routineItems.length} items remaining`,
-          status: routineCompleted ? 'completed' : 'pending',
-          locationName: list.locationName,
-          listCategory: list.category,
-          originalData: list
-        });
+      items.push({
+        id: `routine_${list.id}`,
+        type: 'routine',
+        title: list.title,
+        subtitle: routineCompleted ? 'Completed. Ready to reset.' : `${routineItems.length} items remaining`,
+        status: routineCompleted ? 'completed' : 'pending',
+        locationName: list.locationName,
+        listCategory: list.category,
+        originalData: list
       });
-    }
+    });
 
     // Deduplicate by ID
     const uniqueItems = Array.from(new Map(items.map(item => [item.id, item])).values());

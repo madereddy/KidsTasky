@@ -21,6 +21,13 @@ describe('useMissionTodayController', () => {
     email: 'kid1@example.com',
   };
 
+  const mockParentProfile: UserProfile = {
+    uid: 'parent1',
+    role: 'parent',
+    name: 'Parent One',
+    email: 'parent1@example.com',
+  };
+
   const mockCategories: Category[] = [
     { id: 'cat1', name: 'Home', icon: '🏠', color: 'bg-blue-500', parentId: 'p1' },
     { id: 'cat2', name: 'School', icon: '🏫', color: 'bg-emerald-500', parentId: 'p1' }
@@ -206,7 +213,7 @@ describe('useMissionTodayController', () => {
       { id: 'list1', parentId: 'parent1', title: 'Morning Routine', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
     ];
     const { result } = renderHook(() => useMissionTodayController({
-      profile: mockProfile,
+      profile: mockParentProfile,
       tasks: [],
       events: [],
       completions: [],
@@ -240,7 +247,7 @@ describe('useMissionTodayController', () => {
     ];
 
     const { result } = renderHook(() => useMissionTodayController({
-      profile: mockProfile,
+      profile: mockParentProfile,
       tasks: [],
       events: [],
       completions: [],
@@ -266,7 +273,7 @@ describe('useMissionTodayController', () => {
     ];
 
     const { result } = renderHook(() => useMissionTodayController({
-      profile: mockProfile,
+      profile: mockParentProfile,
       tasks: [],
       events: [],
       completions: [],
@@ -291,7 +298,7 @@ describe('useMissionTodayController', () => {
     ];
 
     const { result } = renderHook(() => useMissionTodayController({
-      profile: mockProfile,
+      profile: mockParentProfile,
       tasks: [],
       events: [],
       completions: [],
@@ -320,7 +327,7 @@ describe('useMissionTodayController', () => {
     ];
 
     const { result } = renderHook(() => useMissionTodayController({
-      profile: mockProfile,
+      profile: mockParentProfile,
       tasks: [],
       events: [],
       completions: [],
