@@ -231,9 +231,9 @@ describe('useMissionTodayController', () => {
       ]
     }));
 
-    expect(result.current.missionItems).toHaveLength(1);
-    expect(result.current.missionItems.find(i => i.id === 'routine_list1')?.type).toBe('routine');
-    expect(result.current.missionItems.find(i => i.id === 'routine_list1')?.subtitle).toBe('3 items remaining');
+    // Routine list items are skipped; routine cards no longer appear on mobile home
+    expect(result.current.missionItems).toHaveLength(0);
+    expect(result.current.missionItems.find(i => i.id === 'routine_list1')).toBeUndefined();
   });
 
   it('tags routine list items with the parent list category and excludes shopping items', () => {
@@ -257,7 +257,8 @@ describe('useMissionTodayController', () => {
       categories: mockCategories
     }));
 
-    expect(result.current.missionItems.find(i => i.id === 'routine_routine-list')?.listCategory).toBe('routine');
+    // Routine cards no longer shown on mobile home; individual routine items also excluded
+    expect(result.current.missionItems.find(i => i.id === 'routine_routine-list')).toBeUndefined();
     expect(result.current.missionItems.find(i => i.id === 'list_shopping-item')).toBeUndefined();
     expect(result.current.missionItems.find(i => i.id === 'list_routine-item')).toBeUndefined();
   });
@@ -283,7 +284,8 @@ describe('useMissionTodayController', () => {
       categories: mockCategories
     }));
 
-    expect(result.current.missionItems.map((item) => item.id)).toContain('routine_routine-list');
+    // Routine cards no longer appear on mobile home
+    expect(result.current.missionItems.map((item) => item.id)).not.toContain('routine_routine-list');
     expect(result.current.missionItems.map((item) => item.id)).not.toContain('list_shopping-item');
   });
 
@@ -308,16 +310,16 @@ describe('useMissionTodayController', () => {
       categories: mockCategories
     }));
 
-    // Grouped routine (isRoutine: 1)
+    // Grouped routine (isRoutine: 1) — items excluded, routine card no longer shown on mobile home
     expect(result.current.missionItems.map((item) => item.id)).not.toContain('list_daily-item');
-    expect(result.current.missionItems.map((item) => item.id)).toContain('routine_daily-routine');
+    expect(result.current.missionItems.map((item) => item.id)).not.toContain('routine_daily-routine');
     
     // Non-grouped routine (isRoutine: 0) - implementation currently includes these items as list_item
     expect(result.current.missionItems.map((item) => item.id)).toContain('list_library-item');
     expect(result.current.missionItems.map((item) => item.id)).not.toContain('routine_library-routine');
   });
 
-  it('keeps completed mission routines visible so they can be reused', () => {
+  it('excludes routine cards even when all items are completed', () => {
     const lists: AppList[] = [
       { id: 'daily-routine', parentId: 'parent1', title: 'Morning Routine', category: 'routine', isRoutine: 1, createdAt: '', updatedAt: '' },
     ];
@@ -337,11 +339,8 @@ describe('useMissionTodayController', () => {
       categories: mockCategories
     }));
 
-    expect(result.current.missionItems.find((item) => item.id === 'routine_daily-routine')).toMatchObject({
-      type: 'routine',
-      status: 'completed',
-      subtitle: 'Completed. Ready to reset.'
-    });
+    // Routine cards no longer appear on mobile home — use Routines section instead
+    expect(result.current.missionItems.find((item) => item.id === 'routine_daily-routine')).toBeUndefined();
   });
 
   it('populates time for tasks with reminderTime', () => {

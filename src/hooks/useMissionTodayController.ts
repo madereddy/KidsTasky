@@ -143,7 +143,7 @@ export function useMissionTodayController({
       const parentList = lists.find(l => l.id === item.listId);
       if (!parentList) return;
 
-      // Skip routine items here - they'll be shown inside the routine card
+      // Skip individual routine items — routines are not shown on mobile home
       if (parentList.category === 'routine' && parentList.isRoutine) return;
       
       // EXCLUDE shopping items from Mission Today
@@ -167,27 +167,6 @@ export function useMissionTodayController({
         locationName: locationName as string,
         listCategory: parentList?.category,
         originalData: item
-      });
-    });
-
-    // 4. Process Routines themselves (as summaries) - all roles see their checklists
-    lists.forEach(list => {
-      if (!list.isRoutine || list.category !== 'routine') return;
-
-      const allRoutineItems = listItems.filter(i => i.listId === list.id);
-      if (allRoutineItems.length === 0) return;
-      const routineItems = allRoutineItems.filter(i => !i.completed);
-      const routineCompleted = routineItems.length === 0;
-
-      items.push({
-        id: `routine_${list.id}`,
-        type: 'routine',
-        title: list.title,
-        subtitle: routineCompleted ? 'Completed. Ready to reset.' : `${routineItems.length} items remaining`,
-        status: routineCompleted ? 'completed' : 'pending',
-        locationName: list.locationName,
-        listCategory: list.category,
-        originalData: list
       });
     });
 
