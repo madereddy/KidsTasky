@@ -64,7 +64,7 @@ export function EventDetailModal({ event, kids, parentProfile, routineLists = []
   const handleSave = async (scope: 'one' | 'future' = 'one') => {
     setSaving(true);
     try {
-      await eventsClientService.updateEvent(event.id, { title, description, color, assignedToId: assignedToId || undefined, routineListId: routineListId || null, reminderMinutes: reminderMinutes ?? undefined, isCountdown: isCountdown ? 1 : 0 }, scope);
+      await eventsClientService.updateEvent(event.id, { title, description, color, assignedToId: assignedToId || null, routineListId: routineListId || null, reminderMinutes: reminderMinutes ?? undefined, isCountdown: isCountdown ? 1 : 0 }, scope);
       onUpdated();
       onClose();
     } finally {
