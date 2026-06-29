@@ -1,6 +1,6 @@
 import { userService } from '../../services/users';
 import { tasksClientService } from '../../services/tasks';
-import React, { useState, useEffect, useCallback, useRef, Suspense, startTransition } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { Clock, CalendarDays, History, Bell, Award, SlidersHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, startOfToday } from 'date-fns';
@@ -59,7 +59,7 @@ export function KidDashboard({
   const [sortBy, setSortBy] = useState<'time' | 'created'>('time');
   const [kidView, setKidView] = useState<'tasks' | 'calendar' | 'homework' | 'shop'>('tasks');
   const [showFilters, setShowFilters] = useState(false);
-  const [, setTabRetryTick] = useState(0);
+
 
   useEffect(() => {
     if (!activeSection) return;
@@ -70,10 +70,7 @@ export function KidDashboard({
   }, [activeSection]);
 
   const goKidView = useCallback((view: 'tasks' | 'calendar' | 'homework' | 'shop') => {
-    startTransition(() => {
-      setKidView(view);
-    });
-    setTimeout(() => setTabRetryTick(t => t + 1), 50);
+    setKidView(view);
   }, []);
   const [taskView, setTaskView] = useState<'all' | 'upforgrabs' | 'assigned'>('all');
   const [showHistory, setShowHistory] = useState(false);
