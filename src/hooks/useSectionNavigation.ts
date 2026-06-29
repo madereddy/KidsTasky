@@ -1,4 +1,4 @@
-import { useState, useCallback, startTransition } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 export type AppSection = 'home' | 'tasks' | 'calendar' | 'shopping' | 'routines' | 'meals' | 'manage';
 
@@ -16,11 +16,20 @@ export function useSectionNavigation() {
     return new Set([initial]);
   });
 
-  const goToSection = useCallback((section: AppSection) => {
-    startTransition(() => {
+  // Sync activeSection when user navigates via browser back/forward
+  useEffect(() => {
+    const handlePopState = () => {
+      const section = getSectionFromPath();
       setMountedSections(prev => prev.has(section) ? prev : new Set([...prev, section]));
       setActiveSection(section);
-    });
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const goToSection = useCallback((section: AppSection) => {
+    setMountedSections(prev => prev.has(section) ? prev : new Set([...prev, section]));
+    setActiveSection(section);
     const newPath = section === 'home' ? '/' : `/${section}`;
     if (window.location.pathname !== newPath) {
       window.history.pushState(null, '', newPath);
