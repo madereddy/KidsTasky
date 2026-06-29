@@ -141,7 +141,7 @@ export interface CalendarEvent {
   description: string;
   startTime: number;
   endTime: number;
-  assignedToId?: string;
+  assignedToId?: string | null;
   color: string;
   externalId?: string;
   source?: string;

@@ -147,6 +147,8 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
     })
     .sort((a, b) => a.startTime - b.startTime);
 
+  const allTodayEvents = events.filter(e => format(new Date(e.startTime), 'yyyy-MM-dd') === today);
+
   const todayHomework = homework.filter(h =>
     h.status === 'pending' && h.dueDate <= today
   );
@@ -275,8 +277,8 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
 
     // Build day groups: today through +4 days
     type DayItem =
-      | { type: 'event'; data: CalendarEvent }
-      | { type: 'hw'; data: Homework };
+      | { type: 'event'; data: CalendarEvent; isPast: boolean }
+      | { type: 'hw'; data: Homework; isPast: boolean };
 
     const dayGroups: Array<{ label: string; items: DayItem[] }> = [];
 
@@ -288,15 +290,15 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
       const dayEvts = events
         .filter(e => {
           const evDate = format(new Date(e.startTime), 'yyyy-MM-dd');
-          return evDate === dateStr && (d === 0 ? getEffectiveEventEndTime(e) > nowMs : true);
+          return evDate === dateStr;
         })
         .sort((a, b) => a.startTime - b.startTime);
 
       const dayHw = homework.filter(h => h.status === 'pending' && h.dueDate === dateStr);
 
       const items: DayItem[] = [
-        ...dayEvts.map(e => ({ type: 'event' as const, data: e })),
-        ...dayHw.map(h => ({ type: 'hw' as const, data: h })),
+        ...dayEvts.map(e => ({ type: 'event' as const, data: e, isPast: d === 0 && getEffectiveEventEndTime(e) <= nowMs })),
+        ...dayHw.map(h => ({ type: 'hw' as const, data: h, isPast: false })),
       ];
 
       if (items.length > 0 || d < 2) {
@@ -368,27 +370,27 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
                         key={kid.uid}
                         data-testid={`kid-card-${kid.uid}`}
                         className={cn(
-                          'rounded-2xl border-2 cursor-pointer min-h-[64px]',
-                          allDone ? 'border-emerald-500' : 'border-ui'
+                          'rounded-2xl border-2 cursor-pointer min-h-[88px]',
+                          allDone ? 'border-emerald-500 bg-emerald-50/50' : 'border-ui'
                         )}
                         onClick={() => setExpandedKidId(isExpanded ? null : kid.uid)}
                       >
                         {/* Card header */}
-                        <div className="flex items-center gap-3 px-3 py-3">
+                        <div className="flex items-center gap-3 px-4 py-4">
                           <div
-                            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-base shrink-0"
+                            className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl shrink-0"
                             style={{ backgroundColor: color }}
                           >
                             {kid.name.charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-bold text-ui-primary">{kid.name}</div>
-                            <div className={cn('text-xs', allDone ? 'text-emerald-600 font-semibold' : 'text-ui-muted')}>
-                              {allDone ? 'All done!' : `${done} of ${total} done`}
+                            <div className="text-base font-bold text-ui-primary">{kid.name}</div>
+                            <div className={cn('text-sm', allDone ? 'text-emerald-600 font-semibold' : 'text-ui-muted')}>
+                              {allDone ? 'All done! 🎉' : `${done} of ${total} done`}
                             </div>
                           </div>
                           <div className={cn(
-                            'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0',
+                            'w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0',
                             allDone ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
                           )}>
                             {allDone ? '✓' : remaining}
@@ -523,7 +525,7 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
                   </div>
 
                   {items.length === 0 ? (
-                    <p className="text-sm text-ui-muted-2 pl-2">Nothing scheduled</p>
+                    <p className="text-sm text-ui-muted-2 pl-2">{label === 'Today' ? 'No events today' : 'Nothing scheduled'}</p>
                   ) : (
                     <div>
                       {items.map(item => {
@@ -535,14 +537,14 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
                             ? kids.find(k => k.uid === evt.assignedToId)?.name ?? null
                             : null;
                           return (
-                            <div key={evt.id} className="flex items-center gap-4 py-3.5 border-b border-ui-soft last:border-0">
+                            <div key={evt.id} className={cn("flex items-center gap-4 py-3.5 border-b border-ui-soft last:border-0 transition-opacity", item.isPast && "opacity-35")}>
                               <div className="w-[80px] shrink-0 text-right">
                                 <span className="text-sm font-semibold text-ui-secondary tabular-nums">
                                   {evt.isAllDay ? 'All day' : format(new Date(evt.startTime), 'h:mm a')}
                                 </span>
                               </div>
                               <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: evtColor }} />
-                              <p className="flex-1 text-xl font-bold text-ui-primary truncate">
+                              <p className={cn("flex-1 text-xl font-bold text-ui-primary truncate", item.isPast && "line-through")}>
                                 {evt.title}
                               </p>
                               {assignedName && (
@@ -670,7 +672,9 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
             </div>
           )}
           {todayEvents.length === 0 && todayHomework.length === 0 ? (
-            <p className={cn("text-ui-muted", isWallMode ? "text-base" : "text-sm")}>Nothing scheduled today.</p>
+            <p className={cn("text-ui-muted", isWallMode ? "text-base" : "text-sm")}>
+              {allTodayEvents.length > 0 ? 'No more events today.' : 'Nothing scheduled today.'}
+            </p>
           ) : (
             <div className="space-y-2 overflow-y-auto max-h-40">
               {todayEvents.map(event => {
