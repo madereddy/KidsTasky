@@ -20,6 +20,7 @@ type ViewMode = 'month' | 'week' | 'day' | 'agenda';
 interface Props {
   parentId: string;
   kids: UserProfile[];
+  parentProfile?: UserProfile;
   memberColorMap: Record<string, string>;
   isLocked: boolean;
   userRole?: 'parent' | 'kid' | 'coparent';
@@ -76,6 +77,7 @@ const VIEW_LABELS: { mode: ViewMode; label: string; short: string }[] = [
 export function CalendarStandardView({
   parentId,
   kids,
+  parentProfile,
   memberColorMap,
   isLocked,
   userRole,
@@ -195,13 +197,37 @@ export function CalendarStandardView({
         </div>
       </div>
 
-      {kids.length > 0 && (
+      {(kids.length > 0 || parentProfile) && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-ui-soft bg-white shrink-0 flex-wrap">
           <button
             onClick={() => setVisibleMemberIds(new Set(['all']))}
             className={cn('px-3 py-1 rounded-full text-xs font-semibold transition-colors',
               visibleMemberIds.has('all') ? 'bg-blue-500 text-white' : 'bg-ui-soft-2 text-ui-muted hover:bg-ui-soft-3')}
           >All</button>
+          {parentProfile && (() => {
+            const color = memberColorMap[parentProfile.uid] ?? '#6366f1';
+            const active = visibleMemberIds.has(parentProfile.uid);
+            return (
+              <button
+                key={parentProfile.uid}
+                onClick={() => {
+                  setVisibleMemberIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete('all');
+                    if (next.has(parentProfile.uid)) { next.delete(parentProfile.uid); if (next.size === 0) return new Set(['all']); }
+                    else next.add(parentProfile.uid);
+                    return next;
+                  });
+                }}
+                className={cn('flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors border',
+                  active ? 'text-white border-transparent' : 'bg-white text-ui-secondary border-ui hover:border-ui-soft-strong')}
+                style={active ? { backgroundColor: color, borderColor: color } : {}}
+              >
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                {parentProfile.name} (me)
+              </button>
+            );
+          })()}
           {kids.map((kid) => {
             const color = memberColorMap[kid.uid] ?? '#6366f1';
             const active = visibleMemberIds.has(kid.uid);
@@ -331,6 +357,7 @@ export function CalendarStandardView({
         <EventDetailModal
           event={selectedEvent}
           kids={kids}
+          parentProfile={parentProfile}
           routineLists={routineLists}
           userRole={userRole || 'parent'}
           onClose={() => setSelectedEvent(null)}

@@ -16,6 +16,7 @@ type WallFilter = 'today' | 'week' | 'allday';
 interface Props {
   parentId: string;
   kids?: UserProfile[];
+  parentProfile?: UserProfile;
   memberColorMap?: Record<string, string>;
   isLocked?: boolean;
   userRole?: 'parent' | 'kid' | 'coparent';
@@ -29,7 +30,7 @@ export function CalendarView(props: Props) {
   );
 }
 
-function CalendarViewInner({ parentId, kids = [], memberColorMap = {}, isLocked = false, userRole = 'parent' }: Props) {
+function CalendarViewInner({ parentId, kids = [], parentProfile, memberColorMap = {}, isLocked = false, userRole = 'parent' }: Props) {
   const calendarSelectionStorageKey = `kidtasker:calendar:selected:${parentId}`;
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   useEffect(() => {
@@ -186,7 +187,7 @@ function CalendarViewInner({ parentId, kids = [], memberColorMap = {}, isLocked 
 
   const visibleEvents = visibleMemberIds.has('all')
     ? events
-    : events.filter((e) => !e.assignedToId || visibleMemberIds.has(e.assignedToId));
+    : events.filter((e) => !!e.assignedToId && visibleMemberIds.has(e.assignedToId));
     
   const enabledVisibleCalendarIds = new Set(
     syncCalendars
@@ -229,6 +230,7 @@ function CalendarViewInner({ parentId, kids = [], memberColorMap = {}, isLocked 
     <CalendarStandardView
       parentId={parentId}
       kids={kids}
+      parentProfile={parentProfile}
       memberColorMap={memberColorMap}
       isLocked={isLocked}
       userRole={userRole}

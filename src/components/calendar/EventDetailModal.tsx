@@ -12,6 +12,7 @@ const REMINDER_LABELS: Record<number, string> = { 0: 'At time', 5: '5 min before
 interface Props {
   event: CalendarEvent;
   kids: UserProfile[];
+  parentProfile?: UserProfile;
   routineLists?: AppList[];
   userRole: 'parent' | 'kid' | 'coparent';
   onClose: () => void;
@@ -25,7 +26,7 @@ const RSVP_OPTIONS = [
   { value: 'maybe', label: 'Maybe', icon: HelpCircle, color: 'text-amber-500 bg-amber-50 border-amber-200' },
 ] as const;
 
-export function EventDetailModal({ event, kids, routineLists = [], userRole, onClose, onUpdated }: Props) {
+export function EventDetailModal({ event, kids, parentProfile, routineLists = [], userRole, onClose, onUpdated }: Props) {
   const { dialogRef, onKeyDown } = useDialogA11y(true, onClose);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(event.title);
@@ -90,7 +91,8 @@ export function EventDetailModal({ event, kids, routineLists = [], userRole, onC
     onClose();
   };
 
-  const assignee = kids.find(k => k.uid === event.assignedToId);
+  const allMembers = parentProfile ? [parentProfile, ...kids] : kids;
+  const assignee = allMembers.find(m => m.uid === event.assignedToId);
   const attendees = event.attendees ?? [];
   const recurrenceLabel = event.recurrence && event.recurrence !== 'none'
     ? `${event.recurrence.charAt(0).toUpperCase() + event.recurrence.slice(1)}${event.recurrenceEnd ? ` until ${event.recurrenceEnd}` : ''}`
@@ -133,7 +135,7 @@ export function EventDetailModal({ event, kids, routineLists = [], userRole, onC
               </div>
               <select value={assignedToId} onChange={e => setAssignedToId(e.target.value)} className="w-full border border-ui rounded-lg px-3 py-2 text-sm">
                 <option value="">Everyone</option>
-                {kids.map(k => <option key={k.uid} value={k.uid}>{k.name}</option>)}
+                {allMembers.map(m => <option key={m.uid} value={m.uid}>{m.name}{m.uid === parentProfile?.uid ? ' (me)' : ''}</option>)}
               </select>
               <select value={routineListId} onChange={e => setRoutineListId(e.target.value)} className="w-full border border-ui rounded-lg px-3 py-2 text-sm">
                 <option value="">No attached routine</option>
@@ -232,17 +234,23 @@ export function EventDetailModal({ event, kids, routineLists = [], userRole, onC
 
           {isParent && !editing && (
             <div className="mt-2">
-              <p className="text-xs font-semibold text-ui-muted mb-1">Add attendee</p>
+              <p className="text-xs font-semibold text-ui-muted mb-1">Assign / add attendee</p>
               <div className="flex gap-2 flex-wrap">
-                {kids
-                  .filter((kid) => !attendees.find((attendee) => attendee.userId === kid.uid))
-                  .map((kid) => (
+                {allMembers
+                  .filter((member) => !attendees.find((attendee) => attendee.userId === member.uid))
+                  .map((member) => (
                     <button
-                      key={kid.uid}
-                      onClick={() => eventsClientService.addAttendee(event.id, kid.uid).then(onUpdated)}
+                      key={member.uid}
+                      onClick={async () => {
+                        await eventsClientService.addAttendee(event.id, member.uid);
+                        if (!event.assignedToId) {
+                          await eventsClientService.updateEvent(event.id, { assignedToId: member.uid }, 'one');
+                        }
+                        onUpdated();
+                      }}
                       className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-ui-soft border border-ui hover:bg-sky-50 hover:border-sky-300 transition-colors"
                     >
-                      <UserPlus size={11} /> {kid.name}
+                      <UserPlus size={11} /> {member.name}{member.uid === parentProfile?.uid ? ' (me)' : ''}
                     </button>
                   ))}
               </div>
