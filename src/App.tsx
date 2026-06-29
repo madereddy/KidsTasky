@@ -153,15 +153,20 @@ export default function App() {
     if (profile) warmProfile(profile);
   }, [profile, warmProfile]);
 
-  // Eagerly pre-mount common mobile tabs in background so they're ready on first tap
+  // Pre-mount all sections in background so lazy promises resolve before first user click.
+  // Separating premountSection from setActiveSection in time ensures the Suspense boundary
+  // finds the lazy promise already resolved when the user navigates, preventing skeleton freeze.
   useEffect(() => {
-    if (!profile || !isMobile) return;
+    if (!profile) return;
     const timer = setTimeout(() => {
+      premountSection('tasks');
       premountSection('calendar');
       premountSection('shopping');
-    }, 800);
+      premountSection('routines');
+      premountSection('meals');
+    }, 1500);
     return () => clearTimeout(timer);
-  }, [profile, isMobile, premountSection]);
+  }, [profile, premountSection]);
 
   const {
     showProfileSwitcher, setShowProfileSwitcher,
