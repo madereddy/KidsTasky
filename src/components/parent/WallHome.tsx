@@ -36,6 +36,7 @@ interface Props {
   onToggleWall?: () => void;
   onToggleKiosk?: () => void;
   onExitKiosk?: () => void;
+  onUnlock?: () => void;
 }
 
 // Original clock used in non-wall mode
@@ -86,7 +87,7 @@ interface KidProgress {
   done: number;
 }
 
-export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, onManage, settings, justWoke = 0, onToggleWall, onToggleKiosk, onExitKiosk }: Props) {
+export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, onManage, settings, justWoke = 0, onToggleWall, onToggleKiosk, onExitKiosk, onUnlock }: Props) {
   const [expandedKidId, setExpandedKidId] = useState<string | null>(null);
   const [showWakeOverlay, setShowWakeOverlay] = useState(false);
   useEffect(() => {
@@ -428,15 +429,24 @@ export function WallHome({ parentId, profile, kids, memberColorMap, isLocked, on
             </>
           )}
 
-          {/* Manage link — hidden in kiosk mode */}
+          {/* Manage / unlock links — hidden in kiosk mode */}
           {!isKioskMode && (
-            <div className="px-8 pb-6 mt-auto pt-4">
+            <div className="px-8 pb-6 mt-auto pt-4 flex items-center gap-3">
               <button
                 onClick={onManage}
                 className="text-xs text-ui-muted hover:text-ui-primary transition-colors"
               >
                 Manage family →
               </button>
+              {onUnlock && (
+                <button
+                  onClick={onUnlock}
+                  className="text-xs text-ui-muted hover:text-ui-primary transition-colors"
+                  aria-label="Unlock display"
+                >
+                  🔒
+                </button>
+              )}
             </div>
           )}
         </aside>
