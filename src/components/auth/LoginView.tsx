@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldCheck, ArrowLeft, KeyRound, User as UserIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { authService } from '../../services/auth';
@@ -17,6 +17,18 @@ export function LoginView({ onLogin, onKidLogin }: {
   const [familyProfiles, setFamilyProfiles] = useState<any[]>([]);
   const [selectedKid, setSelectedKid] = useState<any>(null);
   const [pin, setPin] = useState('');
+
+  useEffect(() => {
+    const cached = localStorage.getItem('kidtasker_family_email');
+    if (!cached) return;
+    setEmail(cached);
+    authService.getProfilesByEmail(cached).then(kids => {
+      if (kids.length > 0) {
+        setFamilyProfiles(kids);
+        setView('family');
+      }
+    });
+  }, []);
 
   const handleNext = async () => {
     if (isRegister) {
@@ -174,7 +186,19 @@ export function LoginView({ onLogin, onKidLogin }: {
                 </button>
                 <h2 className="text-xl font-bold text-ui-primary">Who's logging in?</h2>
               </div>
-              
+
+              <button
+                onClick={() => {
+                  localStorage.removeItem('kidtasker_family_email');
+                  setFamilyProfiles([]);
+                  setView('login');
+                  setEmail('');
+                }}
+                className="text-xs text-ui-muted hover:text-ui-primary underline mb-4 block text-center"
+              >
+                Not your family? Switch account
+              </button>
+
               <div className="grid grid-cols-2 gap-4">
                 {familyProfiles.map(kid => (
                   <button

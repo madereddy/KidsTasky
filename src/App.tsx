@@ -261,6 +261,7 @@ export default function App() {
       if (res) {
         const { user: u, token } = res; setUser({ uid: u.uid, name: u.name, email: u.email });
         localStorage.setItem('kidtasker_token', token);
+        localStorage.setItem('kidtasker_family_email', email);
         if (u.role) {
           setProfile(u); if (u.role === 'kid') void loadProfileData(u, { fastKidSwitch: true }); else await loadProfileData(u);
           if (u.role === 'parent') persistParentSession({ token, user: { uid: u.uid, name: u.name, email: u.email }, profile: u });
@@ -317,6 +318,7 @@ export default function App() {
         onLogout={async () => {
           await unsubscribeFromPush().catch(() => {});
           localStorage.removeItem('kidtasker_token');
+          localStorage.removeItem('kidtasker_family_email');
           persistParentSession(null);
           setUser(null);
           setProfile(null);
