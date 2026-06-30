@@ -27,6 +27,8 @@ export function LoginView({ onLogin, onKidLogin }: {
         setFamilyProfiles(kids);
         setView('family');
       }
+    }).catch(() => {
+      // Network error on mount — stay on login view
     });
   }, []);
 
