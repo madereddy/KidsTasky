@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { format, isToday } from 'date-fns';
 import { CalendarEvent, TaskCompletion } from '../../types';
 import { cn } from '../../lib/utils';
@@ -11,10 +11,11 @@ interface FamilyDashboardBannerProps {
 }
 
 export function FamilyDashboardBanner({ name, events, completions, className }: FamilyDashboardBannerProps) {
-  const hour = new Date().getHours();
+  const now = new Date();
+  const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const todayEvents = events.filter(e => isToday(new Date(e.startTime)));
-  const pendingApprovals = completions.filter(c => c.approvalStatus === 'pending').length;
+  const todayEvents = useMemo(() => events.filter(e => isToday(new Date(e.startTime))), [events]);
+  const pendingApprovals = useMemo(() => completions.filter(c => c.approvalStatus === 'pending').length, [completions]);
 
   return (
     <div className={cn('rounded-2xl border border-ui bg-white px-4 py-3 flex items-center justify-between gap-3', className)}>
@@ -22,7 +23,7 @@ export function FamilyDashboardBanner({ name, events, completions, className }: 
         <p className="font-black text-ui-primary truncate">
           {greeting}, {name}!
         </p>
-        <p className="text-xs text-ui-muted mt-0.5">{format(new Date(), 'EEEE, MMM d')}</p>
+        <p className="text-xs text-ui-muted mt-0.5">{format(now, 'EEEE, MMM d')}</p>
       </div>
       <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
         {todayEvents.length > 0 && (
