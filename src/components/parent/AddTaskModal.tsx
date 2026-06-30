@@ -414,6 +414,9 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
             </div>
             <button
               type="button"
+              role="switch"
+              aria-checked={requiresApproval}
+              aria-label="Requires approval"
               onClick={() => setRequiresApproval(prev => !prev)}
               className={cn(
                 'relative w-12 h-6 rounded-full transition-colors flex-shrink-0',
