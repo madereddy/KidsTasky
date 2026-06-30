@@ -97,7 +97,7 @@ export function QuickAddModal({ onClose, onSubmit, kids, parentId, routineLists 
         assignedKidId: taskAssignedKidId,
         starValue: taskStarValue,
         frequency: 'daily',
-        requiresApproval: true
+        requiresApproval: false
       });
       onSubmit();
       onClose();

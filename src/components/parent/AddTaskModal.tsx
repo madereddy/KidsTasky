@@ -43,6 +43,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
   const [categoryId, setCategoryId] = useState<string>('');
   const [prerequisiteTaskIds, setPrerequisiteTaskIds] = useState<string[]>([]);
   const [starValue, setStarValue] = useState(1);
+  const [requiresApproval, setRequiresApproval] = useState(initialTask?.requiresApproval ?? false);
   const [completionQuestionsText, setCompletionQuestionsText] = useState('');
   const [completionQuestionsKidId, setCompletionQuestionsKidId] = useState('');
   const [templateName, setTemplateName] = useState('');
@@ -63,6 +64,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
     setCategoryId(initialTask.categoryId || '');
     setPrerequisiteTaskIds(Array.isArray(initialTask.prerequisiteTaskIds) ? initialTask.prerequisiteTaskIds : []);
     setStarValue(initialTask.starValue ?? 1);
+    setRequiresApproval(initialTask.requiresApproval ?? false);
     setCompletionQuestionsText(Array.isArray(initialTask.completionQuestions) ? initialTask.completionQuestions.join('\n') : '');
     setCompletionQuestionsKidId(initialTask.completionQuestionsKidId || '');
   }, [initialTask]);
@@ -95,7 +97,7 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
       customInterval: frequency === 'custom' ? customInterval : undefined,
       prerequisiteTaskIds: prerequisiteTaskIds.length > 0 ? prerequisiteTaskIds : undefined,
       starValue,
-      requiresApproval: true,
+      requiresApproval,
       completionQuestions: completionQuestionsText
         .split('\n')
         .map((line) => line.trim())
@@ -403,6 +405,26 @@ export function AddTaskModal({ onClose, onSubmit, kids, parentId, categories, ex
               ))}
             </div>
             <p className="text-xs text-ui-muted mt-1">Stars kids earn for completing this task</p>
+          </div>
+
+          <div className="flex items-center justify-between p-4 rounded-2xl border border-ui bg-white">
+            <div>
+              <p className="font-bold text-ui-primary text-sm">Requires Approval</p>
+              <p className="text-xs text-ui-muted mt-0.5">Kid must wait for your OK before earning XP</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRequiresApproval(prev => !prev)}
+              className={cn(
+                'relative w-12 h-6 rounded-full transition-colors flex-shrink-0',
+                requiresApproval ? 'bg-sky-500' : 'bg-ui-soft-2'
+              )}
+            >
+              <span className={cn(
+                'absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform',
+                requiresApproval ? 'translate-x-7' : 'translate-x-1'
+              )} />
+            </button>
           </div>
 
           <div>
