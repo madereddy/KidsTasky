@@ -5,7 +5,7 @@ import { sanitizeLocationNames, sanitizeStoreNames } from '../../../lib/househol
 const DEFAULTS: Partial<FamilySettings> = {
   locationLat: 37.7749,
   locationLon: -122.4194,
-  timezone: 'America/Chicago',
+  timezone: 'America/New_York',
   temperatureUnit: 'celsius',
   timeFormat: '12h',
   sleepStart: '21:00',

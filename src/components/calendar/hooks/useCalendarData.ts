@@ -17,7 +17,7 @@ export function useCalendarData(parentId: string, kids: UserProfile[], isWallMod
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [syncCalendars, setSyncCalendars] = useState<SyncCalendar[]>([]);
   const [calendarVisibility, setCalendarVisibility] = useState<Record<string, boolean>>({});
-  const [timezone, setTimezone] = useState('America/Chicago');
+  const [timezone, setTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [temperatureUnit, setTemperatureUnit] = useState<TemperatureUnitPref>('celsius');
   const [timeFormat, setTimeFormat] = useState<TimeFormatPref>('12h');
   const [forecast, setForecast] = useState<DailyForecast[]>([]);
@@ -108,7 +108,7 @@ export function useCalendarData(parentId: string, kids: UserProfile[], isWallMod
           }),
           settingsClientService.getSettings(parentId).then((settings) => {
             if (!settings || cancelled) return;
-            setTimezone(settings.timezone || 'America/Chicago');
+            setTimezone(settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
             setTemperatureUnit((settings.temperatureUnit as TemperatureUnitPref) || 'celsius');
             setTimeFormat((settings.timeFormat as TimeFormatPref) || '12h');
             if (typeof settings.locationLat === 'number' && typeof settings.locationLon === 'number') {
