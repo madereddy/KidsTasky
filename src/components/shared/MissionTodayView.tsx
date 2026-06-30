@@ -9,6 +9,7 @@ import { Calendar, CheckCircle2, ShoppingCart, ListChecks, MapPin } from 'lucide
 import { listsClientService } from '../../services/lists';
 import { clientLogger } from '../../services/clientLogger';
 import { cn } from '../../lib/utils';
+import { FamilyDashboardBanner } from './FamilyDashboardBanner';
 
 interface MissionTodayViewProps {
   profile: UserProfile;
@@ -89,6 +90,14 @@ export function MissionTodayView({
 
   return (
     <div className="flex flex-col gap-3 pb-32">
+      {(profile.role === 'parent' || profile.role === 'coparent') && (
+        <FamilyDashboardBanner
+          name={profile.name}
+          events={events}
+          completions={completions}
+          className="mb-1"
+        />
+      )}
       <h2 className="text-2xl font-black px-2 mb-2">MISSION: TODAY</h2>
 
       <FrequentItemChips items={frequentItems} onAdd={handleQuickAdd} />
