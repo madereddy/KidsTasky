@@ -187,7 +187,11 @@ function CalendarViewInner({ parentId, kids = [], parentProfile, memberColorMap 
 
   const visibleEvents = visibleMemberIds.has('all')
     ? events
-    : events.filter((e) => !!e.assignedToId && visibleMemberIds.has(e.assignedToId));
+    : events.filter((e) => {
+        if (!!e.assignedToId && visibleMemberIds.has(e.assignedToId)) return true;
+        if (e.attendees?.some((a) => visibleMemberIds.has(a.userId))) return true;
+        return false;
+      });
     
   const enabledVisibleCalendarIds = new Set(
     syncCalendars
