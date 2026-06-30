@@ -133,7 +133,7 @@ export function CalendarStandardView({
           {VIEW_LABELS.map(({ mode, label, short }) => (
             <button
               key={mode}
-              onClick={() => setViewMode(mode)}
+              onClick={() => { setViewMode(mode); setSelectedEvent(null); }}
               className={cn(
                 'px-2 sm:px-3 py-1.5 rounded-lg text-sm font-semibold transition-all',
                 viewMode === mode ? 'bg-blue-500 text-white shadow-sm' : 'text-ui-muted hover:text-ui-primary',
@@ -188,7 +188,7 @@ export function CalendarStandardView({
           </button>
           {!isLocked && (
             <button
-              onClick={() => { setDefaultDate(currentDate); setDefaultStartTime(undefined); setShowAddModal(true); }}
+              onClick={() => { setDefaultDate(currentDate); setDefaultStartTime(undefined); setSelectedEvent(null); setShowAddModal(true); }}
               className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 text-white rounded-xl text-sm font-semibold hover:bg-blue-600 transition-colors min-h-[44px] sm:min-w-[100px]"
             >
               <Plus size={16} /> <span className="hidden sm:inline">Quick Add</span>
