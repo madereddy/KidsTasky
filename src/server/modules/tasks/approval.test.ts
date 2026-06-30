@@ -42,7 +42,7 @@ describe('Task Completion Approval', () => {
     expect(kid.earnedStars).toBe(0);
   });
 
-  it('createTask defaults requiresApproval to enabled', () => {
+  it('createTask defaults requiresApproval to disabled', () => {
     const taskId = taskServiceServer.createTask({
       title: 'Default Approval Task',
       frequency: 'daily',
@@ -52,14 +52,14 @@ describe('Task Completion Approval', () => {
     });
 
     const task = db.prepare('SELECT requiresApproval FROM tasks WHERE id = ?').get(taskId) as any;
-    expect(task.requiresApproval).toBe(1);
+    expect(task.requiresApproval).toBe(0);
 
     const completion = taskServiceServer.createCompletion({
       taskId,
       kidId,
       dateString: '2026-01-07',
     });
-    expect(completion.approvalStatus).toBe('pending');
+    expect(completion.approvalStatus).toBe('approved');
   });
 
   it('createTask honors requiresApproval=false when provided', () => {

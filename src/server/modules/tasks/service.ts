@@ -90,7 +90,7 @@ export const taskServiceServer = {
   createTask: (task: any) => {
     const id = "task_" + randomUUID();
     const prereqs = task.prerequisiteTaskIds ? JSON.stringify(task.prerequisiteTaskIds) : "[]";
-    const requiresApproval = task.requiresApproval === undefined ? 1 : (task.requiresApproval ? 1 : 0);
+    const requiresApproval = task.requiresApproval === undefined ? 0 : (task.requiresApproval ? 1 : 0);
     const completionQuestions = Array.isArray(task.completionQuestions) && task.completionQuestions.length > 0
       ? JSON.stringify(task.completionQuestions)
       : null;
