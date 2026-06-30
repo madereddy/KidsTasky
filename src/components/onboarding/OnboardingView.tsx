@@ -109,8 +109,8 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-md glass-panel p-10 rounded-[40px]">
-        <h2 className="title-immersive text-3xl mb-2">Identify Payload</h2>
-        <p className="text-ui-muted mb-8 uppercase text-[10px] font-bold tracking-widest">Scanning user credentials...</p>
+        <h2 className="title-immersive text-3xl mb-2">Welcome to Family Hub</h2>
+        <p className="text-ui-muted mb-8 uppercase text-xs font-bold tracking-widest">Tell us who you are to get started.</p>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <button 
@@ -124,8 +124,8 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <p className="font-black uppercase tracking-tight text-[10px]">Ground Control</p>
-              <p className="text-[8px] text-ui-muted mt-0.5 uppercase">Coordinate</p>
+              <p className="font-black uppercase tracking-tight text-xs">Parent</p>
+              <p className="text-xs text-ui-muted mt-0.5 uppercase">Manage tasks & family</p>
             </div>
           </button>
 
@@ -140,8 +140,8 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
               <Baby className="w-5 h-5" />
             </div>
             <div>
-              <p className="font-black uppercase tracking-tight text-[10px]">Space Cadet</p>
-              <p className="text-[8px] text-ui-muted mt-0.5 uppercase">Execute</p>
+              <p className="font-black uppercase tracking-tight text-xs">Kid</p>
+              <p className="text-xs text-ui-muted mt-0.5 uppercase">Complete missions</p>
             </div>
           </button>
 
@@ -156,8 +156,8 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <p className="font-black uppercase tracking-tight text-[10px]">Co-Parent</p>
-              <p className="text-[8px] text-ui-muted mt-0.5 uppercase">Collaborate</p>
+              <p className="font-black uppercase tracking-tight text-xs">Co-Parent</p>
+              <p className="text-xs text-ui-muted mt-0.5 uppercase">Collaborate</p>
             </div>
           </button>
         </div>
@@ -170,7 +170,7 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
               className="space-y-6 overflow-hidden"
             >
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-ui-muted mb-2 block">Personnel Name</label>
+                <label className="text-xs font-black uppercase tracking-widest text-ui-muted mb-2 block">Your Name</label>
                 <input 
                   value={name}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
@@ -182,7 +182,7 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
               {role === 'coparent' && (
                 <>
                   <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-ui-muted mb-2 block">Email Address</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-ui-muted mb-2 block">Email Address</label>
                     <input 
                       type="email"
                       value={email}
@@ -192,7 +192,7 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-ui-muted mb-2 block">Password</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-ui-muted mb-2 block">Password</label>
                     <input 
                       type="password"
                       value={password}
@@ -206,8 +206,8 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
 
               {(role === 'kid' || role === 'coparent') && (
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-ui-muted mb-2 block">
-                    {role === 'coparent' ? 'Co-Parent Invite Code' : 'Mission Access Code'}
+                  <label className="text-xs font-black uppercase tracking-widest text-ui-muted mb-2 block">
+                    {role === 'coparent' ? 'Co-Parent Invite Code' : 'Family Invite Code'}
                   </label>
                   <input 
                     value={inviteCode}
@@ -216,10 +216,10 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
                     placeholder="X7R9Z2"
                     maxLength={6}
                   />
-                  <p className="text-[10px] text-ui-muted mt-2 italic text-center">
-                    {role === 'coparent' 
-                      ? 'Enter the 6-digit code shared by the primary parent.' 
-                      : 'Your Ground Control officer will provide this code.'}
+                  <p className="text-xs text-ui-muted mt-2 italic text-center">
+                    {role === 'coparent'
+                      ? 'Enter the 6-digit code shared by the primary parent.'
+                      : 'Ask a parent for this code.'}
                   </p>
                 </div>
               )}
@@ -241,7 +241,7 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
                   loading && "opacity-50 cursor-not-allowed"
                 )}
               >
-                {loading ? "Initializing..." : "Board Station"}
+                {loading ? "Joining..." : "Join Family"}
               </button>
             </motion.div>
           )}
