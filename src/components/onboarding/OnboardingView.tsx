@@ -25,13 +25,13 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
     
     if (role === 'kid') {
       if (!inviteCode) {
-        setError('Mission access code required.');
+        setError('Family invite code required.');
         setLoading(false);
         return;
       }
       const invite = await inviteService.validateInvite(inviteCode);
       if (!invite) {
-        setError('Invalid mission access code. Please check with your commander.');
+        setError('Invalid family invite code. Ask a parent for the correct code.');
         setLoading(false);
         return;
       }
@@ -48,7 +48,7 @@ export function OnboardingView({ user, onComplete }: { user: any, onComplete: (p
         onComplete(profile);
         return;
       } catch (e: any) {
-        setError(e.message || 'Failed to join mission.');
+        setError(e.message || 'Failed to join family.');
         setLoading(false);
         return;
       }
