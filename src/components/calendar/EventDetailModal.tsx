@@ -38,6 +38,7 @@ export function EventDetailModal({ event, kids, parentProfile, routineLists = []
   const [isCountdown, setIsCountdown] = useState(Boolean(event.isCountdown));
   const [saving, setSaving] = useState(false);
   const [rsvpSavingFor, setRsvpSavingFor] = useState<string | null>(null);
+  const [removingAttendee, setRemovingAttendee] = useState<string | null>(null);
   const [showDeleteScope, setShowDeleteScope] = useState(false);
   const [showEditScope, setShowEditScope] = useState(false);
   const [attachedRoutineItems, setAttachedRoutineItems] = useState<EventRoutineItem[]>([]);
@@ -202,7 +203,7 @@ export function EventDetailModal({ event, kids, parentProfile, routineLists = []
                 {attendees.map((attendee) => (
                   <div key={attendee.userId} className="flex items-center justify-between gap-3">
                     <span className="text-sm font-medium text-ui-secondary">{attendee.name ?? attendee.userId}</span>
-                    <div className="flex gap-1">
+                    <div className="flex items-center gap-1">
                       {RSVP_OPTIONS.map(({ value, label, icon: Icon, color: stateColor }) => (
                         <button
                           key={value}
@@ -215,16 +216,34 @@ export function EventDetailModal({ event, kids, parentProfile, routineLists = []
                               setRsvpSavingFor(null);
                             }
                           }}
-                          disabled={Boolean(rsvpSavingFor)}
+                          disabled={Boolean(rsvpSavingFor) || Boolean(removingAttendee)}
                           className={cn(
                             'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors',
                             attendee.rsvp === value ? stateColor : 'bg-white border-ui text-ui-muted hover:bg-ui-soft',
-                            rsvpSavingFor ? 'opacity-60 cursor-not-allowed' : ''
+                            (rsvpSavingFor || removingAttendee) ? 'opacity-60 cursor-not-allowed' : ''
                           )}
                         >
                           <Icon size={12} /> {rsvpSavingFor === `${attendee.userId}:${value}` ? 'Saving...' : label}
                         </button>
                       ))}
+                      {isParent && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              setRemovingAttendee(attendee.userId);
+                              await eventsClientService.removeAttendee(event.id, attendee.userId);
+                              onUpdated();
+                            } finally {
+                              setRemovingAttendee(null);
+                            }
+                          }}
+                          disabled={Boolean(rsvpSavingFor) || Boolean(removingAttendee)}
+                          className="ml-1 p-1 rounded-lg text-ui-muted hover:text-rose-500 hover:bg-rose-50 transition-colors disabled:opacity-40"
+                          title="Remove attendee"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
