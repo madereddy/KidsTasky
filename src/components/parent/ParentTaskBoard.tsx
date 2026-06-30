@@ -1,11 +1,12 @@
 import React from 'react';
 import { Calendar, Clock, Trash2, Tag, Plus, Pencil } from 'lucide-react';
-import { Category, Task } from '../../types';
+import { Category, Task, UserProfile } from '../../types';
 import { cn, parseTimestamp } from '../../lib/utils';
 
 interface Props {
   tasks: Task[];
   categories: Category[];
+  kids: UserProfile[];
   selectedCategoryId: string | null;
   isDarkMode: boolean;
   isLocked: boolean;
@@ -21,6 +22,7 @@ interface Props {
 export function ParentTaskBoard({
   tasks,
   categories,
+  kids,
   selectedCategoryId,
   isDarkMode,
   isLocked,
@@ -122,10 +124,19 @@ export function ParentTaskBoard({
                           <Clock className="w-3 h-3" /> {task.reminderTime}
                         </span>
                       )}
-                      {task.assignedKidId === 'all' && (
+                      {task.assignedKidId === 'all' ? (
                         <span className="text-[10px] bg-fuchsia-50 border border-fuchsia-200 text-fuchsia-700 font-bold px-2 py-1 rounded uppercase tracking-wider">
                           Up for Grabs
                         </span>
+                      ) : (
+                        (() => {
+                          const kid = kids.find(k => k.uid === task.assignedKidId);
+                          return kid ? (
+                            <span className="text-[10px] bg-violet-50 border border-violet-200 text-violet-700 font-bold px-2 py-1 rounded uppercase tracking-wider">
+                              {kid.name}
+                            </span>
+                          ) : null;
+                        })()
                       )}
                     </div>
                     <h4 className="text-xl font-bold">{task.title}</h4>

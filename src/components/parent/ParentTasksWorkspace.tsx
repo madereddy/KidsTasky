@@ -195,6 +195,7 @@ export function ParentTasksWorkspace({
           <ParentTaskBoard
             tasks={tasks}
             categories={categories}
+            kids={kids}
             selectedCategoryId={selectedCategoryId}
             onArchiveTask={archiveTask}
             onEditTask={setEditingTask}
@@ -239,6 +240,8 @@ export function ParentTasksWorkspace({
           parentId={parentId}
           initialTask={editingTask}
           existingTasks={tasks}
+          modalTitle="Edit Mission"
+          submitLabel="Save Changes"
         />
       )}
 
