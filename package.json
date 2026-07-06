@@ -43,7 +43,7 @@
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.21.0",
     "mailparser": "^3.9.11",
-    "motion": "^12.40.0",
+    "motion": "^12.42.0",
     "multer": "^2.2.0",
     "node-cron": "^4.5.0",
     "node-ical": "^0.26.1",
