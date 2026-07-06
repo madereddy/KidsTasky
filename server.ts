@@ -191,6 +191,7 @@ app.use(helmet({
 const enforceHttps = process.env.ENFORCE_HTTPS === 'true';
 if (enforceHttps) {
   app.use((req, res, next) => {
+    if (req.path.startsWith('/api/health')) return next();
     const forwardedProto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
     if (req.secure || forwardedProto.includes('https')) return next();
     return res.status(426).json({ error: 'HTTPS required' });
@@ -264,6 +265,13 @@ if (!process.env.VITEST && process.env.NODE_ENV !== 'test') {
   startBackgroundWorker(io);
   process.on('SIGTERM', async () => { stopWorker(); await stopTracing(); process.exit(0); });
   process.on('SIGINT',  async () => { stopWorker(); await stopTracing(); process.exit(0); });
+  process.on('unhandledRejection', (reason) => {
+    logger.error({ reason }, 'unhandled_promise_rejection');
+  });
+  process.on('uncaughtException', (err) => {
+    logger.fatal({ err }, 'uncaught_exception');
+    process.exit(1);
+  });
 }
 
 // API Routes

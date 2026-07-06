@@ -44,10 +44,10 @@ describe('EventDetailModal permissions UX', () => {
     const { rerender } = render(
       <EventDetailModal event={baseEvent} kids={kids} userRole="parent" onClose={() => {}} onUpdated={() => {}} />
     );
-    expect(screen.getByText('Add attendee')).toBeInTheDocument();
+    expect(screen.getByText('Assign / add attendee')).toBeInTheDocument();
 
     rerender(<EventDetailModal event={baseEvent} kids={kids} userRole="kid" onClose={() => {}} onUpdated={() => {}} />);
-    expect(screen.queryByText('Add attendee')).not.toBeInTheDocument();
+    expect(screen.queryByText('Assign / add attendee')).not.toBeInTheDocument();
   });
 
   it('disables RSVP buttons while saving', async () => {

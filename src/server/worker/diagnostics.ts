@@ -78,6 +78,19 @@ export const workerJobs: Record<string, WorkerJobDiagnostics> = {
     failureCount: 0,
     lastError: null,
   },
+  dailyBackup: {
+    name: 'dailyBackup',
+    intervalType: 'cron',
+    schedule: '0 2 * * *',
+    lastStartedAt: null,
+    lastFinishedAt: null,
+    lastSuccessAt: null,
+    lastFailureAt: null,
+    lastDurationMs: null,
+    successCount: 0,
+    failureCount: 0,
+    lastError: null,
+  },
 };
 
 export function markWorkerJobStart(jobName: keyof typeof workerJobs): number {

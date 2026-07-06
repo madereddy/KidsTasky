@@ -8,6 +8,7 @@ import { sendEventReminders, REMINDER_WINDOW_MS } from './worker/reminders.js';
 import { processOverdueTasks, runDailyCleanup, runMidnightEngagementReset } from './worker/tasks.js';
 import { runPhotoCleanup } from './worker/photos.js';
 import { runMultiSourceSync } from './worker/sync.js';
+import { runDailyBackup } from './worker/backup.js';
 
 const intervalHandles: ReturnType<typeof setInterval>[] = [];
 const cronHandles: ScheduledTask[] = [];
@@ -45,7 +46,16 @@ export function startBackgroundWorker(io?: SocketServer) {
     }
   }, 15 * 60 * 1000));
 
-  // 4. Daily Cleanup (3:00 AM)
+  // 4. Daily Backup (2:00 AM)
+  cronHandles.push(cron.schedule("0 2 * * *", async () => {
+    try {
+      await runDailyBackup();
+    } catch (e) {
+      // Error already logged and diagnostics updated in module
+    }
+  }));
+
+  // 5. Daily Cleanup (3:00 AM)
   cronHandles.push(cron.schedule("0 3 * * *", async () => {
     try {
       await runDailyCleanup();
@@ -54,7 +64,7 @@ export function startBackgroundWorker(io?: SocketServer) {
     }
   }));
 
-  // 5. Multi-Source Sync (every 5 minutes)
+  // 6. Multi-Source Sync (every 5 minutes)
   cronHandles.push(cron.schedule("*/5 * * * *", async () => {
     try {
       await runMultiSourceSync(io);
@@ -63,7 +73,7 @@ export function startBackgroundWorker(io?: SocketServer) {
     }
   }));
 
-  // 6. Midnight Reset (0:01 AM)
+  // 7. Midnight Reset (0:01 AM)
   cronHandles.push(cron.schedule('1 0 * * *', async () => {
     try {
       await runMidnightEngagementReset();
