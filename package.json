@@ -18,7 +18,7 @@
     "health:memory:sample": "node scripts/sample-health-memory.mjs"
   },
   "dependencies": {
-    "@google/genai": "^2.9.0",
+    "@google/genai": "^2.10.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/auto-instrumentations-node": "^0.77.0",
     "@opentelemetry/resources": "^2.8.0",
