@@ -5,13 +5,13 @@ blockExoticSubdeps: true
 minimumReleaseAge: 10080
 trustPolicy: no-downgrade
 
-onlyBuiltDependencies:
-  - '@google/genai'
-  - argon2
-  - bcrypt
-  - better-sqlite3
-  - esbuild
-  - protobufjs
+allowBuilds:
+  '@google/genai': true
+  argon2: true
+  bcrypt: true
+  better-sqlite3: true
+  esbuild: true
+  protobufjs: true
 
 overrides:
   xmldom: "npm:@xmldom/xmldom@^0.9.10"
