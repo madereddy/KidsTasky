@@ -287,7 +287,6 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
           }
         : i
     )));
-    void refreshGlobalHistory();
   };
 
   const deleteItem = async (itemId: string) => {
@@ -298,7 +297,6 @@ export function useListsController({ parentId, preferredCategory }: UseListsCont
     }
     setItems((prev) => removeEntityById(prev, itemId));
     setGlobalHistory((prev) => removeEntityById(prev, itemId));
-    void refreshGlobalHistory();
   };
 
   const copyItemToLists = async (itemId: string, listIds: string[]) => {
