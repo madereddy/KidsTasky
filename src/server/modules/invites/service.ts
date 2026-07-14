@@ -18,7 +18,8 @@ export const inviteService = {
   },
   
   validateInvite: (code: string) => {
-    return db.prepare("SELECT * FROM invites WHERE id = ? AND status = 'active'").get(code);
+    const ttlMs = 48 * 60 * 60 * 1000;
+    return db.prepare("SELECT * FROM invites WHERE id = ? AND status = 'active' AND createdAt > ?").get(code, Date.now() - ttlMs);
   },
 
   markInviteUsed: (code: string) => {

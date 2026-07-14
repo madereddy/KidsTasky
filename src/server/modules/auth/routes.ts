@@ -65,6 +65,9 @@ authRouter.post('/auth/register', authLimiter, [
   body('name').isString().notEmpty(),
   validate
 ], async (req: Request, res: Response) => {
+  if (process.env.ALLOW_REGISTRATION === 'false') {
+    return res.status(403).json({ error: 'Registration is disabled' });
+  }
   try {
     const result = await authService.register(req.body.email, req.body.password, req.body.name);
     return res.json(result);
@@ -94,6 +97,7 @@ authRouter.post('/auth/login', authLimiter, [
   }
   clearAuthFailure(key);
   result.user.badges = JSON.parse(result.user.badges || "[]");
+  delete result.user.passwordHash;
   logSecurityEvent('auth.parent_login.success', { uid: result.user.uid, ip }, 'info');
   return res.json(result);
 });
@@ -119,6 +123,7 @@ authRouter.post('/auth/login/kid', authLimiter, [
   }
   clearAuthFailure(key);
   result.user.badges = JSON.parse(result.user.badges || "[]");
+  delete result.user.passwordHash;
   logSecurityEvent('auth.kid_login.success', { uid: result.user.uid, ip }, 'info');
   return res.json(result);
 });
