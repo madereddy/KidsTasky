@@ -24,7 +24,7 @@
     "@opentelemetry/resources": "^2.9.0",
     "@opentelemetry/sdk-node": "^0.219.0",
     "@opentelemetry/sdk-trace-base": "^2.9.0",
-    "@opentelemetry/semantic-conventions": "^1.42.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
     "@xmldom/xmldom": "^0.9.10",
     "argon2": "^0.44.0",
     "bcrypt": "^6.0.0",
