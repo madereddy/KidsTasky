@@ -35,8 +35,8 @@ importers:
         specifier: ^1.42.0
         version: 1.42.0
       '@xmldom/xmldom':
-        specifier: ^0.9.10
-        version: 0.9.10
+        specifier: ^0.9.12
+        version: 0.9.12
       argon2:
         specifier: ^0.44.0
         version: 0.44.0
@@ -1463,8 +1463,8 @@ packages:
   '@vitest/utils@4.1.10':
     resolution: {integrity: sha512-fy9am/HWxbaGt/Sawrp90vt6Y6jQwf1RX77cz3uwoJwJVMli/e1IEwRPnMNJ7vKfPTwo0diXifkpPvwH9v7nGA==}
 
-  '@xmldom/xmldom@0.9.10':
-    resolution: {integrity: sha512-A9gOqLdi6cV4ibazAjcQufGj0B1y/vDqYrcuP6d/6x8P27gRS8643Dj9o1dEKtB6O7fwxb2FgBmJS2mX7gpvdw==}
+  '@xmldom/xmldom@0.9.12':
+    resolution: {integrity: sha512-5AXjrcMClTryPe9LgZrygpB1lj7s0S9E0+W+AHaVKAVyHanafK86iPSvG5xHVSp/jC+VH1UXu0TAEmY279xH7A==}
     engines: {node: '>=14.6'}
 
   '@zone-eu/mailsplit@5.4.14':
@@ -4575,7 +4575,7 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
-  '@xmldom/xmldom@0.9.10': {}
+  '@xmldom/xmldom@0.9.12': {}
 
   '@zone-eu/mailsplit@5.4.14':
     dependencies:
@@ -4825,7 +4825,7 @@ snapshots:
   dav@1.8.0:
     dependencies:
       co: 4.6.0
-      xmldom: '@xmldom/xmldom@0.9.10'
+      xmldom: '@xmldom/xmldom@0.9.12'
       xmlhttprequest: 1.8.0
 
   debug@4.4.3:
