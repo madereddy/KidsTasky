@@ -44,7 +44,7 @@
     "lucide-react": "^1.23.0",
     "mailparser": "^3.9.14",
     "motion": "^12.42.2",
-    "multer": "^2.2.0",
+    "multer": "^2.3.0",
     "node-cron": "^4.6.0",
     "node-ical": "^0.26.1",
     "nodemailer": "^9.0.3",
